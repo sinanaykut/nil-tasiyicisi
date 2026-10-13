@@ -1,0 +1,284 @@
+  /* ================= port scene: a painted harbour with depth, light and life ================= */
+  const fmt = fmtN;
+  const play = k => Snd.play(k);
+  const ico = (id, s) => '<svg class="ico" width="' + s + '" height="' + s + '" aria-hidden="true"><use href="#' + id + '"/></svg>';
+  const gIco = (g, s) => ico('i-' + g, s);
+  const cIco = (i, s) => ico('i-c-' + CITIES[i].id, s);
+  const rpick = a => a[Math.floor(Math.random() * a.length)];
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+  const INK = '#2B1D14';
+  const pth = (d, fill, ex) => '<path d="' + d + '" fill="' + (fill || 'none') + '"' + (ex ? ' ' + ex : '') + '/>';
+  const ink = w => 'stroke="' + INK + '" stroke-width="' + (w || 2) + '" stroke-linejoin="round" stroke-linecap="round"';
+  const grad = (id, stops, v) => '<linearGradient id="' + id + '" x1="0" y1="0" x2="' + (v ? 0 : 1) + '" y2="' + (v ? 1 : 0) + '">' + stops.map(([o, c, a]) => '<stop offset="' + o + '" stop-color="' + c + '"' + (a != null ? ' stop-opacity="' + a + '"' : '') + '/>').join('') + '</linearGradient>';
+
+  /* ---------- the ship, side view: an Egyptian Nile freighter (stern left, bow right, waterline at y=0) ---------- */
+  function shipSVG(up, cargo, id) {
+    const W = [150, 186, 222][up.yelken], oars = [2, 4, 6][up.kurek], g = 'sh' + id; let oarsS = '';
+    let d = '<defs>' + grad(g + 'h', [[0, '#B87A45'], [0.55, '#8B5A32'], [1, '#5E3A1F']], true) + grad(g + 's', [[0, '#E6D7B6'], [0.35, '#FFF9EC'], [0.65, '#FFF9EC'], [1, '#E2D2AE']]) + grad(g + 'm', [[0, '#9C6A3E'], [0.5, '#C38E58'], [1, '#7A4E2C']]) + '</defs>';
+    let s = d;
+    /* steering oar behind the hull */
+    s += pth('M-136 -52L-188 26', 'none', 'stroke="#5E3A1F" stroke-width="5" stroke-linecap="round"') + pth('M-188 26l-6 14 14-6z', '#6E4425', ink(1.4));
+    /* rowers: heads and shoulders above the gunwale, oars dipping into the water */
+    for (let k = 0; k < oars; k++) {
+      const x = 64 + k * (64 / Math.max(1, oars - 1)) - (oars === 2 ? 20 : 0);
+      oarsS += '<g class="row" style="animation-delay:' + (-k * 0.18).toFixed(2) + 's">' + pth('M' + x + ' -24L' + (x - 34) + ' 22', 'none', 'stroke="' + INK + '" stroke-width="5" stroke-linecap="round"') + pth('M' + x + ' -24L' + (x - 34) + ' 22', 'none', 'stroke="#A8743F" stroke-width="2.6" stroke-linecap="round"') + '<ellipse cx="' + (x - 36) + '" cy="25" rx="4.5" ry="9" transform="rotate(36 ' + (x - 36) + ' 25)" fill="#A8743F" stroke="' + INK + '" stroke-width="1.6"/></g>';
+      s += pth('M' + (x - 5) + ' -20v-12q5 -5 10 0v12z', '#FBF3DF', ink(1.3)) + '<circle cx="' + x + '" cy="-37" r="4.6" fill="#B57A50" stroke="' + INK + '" stroke-width="1.3"/>' + pth('M' + (x - 4.8) + ' -38a4.8 4.8 0 0 1 9.6 0z', '#2B2340');
+    }
+    /* hull */
+    const hull = 'M-176 -86C-174 -54 -160 -12 -122 2C-60 11 40 11 112 2C142 -4 160 -30 172 -64L164 -62C154 -38 140 -24 118 -20C40 -15 -60 -15 -126 -22C-150 -28 -162 -54 -166 -86Z';
+    s += pth(hull, 'url(#' + g + 'h)', ink(2.4));
+    s += pth('M-140 -12C-80 -2 40 -1 132 -12', 'none', 'stroke="#4E301A" stroke-width="1.4" opacity=".55"') + pth('M-128 -3C-60 5 40 5 118 -3', 'none', 'stroke="#4E301A" stroke-width="1.2" opacity=".45"');
+    s += pth('M-150 -30C-100 -17 60 -16 146 -30', 'none', 'stroke="#FFF2D6" stroke-width="1.6" opacity=".35"');
+    /* painted bands that grow with the hull upgrades */
+    const band = (y, col, w) => pth('M-150 ' + (y - 6) + 'C-100 ' + (y + 6) + ' 60 ' + (y + 7) + ' 146 ' + (y - 6), 'none', 'stroke="' + col + '" stroke-width="' + w + '"');
+    s += band(-18, '#B7412E', 3.2);
+    if (up.govde >= 1) s += band(-12, '#D9A43A', 4.5) + band(-12, INK, 1) .replace('stroke-width="1"', 'stroke-width="1" stroke-dasharray="2 9"');
+    if (up.govde >= 2) { s += band(-4, '#1F5FA8', 4); for (let k = 0; k < 9; k++) { const x = -110 + k * 28; s += '<circle cx="' + x + '" cy="' + (-3 + Math.abs(x) * 0.012) + '" r="1.8" fill="#E9C46A" stroke="' + INK + '" stroke-width=".8"/>'; } }
+    s += oarsS;
+    /* lashings at both ends and the finials: papyrus umbel at the stern, lotus at the bow */
+    for (let k = 0; k < 4; k++) s += pth('M' + (-166 + k * 2) + ' ' + (-74 + k * 12) + 'l10 3', 'none', 'stroke="#E9CFA0" stroke-width="2.4"') + pth('M' + (158 - k * 3.5) + ' ' + (-52 + k * 9) + 'l-9 4', 'none', 'stroke="#E9CFA0" stroke-width="2.4"');
+    s += pth('M-171 -86l-20 -20q18 -12 34 6z', '#3E8E5A', ink(1.8)) + pth('M-171 -86l-12 -18M-171 -86l-4 -21M-171 -86l5 -17', 'none', 'stroke="#2F7346" stroke-width="1.4"');
+    s += pth('M168 -63l10 -20q-16 -2 -22 12z', '#E86A7E', ink(1.6)) + pth('M168 -63l16 -12q-8 -8 -18 -2z', '#F2A7B8', ink(1.4));
+    /* the eye on the bow */
+    s += pth('M128 -38q8 -6 16 0q-8 6 -16 0z', '#FBF3DF', ink(1.4)) + '<circle cx="136" cy="-38" r="2.6" fill="' + INK + '"/>' + pth('M134 -33q-2 6 -6 8', 'none', ink(1.4));
+    /* hogging truss: the rope that keeps a long hull from sagging */
+    s += pth('M-70 -20V-62M60 -18V-60', 'none', 'stroke="' + INK + '" stroke-width="4" stroke-linecap="round"') + pth('M-70 -20V-62M60 -18V-60', 'none', 'stroke="#8E5A33" stroke-width="2.2" stroke-linecap="round"');
+    s += pth('M-162 -74Q-110 -64 -70 -62Q0 -55 60 -60Q118 -62 162 -58', 'none', 'stroke="#C9A36A" stroke-width="2.2"');
+    /* cabin with a striped awning */
+    s += '<rect x="-134" y="-62" width="58" height="42" fill="#3A2A1E" opacity=".55"/>';
+    for (let k = 0; k < 5; k++) s += '<rect x="' + (-132 + k * 11.5) + '" y="-60" width="6" height="38" fill="' + (k % 2 ? '#FBF3DF' : '#B7412E') + '" stroke="' + INK + '" stroke-width=".8"/>';
+    s += pth('M-140 -62h70l-4 -9h-62z', '#D9A43A', ink(1.8)) + pth('M-136 -66h62', 'none', 'stroke="#1F5FA8" stroke-width="2.4"');
+    /* helmsman at the stern and his tiller */
+    s += pth('M-146 -40V-72', 'none', 'stroke="#6B4226" stroke-width="3.6" stroke-linecap="round"') + pth('M-136 -52L-174 18', 'none', 'stroke="#6B4226" stroke-width="5" stroke-linecap="round"') + pth('M-174 18l-6 14 14-6z', '#8E5A33', ink(1.4));
+    s += pth('M-156 -26v-14q5 -5 10 0v14z', '#FBF3DF', ink(1.3)) + '<circle cx="-151" cy="-45" r="4.6" fill="#B57A50" stroke="' + INK + '" stroke-width="1.3"/>' + pth('M-155.8 -46a4.8 4.8 0 0 1 9.6 0z', '#2B2340');
+    /* cargo on deck: one crate per good on board, or jars on decorative boats */
+    if (Array.isArray(cargo)) cargo.forEach((gid, k) => {
+      const x = -58 + (k % 5) * 23, y = k < 5 ? -42 : -63;
+      s += '<rect x="' + x + '" y="' + y + '" width="22" height="21" rx="2" fill="#E9CFA0" stroke="' + INK + '" stroke-width="1.8"/><path d="M' + (x + 1) + ' ' + (y + 4) + 'h20" stroke="#B48A55" stroke-width="1"/><use href="#i-' + gid + '" x="' + (x + 3) + '" y="' + (y + 4) + '" width="16" height="16"/>';
+    });
+    else for (let k = 0; k < Math.min(7, Math.ceil(cargo / 9)); k++) { const x = -48 + k * 15, c = ['#B7412E', '#C98E62', '#D9A43A'][k % 3]; s += pth('M' + (x - 6) + ' -20q-5 -13 1 -22h10q6 9 1 22z', c, ink(1.6)) + '<rect x="' + (x - 3) + '" y="-46" width="7" height="5" fill="' + c + '" stroke="' + INK + '" stroke-width="1.2"/>'; }
+    /* mast, yard, boom and a bellied sail */
+    const x0 = 6 - W / 2, x1 = 6 + W / 2;
+    s += pth('M6 -18V-214', 'none', 'stroke="' + INK + '" stroke-width="8" stroke-linecap="round"') + pth('M6 -18V-214', 'none', 'stroke="url(#' + g + 'm)" stroke-width="5" stroke-linecap="round"');
+    s += pth('M6 -212L162 -60M6 -212L-160 -74', 'none', 'stroke="#5A4632" stroke-width="1.3" opacity=".75"');
+    s += pth('M' + x0 + ' -198Q6 -206 ' + x1 + ' -198L' + (x1 - 6) + ' -80Q6 -72 ' + (x0 + 6) + ' -80Z', 'url(#' + g + 's)', ink(2.2));
+    for (let k = 1; k < 6; k++) { const x = x0 + W * k / 6; s += pth('M' + x + ' ' + (-197 - Math.sin(k / 6 * Math.PI) * 6) + 'L' + (x + (x - 6) * -0.035) + ' ' + (-80 + Math.sin(k / 6 * Math.PI) * 6), 'none', 'stroke="#C9B48C" stroke-width="1" opacity=".8"'); }
+    s += pth('M' + (x0 + 2) + ' -186Q6 -194 ' + (x1 - 2) + ' -186', 'none', 'stroke="#1F5FA8" stroke-width="5"') + pth('M' + (x0 + 3) + ' -178Q6 -186 ' + (x1 - 3) + ' -178', 'none', 'stroke="#B7412E" stroke-width="3"');
+    s += pth('M' + (x0 + 6) + ' -92Q6 -85 ' + (x1 - 6) + ' -92', 'none', 'stroke="#1F5FA8" stroke-width="3"');
+    s += '<circle cx="6" cy="-134" r="17" fill="#D9A43A" stroke="' + INK + '" stroke-width="2"/><circle cx="6" cy="-134" r="10" fill="none" stroke="#1F5FA8" stroke-width="3"/>' + pth('M-24 -134q12 -10 18 0M36 -134q-12 -10 -18 0', 'none', 'stroke="#D9A43A" stroke-width="4" stroke-linecap="round"');
+    s += pth('M' + (x0 - 10) + ' -200Q6 -210 ' + (x1 + 10) + ' -200', 'none', 'stroke="' + INK + '" stroke-width="7" stroke-linecap="round"') + pth('M' + (x0 - 10) + ' -200Q6 -210 ' + (x1 + 10) + ' -200', 'none', 'stroke="#A8743F" stroke-width="3.6" stroke-linecap="round"');
+    s += pth('M' + (x0 - 2) + ' -79Q6 -71 ' + (x1 + 2) + ' -79', 'none', 'stroke="' + INK + '" stroke-width="6" stroke-linecap="round"') + pth('M' + (x0 - 2) + ' -79Q6 -71 ' + (x1 + 2) + ' -79', 'none', 'stroke="#A8743F" stroke-width="3" stroke-linecap="round"');
+    s += pth('M6 -214L' + x0 + ' -200M6 -214L' + x1 + ' -200', 'none', 'stroke="#5A4632" stroke-width="1" opacity=".7"');
+    s += '<g class="pennant">' + pth('M6 -214l-30 -5 4 6 -4 6z', '#B7412E', ink(1.6)) + '</g>';
+    /* lookout on the bow */
+    s += pth('M138 -30v-14q5 -5 10 0v14z', '#FBF3DF', ink(1.3)) + '<circle cx="143" cy="-49" r="4.6" fill="#B57A50" stroke="' + INK + '" stroke-width="1.3"/>' + pth('M138.2 -50a4.8 4.8 0 0 1 9.6 0z', '#2B2340') + pth('M146 -42l9 -9', 'none', 'stroke="#B57A50" stroke-width="2.4" stroke-linecap="round"');
+    return s;
+  }
+
+  /* ---------- landmarks: one per city, painted with a lit and a shaded side ---------- */
+  function landmark(id, P) {
+    const L = P.lit, D = P.shade;
+    let s = '';
+    if (id === 'mennefer') {
+      s += pth('M150 240L250 114L350 240Z', L) + pth('M250 114L350 240H262Z', D) + pth('M243 123l7-9 7 9z', '#E9C46A');
+      s += pth('M332 240L398 166L464 240Z', L) + pth('M398 166L464 240H404Z', D);
+      s += pth('M448 240L486 198L524 240Z', L) + pth('M486 198L524 240H488Z', D);
+      for (let k = 0; k < 7; k++) s += pth('M' + (172 + k * 12) + ' ' + (213 - k * 14) + 'H' + (328 - k * 12), 'none', 'stroke="' + D + '" stroke-width="1" opacity=".35"');
+      s += '<rect x="130" y="228" width="420" height="12" fill="' + P.wall + '"/>';
+    } else if (id === 'perbastet') {
+      s += pth('M170 240L182 168H232L244 240Z', L) + pth('M210 168H232L244 240H210Z', D) + pth('M268 240L280 168H330L342 240Z', L) + pth('M308 168H330L342 240H308Z', D);
+      s += '<rect x="240" y="196" width="32" height="44" fill="' + P.door + '"/>' + pth('M176 174h62M274 174h62', 'none', 'stroke="#B7412E" stroke-width="3"');
+      s += '<rect x="380" y="196" width="44" height="44" fill="' + D + '"/><rect x="374" y="190" width="56" height="8" fill="' + L + '"/>';
+      s += pth('M388 190q-4 -30 6 -42l-4 -16 12 8h8l12 -8 -4 16q10 12 6 42z', '#3A3346') + '<circle cx="397" cy="160" r="2" fill="#E9C46A"/><circle cx="407" cy="160" r="2" fill="#E9C46A"/><circle cx="414" cy="170" r="2.5" fill="none" stroke="#E9C46A" stroke-width="1.4"/>';
+      s += pth('M206 168V140M306 168V140', 'none', 'stroke="#7A5A3A" stroke-width="2.4"') + pth('M206 140l14 5-14 5zM306 140l14 5-14 5z', '#B7412E');
+      s += '<rect x="130" y="230" width="340" height="10" fill="' + P.wall + '"/>';
+    } else if (id === 'abidos') {
+      s += pth('M90 240Q160 196 240 204Q330 190 420 206Q470 214 520 240Z', P.cliff);
+      s += pth('M196 240L208 160H262L274 240Z', L) + pth('M238 160H262L274 240H238Z', D) + pth('M318 240L330 160H384L396 240Z', L) + pth('M360 160H384L396 240H360Z', D);
+      s += '<rect x="262" y="176" width="68" height="16" fill="' + L + '"/><rect x="278" y="192" width="36" height="48" fill="' + P.door + '"/>';
+      for (let k = 0; k < 4; k++) s += '<rect x="' + (408 + k * 18) + '" y="198" width="10" height="42" fill="' + (k % 2 ? D : L) + '"/>';
+      s += '<rect x="402" y="192" width="78" height="8" fill="' + L + '"/>';
+      s += pth('M222 160V128M350 160V128', 'none', 'stroke="#7A5A3A" stroke-width="2.4"') + pth('M222 128l16 5-16 5zM350 128l16 5-16 5z', '#1F5FA8');
+    } else if (id === 'vaset') {
+      s += pth('M180 240L186 140L194 122L202 140L208 240Z', L) + pth('M194 122L202 140L208 240H194Z', D) + pth('M186 140L194 122L202 140Z', '#E9C46A');
+      s += pth('M226 240L231 158L237 144L243 158L248 240Z', L) + pth('M237 144L243 158L248 240H237Z', D) + pth('M231 158L237 144L243 158Z', '#E9C46A');
+      s += '<rect x="270" y="176" width="200" height="12" fill="' + L + '"/>';
+      for (let k = 0; k < 8; k++) s += '<rect x="' + (276 + k * 24) + '" y="188" width="13" height="52" fill="' + (k % 2 ? D : L) + '"/><rect x="' + (273 + k * 24) + '" y="184" width="19" height="6" fill="' + D + '"/>';
+      for (let k = 0; k < 5; k++) s += '<ellipse cx="' + (300 + k * 34) + '" cy="236" rx="9" ry="4" fill="' + D + '"/>';
+    } else if (id === 'abu') {
+      s += pth('M100 240Q130 190 190 196Q230 168 290 188Q330 176 360 200Q420 196 450 240Z', P.granite) + pth('M190 196Q230 168 290 188Q270 200 230 204Z', P.granite2);
+      s += pth('M300 240L310 170H350L360 240Z', L) + pth('M334 170H350L360 240H334Z', D) + '<rect x="304" y="164" width="52" height="8" fill="' + L + '"/>';
+      for (let k = 0; k < 6; k++) s += '<rect x="' + (380 + k * 8) + '" y="' + (240 - (6 - k) * 7) + '" width="8" height="' + ((6 - k) * 7) + '" fill="' + (k % 2 ? D : L) + '"/>';
+    }
+    return s;
+  }
+  const SKY = [
+    { top:'#7FC2D0', mid:'#CBE6DC', low:'#F6E6C0', sun:'#FFE7A8', water:['#7DB5C2', '#2F7090', '#1C4A68'], field:'#86BBA5', far:'#E3CFA2', lit:'#ECD3A0', shade:'#C7A56E', wall:'#E2CB98', door:'#6E5236', cliff:'#D8BF8E', granite:'#A98476', granite2:'#8E6C62' },
+    { top:'#6FAEDF', mid:'#BBDBEB', low:'#F4E7C6', sun:'#FFF1C2', water:['#86BAD6', '#2F6EA6', '#1C4778'], field:'#7DB35A', far:'#E6D2A6', lit:'#EFD6A2', shade:'#C9A66C', wall:'#E6CF9C', door:'#6E5236', cliff:'#DCC394', granite:'#AC877A', granite2:'#90705F' },
+    { top:'#E39C5C', mid:'#F2C78C', low:'#F8E2B4', sun:'#FFE2A0', water:['#9CB8C2', '#3B6C92', '#22496D'], field:'#E2B84E', far:'#EBCB92', lit:'#F2D29A', shade:'#C99A5C', wall:'#EACB92', door:'#6E4A2E', cliff:'#E0BC86', granite:'#B0846E', granite2:'#916A58' }
+  ];
+  function palmSVG(x, y, h, lean, dark) {
+    const tx = x + lean, ty = y - h, c1 = dark ? '#2F6E44' : '#3E8E5A', c2 = dark ? '#245A37' : '#2F7346';
+    let s = pth('M' + (x - 4) + ' ' + y + 'Q' + (x + lean * 0.3) + ' ' + (y - h * 0.5) + ' ' + tx + ' ' + ty + 'L' + (tx + 5) + ' ' + (ty + 2) + 'Q' + (x + 6 + lean * 0.3) + ' ' + (y - h * 0.5) + ' ' + (x + 5) + ' ' + y + 'Z', '#7A5434', ink(1.6));
+    for (let k = 0; k < 4; k++) s += pth('M' + (x - 2 + lean * (0.25 + k * 0.18)) + ' ' + (y - h * (0.2 + k * 0.18)) + 'l7 -2', 'none', 'stroke="#5A3B22" stroke-width="1.2"');
+    s += '<g class="sway" style="transform-origin:' + tx + 'px ' + ty + 'px">';
+    const fr = [[-150, 34], [-118, 40], [-80, 36], [-40, 38], [-10, 32], [-178, 26]];
+    fr.forEach(([a, l], k) => { const r = a * Math.PI / 180, ex = tx + Math.cos(r) * l, ey = ty + Math.sin(r) * l * 0.6 + 14, mx = tx + Math.cos(r) * l * 0.5, my = ty + Math.sin(r) * l * 0.5 - 6; s += pth('M' + tx + ' ' + ty + 'Q' + mx + ' ' + (my - 4) + ' ' + ex + ' ' + ey + 'Q' + (mx + 2) + ' ' + (my + 6) + ' ' + tx + ' ' + (ty + 3) + 'Z', k % 2 ? c1 : c2, ink(1.4)); });
+    s += '<circle cx="' + (tx - 1) + '" cy="' + (ty + 4) + '" r="3" fill="#7A3B22"/><circle cx="' + (tx + 4) + '" cy="' + (ty + 5) + '" r="3" fill="#8E4A2A"/></g>';
+    return s;
+  }
+  function personSVG(x, y, cloth, load, flip) {
+    const f = flip ? -1 : 1;
+    let s = '<g transform="translate(' + x + ' ' + y + ') scale(' + f + ' 1)">';
+    s += pth('M-4 0L-2 -9M4 0L2 -9', 'none', 'stroke="#8C5A38" stroke-width="2.6" stroke-linecap="round"');
+    s += pth('M-6 -8L-4 -24H4L6 -8Z', cloth, ink(1.4)) + pth('M-4 -24h8v-4q-4 -3 -8 0z', '#B57A50', ink(1.2));
+    s += '<circle cx="0" cy="-32" r="5" fill="#B57A50" stroke="' + INK + '" stroke-width="1.3"/>' + pth('M-5.2 -33a5.2 5.2 0 0 1 10.4 0l0 3h-2v-2h-6.4v4h-2z', '#2B2340');
+    if (load === 'jar') s += pth('M4 -26L8 -38', 'none', 'stroke="#B57A50" stroke-width="2.2" stroke-linecap="round"') + pth('M-6 -37q-3 -10 2 -15h8q5 5 2 15z', '#B7412E', ink(1.3));
+    else if (load === 'sack') s += pth('M-9 -40q0 -10 9 -10t9 10q-3 4 -9 4t-9 -4z', '#E2C88E', ink(1.3)) + pth('M-4 -26l-6 -10M4 -26l6 -10', 'none', 'stroke="#B57A50" stroke-width="2" stroke-linecap="round"');
+    else s += pth('M4 -22l7 6', 'none', 'stroke="#B57A50" stroke-width="2.2" stroke-linecap="round"');
+    return s + '</g>';
+  }
+  /* ---------- colour helpers: the day moves from dawn to dusk over the fifteen days ---------- */
+  const hex2 = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  const mix = (a, b, k) => { const A = hex2(a), B = hex2(b); return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * k).toString(16).padStart(2, '0')).join(''); };
+  const TOD = {
+    dawn: { top:'#7E8FC4', mid:'#E4BFCB', low:'#FBDDB0', sun:'#FFD9A6', water:['#9DB0C6', '#466F8F', '#213F5C'], tint:'rgba(255,180,140,.10)', star:0 },
+    dusk: { top:'#3C3F7E', mid:'#D97E5E', low:'#F7C57E', sun:'#FFB366', water:['#B98889', '#5A4F86', '#232854'], tint:'rgba(255,110,60,.16)', star:1 }
+  };
+  /* palette for a given season and day: noon colours come from the season, the ends of the run lean to dawn and dusk */
+  function dayPal(si, day) {
+    const N = SKY[si == null ? 1 : si], t = Math.max(0, Math.min(1, ((day || 1) - 1) / 14));
+    const w = t < 0.5 ? 1 - t * 2 : (t - 0.5) * 2, E = t < 0.5 ? TOD.dawn : TOD.dusk, k = Math.pow(w, 1.4);
+    const P = Object.assign({}, N);
+    ['top', 'mid', 'low', 'sun'].forEach(q => { P[q] = mix(N[q], E[q], k); });
+    P.water = N.water.map((c, i) => mix(c, E.water[i], k));
+    P.tint = k > 0.15 ? E.tint.replace(/[\d.]+\)$/, (parseFloat(E.tint.match(/[\d.]+\)$/)[0]) * k).toFixed(2) + ')') : null;
+    P.sunX = 180 + 560 * t; P.sunY = 150 - Math.sin(t * Math.PI) * 90; P.stars = t > 0.78 ? (t - 0.78) / 0.22 : 0; P.t = t;
+    return P;
+  }
+  /* the merchant, standing at the stall; waves when pleased, turns away when crossed */
+  function merchantFig(ci, mood) {
+    const L = MERCHANTS[ci].look, skin = L.skin, cloth = L.c1, band = L.c2;
+    let s = '<g class="mfig' + (mood > 0 ? ' glad' : mood < 0 ? ' sour' : '') + '" transform="translate(126 258)">';
+    s += pth('M-6 0L-4 -12M6 0L4 -12', 'none', 'stroke="' + skin + '" stroke-width="3.4" stroke-linecap="round"');
+    s += pth('M-9 -10L-7 -34H7L9 -10Z', cloth, ink(1.6)) + pth('M-7 -30h14', 'none', 'stroke="' + band + '" stroke-width="3"') + pth('M-6 -34h12v-5q-6 -4 -12 0z', skin, ink(1.3));
+    s += '<circle cx="0" cy="-45" r="7" fill="' + skin + '" stroke="' + INK + '" stroke-width="1.5"/>';
+    if (L.wig === 'bald') s += pth('M-7 -46a7 7 0 0 1 14 0z', skin) + pth('M-7 -46q7 -4 14 0', 'none', 'stroke="' + L.band + '" stroke-width="2.2"');
+    else if (L.wig === 'puff') s += '<circle cx="0" cy="-48" r="9" fill="' + L.hair + '"/><circle cx="0" cy="-45" r="7" fill="' + skin + '"/>' + pth('M-7 -47a7 7 0 0 1 14 0z', L.hair);
+    else s += pth('M-7.4 -46a7.4 7.4 0 0 1 14.8 0l0 ' + (L.wig === 'long' ? 9 : 5) + 'h-2.6v-5h-9.6v' + (L.wig === 'long' ? 9 : 5) + 'h-2.6z', L.hair);
+    if (L.beard) s += pth('M-3 -39h6l-1 6h-4z', L.hair);
+    s += '<g class="arm">' + pth('M7 -30l9 6', 'none', 'stroke="' + skin + '" stroke-width="3" stroke-linecap="round"') + '</g>';
+    s += '<g class="armW">' + pth('M7 -30l9 -12', 'none', 'stroke="' + skin + '" stroke-width="3" stroke-linecap="round"') + '</g>';
+    s += pth('M-7 -30l-8 7', 'none', 'stroke="' + skin + '" stroke-width="3" stroke-linecap="round"');
+    return s + '</g>';
+  }
+  /* what makes each harbour its own place: things on the quay and on the near bank */
+  function cityFront(id, P) {
+    let s = '';
+    const lantern = (x, y) => pth('M' + x + ' ' + y + 'v-38', 'none', 'stroke="#5A3B22" stroke-width="3"') + pth('M' + (x - 8) + ' ' + (y - 38) + 'h16l-3 -6h-10z', '#8E5A33', ink(1.4)) + '<rect x="' + (x - 6) + '" y="' + (y - 52) + '" width="12" height="14" rx="2" fill="#FFD27A" stroke="' + INK + '" stroke-width="1.4"/>' + (P.stars ? '<circle cx="' + x + '" cy="' + (y - 45) + '" r="14" fill="#FFD27A" opacity="' + (0.25 * P.stars).toFixed(2) + '"/>' : '');
+    if (id === 'perbastet') {
+      const cat = (x, y, sc) => '<g transform="translate(' + x + ' ' + y + ') scale(' + sc + ')">' + pth('M-12 0q-4 -22 6 -30l-2 -12 8 6h6l8 -6 -2 12q10 8 6 30z', '#3A3346', ink(1.8)) + pth('M10 -4q12 2 10 -14', 'none', 'stroke="#3A3346" stroke-width="4" stroke-linecap="round"') + '<circle cx="-1" cy="-30" r="2" fill="#E9C46A"/><circle cx="7" cy="-30" r="2" fill="#E9C46A"/>' + pth('M-6 -22h18', 'none', 'stroke="#E9C46A" stroke-width="2"') + '</g>';
+      s += '<rect x="214" y="232" width="30" height="26" fill="#C9A262" stroke="' + INK + '" stroke-width="1.6"/>' + cat(229, 232, 0.9) + lantern(292, 258) + lantern(20, 258);
+      s += '<g transform="translate(820 318)">' + pth('M-34 0q-10 -16 0 -26h68q10 10 0 26z', '#C9A262', ink(1.8)) + cat(0, -26, 1.1) + '</g>';
+    } else if (id === 'mennefer') {
+      s += '<g transform="translate(236 258)"><rect x="-26" y="-18" width="52" height="18" fill="#8E5A33" stroke="' + INK + '" stroke-width="1.6"/>' + pth('M-18 -18v-10M18 -18v-10M-18 -28h36', 'none', 'stroke="' + INK + '" stroke-width="2"') + pth('M-26 -28q0 -8 8 -8h36q8 0 8 8z', '#D9A43A', ink(1.4)) + '<circle cx="-10" cy="-24" r="4" fill="#E5B93F" stroke="' + INK + '" stroke-width="1"/><circle cx="2" cy="-22" r="4" fill="#E5B93F" stroke="' + INK + '" stroke-width="1"/><circle cx="12" cy="-25" r="4" fill="#E5B93F" stroke="' + INK + '" stroke-width="1"/></g>';
+      for (let k = 0; k < 4; k++) s += pth('M' + (808 + k * 20) + ' 320q0 -14 10 -14t10 14q-4 3 -10 3t-10 -3z', '#E2C88E', ink(1.4));
+      s += '<g transform="translate(860 300)">' + pth('M-22 0q-6 -22 10 -30q14 -4 22 8q4 12 -4 22z', '#D8B064', ink(1.8)) + pth('M-2 -30q-2 -10 6 -14q10 0 10 10q0 8 -8 10', '#C9A262', ink(1.4)) + '<circle cx="4" cy="-32" r="1.6" fill="' + INK + '"/></g>';
+    } else if (id === 'abidos') {
+      s += pth('M196 258v-26h-8', 'none', 'stroke="#5A3B22" stroke-width="3"') + pth('M196 232l-16 -4v10z', '#1F5FA8', ink(1.2)) + '<g class="smoke">' + pth('M252 232q-6 -14 2 -22q6 -8 0 -18', 'none', 'stroke="#E9DCC2" stroke-width="4" stroke-linecap="round" opacity=".7"') + '</g>' + pth('M244 258q-4 -18 8 -26h4q12 8 8 26z', '#B7412E', ink(1.6));
+      for (let k = 0; k < 4; k++) s += '<rect x="' + (790 - k * 6) + '" y="' + (318 - k * 9) + '" width="' + (110 + k * 12) + '" height="9" fill="' + (k % 2 ? P.lit : P.shade) + '" stroke="' + INK + '" stroke-width="1.4"/>';
+      s += pth('M846 282v-40M870 282v-40', 'none', 'stroke="#5A3B22" stroke-width="3"') + '<g class="flag">' + pth('M846 242l18 4-18 6z', '#B7412E', ink(1.2)) + pth('M870 242l18 4-18 6z', '#1F5FA8', ink(1.2)) + '</g>';
+    } else if (id === 'vaset') {
+      const col = (x, y, h) => pth('M' + (x - 7) + ' ' + y + 'v-' + h + 'h14v' + h + 'z', P.lit, ink(1.6)) + pth('M' + (x - 11) + ' ' + (y - h) + 'q11 -14 22 0z', '#3E8E5A', ink(1.4)) + pth('M' + (x - 12) + ' ' + (y - h - 2) + 'h24v-5h-24z', '#D9A43A', ink(1.2));
+      s += col(214, 258, 54) + col(256, 258, 54) + '<rect x="200" y="196" width="72" height="8" fill="' + P.shade + '" stroke="' + INK + '" stroke-width="1.6"/>';
+      s += col(812, 318, 70) + col(856, 318, 70) + col(896, 318, 70) + '<rect x="798" y="238" width="110" height="10" fill="' + P.shade + '" stroke="' + INK + '" stroke-width="1.6"/>';
+    } else if (id === 'abu') {
+      s += pth('M780 400V330Q800 300 840 310Q860 290 900 300V400Z', '#A98476', ink(2)) + pth('M800 330q20 -18 40 -4', 'none', 'stroke="#C9A58F" stroke-width="3"') + pth('M846 318q16 -14 40 -8', 'none', 'stroke="#C9A58F" stroke-width="3"');
+      s += '<g class="splash">' + pth('M776 334q10 -8 20 0M782 344q8 -6 16 0', 'none', 'stroke="#E8FAFC" stroke-width="2.4" stroke-linecap="round"') + '</g>';
+      s += '<g transform="translate(236 258)">' + pth('M0 0v-16', 'none', 'stroke="#2B1D14" stroke-width="2"') + pth('M-2 -16q-8 -10 2 -16q8 -4 10 4q2 8 -6 12z', '#FBF3DF', ink(1.4)) + pth('M8 -26l10 2', 'none', 'stroke="' + INK + '" stroke-width="2" stroke-linecap="round"') + pth('M-10 -24q-6 -2 -8 2', 'none', 'stroke="' + INK + '" stroke-width="1.6"') + '</g>';
+      s += pth('M214 258q-6 -14 4 -20h10q10 6 4 20z', '#8E5A33', ink(1.4)) + pth('M264 258q-6 -14 4 -20h10q10 6 4 20z', '#8E5A33', ink(1.4));
+    }
+    return s;
+  }
+  let lastPortPal = null;
+  function portScene(ci, up, loadN, si, nar, day, mood) {
+    const c = CITIES[ci], P = Object.assign(dayPal(si, day), SKY[si == null ? 1 : si] ? { field:SKY[si == null ? 1 : si].field, far:SKY[si == null ? 1 : si].far, lit:SKY[si == null ? 1 : si].lit, shade:SKY[si == null ? 1 : si].shade, wall:SKY[si == null ? 1 : si].wall, door:SKY[si == null ? 1 : si].door, cliff:SKY[si == null ? 1 : si].cliff, granite:SKY[si == null ? 1 : si].granite, granite2:SKY[si == null ? 1 : si].granite2 } : {}), id = ++uid, k = 'p' + id;
+    let s = '<svg class="ps" viewBox="0 0 900 400" preserveAspectRatio="xMidYMax slice" role="img" aria-label="' + esc(c.name) + ' limanı ve teknen">';
+    s += '<defs>' + grad(k + 'sky', [[0, P.top], [0.55, P.mid], [1, P.low]], true) + grad(k + 'w', [[0, P.water[0]], [0.25, P.water[1]], [1, P.water[2]]], true) +
+      grad(k + 'hz', [[0, P.low, 0], [1, P.low, 0.4]], true) + grad(k + 'qf', [[0, '#D9BE88'], [1, '#B8975E']], true) + grad(k + 'rf', [[0, '#fff', 0.5], [1, '#fff', 0]], true) +
+      '<radialGradient id="' + k + 'sun"><stop offset="0" stop-color="' + P.sun + '" stop-opacity=".95"/><stop offset=".25" stop-color="' + P.sun + '" stop-opacity=".45"/><stop offset="1" stop-color="' + P.sun + '" stop-opacity="0"/></radialGradient>' +
+      '<radialGradient id="' + k + 'vg" cx=".5" cy=".45" r=".75"><stop offset=".55" stop-color="#2B1D14" stop-opacity="0"/><stop offset="1" stop-color="#2B1D14" stop-opacity=".28"/></radialGradient>' +
+      '<filter id="' + k + 'pp" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".8" numOctaves="2" seed="7"/><feColorMatrix type="saturate" values="0"/></filter>' +
+      '<mask id="' + k + 'rm"><rect x="0" y="300" width="900" height="100" fill="url(#' + k + 'rf)"/></mask></defs>';
+    /* sky, sun, stars, clouds */
+    s += '<rect width="900" height="262" fill="url(#' + k + 'sky)"/>';
+    if (P.stars) for (let j = 0; j < 22; j++) s += '<circle cx="' + ((j * 97) % 880 + 10) + '" cy="' + (8 + (j * 41) % 120) + '" r="' + (j % 4 ? 1.1 : 1.7) + '" fill="#FFF6DC" opacity="' + (P.stars * (0.5 + (j % 3) * 0.2)).toFixed(2) + '"/>';
+    s += '<circle cx="' + P.sunX + '" cy="' + P.sunY + '" r="170" fill="url(#' + k + 'sun)"/>';
+    s += '<g transform="translate(' + P.sunX + ' ' + P.sunY + ')"><g class="sunr">';
+    for (let j = 0; j < 16; j++) s += '<path d="M0 -62L4 -44H-4Z" fill="' + P.sun + '" opacity=".55" transform="rotate(' + j * 22.5 + ')"/>';
+    s += '</g><circle r="34" fill="' + P.sun + '"/><circle r="34" fill="none" stroke="#E9A93A" stroke-width="3" opacity=".7"/><circle r="24" fill="none" stroke="#F2C65A" stroke-width="2" opacity=".6"/></g>';
+    [[120, 60, 1], [430, 38, 0.8], [820, 150, 0.7]].forEach(([x, y, o], j) => { s += '<g class="cloud" style="animation-delay:' + (-j * 23) + 's" opacity="' + (o * (1 - P.stars * 0.6)).toFixed(2) + '"><ellipse cx="' + x + '" cy="' + y + '" rx="70" ry="13" fill="#FFFBF0" opacity=".75"/><ellipse cx="' + (x + 30) + '" cy="' + (y - 8) + '" rx="38" ry="12" fill="#FFFBF0" opacity=".8"/><ellipse cx="' + (x - 26) + '" cy="' + (y - 4) + '" rx="30" ry="9" fill="#FFFBF0" opacity=".7"/></g>'; });
+    s += '<g class="bird"><path d="M0 70q8-8 16 0q8-8 16 0" fill="none" stroke="#3A2A20" stroke-width="2.2" stroke-linecap="round"/><path d="M40 92q6-6 12 0q6-6 12 0" fill="none" stroke="#3A2A20" stroke-width="1.8" stroke-linecap="round"/></g>';
+    /* distant desert, the city's landmark, haze */
+    s += pth('M0 214Q110 192 230 206T470 200T700 208T900 198V250H0Z', P.far) + pth('M0 228Q160 210 330 222T640 218T900 214V250H0Z', P.far, 'opacity=".7"');
+    s += '<g transform="translate(20 6)">' + landmark(c.id, P) + '</g>';
+    s += '<rect y="150" width="900" height="100" fill="url(#' + k + 'hz)"/>';
+    /* far bank: fields, palms and a hamlet; a felucca crossing slowly */
+    s += pth('M0 244Q220 236 450 242T900 238V252H0Z', P.field) + pth('M0 244Q220 236 450 242T900 238', 'none', 'stroke="#2B1D14" stroke-width="1" opacity=".25"');
+    [[600, 22], [628, 28], [690, 20], [742, 26], [858, 24]].forEach(([x, h]) => { s += pth('M' + x + ' 242v-' + h, 'none', 'stroke="#6B4A30" stroke-width="2"') + '<ellipse cx="' + x + '" cy="' + (242 - h) + '" rx="10" ry="5" fill="#4B8A5A"/>'; });
+    s += '<rect x="790" y="230" width="18" height="12" fill="#E2C590"/><rect x="806" y="226" width="22" height="16" fill="#D6B680"/><rect x="796" y="236" width="4" height="6" fill="#6E5236"/>';
+    /* the river */
+    lastPortPal = P;
+    s += '<!--r-->';
+    s += '<rect class="wat" y="250" width="900" height="150" fill="url(#' + k + 'w)"/>';
+    s += '<path class="wat" d="M0 251H900" fill="none" stroke="#FFF6E0" stroke-width="1.5" opacity=".55"/>';
+    s += '<g class="wglint" opacity=".8">';
+    for (let j = 0; j < 9; j++) s += '<rect class="glint" style="animation-delay:' + (j * 0.31).toFixed(2) + 's" x="' + (P.sunX - 30 + ((j * 37) % 60)) + '" y="' + (258 + j * 15) + '" width="' + (26 - j * 1.5) + '" height="2.4" rx="1.2" fill="#FFF8DC"/>';
+    s += '</g><g class="flow" opacity=".45">';
+    for (let j = 0; j < 22; j++) { const x = (j * 97) % 940 - 20, y = 268 + ((j * 53) % 120); s += '<path d="M' + x + ' ' + y + 'h' + (16 + (j % 4) * 6) + '" stroke="#E8FAFC" stroke-width="2" stroke-linecap="round"/>'; }
+    s += '</g>';
+    s += '<g class="felucca"><g transform="translate(0 266) scale(.36)">' + pth('M-80 -10C-70 8 60 8 82 -12L70 -10C40 -2 -50 -2 -70 -10Z', '#7A4E2C', ink(3)) + pth('M0 -8V-90', 'none', 'stroke="' + INK + '" stroke-width="4"') + pth('M0 -86L50 -14H0Z', '#F4EAD4', ink(3)) + '</g></g>';
+    /* our ship, its reflection and the ripples around the hull */
+    const sx = nar ? 478 : 560, sy = nar ? 304 : 322, sc = nar ? 0.66 : 0.74, spec = { boat:S.boat, up, dev:S.dev, dmg:S === null ? 0 : (up === S.up ? dmgStage(S) : 0) }, ship = typeof shipSVG3 === 'function' ? shipSVG3(spec, loadN, id) : shipSVG2(spec, loadN, id);
+    s += '<g class="shipG"><g mask="url(#' + k + 'rm)" opacity=".28"><g transform="translate(' + sx + ' ' + (sy + 4) + ') scale(' + sc + ' -' + (sc * 0.55) + ')">' + ship + '</g></g>';
+    s += '<g transform="translate(' + sx + ' ' + sy + ') scale(' + sc + ')"><g class="bob spot" data-spot="ship">' + ship + '</g></g>';
+    s += '<g class="ripple" opacity=".7">' + pth('M' + (sx - 150) + ' ' + (sy + 6) + 'q20 -5 40 0M' + (sx + 90) + ' ' + (sy + 5) + 'q22 -5 44 0M' + (sx - 30) + ' ' + (sy + 9) + 'q26 -5 52 0', 'none', 'stroke="#E8FAFC" stroke-width="2.2" stroke-linecap="round"') + '</g></g>';
+    /* the quay: lit top, shaded front, wet foot, mooring post and rope */
+    s += pth('M-10 258H318L332 266V326H-10Z', 'url(#' + k + 'qf)', ink(2.4)) + pth('M-10 258H318L332 266H-10Z', '#EFD9A8', ink(2));
+    for (let r = 0; r < 3; r++) for (let j = 0; j < 9; j++) { const x = -10 + j * 38 + (r % 2 ? 19 : 0); s += pth('M' + x + ' ' + (266 + r * 20) + 'v20', 'none', 'stroke="#8C6E44" stroke-width="1.2" opacity=".6"'); }
+    s += pth('M-10 286H332M-10 306H332', 'none', 'stroke="#8C6E44" stroke-width="1.2" opacity=".6"') + '<rect x="-10" y="318" width="342" height="8" fill="#3E5A4E" opacity=".45"/>';
+    s += '<rect x="-10" y="326" width="342" height="22" fill="#2B4E5E" opacity=".25"/>';
+    s += pth('M298 262v-16h10v16z', '#8E5A33', ink(1.6)) + pth('M296 246h14', 'none', 'stroke="' + INK + '" stroke-width="3" stroke-linecap="round"') + '<g class="rope">' + pth('M303 252Q350 300 ' + (sx - 132) + ' ' + (sy - 46), 'none', 'stroke="#C9A36A" stroke-width="2"') + '</g>';
+    /* life on the quay: the stall, the merchant, porters */
+    s += palmSVG(36, 260, 118, -16);
+    s += pth('M84 258V214M164 258V214', 'none', 'stroke="#6B4226" stroke-width="4" stroke-linecap="round"') + '<rect x="78" y="236" width="92" height="22" fill="#C99A62" stroke="' + INK + '" stroke-width="1.8"/>';
+    s += pth('M74 214L82 200H166L174 214Z', '#FBF3DF', ink(1.8));
+    for (let j = 0; j < 5; j++) s += pth('M' + (82 + j * 18) + ' 200h9l-4 14h-9z', j % 2 ? '#1F5FA8' : '#B7412E');
+    s += pth('M74 214q12 8 25 0q12 8 25 0q12 8 25 0q12 8 25 0', 'none', ink(1.6)) + '<rect x="80" y="214" width="88" height="14" fill="#2B1D14" opacity=".12"/>';
+    s += '<circle cx="96" cy="232" r="6" fill="#E2B84E" stroke="' + INK + '" stroke-width="1.2"/><circle cx="112" cy="231" r="6" fill="#B7412E" stroke="' + INK + '" stroke-width="1.2"/><circle cx="150" cy="231" r="6" fill="#E9A87C" stroke="' + INK + '" stroke-width="1.2"/>';
+    s += merchantFig(ci, mood || 0);
+    s += pth('M196 258q-7 -18 2 -30h12q9 12 2 30z', '#B7412E', ink(1.8)) + pth('M14 258q-7 -16 2 -26h12q9 10 2 26z', '#C98E62', ink(1.6));
+    s += '<g transform="translate(40 258)"><rect x="0" y="-14" width="34" height="14" rx="3" fill="#E2C88E" stroke="' + INK + '" stroke-width="1.6"/><rect x="6" y="-27" width="24" height="14" rx="3" fill="#D8BB7C" stroke="' + INK + '" stroke-width="1.6"/></g>';
+    s += '<g class="walk">' + personSVG(176, 258, '#FBF3DF', 'jar') + '</g><g class="walk2">' + personSVG(300, 258, '#E6CB95', 'sack', true) + '</g>';
+    s += cityFront(c.id, P);
+    /* near right bank, foreground reeds and lotus */
+    if (c.id !== 'abu') s += pth('M780 400V318Q830 300 900 304V400Z', '#C9A262', ink(2.2)) + pth('M790 320Q836 306 900 308', 'none', 'stroke="#E9CB8E" stroke-width="3"');
+    if (c.id === 'mennefer' || c.id === 'perbastet') s += palmSVG(850, 312, 150, -22);
+    const reeds = (x, y, n, sc2) => { let r = ''; for (let j = 0; j < n; j++) { const dx = (j - n / 2) * 7 * sc2, h = (58 + (j * 23) % 30) * sc2; r += pth('M' + (x + dx * 0.4) + ' ' + y + 'Q' + (x + dx) + ' ' + (y - h * 0.6) + ' ' + (x + dx * 1.4) + ' ' + (y - h), 'none', 'stroke="#2F7346" stroke-width="' + (2.4 * sc2) + '"') + pth('M' + (x + dx * 1.4) + ' ' + (y - h) + 'l' + (-8 * sc2) + ' ' + (-12 * sc2) + 'h' + (16 * sc2) + 'z', '#A9C95A', ink(1.2)); } return '<g class="sway2">' + r + '</g>'; };
+    s += reeds(26, 404, 7, 1.15) + (c.id === 'abu' ? '' : reeds(880, 404, 6, 1));
+    [[400, 372], [690, 360], [610, 388]].forEach(([x, y], j) => { s += '<ellipse cx="' + x + '" cy="' + y + '" rx="17" ry="5.5" fill="#4F8E4C" stroke="' + INK + '" stroke-width="1.2"/>' + pth('M' + x + ' ' + y + 'l14 -3', 'none', 'stroke="#2F6E44" stroke-width="1.4"') + (j !== 1 ? pth('M' + (x - 5) + ' ' + (y - 2) + 'q5 -14 10 0q-5 4 -10 0z', '#F2A7B8', ink(1.1)) : ''); });
+    /* evening light, paper grain, vignette and the frieze */
+    if (P.tint) s += '<rect width="900" height="400" fill="' + P.tint + '"/>';
+    s += '<rect width="900" height="400" fill="url(#' + k + 'vg)"/>';
+    s += '<rect x="0" y="0" width="900" height="10" fill="' + INK + '"/>';
+    for (let j = 0; j < 30; j++) s += '<rect x="' + (j * 32 + 2) + '" y="2" width="28" height="6" fill="' + ['#1F5FA8', '#D9A43A', '#B7412E', '#2BA59A'][j % 4] + '"/>';
+    return s + '</svg>';
+  }
+  function shipPreview(up, loadN) {
+    const id = ++uid, k = 'v' + id, ship = shipSVG2({ boat:S.boat, up, dev:S.dev }, loadN, id);
+    return '<svg class="ps" viewBox="-250 -236 500 290" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Gemin"><defs>' + grad(k + 'w', [[0, '#7DB5D2'], [1, '#2B5E8E']], true) + grad(k + 's', [[0, '#9FCDE0'], [1, '#F4E7C6']], true) + '</defs>' +
+      '<rect x="-700" y="-236" width="1400" height="240" fill="url(#' + k + 's)"/><rect x="-700" y="2" width="1400" height="60" fill="url(#' + k + 'w)"/>' +
+      '<g transform="translate(0 4) scale(1 -.45)" opacity=".22">' + ship + '</g><g class="bob">' + ship + '</g>' +
+      '<g class="flow" opacity=".5">' + Array.from({ length:12 }, (_, j) => '<path d="M' + (-260 + j * 48) + ' ' + (18 + (j % 3) * 12) + 'h18" stroke="#E8FAFC" stroke-width="2" stroke-linecap="round"/>').join('') + '</g></svg>';
+  }
+

@@ -1,0 +1,201 @@
+  /* ================= heroes: pick one at the start, carry them on a Hearthstone-style plate ================= */
+  let heroMode = 'free', heroSel = null;
+  const heroPic = (k, px, o) => typeof heroAvatar === 'function' && heroAvatar('h_' + k, px, o) || '<span class="hav-fb" style="width:' + px + 'px;height:' + px + 'px">' + esc(HEROES[k].name[0]) + '</span>';
+  /* v30: FIG.portrait (3D head and shoulders, async data URL), cached; the caller shows the SVG until it arrives */
+  const figC = {};
+  const figKey = who => typeof who === 'number' ? String(who) : String(who);
+  /* v31: the rendered portraits (portraitURL) come first, then FIG's live render, then the SVG the caller already shows */
+  const figF = key => { try { return typeof FIG !== 'undefined' && FIG && typeof FIG.portrait === 'function' && (!FIG.keys || [].concat(FIG.keys).map(String).includes(key)); } catch (e) { return false; } };
+  const figHas = key => typeof portraitURL === 'function' || figF(key);
+  const figFIG = (key, mood, size) => { if (!figF(key)) return null; try { return FIG.portrait(key, { mood, size }); } catch (e) { return null; } };
+  /* v33: CH33 renders avatars from the rigged 3D models (same models as the live stages); the older images stay as the 3D-off fallback */
+  /* close-up faces from the rigged models are an opt-in trial (menu); the Blender portraits stay the default */
+  const c33Has = key => { try { return face3d() && typeof CH33 !== 'undefined' && CH33.on() && CH33.has(key); } catch (e) { return false; } };
+  function figURL(key, mood, size, then) {
+    if (c33Has(key)) {
+      const o3 = { mood, size:Math.min(360, size), frame:size >= 300 ? 'bust' : 'face' }, u3 = CH33.snapSync(key, o3);
+      if (u3) return u3;
+      CH33.snap(key, o3).then(u => { if (u && then) then(u); }, () => {});
+    }
+    if (!figHas(key)) return null;
+    const ck = key + '|' + mood + '|' + size, v = figC[ck];
+    if (typeof v === 'string') return v;
+    if (v === false) return null;
+    if (!v) {
+      let pr = null;
+      try { if (typeof portraitURL === 'function') pr = portraitURL(key, mood); } catch (e) { pr = null; }
+      if (typeof pr === 'string' && pr) { figC[ck] = pr; return pr; }
+      if (pr && typeof pr.then === 'function') pr = pr.then(u => typeof u === 'string' && u ? u : figFIG(key, mood, size), () => figFIG(key, mood, size));
+      else pr = figFIG(key, mood, size);
+      if (!pr || typeof pr.then !== 'function') { figC[ck] = typeof pr === 'string' && pr ? pr : false; return figC[ck] || null; }
+      figC[ck] = pr; pr.then(u => { figC[ck] = typeof u === 'string' && u ? u : false; }, () => { figC[ck] = false; }); }
+    if (then) Promise.resolve(figC[ck]).then(() => { if (typeof figC[ck] === 'string') then(figC[ck]); }, () => {});
+    return null;
+  }
+  /* put a FIG portrait into an element once it is ready (keeps whatever is there until then) */
+  function figInto(el, key, mood, size, cls) {
+    if (!el) return;
+    const put = u => { if (!document.body.contains(el)) return; el.innerHTML = '<img class="figp' + (cls ? ' ' + cls : '') + '" src="' + u + '" alt="" draggable="false">'; el.classList.add('fig'); };
+    const u = figURL(key, mood, size, put); if (u) put(u);
+  }
+  /* the 3D bust snapshot (V3.heroSnapshot → data URL, maybe async) when it exists, else the SVG badge */
+  const snapC = {};
+  function heroImg(k, px, o) {
+    const key = 'h_' + k, mood = (o && o.mood) || 'neutral', ck = key + '|' + px + '|' + mood;
+    const fu = figURL(key, mood, Math.max(96, px * 2), u => swapSnaps(ck, u, px));
+    if (fu) return '<img class="hav3" src="' + fu + '" width="' + px + '" height="' + px + '" alt="" draggable="false" data-snap="' + esc(ck) + '">';
+    let url = snapC[ck];
+    if (typeof url !== 'string' && !(url && typeof url.then === 'function')) {
+      url = null;
+      try {
+        if (!figHas(key) && typeof V3 !== 'undefined' && typeof V3.heroSnapshot === 'function') {
+          const r = V3.heroSnapshot(key, px, Object.assign({ mood }, o || {}));
+          if (r && typeof r.then === 'function') { snapC[ck] = r; r.then(u => { snapC[ck] = typeof u === 'string' && u ? u : undefined; if (snapC[ck]) swapSnaps(ck, snapC[ck], px); }, () => { snapC[ck] = undefined; }); }
+          else if (typeof r === 'string' && r) snapC[ck] = url = r;
+        }
+      } catch (e) { url = null; }
+    }
+    const img = typeof url === 'string' ? url : null;
+    if (img) return '<img class="hav3" src="' + img + '" width="' + px + '" height="' + px + '" alt="" draggable="false" data-snap="' + esc(ck) + '">';
+    return '<span class="havw" data-snap="' + esc(ck) + '">' + heroPic(k, px, o) + '</span>';
+  }
+  function swapSnaps(ck, u, px) { document.querySelectorAll('img.hav3[data-snap="' + ck.replace(/"/g, '') + '"]').forEach(el => { if (el.src !== u) el.src = u; }); document.querySelectorAll('.havw[data-snap="' + ck.replace(/"/g, '') + '"]').forEach(el => { el.outerHTML = '<img class="hav3" src="' + u + '" width="' + px + '" height="' + px + '" alt="" draggable="false" data-snap="' + esc(ck) + '">'; }); }
+  /* live 3D busts (V3.hero) mounted into the hero cards and the hero dialogue; disposed with the sheet */
+  let H3 = [];
+  function mountHero3(el, k, o) {
+    if (!el || typeof V3 === 'undefined' || typeof V3.hero !== 'function') return null;
+    let h = null; try { h = V3.hero(el, 'h_' + k, o || {}); } catch (e) { h = null; }
+    if (!h) return null;
+    H3.push(h); el.classList.add('v3h0');
+    const on = () => { if (H3.includes(h)) el.classList.add('v3h'); };
+    if (h.ready && typeof h.ready.then === 'function') h.ready.then(ok => { if (ok !== false) on(); }, () => {}); else on();
+    return h;
+  }
+  function disposeHero3() { H3.forEach(h => { try { h.dispose && h.dispose(); } catch (e) {} }); H3 = []; }
+  function showHeroPick(mode) {
+    heroMode = mode; heroSel = heroSel || (meta.hero && HEROES[meta.hero] ? meta.hero : 'neferet');
+    disposeHero3();
+    let s = '<div class="sh-h"><h2 id="shTitle">Kahramanını seç<small>' + (mode === 'daily' ? 'Günün seferi' : 'Yeni sefer') + ' · ' + DAYS + ' gün</small></h2>' + (ongoing() ? xBtn : backBtn('toTitle')) + '</div><div class="heroes">';
+    HERO_IDS.forEach(k => {
+      const h = HEROES[k], on = k === heroSel, col = typeof CAST !== 'undefined' && CAST['h_' + k] ? CAST['h_' + k].color : '#D9A43A';
+      const big = typeof bustSVG === 'function' ? bustSVG('h_' + k, { mood:on ? 'happy' : 'neutral', lv:on ? 2 : 0, counter:false }) : '';
+      s += '<button type="button" class="hero' + (on ? ' on' : '') + '" data-hero="' + k + '" style="--hc:' + col + '" aria-pressed="' + on + '">' +
+        '<span class="hbust" data-hb="' + k + '">' + (big || heroPic(k, 96)) + '</span><b>' + esc(h.name) + '</b><small>' + esc(h.title) + '</small>' +
+        '<span class="hp1">' + ico('i-heart', 14) + esc(h.passive) + '</span><span class="hp2"><em>' + esc(h.power) + '</em>' + esc(h.pdesc) + '</span></button>';
+    });
+    s += '</div><div class="row"><button class="btn go1 wide" type="button" data-act="heroGo" data-first>' + esc(HEROES[heroSel].name) + ' ile başla</button></div>';
+    openSheet(s, true, 'hero', true);
+    HERO_IDS.forEach(k => { const el = document.querySelector('#sheet .hbust[data-hb="' + k + '"]'); if (k === heroSel && c33Has('h_' + k)) { const h3 = CH33.stage(el, 'h_' + k, { mood:'happy', frame:'card' }); if (h3) { H3.push(h3); return; } } if (figHas('h_' + k) || c33Has('h_' + k)) figInto(el, 'h_' + k, k === heroSel ? 'happy' : 'neutral', 320, 'card'); else mountHero3(el, k, { size:'card', mood:k === heroSel ? 'happy' : 'neutral', selected:k === heroSel }); });
+  }
+  function heroGo() { const k = heroSel || 'neferet'; meta.hero = k; saveMeta(); play('fanfare'); fresh(heroMode, k); }
+  /* the plate: avatar, name, title, hull hearts (water skins in the desert) and the power state. where = 'hud' | 'voy' | 'scene' */
+  function heroPlate(where) {
+    if (!S || !S.hero || !HEROES[S.hero]) return '';
+    const h = HEROES[S.hero], ok = heroCan(where === 'hud' ? (VG ? 'voy' : 'port') : where === 'voy' ? 'voy' : 'voy'), used = heroUsedNow();
+    const px = where === 'scene' ? 44 : 40, sc = where === 'scene';
+    return '<button type="button" class="hplate ' + where + 'p' + (ok ? ' ready' : used ? ' used' : '') + '" data-act="heroInfo" aria-label="' + esc(h.name + ', ' + h.title + '. ' + h.power + (ok ? ' hazır' : used ? ' kullanıldı' : '')) + '"' + (sc ? ' tabindex="-1"' : '') + '>' +
+      '<span class="hpav">' + heroImg(S.hero, px, { mood:ok ? 'happy' : 'neutral' }) + '</span><span class="hpt"><b>' + esc(h.name) + '</b><small>' + esc(h.title) + '</small><span class="hearts">' + plateHearts() + '</span></span>' +
+      '<i class="hpp" title="' + esc(h.power) + '"' + (ok || used || h.when === 'voy' ? '' : ' hidden') + '>' + ico('i-bolt', 12) + '</i></button>';
+  }
+  /* hearts (or water skins on a caravan) as inline SVG; the voyage's own hit points while at sea */
+  function plateHearts() {
+    const K = S.caravan; let h = '';
+    if (K) { for (let k = 0; k < Math.min(10, K.water); k++) h += '<svg viewBox="0 0 32 32" aria-hidden="true" class="wsk"><use href="#i-water"/></svg>'; if (!K.water) h = '<b class="dry">0</b>'; return h + '<b class="hpn">' + K.water + ' gün</b>'; }
+    const hp = VG ? VG.hp : hullNow(S), mx = VG ? VG.maxhp : maxHp(S);
+    for (let k = 0; k < mx; k++) h += '<svg viewBox="0 0 32 32" aria-hidden="true"' + (k < hp ? '' : ' class="lost"') + '><use href="#i-heart"/></svg>';
+    return h + '<b class="hpn">' + hp + '/' + mx + '</b>';
+  }
+  /* the HUD plate is static markup: only its parts change */
+  function renderPlate() {
+    const el = $('#hplate'); if (!el) return;
+    if (!S || !S.hero || !HEROES[S.hero]) { el.classList.add('none'); el.classList.remove('ready', 'used', 'water'); $('#hpAv').innerHTML = ''; $('#hpName').textContent = 'Nil Kervancısı'; $('#hpTitle').textContent = ''; $('#hHp').innerHTML = ''; $('#hpPow').hidden = true; return; }
+    const h = HEROES[S.hero], ok = heroCan(VG ? 'voy' : 'port'), used = heroUsedNow(), K = S.caravan, mood = ok ? 'happy' : 'neutral';
+    el.classList.remove('none'); el.classList.toggle('ready', ok); el.classList.toggle('used', !ok && used); el.classList.toggle('water', !!K);
+    const av = $('#hpAv'); if (av.dataset.k !== S.hero + mood) { av.dataset.k = S.hero + mood; av.innerHTML = heroImg(S.hero, 40, { mood }); }
+    $('#hpName').textContent = h.name; $('#hpTitle').textContent = K ? 'Su · ' + K.donkeys + ' eşek' : h.title;
+    const hp = $('#hHp'); hp.innerHTML = plateHearts(); hp.setAttribute('aria-label', K ? K.water + ' günlük su, ' + K.donkeys + ' eşek' : 'Gövde ' + (VG ? VG.hp + '/' + VG.maxhp : hullNow(S) + '/' + maxHp(S)));
+    el.classList.toggle('hurt', !K && !VG && dmgStage(S) >= 2); el.dataset.d = K ? 0 : dmgStage(S);
+    const pw = $('#hpPow'); pw.hidden = !(ok || used || h.when === 'voy'); pw.innerHTML = ico('i-bolt', 12); pw.title = h.power + (ok ? ' · hazır' : used ? ' · kullanıldı' : h.when === 'voy' && !VG ? ' · yolculukta' : '');
+    el.title = h.name + ' · ' + h.title + ' · ' + h.power + (ok ? ' hazır' : used ? ' kullanıldı' : h.when === 'voy' && !VG ? ' (yolculukta)' : '');
+  }
+  const HERO_VOICE = {
+    ahmose:'Medjay\'dayken nehirde haydut kovaladım. Şimdi bu teknenin ve senin bekçin benim.',
+    neferet:'Pazarda doğdum, pazarda büyüdüm. Her tüccarın bir zayıf noktası vardır; ben onu bulurum.',
+    sitre:'Kamışım ve papirüsüm yanımda oldukça hiçbir fiyat benden saklanamaz.',
+    bakenre:'Nil benim evim. Her akıntıyı, her kum adasını adıyla bilirim.'
+  };
+  function heroStats() {
+    const st = S.stats || {}, b = st.best;
+    return '<div class="hstats"><span><small>Gün</small><b>' + S.day + '/' + S.days + '</b></span><span><small>Yolculuk</small><b>' + (st.trips || 0) + '</b></span><span><small>Görülen şehir</small><b>' + (S.visited || []).length + '</b></span><span><small>En iyi satış</small><b>' + (b ? '+' + fmt(b.p) : '–') + '</b></span></div>';
+  }
+  function heroInfo() {
+    const h = HEROES[S.hero]; if (!h) return;
+    return heroCard();
+    const ok = heroCan(VG ? 'voy' : 'port'), used = heroUsedNow();
+    const hp = S.caravan ? S.caravan.water + ' günlük su' : 'Gövde ' + (VG ? VG.hp + '/' + VG.maxhp : hullNow(S) + '/' + maxHp(S));
+    say('h_' + S.hero, [h.name + ', ' + h.title.toLowerCase() + '. ' + h.passive, h.power + ': ' + h.pdesc + (ok ? ' Şimdi hazır.' : used ? (h.when === 'port' ? ' Bugün kullandın.' : ' Bu yolculukta kullandın.') : h.when === 'voy' && !VG ? ' Yolculukta kullanılır.' : '')], { mood:ok ? 'happy' : 'neutral', sub:h.title + ' · ' + hp, choices: ok ? [{ label:h.power + ' kullan', ico:'i-bolt', run:heroPow }, { label:'Tamam', ico:'i-close' }] : null });
+  }
+  /* the full card: voice, trait, power and the run so far */
+  function heroCard() {
+    const h = HEROES[S.hero]; if (!h) return;
+    const ok = heroCan(VG ? 'voy' : 'port'), used = heroUsedNow();
+    const hp = S.caravan ? S.caravan.water + ' günlük su' : 'Gövde ' + (VG ? VG.hp + '/' + VG.maxhp : hullNow(S) + '/' + maxHp(S));
+    const html = '<div class="hcard"><p class="hpass">' + ico('i-heart', 14) + esc(h.passive) + '</p><p class="hpow' + (ok ? ' ok' : '') + '">' + ico('i-bolt', 14) + '<b>' + esc(h.power) + '</b> ' + esc(h.pdesc) + '<em>' + (ok ? 'hazır' : used ? 'kullanıldı' : h.when === 'voy' && !VG ? 'yolculukta' : 'burada işe yaramaz') + '</em></p>' + heroStats() + '</div>';
+    say('h_' + S.hero, [HERO_VOICE[S.hero] || h.passive], { mood:ok ? 'happy' : 'neutral', sub:h.title + ' · ' + hp, html, choices:ok ? [{ label:h.power + ' kullan', ico:'i-bolt', run:heroPow }, { label:'Tamam', ico:'i-close' }] : [{ label:'Tamam', ico:'i-close' }] });
+  }
+  /* short lines from the hero at the moments that matter: a bubble under the HUD portrait, no blocking */
+  const QUIPS = {
+    arrive:{ ahmose:['{c}. Etraf temiz, iskeleye çıkabiliriz.', 'Gözüm limanda, sen pazara bak.'], neferet:['{c} pazarı bizi bekliyor.', 'Bu tezgâhları severim. Pazarlık bende.'], sitre:['{c}. Komşu fiyatları deftere yazdım.', 'Not aldım: burada neyin eksik olduğunu göreceğiz.'], bakenre:['Akıntı bizi tam {c} iskelesine getirdi.', 'Nil bugün cömertti. {c}!'] },
+    sale:{ ahmose:['İşte buna zafer derim!'], neferet:['Gördün mü? Kimse bizden iyi satamaz.'], sitre:['Bu satışı altın mürekkeple yazıyorum.'], bakenre:['Bu parayla bir tekne daha alırız!'] }
+  };
+  let quipT = 0;
+  function heroQuip(kind, vars) {
+    if (!S || !S.hero || !QUIPS[kind]) return;
+    const arr = QUIPS[kind][S.hero] || []; if (!arr.length) return;
+    let el = $('#quip'); if (!el) { el = document.createElement('button'); el.type = 'button'; el.id = 'quip'; el.className = 'quip'; el.setAttribute('data-act', 'quipX'); document.body.appendChild(el); }
+    const t = rpick(arr).replace('{c}', vars && vars.c || '');
+    el.innerHTML = '<span class="qa">' + heroImg(S.hero, 40, { mood:'happy' }) + '</span><span class="qt"><b>' + esc(HEROES[S.hero].name) + '</b>' + esc(t) + '</span>';
+    const pl = $('#hplate'), r = pl ? pl.getBoundingClientRect() : { left:8, bottom:60 };
+    el.style.left = Math.max(6, r.left) + 'px'; el.style.top = (r.bottom + 8) + 'px'; el.hidden = false; el.classList.remove('in'); void el.offsetWidth; el.classList.add('in');
+    clearTimeout(quipT); quipT = setTimeout(() => { el.hidden = true; }, 4800);
+  }
+  /* first time in the desert this run: the hero says it with a proper dialogue */
+  function heroDesert() {
+    if (!S || !S.hero || isRiver(S.city) || (S.hq || {}).dz) return false;
+    S.hq = S.hq || {}; S.hq.dz = true; save();
+    const L = { ahmose:['Kum fırtınası, akıncılar, susuzluk… Medjay\'dayken bunlara alışmıştım.', 'Suyu say, eşekleri say. Gerisini ben hallederim.'], neferet:['Çöl pazarları başka türlü kokar: tuz, hurma, tütsü.', 'Burada nadir olan her şey değerlidir. Gözünü dört aç.'], sitre:['Çölün haritasını kimse tam çizmedi. Ben çizeceğim.', 'Vahanın fiyatları Nil\'inkine hiç benzemez; not alıyorum.'], bakenre:['Nehirsiz bir yer… Ayaklarım kumda tuhaf hissediyor.', 'Ama eşekler de bir çeşit tekne, değil mi?'] }[S.hero];
+    say('h_' + S.hero, L, { mood:'surprised', choices:[{ label:'Hadi', ico:'i-donkey' }] });
+    return true;
+  }
+  const heroUsedNow = () => !!S && (HEROES[S.hero] || {}).when === 'port' ? !!(S.heroDay && S.heroDay.day === S.day) : !!(VG && VG.heroUsed);
+  function heroCan(where) {
+    if (!S || !S.hero || S.over) return false;
+    const h = HEROES[S.hero];
+    if (h.when === 'port') return phase === 'port' && !(S.heroDay && S.heroDay.day === S.day);
+    if (!VG || VG.heroUsed) return false;
+    if (S.hero === 'ahmose') return !!VG.plan.chaser && !VG.chaseDone;
+    if (S.hero === 'sitre') return !VG.revealAll;
+    if (S.hero === 'bakenre') return !VG.shortcut && !!VG.layers[VG.layer + 1];
+    return false;
+  }
+  function heroPow() {
+    if (!heroCan(VG ? 'voy' : 'port')) { const h = S && HEROES[S.hero]; if (h) toast(h.power + ': ' + (h.when === 'port' ? 'bugün kullandın.' : VG && VG.heroUsed ? 'bu yolculukta kullandın.' : 'şu an işe yaramaz.')); play('no'); return; }
+    const h = HEROES[S.hero]; let t = '';
+    if (S.hero === 'neferet') { S.heroDay = { city:S.city, day:S.day }; t = 'Neferet gülümsedi, tüccar eridi: bugün burada alış satışların %6 daha iyi.'; save(); renderAll(); }
+    else {
+      if (S.hero !== 'bakenre') VG.heroUsed = true;
+      if (S.hero === 'ahmose') { VG.chaseDone = true; VG.acc.escaped = true; VG.acc.caught = false; VG.layers.forEach(L => L.forEach(nd => { nd.amb = false; })); t = 'Ahmose kalkanını kaldırdı: takipçiler bu yolculukta peşini bıraktı.'; }
+      else if (S.hero === 'sitre') { VG.revealAll = true; VG.scout = true; t = 'Sitre papirüsü açtı: bütün duraklar ve pusular haritada.'; }
+      else if (S.hero === 'bakenre') { if (shortcut()) { VG.heroUsed = true; t = 'Bakenre gizli bir akıntı buldu: yolculuk 1 gün kısaldı!'; } else { toast('Akıntı bulunamadı: liman o gün kapalı. Güç sende kaldı.'); play('no'); renderVoy(); return; } }
+      vnote(t, 'good'); renderVoy();
+    }
+    play('good'); buzz('boost'); toast(t);
+  }
+  /* over river / desert scenes the plate sits in the corner the canvas HUD leaves free; not tappable while steering */
+  function heroOverlay(on) {
+    let el = $('#heroOv');
+    if (!on || !S || !S.hero) { if (el) el.hidden = true; return; }
+    if (!el) { el = document.createElement('div'); el.id = 'heroOv'; el.className = 'heroOv'; const st = $('#stage'); if (st) st.appendChild(el); }
+    el.innerHTML = heroPlate('scene'); el.hidden = false;
+  }
+

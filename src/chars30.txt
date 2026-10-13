@@ -1,0 +1,628 @@
+  /* ================= chars30: FIG — stylized adult 3D characters (cel shaded, inked) =================
+     FIG.build(T, key, o) -> THREE.Group (feet at y=0, height 1.0 = adult, faces +z). key: hero / merchant 0..7 / CAST key /
+       'priest' 'guard' 'scribe' 'folk' (o.seed picks a varied townsperson). o = { seed, scale, lod:0|1, outline, mat }.
+       One SkinnedMesh (+ an inverted-hull ink mesh on the same skeleton, + a painted face decal at lod 0) per figure;
+       geometry, skeleton inverses, face textures and materials are cached and shared.
+     FIG.animate(g, t, state) state: idle | walk | talk | wave | carry | sit | cheer (default g.userData.state).
+     FIG.portrait(key, { mood, size, bg }) -> Promise<dataURL>, head and shoulders, cached; uses V3.snap when present.
+     FIG.link(uniforms) shares the town's light uniforms (uSun uLit uShd uTint uTintA) so people take the town's day/dusk tint. */
+  const FIG = (() => {
+    let T = null, SH = null;
+    const INKH = '#2B1D14';
+    const KEYS = ['h_ahmose', 'h_neferet', 'h_sitre', 'h_bakenre', 'paneb', 0, 1, 2, 3, 4, 5, 6, 7, 'hapu', 'sethi', 'tv0', 'tv1', 'tv3', 'tv4', 'tv7', 'priest', 'guard', 'scribe', 'folk'];
+    /* looks: f female, sk skin, hr hair, wig, band, c collar colours [top..bottom], cl kilt|dress|robe|wrap, cc cloth, tr trim,
+       w build width, h height, old, beard, bc beard colour, brow, ear, props, face extras */
+    const LK = {
+      h_ahmose:{ sk:'#9C643E', hr:'#1B1420', wig:'cap', band:'#1F5FA8', c:['#C9862E', '#1F5FA8', '#F1ECE0'], cl:'kilt', cc:'#F4EEDD', tr:'#1F5FA8', w:1.1, beard:'stub', scar:1, lines:1, sash:1, props:['khopesh', 'shieldBack'], brow:'flat' },
+      h_neferet:{ f:1, sk:'#C98E62', hr:'#1B1420', wig:'long', braids:1, band:'#D9A43A', c:['#E5B93F', '#B7412E', '#D9A43A', '#E5B93F'], cl:'dress', cc:'#C8402C', tr:'#D9A43A', ear:'hoop', props:['scale', 'purse'], smile:1 },
+      h_sitre:{ f:1, sk:'#B97C4E', hr:'#1F1A2E', wig:'bob', band:'#2BA59A', lotus:1, c:['#3E8E5A', '#2BA59A', '#E5B93F'], cl:'dress', cc:'#F6F1E4', tr:'#2BA59A', ear:'stud', props:['palette', 'scroll', 'pen'], calm:1 },
+      h_bakenre:{ sk:'#9A5A32', hr:'#1F1826', wig:'crop', c:null, cl:'kilt', cc:'#E9DCC0', tr:'#2C6BA6', w:0.98, young:1, amulet:1, props:['paddle', 'rope'], grin:1 },
+      paneb:{ sk:'#B97C4E', hr:'#1F1826', wig:'short', band:'#C8402C', tails:1, c:['#B7412E', '#2BA59A', '#F1ECE0'], cl:'kilt', cc:'#F4EEDD', tr:'#B7412E', young:1, props:['oarpin'], grin:1 },
+      0:{ f:1, sk:'#C98E62', hr:'#2B2340', wig:'bob', band:'#2C6BA6', c:['#E5B93F', '#2BA59A', '#2C6BA6'], cl:'dress', cc:'#F4EEDD', tr:'#2C6BA6', ear:'stud', props:['cat'] },
+      1:{ sk:'#B57A50', hr:'#2B2340', wig:'bald', band:'#F3EEE2', c:['#4E9A6B', '#E5B93F'], cl:'kilt', cc:'#EDE5D2', tr:'#C97B4A', old:1, beard:'short', bc:'#CFC6B6', brow:'#E8E1D3', w:1.04, props:['chisel', 'mallet'] },
+      2:{ f:1, sk:'#D9A577', hr:'#1F1A2E', wig:'long', band:'#E5B93F', lotus:1, c:['#E5B93F', '#4E9A6B', '#B7412E'], cl:'dress', cc:'#F6F1E4', tr:'#4E9A6B', ear:'stud', props:['palette', 'pen'] },
+      3:{ sk:'#A86E47', hr:'#2B2340', wig:'cap', band:'#C97B4A', c:['#2C6BA6', '#C97B4A', '#E5B93F'], cl:'kilt', cc:'#F1E7CE', tr:'#C97B4A', w:1.18, belly:1, props:['ingot'], grin:1 },
+      4:{ f:1, sk:'#7A4A2E', hr:'#1B1420', wig:'puff', band:'#2F5FB3', c:['#E5B93F', '#2BA59A', '#2F5FB3'], cl:'dress', cc:'#F3EBDA', tr:'#2F5FB3', ear:'hoop', lip:'#5A2A22', props:['lapis', 'gem'] },
+      5:{ sk:'#C08A5E', hr:'#E3DCCD', wig:'cap', band:'#B7412E', c:['#F1ECE0', '#B7412E', '#E5B93F'], cl:'robe', cc:'#2F5E7A', tr:'#B7412E', old:1, beard:'long', bc:'#E3DCCD', brow:'#E8E1D3', ear:'stud', props:['ramstaff', 'salt'] },
+      6:{ f:1, sk:'#A8754D', hr:'#1F1A2E', wig:'bob', band:'#3E8E5A', c:['#B5622F', '#3E8E5A', '#E5B93F'], cl:'dress', cc:'#EFE3C8', tr:'#3E8E5A', ear:'hoop', w:1.12, round:1, lines:1, props:['dates'], smile:1 },
+      7:{ sk:'#8E5236', hr:'#1B1420', wig:'cap', band:'#2BA59A', c:['#2BA59A', '#D9A43A', '#B7412E'], cl:'wrap', cc:'#D9A43A', tr:'#2BA59A', beard:'point', ear:'hoop', props:['baboon', 'incense'], grin:1 },
+      hapu:{ sk:'#B57A50', hr:'#2B2340', wig:'bald', band:'#8F2F21', c:['#D9A43A', '#8F2F21', '#5B3B6E'], cl:'robe', cc:'#5B3B6E', tr:'#D9A43A', sleeve:1, ear:'hoop', w:1.06, belly:1, props:['ledger', 'purse'], sly:1 },
+      sethi:{ sk:'#C98E62', hr:'#15121E', wig:'long', band:'#D9A43A', beads:1, c:['#D9A43A', '#2E7D4F', '#E9D58A', '#D9A43A'], cl:'robe', cc:'#2E7D4F', tr:'#D9A43A', ear:'stud', props:['cup'], sly:1 },
+      tv0:{ sk:'#C08A5E', hr:'#2B2340', wig:'cap', band:'#7A5A9A', c:['#E5B93F', '#7A5A9A'], cl:'kilt', cc:'#F1E7CE', tr:'#7A5A9A', beard:'stub', props:['sticks', 'cat2'] },
+      tv1:{ sk:'#B07A55', hr:'#2B2340', wig:'bald', band:'#8E6A4A', c:['#D9C9A8', '#8E6A4A'], cl:'kilt', cc:'#E2D3B2', tr:'#8E6A4A', w:1.14, beard:'short', bc:'#3A2C2A', props:['mallet'] },
+      tv3:{ sk:'#C49166', hr:'#EDE7DA', wig:'cap', band:'#4E6E8E', c:['#E5B93F', '#4E6E8E'], cl:'robe', cc:'#E9E1CF', tr:'#4E6E8E', old:1, blind:1, beard:'long', bc:'#EDE7DA', brow:'#F1ECE0', props:['staff'] },
+      tv4:{ f:1, sk:'#6E4129', hr:'#16111C', wig:'puff', band:'#B7412E', c:['#E5B93F', '#2BA59A', '#B7412E'], cl:'dress', cc:'#F3EBDA', tr:'#B7412E', ear:'hoop', lip:'#4E241E', props:['cone'] },
+      tv7:{ sk:'#9C643E', hr:'#1B1420', wig:'cap', band:'#1F5FA8', c:['#F1ECE0', '#1F5FA8'], cl:'kilt', cc:'#F1E7CE', tr:'#1F5FA8', beard:'full', bc:'#2B2028', ear:'hoop', w:1.1, props:['jug'] },
+      priest:{ sk:'#B57A50', hr:'#2B2340', wig:'bald', band:null, c:['#E5B93F', '#F1ECE0'], cl:'robe', cc:'#F6F1E4', tr:'#E5B93F', sash:1, props:['censer'], calm:1 },
+      guard:{ sk:'#A86E47', hr:'#1A1424', wig:'bob', band:'#E5B93F', c:['#1F5FA8', '#F1ECE0'], cl:'kilt', cc:'#F1E7CE', tr:'#1F5FA8', w:1.08, straps:1, props:['spear', 'shield'], brow:'flat' },
+      scribe:{ sk:'#C98E62', hr:'#2B2340', wig:'cap', band:'#2C6BA6', c:['#2C6BA6', '#F1ECE0'], cl:'kilt', cc:'#F6F1E4', tr:'#2C6BA6', long:1, props:['palette', 'scroll', 'pen'] }
+    };
+    /* seeded townsfolk */
+    const rng = s => () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    const SKINS = ['#C98E62', '#B57A50', '#A86E47', '#9C643E', '#8E5236', '#7A4A2E', '#D9A577', '#C08A5E'];
+    const CLOTHS = ['#F4EEDD', '#EDE3C8', '#E6CB95', '#7FB25A', '#2BA59A', '#B7412E', '#5B5FA8', '#D9A43A', '#E86A7E', '#C97B4A'];
+    function folkLook(seed) {
+      const v = Math.abs(seed | 0) % 48, r = rng(v * 7919 + 13), pick = a => a[Math.floor(r() * a.length)];
+      const kid = v % 12 === 5, f = v % 2 === 1;
+      const L = { sk:pick(SKINS), hr:pick(['#1B1420', '#2B2340', '#1F1826', '#2A1E1A']), band:r() < 0.5 ? pick(['#B7412E', '#2C6BA6', '#2BA59A', '#D9A43A']) : null, cl:f ? 'dress' : 'kilt', cc:f ? pick(CLOTHS) : pick(CLOTHS.slice(0, 3)), tr:pick(CLOTHS.slice(3)), f, w:kid ? 1 : 0.94 + r() * 0.2, h:kid ? 0.62 : 0.94 + r() * 0.1, kid };
+      L.wig = f ? pick(['bob', 'long', 'bob', 'puff']) : pick(['cap', 'short', 'bald', 'crop', 'cap']);
+      if (L.wig === 'short' && !L.band) L.band = '#B7412E';
+      L.c = r() < (kid ? 0.2 : 0.55) ? [pick(['#E5B93F', '#2BA59A', '#B7412E']), pick(['#2C6BA6', '#F1ECE0', '#3E8E5A'])] : null;
+      if (!f && !kid && r() < 0.25) { L.beard = pick(['stub', 'short']); L.bc = L.hr; }
+      if (!kid && r() < 0.18) { L.old = 1; if (!f) { L.hr = '#DCD5C6'; L.bc = '#DCD5C6'; } L.brow = '#E8E1D3'; L.lines = 1; }
+      if (f) L.ear = r() < 0.6 ? pick(['stud', 'hoop']) : null;
+      const job = kid ? pick(['', '', 'ball']) : f ? pick(['jarHead', 'basketHead', '', 'jarHip', 'flowers']) : pick(['basketHead', 'jarShoulder', 'fish', 'hoe', 'sack', '', 'net']);
+      L.props = job ? [job] : [];
+      L.carry = /Head$/.test(job);
+      L.key = 'folk' + v;
+      return L;
+    }
+    const lookOf = (key, o) => key === 'folk' ? folkLook((o && o.seed) || 0) : LK[key];
+
+    /* ---------- shared materials: three cel tones with the town's purple shade, inked hull, face decal ---------- */
+    const SK_HEAD = `#include <common>
+#include <skinning_pars_vertex>
+`;
+    const SK_BODY = `
+  #include <skinbase_vertex>
+  #include <beginnormal_vertex>
+  #include <skinnormal_vertex>
+  #include <begin_vertex>
+  #include <skinning_vertex>
+`;
+    const V_BODY = SK_HEAD + `attribute float aHair; varying vec3 vC; varying vec3 vN; varying vec3 vW; varying vec3 vP; varying float vH;
+void main() {` + SK_BODY + `  vC = color; vN = normalize(mat3(modelMatrix) * objectNormal); vP = position; vH = aHair;
+  vec4 w = modelMatrix * vec4(transformed, 1.0); vW = w.xyz;
+  gl_Position = projectionMatrix * viewMatrix * w;
+}`;
+    /* cel tones: hard 3 steps in town; portraits (uSoft > 0) get soft painted steps, a fill-lifted shade and a warm rim light */
+    const TONE = `uniform vec3 uSun, uLit, uShd, uTint, uRimDir, uRimC; uniform float uTintA, uSoft, uRim;
+vec3 cel(vec3 c, vec3 n0, vec3 w) {
+  vec3 n = normalize(n0); float d = dot(n, uSun), t;
+  if (uSoft > 0.0) t = mix(mix(0.6, 0.8, smoothstep(0.02 - uSoft, 0.02 + uSoft, d)), 1.0, smoothstep(0.42 - uSoft, 0.42 + uSoft, d));
+  else t = d > 0.45 ? 1.0 : d > 0.02 ? 0.8 : 0.6;
+  vec3 col = c * mix(uShd, uLit, (t - 0.42) / 0.58);
+  if (uRim > 0.0) { vec3 V = normalize(cameraPosition - w); float r = 1.0 - max(dot(n, V), 0.0); float k = smoothstep(0.5, 0.62, r) * smoothstep(0.0, 0.35, dot(n, uRimDir)); col = mix(col, c * uRimC, k * uRim); }
+  return mix(col, uTint, uTintA);
+}
+`;
+    const F_BODY = TONE + `varying vec3 vC; varying vec3 vN; varying vec3 vW; varying vec3 vP; varying float vH;
+void main() {
+  vec3 c = vC;
+  if (uSoft > 0.0 && vH > 0.5) {
+    /* wig strands: vertical grooves round the head, horizontal bead rows on the lappets */
+    float a = atan(vP.x, vP.z + 0.015) * (vH > 1.5 ? 0.0 : 1.0) * 9.5 + (vH > 1.5 ? vP.y * 160.0 : 0.0);
+    float s = abs(fract(a) - 0.5);
+    c *= 1.0 - 0.22 * (1.0 - smoothstep(0.08, 0.2, s));
+    c += 0.05 * (1.0 - smoothstep(0.0, 0.1, abs(s - 0.32)));
+  }
+  gl_FragColor = vec4(cel(c, vN, vW), 1.0);
+}`;
+    const V_INK = SK_HEAD + `uniform float uPx; uniform vec2 uRes;
+void main() {` + SK_BODY + `  vec4 p = projectionMatrix * modelViewMatrix * vec4(transformed, 1.0);
+  vec2 d = (projectionMatrix * vec4(mat3(modelViewMatrix) * objectNormal, 0.0)).xy;
+  p.xy += normalize(d + 1e-6) * uPx * 2.0 / uRes * p.w;
+  gl_Position = p;
+}`;
+    const F_INK = `uniform vec3 uInkC, uTint; uniform float uTintA; void main() { gl_FragColor = vec4(mix(uInkC, uTint, uTintA * 0.4), 1.0); }`;
+    const V_DEC = `varying vec2 vUv; varying vec3 vN; varying vec3 vW; void main() { vUv = uv; vN = normalize(mat3(modelMatrix) * normal); vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`;
+    const F_DEC = TONE + `uniform sampler2D uMap; varying vec2 vUv; varying vec3 vN; varying vec3 vW; void main() { vec4 t = texture2D(uMap, vUv); if (t.a < 0.02) discard; gl_FragColor = vec4(cel(t.rgb, vN, vW), t.a); }`;
+    let OVR = 0;                                         /* portrait override of the ink width (fraction of the image width) */
+    function shared() {
+      if (SH) return SH;
+      const s = [-0.42, 1, 0.72], l = Math.hypot(s[0], s[1], s[2]);
+      const U = { uSun:{ value:new T.Vector3(s[0] / l, s[1] / l, s[2] / l) }, uLit:{ value:new T.Color('#FFFFFF') }, uShd:{ value:new T.Color('#9C7464') }, uTint:{ value:new T.Color('#FF9A5C') }, uTintA:{ value:0 }, uInkC:{ value:new T.Color(INKH) }, uPx:{ value:1.2 }, uRes:{ value:new T.Vector2(800, 600) }, uSoft:{ value:0 }, uRim:{ value:0 }, uRimDir:{ value:new T.Vector3(0.7, 0.35, -0.6).normalize() }, uRimC:{ value:new T.Color('#FFE3B0') } };
+      const body = new T.ShaderMaterial({ uniforms:U, vertexShader:V_BODY, fragmentShader:F_BODY, vertexColors:true });
+      body.skinning = true;
+      const ink = new T.ShaderMaterial({ uniforms:U, vertexShader:V_INK, fragmentShader:F_INK, side:T.BackSide });
+      ink.skinning = true;
+      const v2 = new T.Vector2();
+      const pre = r => { const rt = r.getRenderTarget && r.getRenderTarget(); if (rt) v2.set(rt.width, rt.height); else r.getDrawingBufferSize(v2); U.uRes.value.copy(v2); U.uPx.value = OVR ? Math.max(1.5, OVR * v2.x) : 1.15 * (r.getPixelRatio ? r.getPixelRatio() : 1); };
+      SH = { U, body, ink, pre, geo:new Map(), inv:new Map(), dec:new Map(), decMat:new Map() };
+      return SH;
+    }
+    function link(u) {
+      shared();
+      ['uSun', 'uLit', 'uShd', 'uTint', 'uTintA'].forEach(k => { if (u && u[k]) SH.U[k] = u[k]; });
+      [SH.body, SH.ink].concat([...SH.decMat.values()]).forEach(m => { Object.keys(m.uniforms).forEach(k => { if (SH.U[k]) m.uniforms[k] = SH.U[k]; }); });
+    }
+
+    /* ---------- a tiny geometry kit: primitives baked into one skinned geometry (rigid weights) ---------- */
+    function Kit(lv) { this.P = []; this.N = []; this.C = []; this.S = []; this.I = []; this.X = []; this.n = 0; this.lod = lv === 1 ? 1 : 0; this.hi = lv === 2; this.hair = 0; }
+    const _m = () => new T.Matrix4(), _v = () => new T.Vector3();
+    Kit.prototype.add = function (geo, bone, hex, m) {
+      const pos = geo.attributes.position, nor = geo.attributes.normal, c = new T.Color(hex), nm = new T.Matrix3().getNormalMatrix(m), v = _v(), w = _v();
+      for (let i = 0; i < pos.count; i++) {
+        v.fromBufferAttribute(pos, i).applyMatrix4(m); w.fromBufferAttribute(nor, i).applyMatrix3(nm).normalize();
+        this.P.push(v.x, v.y, v.z); this.N.push(w.x, w.y, w.z); this.C.push(c.r, c.g, c.b);
+        this.S.push(typeof bone === 'function' ? bone(v) : bone); this.X.push(this.hair);
+      }
+      if (geo.index) for (let j = 0; j < geo.index.count; j++) this.I.push(geo.index.getX(j) + this.n);
+      else for (let j = 0; j < pos.count; j++) this.I.push(j + this.n);
+      this.n += pos.count; geo.dispose();
+    };
+    Kit.prototype.bake = function () {
+      const g = new T.BufferGeometry(), n = this.n, si = new Uint16Array(n * 4), sw = new Float32Array(n * 4);
+      for (let i = 0; i < n; i++) { si[i * 4] = this.S[i]; sw[i * 4] = 1; }
+      g.setAttribute('position', new T.Float32BufferAttribute(this.P, 3)); g.setAttribute('normal', new T.Float32BufferAttribute(this.N, 3));
+      g.setAttribute('color', new T.Float32BufferAttribute(this.C, 3)); g.setAttribute('skinIndex', new T.Uint16BufferAttribute(si, 4)); g.setAttribute('skinWeight', new T.Float32BufferAttribute(sw, 4)); g.setAttribute('aHair', new T.Float32BufferAttribute(this.X, 1));
+      g.setIndex(n > 65535 ? new T.Uint32BufferAttribute(this.I, 1) : new T.Uint16BufferAttribute(this.I, 1));
+      g.boundingSphere = new T.Sphere(new T.Vector3(0, 0.55, 0), 0.85);
+      return g;
+    };
+    const MX = (x, y, z, rx, ry, rz, sx, sy, sz) => _m().compose(new T.Vector3(x, y, z), new T.Quaternion().setFromEuler(new T.Euler(rx || 0, ry || 0, rz || 0)), new T.Vector3(sx == null ? 1 : sx, sy == null ? (sx == null ? 1 : sx) : sy, sz == null ? (sx == null ? 1 : sx) : sz));
+    /* ellipsoid */
+    function ell(k, b, hex, x, y, z, rx, ry, rz, ws, hs, ex) {
+      const q = k.lod ? 0.36 : k.hi ? 2.2 : 0.7;
+      const g = new T.SphereGeometry(1, Math.max(4, Math.round(ws * q)), Math.max(3, Math.round(hs * q)), ex && ex[0] || 0, ex && ex[1] || Math.PI * 2, ex && ex[2] || 0, ex && ex[3] || Math.PI);
+      k.add(g, b, hex, MX(x, y, z, ex && ex[4] || 0, ex && ex[5] || 0, ex && ex[6] || 0, rx, ry, rz));
+    }
+    /* tapered cylinder from a to b */
+    function tube(k, b, hex, a, c, r1, r2, seg, open) {
+      const A = new T.Vector3(a[0], a[1], a[2]), B = new T.Vector3(c[0], c[1], c[2]), d = B.clone().sub(A), L = d.length();
+      const g = new T.CylinderGeometry(r2, r1, L, Math.max(k.lod ? 3 : 4, Math.round((seg || 7) * (k.lod ? 0.5 : k.hi ? 2.6 : 0.85))), 1, open !== false);
+      const m = _m().compose(A.clone().add(B).multiplyScalar(0.5), new T.Quaternion().setFromUnitVectors(new T.Vector3(0, 1, 0), d.normalize()), new T.Vector3(1, 1, 1));
+      k.add(g, b, hex, m);
+    }
+    function box(k, b, hex, x, y, z, sx, sy, sz, rx, ry, rz) { k.add(new T.BoxGeometry(sx, sy, sz), b, hex, MX(x, y, z, rx, ry, rz)); }
+    const up = pts => pts[0][1] > pts[pts.length - 1][1] ? pts.slice().reverse() : pts;   /* lathe faces point outwards when the profile runs upwards */
+    function lathe(k, b, hex, pts, seg, sx, sz, zo) {
+      const g = new T.LatheGeometry(up(pts).map(p => new T.Vector2(p[0], p[1])), Math.max(5, Math.round(seg * (k.lod ? 0.42 : k.hi ? 3.2 : 0.85))));
+      k.add(g, b, hex, MX(0, 0, zo || 0, 0, 0, 0, sx, 1, sz));
+    }
+    function latheAt(k, b, hex, pts, seg, x, y, z) { k.add(new T.LatheGeometry(up(pts).map(p => new T.Vector2(p[0], p[1])), Math.max(6, Math.round(seg * (k.hi ? 3 : k.lod ? 0.6 : 1)))), b, hex, MX(x, y, z)); }
+    function ring(k, b, hex, x, y, z, rx, rz, h, seg) { if (k.lod) return; k.add(new T.CylinderGeometry(1, 1, h, Math.max(6, Math.round((seg || 12) * (k.hi ? 3 : 0.7))), 1, true), b, hex, MX(x, y, z, 0, 0, 0, rx, 1, rz)); }
+
+    /* the head: one smooth lathe (egg with a jaw), pushed forward at the chin; the face decal follows the same surface */
+    const HEADP = (L) => L.f ? [[0.001, 0.836], [0.022, 0.84], [0.037, 0.853], [0.048, 0.875], [0.054, 0.9], [0.056, 0.925], [0.054, 0.95], [0.046, 0.972], [0.03, 0.987], [0.001, 0.993]]
+      : [[0.001, 0.834], [0.026, 0.837], [0.042, 0.85], [L.round ? 0.054 : 0.051, 0.872], [0.057, 0.9], [0.059, 0.925], [0.057, 0.95], [0.049, 0.973], [0.032, 0.988], [0.001, 0.994]];
+    const HEADP2 = L => { const P = HEADP(L), c = new T.SplineCurve(P.map(p => new T.Vector2(p[0], p[1]))); return c.getPoints(30).map(v => [Math.max(0.001, v.x), v.y]); };
+    const HZS = 1.08;
+    const jawZ = y => Math.max(0, 0.9 - y) * 0.3;
+    function headR(P, y) { if (y <= P[0][1] || y >= P[P.length - 1][1]) return 0; for (let i = 1; i < P.length; i++) if (y <= P[i][1]) { const a = P[i - 1], b = P[i], t = (y - a[1]) / (b[1] - a[1]); return a[0] + (b[0] - a[0]) * t; } return 0; }
+    function headGeo(L, lod, hi) {
+      const P = hi ? HEADP2(L) : HEADP(L), g = new T.LatheGeometry((lod ? P.filter((p, i) => i % 2 === 0 || i === P.length - 1) : P).map(p => new T.Vector2(p[0], p[1])), lod ? 6 : hi ? 56 : 13), pos = g.attributes.position;
+      for (let i = 0; i < pos.count; i++) { const z = pos.getZ(i) * HZS; pos.setZ(i, z > 0 ? z + jawZ(pos.getY(i)) * Math.min(1, z / 0.03) : z); }
+      g.computeVertexNormals();
+      return g;
+    }
+    /* bones: 0 root, 1 hips, 2 chest, 3 head, 4/5 left upper/fore arm, 6/7 right, 8/9 left thigh/shin, 10/11 right */
+    const HB = { hip:0.5, chest:0.62, neck:0.835, sh:0.79, elb:0.6, wr:0.43, kn:0.26 };
+    function dims(L) { const w = L.w || 1; return { w, SX:(L.f ? 0.104 : 0.122) * w, HX:0.05 * Math.min(w, 1.1) }; }
+    const byY = (y0, lo, hi) => v => v.y < y0 ? lo : hi;
+
+    /* ---------- the body ---------- */
+    function bodyKit(L, lv) {
+      const lod = lv === 1 ? 1 : 0, k = new Kit(lv), D = dims(L), w = D.w, sk = L.sk, SX = D.SX, f = !!L.f;
+      const skD = '#' + new T.Color(sk).multiplyScalar(0.86).getHexString();
+      /* torso (hips bone below 0.58, chest above) */
+      const tp = f ? [[0.086, 0.475], [0.07, 0.6], [0.088, 0.69], [0.09, 0.74], [0.08, 0.792], [0.045, 0.814], [0.001, 0.822]]
+        : [[0.084, 0.475], [L.belly ? 0.096 : 0.082, 0.58], [L.belly ? 0.1 : 0.094, 0.65], [0.11, 0.74], [0.098, 0.788], [0.05, 0.815], [0.001, 0.824]];
+      lathe(k, byY(0.58, 1, 2), sk, tp, 11, (f ? 1.08 : 1.12) * w, f ? 0.7 : 0.66);
+      if (f && !lod && L.cl !== 'dress') { ell(k, 2, sk, 0.034 * w, 0.705, 0.04, 0.034, 0.032, 0.03, 7, 5); ell(k, 2, sk, -0.034 * w, 0.705, 0.04, 0.034, 0.032, 0.03, 7, 5); }
+      else if (!lod) box(k, 2, skD, 0, 0.705, 0.072, 0.004, 0.06, 0.004);
+      [-1, 1].forEach(s => ell(k, 2, sk, s * SX, 0.775, 0, 0.038 * Math.min(w, 1.12), 0.036, 0.036, 8, 6));
+      /* neck and head */
+      tube(k, byY(HB.neck, 2, 3), sk, [0, 0.79, -0.004], [0, 0.875, -0.006], f ? 0.027 : 0.032, f ? 0.025 : 0.029, 8);
+      const hrx = f ? 0.056 : 0.059;
+      k.add(headGeo(L, lod, k.hi), 3, sk, MX(0, 0, 0));
+      if (!lod) [-1, 1].forEach(s => ell(k, 3, sk, s * (hrx + 0.003), 0.912, -0.004, 0.009, 0.016, 0.011, 6, 5));
+      /* nose: a soft wedge on the face */
+      if (!lod) { const zn = HZS * headR(HEADP(L), 0.898) + jawZ(0.898); ell(k, 3, sk, 0, 0.898, zn - 0.006, 0.007, 0.014, 0.008, 6, 4, [0, 0, 0, 0, 0.3, 0, 0]); }
+      /* arms, hands, bracelets */
+      const metal = '#E5B93F';
+      [-1, 1].forEach(s => {
+        const ub = s > 0 ? 4 : 6, fb = s > 0 ? 5 : 7, S = [s * SX, 0.78, 0], E = [s * (SX + 0.016), HB.elb, -0.006], W = [s * (SX + 0.022), HB.wr, 0.01];
+        const ra = 0.033 * Math.min(w, 1.15) * (f ? 0.85 : 1);
+        tube(k, ub, L.sleeve ? L.cc : sk, S, E, ra, ra * 0.82, 8);
+        if (L.sleeve) tube(k, ub, L.cc, S, [S[0] + s * 0.008, 0.69, -0.003], ra * 1.2, ra * 1.08, 8);
+        if (!lod) ell(k, fb, sk, E[0], E[1], E[2], ra * 0.8, ra * 0.8, ra * 0.8, 7, 5);
+        tube(k, fb, sk, E, W, ra * 0.78, ra * 0.6, 7);
+        ell(k, fb, sk, s * (SX + 0.024), 0.395, 0.014, 0.016, 0.03, 0.022, 7, 5);
+        if (!lod) ell(k, fb, sk, s * (SX + 0.016), 0.405, 0.032, 0.008, 0.016, 0.008, 5, 4, [0, 0, 0, 0, 0.4, 0, 0]);
+        if (!L.old || f) ring(k, fb, L.tr || metal, W[0], W[1] + 0.012, W[2], ra * 0.66, ra * 0.66, 0.016, 10);
+        if (!L.sleeve && !L.kid) ring(k, ub, metal, s * (SX + 0.008), 0.705, -0.003, ra * 1.04, ra * 1.04, 0.016, 10);
+      });
+      /* legs and sandals */
+      [-1, 1].forEach(s => {
+        const tb = s > 0 ? 8 : 10, sb = s > 0 ? 9 : 11, x = s * D.HX;
+        const longCl = L.cl === 'dress' || L.cl === 'robe';
+        if (!longCl) { tube(k, tb, sk, [x, 0.49, 0], [x, HB.kn, 0.006], f ? 0.042 : 0.046, 0.033, 7); if (!lod) ell(k, sb, sk, x, HB.kn, 0.006, 0.032, 0.032, 0.032, 6, 5); }
+        tube(k, sb, sk, longCl ? [x, 0.16, 0.002] : [x, HB.kn, 0.006], [x, 0.05, 0], longCl ? 0.026 : 0.031, 0.022, 7);
+        if (!lod || L.cl === 'kilt' || L.cl === 'wrap') box(k, sb, '#8E5A33', x, 0.018, 0.03, 0.044, 0.03, 0.1);
+      });
+      clothes(k, L, D, lod);
+      head(k, L, D, lod);
+      props(k, L, D, lod);
+      return k.bake();
+    }
+    function clothes(k, L, D, lod) {
+      const w = D.w, cc = L.cc, tr = L.tr || '#E5B93F', f = !!L.f;
+      if (L.cl === 'kilt' || L.cl === 'wrap') {
+        const bot = L.cl === 'wrap' || L.long ? 0.24 : 0.33;
+        lathe(k, 1, cc, [[0.092, 0.505], [0.098, 0.46], [0.11, 0.38], [0.118, bot]], 12, 1.12 * w, 0.72);
+        ring(k, 1, tr, 0, 0.495, 0, 0.098 * 1.12 * w, 0.098 * 0.72, 0.026, 12);
+        if (L.cl === 'wrap') lathe(k, byY(0.58, 1, 2), cc, [[0.1, 0.62], [0.104, 0.58], [0.1, 0.52]], 12, 1.12 * w, 0.72);
+        else box(k, 1, tr === cc ? '#E5B93F' : tr, 0, 0.41, 0.083, 0.05, 0.15, 0.006, -0.14, 0, 0);
+      } else if (L.cl === 'dress') {
+        lathe(k, byY(0.58, 1, 2), cc, [[0.1, 0.738], [0.098, 0.69], [0.088, 0.6], [0.096, 0.5], [0.102, 0.35], [0.104, 0.2], [0.1, 0.065]], 12, 1.08 * w, 0.74);
+        [-1, 1].forEach(s => box(k, 2, cc, s * 0.045 * w, 0.77, 0.035, 0.014, 0.06, 0.006, 0.4, 0, -s * 0.25));
+        ring(k, 1, tr, 0, 0.6, 0, 0.083 * 1.08 * w, 0.083 * 0.74, 0.02, 12);
+      } else if (L.cl === 'robe') {
+        lathe(k, byY(0.58, 1, 2), cc, [[0.064, 0.815], [0.112, 0.79], [0.118, 0.72], [0.106, 0.6], [0.102, 0.5], [0.108, 0.3], [0.11, 0.12], [0.106, 0.065]], 12, 1.12 * w, 0.72);
+        ring(k, 1, tr, 0, 0.5, 0, 0.099 * 1.12 * w, 0.099 * 0.7, 0.024, 12);
+        ring(k, 1, tr, 0, 0.08, 0, 0.105 * 1.12 * w, 0.105 * 0.7, 0.02, 12);
+      }
+      /* the leopard sash of priests and old soldiers, guard straps, a boatman's amulet */
+      if (L.sash) {
+        const zz = L.cl === 'robe' ? 0.084 : 0.066;
+        box(k, 2, '#D9A447', 0, 0.68, zz, 0.05, 0.27, 0.012, 0, 0, 0.62);
+        if (!lod) [[-0.06, 0.75], [-0.035, 0.71], [-0.01, 0.675], [0.02, 0.64], [0.045, 0.605], [0.07, 0.57]].forEach(([x, y]) => ell(k, 2, '#3A2414', x, y, zz + 0.007, 0.007, 0.006, 0.003, 5, 3));
+      }
+      if (L.straps) [-1, 1].forEach(s => box(k, 2, '#8E5A33', 0, 0.68, 0.066, 0.018, 0.3, 0.008, 0, 0, s * 0.6));
+      if (L.amulet) { tube(k, 2, '#C9A262', [-0.03, 0.8, 0.03], [0, 0.73, 0.072], 0.0025, 0.0025, 4); tube(k, 2, '#C9A262', [0.03, 0.8, 0.03], [0, 0.73, 0.072], 0.0025, 0.0025, 4); ell(k, 2, '#2BA59A', 0, 0.718, 0.074, 0.014, 0.017, 0.008, 7, 5); }
+      /* broad collar: stacked bands */
+      if (L.c) {
+        const n = L.c.length, y0 = 0.818, y1 = f ? 0.742 : 0.738, r0 = 0.04, r1 = f ? 0.106 : 0.124;
+        for (let j = 0; j < n; j++) {
+          const a = j / n, b = (j + 1) / n, ya = y0 + (y1 - y0) * a, yb = y0 + (y1 - y0) * b, ra = r0 + (r1 - r0) * Math.sqrt(a), rb = r0 + (r1 - r0) * Math.sqrt(b);
+          if (!k.lod || j === n - 1) k.add(new T.CylinderGeometry(k.lod ? r0 : ra, rb, k.lod ? y0 - y1 : ya - yb, k.lod ? 6 : k.hi ? 48 : 13, 1, true), 2, L.c[j], MX(0, (ya + yb) / 2, 0, 0, 0, 0, (f ? 1.08 : 1.12) * w, 1, 0.78));
+        }
+      }
+    }
+    function head(k, L, D, lod) {
+      k.hair = 1;
+      const H = L.hr, f = !!L.f, cap = (ry, th, col) => ell(k, 3, col || H, 0, 0.912, -0.003, 0.071, ry + 0.012, 0.08, 16, 8, [0, Math.PI * 2, 0, th]);
+      const back = (y, ry, z, rx, col) => ell(k, 3, col || H, 0, y, z, rx, ry, 0.066, 12, 8);
+      const band = (y, col) => { const h0 = k.hair; k.hair = 0; const q = Math.sqrt(Math.max(0, 1 - Math.pow((y - 0.912) / 0.092, 2))); ring(k, 3, col, 0, y, -0.003, L.wig === 'bald' ? 0.06 : 0.071 * q + 0.0035, L.wig === 'bald' ? 0.068 : 0.08 * q + 0.0035, 0.015, 16); k.hair = h0; };
+      if (L.wig === 'bob') { cap(0.083, 1.12); back(0.89, 0.075, -0.02, 0.074); if (L.band) band(0.952, L.band, 0.065); }
+      else if (L.wig === 'long') { cap(0.083, 1.12); back(0.86, 0.11, -0.022, 0.076); [-1, 1].forEach(s => { k.hair = 2; ell(k, 3, H, s * 0.058, 0.83, 0.016, 0.013, 0.09, 0.017, 6, 7, [0, 0, 0, 0, 0, 0, -s * 0.06]); k.hair = 0; if (L.braids && !lod) [0.745].forEach((y, j) => ell(k, 3, j % 2 ? '#B7412E' : '#E5B93F', s * 0.063, y, 0.043, 0.008, 0.006, 0.004, 5, 3)); }); if (L.band) band(0.952, L.band, 0.065); if (L.beads && !lod) [-1, 0, 1].forEach(s => ell(k, 3, '#E5B93F', s * 0.04, 0.955, 0.06 - Math.abs(s) * 0.012, 0.007, 0.007, 0.005, 5, 4)); }
+      else if (L.wig === 'cap' || L.wig === 'crop') { cap(0.08, 1.2); back(0.9, 0.06, -0.022, 0.064); if (L.band && L.wig === 'cap') band(0.95, L.band, 0.064);  }
+      else if (L.wig === 'short') { cap(0.08, 1.22); back(0.905, 0.06, -0.02, 0.064); band(0.948, L.band, 0.065); if (L.tails) [0, 1].forEach(j => box(k, 3, L.band, 0.03 - j * 0.008, 0.93 - j * 0.02, -0.075, 0.016, 0.05, 0.006, 0.5, 0, 0.5 + j * 0.3)); }
+      else if (L.wig === 'puff') { ell(k, 3, H, 0, 0.955, -0.012, 0.078, 0.07, 0.076, 12, 8); [-1, 1].forEach(s => ell(k, 3, H, s * 0.06, 0.92, -0.018, 0.04, 0.045, 0.045, 8, 6)); cap(0.08, 1.16); if (L.band) band(0.952, L.band, 0.065); if (!lod) [[-0.05, 1.0], [0.05, 1.0], [0, 1.02]].forEach(([x, y]) => ell(k, 3, '#E5B93F', x, y, 0.05, 0.008, 0.008, 0.006, 5, 4)); }
+      else if (L.wig === 'bald') { if (L.band) band(0.95, L.band, 0.061); }
+      k.hair = 0;
+      if (L.lotus && !lod) { const z = 0.08; [-1, 0, 1].forEach(s => ell(k, 3, s ? '#F7C6D0' : '#F2A7B8', s * 0.01, 0.975 + (s ? 0 : 0.006), z - 0.004, 0.008, 0.016, 0.005, 5, 4, [0, 0, 0, 0, 0, 0, -s * 0.5])); }
+      if (L.ear) [-1, 1].forEach(s => { if (lod) return; if (L.ear === 'hoop') k.add(new T.CylinderGeometry(0.011, 0.011, 0.005, 7, 1, true), 3, '#E5B93F', MX(s * 0.063, 0.884, 0, 0, 0, Math.PI / 2)); else ell(k, 3, '#E5B93F', s * 0.064, 0.892, 0.002, 0.0055, 0.0055, 0.0055, 5, 4); });
+      /* beards are 3D, stubble is painted */
+      const bc = L.bc || H;
+      k.hair = 1;
+      if (L.beard === 'short') ell(k, 3, bc, 0, 0.852, 0.03, 0.046, 0.03, 0.044, 10, 6);
+      if (L.beard === 'long') { ell(k, 3, bc, 0, 0.852, 0.03, 0.046, 0.03, 0.044, 10, 6); ell(k, 3, bc, 0, 0.8, 0.045, 0.03, 0.05, 0.022, 8, 6); }
+      if (L.beard === 'point') ell(k, 3, bc, 0, 0.818, 0.048, 0.011, 0.036, 0.011, 8, 6, [0, 0, 0, 0, 0.25, 0, 0]);
+      if (L.beard === 'full') { ell(k, 3, bc, 0, 0.86, 0.022, 0.06, 0.04, 0.052, 10, 7); }
+      if (k.hi && (L.beard === 'short' || L.beard === 'long' || L.beard === 'full')) ell(k, 3, bc, 0, 0.833, 0.045, 0.026, 0.022, 0.024, 10, 7);
+      if (L.beard === 'point' && k.hi) [0.8, 0.83].forEach(y => ring(k, 3, '#E5B93F', 0, y, 0.05, 0.011, 0.01, 0.005, 10));
+      k.hair = 0;
+    }
+    /* ---------- props: what tells who they are ---------- */
+    const HAND = (D, s) => [s * (D.SX + 0.024), 0.395, 0.014];
+    function props(k, L, D, lod) {
+      const P = L.props || [], R = HAND(D, -1), Lh = HAND(D, 1), I = INKH;
+      const has = p => P.indexOf(p) >= 0;
+      if (has('cat') || has('cat2')) { const x = has('cat2') ? -0.16 : 0.17, col = has('cat2') ? '#D98A3A' : '#2E2A38'; ell(k, 0, col, x, 0.07, 0.07, 0.035, 0.06, 0.045, 8, 6); ell(k, 0, col, x, 0.15, 0.085, 0.032, 0.03, 0.03, 8, 6); [-1, 1].forEach(s => k.add(new T.ConeGeometry(0.012, 0.03, 4), 0, col, MX(x + s * 0.018, 0.185, 0.085, 0, 0, -s * 0.3))); if (!lod) [-1, 1].forEach(s => ell(k, 0, '#E9C46A', x + s * 0.012, 0.155, 0.112, 0.006, 0.005, 0.003, 5, 3)); tube(k, 0, col, [x + 0.03, 0.02, 0.04], [x + 0.06, 0.09, 0.01], 0.008, 0.006, 5); if (!has('cat2')) ring(k, 0, '#E5B93F', x, 0.125, 0.085, 0.026, 0.024, 0.008, 10); }
+      if (has('chisel')) { tube(k, 7, '#8E5A33', [R[0], 0.36, 0.03], [R[0], 0.43, 0.03], 0.009, 0.009, 6); tube(k, 7, '#D07A42', [R[0], 0.36, 0.03], [R[0], 0.27, 0.05], 0.007, 0.004, 5); }
+      if (has('mallet')) { tube(k, 5, '#8E5A33', [Lh[0], 0.36, 0.02], [Lh[0], 0.43, 0.02], 0.008, 0.008, 6); ell(k, 5, '#B98654', Lh[0], 0.32, 0.03, 0.03, 0.045, 0.03, 8, 6); }
+      if (has('palette')) box(k, 5, '#D8B57A', Lh[0], 0.39, 0.05, 0.012, 0.13, 0.03, 0.25, 0, 0);
+      if (has('scroll')) { const c = has('palette') ? R : Lh, b = has('palette') ? 7 : 5; tube(k, b, '#F3E6C2', [c[0] - 0.05, 0.4, 0.04], [c[0] + 0.05, 0.4, 0.04], 0.016, 0.016, 8); }
+      if (has('pen')) tube(k, 3, '#D8C27A', [0.06, 0.96, 0.0], [0.072, 0.88, 0.035], 0.003, 0.003, 4);
+      if (has('ingot')) { box(k, 7, '#C66A36', R[0], 0.35, 0.03, 0.09, 0.014, 0.06, 0, 0, 0.12); [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([a, b]) => box(k, 7, '#C66A36', R[0] + a * 0.048, 0.35 + a * 0.006, 0.03 + b * 0.032, 0.022, 0.014, 0.018, 0, b * 0.4, 0.12)); }
+      if (has('lapis')) k.add(new T.IcosahedronGeometry(0.028, 0), 7, '#2350A8', MX(R[0], 0.37, 0.03));
+      if (has('gem')) { ell(k, 2, '#E5B93F', 0, 0.7, 0.078, 0.018, 0.022, 0.006, 7, 5); ell(k, 2, '#2350A8', 0, 0.7, 0.083, 0.012, 0.016, 0.004, 7, 5); }
+      if (has('ramstaff') || has('staff')) { const x = R[0] - 0.01; tube(k, 7, '#9A6A3E', [x, 0.02, 0.03], [x, has('staff') ? 0.98 : 1.12, 0.03], 0.009, 0.008, 6); if (has('ramstaff')) { ell(k, 7, '#E9DFC8', x, 1.15, 0.035, 0.026, 0.03, 0.03, 8, 6); [-1, 1].forEach(s => ell(k, 7, '#C9A262', x + s * 0.024, 1.14, 0.035, 0.012, 0.016, 0.014, 6, 5)); ell(k, 7, '#E5B93F', x, 1.2, 0.03, 0.02, 0.02, 0.008, 8, 6); } }
+      if (has('salt')) k.add(new T.ConeGeometry(0.03, 0.07, 7), 5, '#FBFAF4', MX(Lh[0], 0.4, 0.05));
+      if (has('dates')) { const x = Lh[0] + 0.03, y = 0.34, z = 0.05; latheAt(k, 5, '#C99A55', [[0.001, 0.0], [0.05, 0.005], [0.058, 0.06]], 10, x, y, z); for (let j = 0; j < (lod ? 3 : 7); j++) ell(k, 5, j % 2 ? '#9A3A22' : '#7A2C1A', x + Math.cos(j * 2.4) * 0.03, y + 0.065, z + Math.sin(j * 2.4) * 0.03, 0.013, 0.018, 0.013, 5, 4); }
+      if (has('baboon')) { const x = 0.15, y = 0.82; ell(k, 2, '#A8A28A', x, y, -0.01, 0.04, 0.045, 0.04, 8, 6); ell(k, 2, '#CFC8AE', x, y + 0.055, 0.0, 0.034, 0.032, 0.032, 8, 6); ell(k, 2, '#DE9686', x, y + 0.05, 0.03, 0.016, 0.014, 0.022, 6, 4); tube(k, 2, '#8C8670', [x + 0.02, y - 0.03, -0.03], [x + 0.06, y - 0.12, -0.04], 0.008, 0.006, 5); }
+      if (has('incense')) { latheAt(k, 7, '#2BA59A', [[0.001, 0], [0.04, 0.005], [0.048, 0.035]], 10, R[0], 0.34, 0.06); ell(k, 7, '#F2D58A', R[0], 0.375, 0.06, 0.035, 0.012, 0.035, 8, 4); }
+      if (has('ledger')) box(k, 5, '#D8B57A', Lh[0], 0.4, 0.05, 0.016, 0.12, 0.09, 0, 0, 0);
+      if (has('purse')) { ell(k, 1, '#9A5A32', -0.06 * D.w, 0.44, 0.07, 0.024, 0.032, 0.02, 7, 5); ring(k, 1, '#E5B93F', -0.06 * D.w, 0.468, 0.07, 0.012, 0.01, 0.008, 8); }
+      if (has('cup')) { latheAt(k, 7, '#E5B93F', [[0.001, 0], [0.02, 0.003], [0.006, 0.02], [0.006, 0.04], [0.028, 0.06], [0.032, 0.09]], 10, R[0], 0.39, 0.06); }
+      if (has('oarpin')) { box(k, 2, '#8E5A33', 0, 0.68, 0.066, 0.016, 0.3, 0.008, 0, 0, 0.62); box(k, 2, '#E5B93F', 0.035, 0.74, 0.075, 0.008, 0.05, 0.006, 0, 0, -0.5); ell(k, 2, '#E5B93F', 0.05, 0.715, 0.076, 0.009, 0.014, 0.004, 6, 4, [0, 0, 0, 0, 0, 0, -0.5]); }
+      if (has('sticks')) [-1, 0, 1].forEach(j => box(k, 7, j ? '#F3EBD6' : '#3A2A20', R[0] + j * 0.008, 0.38, 0.05, 0.006, 0.14, 0.012, 0.3, 0, 0));
+      if (has('cone')) k.add(new T.ConeGeometry(0.02, 0.05, 6), 7, '#B7412E', MX(R[0], 0.43, 0.04));
+      if (has('jug')) { latheAt(k, 7, '#C97B4A', [[0.001, 0], [0.04, 0.01], [0.05, 0.05], [0.04, 0.1], [0.018, 0.12], [0.022, 0.135]], 10, R[0], 0.3, 0.05); }
+      if (has('censer')) { tube(k, 7, '#D9A43A', [R[0], 0.4, 0.03], [R[0], 0.4, 0.2], 0.006, 0.006, 5); ell(k, 7, '#D9A43A', R[0], 0.41, 0.21, 0.018, 0.012, 0.018, 7, 4); }
+      if (has('spear')) { tube(k, 7, '#9A6A3E', [R[0], 0.02, 0.03], [R[0], 1.22, 0.03], 0.008, 0.007, 6); k.add(new T.ConeGeometry(0.018, 0.08, 4), 7, '#C97B4A', MX(R[0], 1.26, 0.03)); }
+      if (has('shield')) { box(k, 5, '#F1ECE0', Lh[0] + 0.03, 0.5, 0.05, 0.016, 0.24, 0.14, 0, 0, 0); if (!lod) [[0.55, 0.02], [0.47, -0.03], [0.42, 0.03]].forEach(([y, z]) => box(k, 5, '#3A2A20', Lh[0] + 0.04, y, 0.05 + z, 0.004, 0.03, 0.035)); box(k, 5, '#B7412E', Lh[0] + 0.039, 0.62, 0.05, 0.004, 0.012, 0.14); }
+      if (has('shieldBack')) { k.add(new T.CylinderGeometry(0.13, 0.13, 0.02, lod ? 10 : 16), 2, '#8E5A33', MX(0.02, 0.66, -0.1, Math.PI / 2, 0, 0)); ring(k, 2, '#B9853A', 0.02, 0.66, -0.112, 0.132, 0.132, 0.022, 16); k.add(new T.CylinderGeometry(0.03, 0.03, 0.03, 8), 2, '#D9A43A', MX(0.02, 0.66, -0.122, Math.PI / 2, 0, 0)); }
+      if (has('khopesh')) { tube(k, 7, '#5A3B22', [R[0], 0.43, 0.02], [R[0], 0.36, 0.03], 0.009, 0.009, 6); tube(k, 7, '#C98A3E', [R[0], 0.36, 0.03], [R[0], 0.27, 0.06], 0.007, 0.007, 5); tube(k, 7, '#C98A3E', [R[0], 0.27, 0.06], [R[0], 0.22, 0.13], 0.011, 0.005, 5); tube(k, 7, '#C98A3E', [R[0], 0.22, 0.13], [R[0], 0.25, 0.17], 0.005, 0.003, 5); }
+      if (has('scale')) { tube(k, 5, '#2B1D14', [Lh[0], 0.37, 0.02], [Lh[0], 0.33, 0.02], 0.002, 0.002, 4); tube(k, 5, '#D9A43A', [Lh[0], 0.33, -0.05], [Lh[0], 0.33, 0.09], 0.004, 0.004, 5); [-0.05, 0.09].forEach(z => latheAt(k, 5, '#E5B93F', [[0.001, 0], [0.025, 0.012]], 8, Lh[0], 0.28, z)); }
+      if (has('paddle')) { const x = R[0]; tube(k, 7, '#B98654', [x, 0.36, 0.03], [x, 1.02, 0.03], 0.008, 0.008, 6); ell(k, 7, '#D8B57A', x, 1.1, 0.03, 0.012, 0.11, 0.045, 8, 6); if (!lod) ell(k, 7, '#2C6BA6', x, 1.12, 0.03, 0.013, 0.02, 0.02, 6, 4); }
+      if (has('rope')) for (let j = 0; j < (lod ? 1 : 3); j++) k.add(new T.TorusGeometry(0.06 - j * 0.004, 0.007, lod ? 3 : 4, lod ? 6 : 12), 2, '#D8B57A', MX(0.1 * D.w, 0.8 - j * 0.012, 0.0, Math.PI / 2 - 0.45, 0, -0.5));
+      /* townsfolk loads */
+      if (has('basketHead')) { latheAt(k, 3, '#C99A55', [[0.001, 0.0], [0.06, 0.004], [0.075, 0.05]], 10, 0, 1.0, 0); if (!lod) for (let j = 0; j < 4; j++) ell(k, 3, ['#E9A87C', '#7FB25A', '#E2B84E', '#B7412E'][j], Math.cos(j * 1.6) * 0.03, 1.05, Math.sin(j * 1.6) * 0.03, 0.022, 0.018, 0.022, 6, 4); }
+      if (has('jarHead')) { latheAt(k, 3, '#B7412E', [[0.001, 0], [0.035, 0.01], [0.05, 0.05], [0.04, 0.1], [0.018, 0.12], [0.024, 0.13]], 10, 0, 1.0, 0); }
+      if (has('jarShoulder')) { latheAt(k, 4, '#C97B4A', [[0.001, 0], [0.035, 0.01], [0.05, 0.05], [0.04, 0.1], [0.018, 0.12]], 10, Lh[0] - 0.01, 0.8, 0); }
+      if (has('jarHip')) { latheAt(k, 5, '#B7412E', [[0.001, 0], [0.03, 0.01], [0.042, 0.045], [0.032, 0.085], [0.016, 0.1]], 10, Lh[0] + 0.03, 0.34, 0.03); }
+      if (has('sack')) ell(k, 2, '#E2C88E', -0.09, 0.82, -0.04, 0.06, 0.05, 0.05, 8, 6);
+      if (has('fish')) { ell(k, 7, '#9FB8C0', R[0], 0.32, 0.03, 0.012, 0.05, 0.022, 6, 5); ell(k, 7, '#8AA6B0', R[0] + 0.006, 0.3, 0.06, 0.011, 0.045, 0.02, 6, 5); }
+      if (has('net')) ell(k, 2, '#C9B48A', -0.1, 0.8, -0.02, 0.05, 0.04, 0.05, 7, 5);
+      if (has('hoe')) { tube(k, 7, '#9A6A3E', [R[0], 0.2, 0.03], [R[0], 0.9, 0.03], 0.007, 0.007, 5); box(k, 7, '#8E5A33', R[0], 0.9, 0.06, 0.012, 0.03, 0.07); }
+      if (has('flowers')) [0, 1, 2].forEach(j => { tube(k, 5, '#3E8E5A', [Lh[0], 0.38, 0.03], [Lh[0] + (j - 1) * 0.02, 0.5, 0.05], 0.003, 0.003, 4); ell(k, 5, '#F2A7B8', Lh[0] + (j - 1) * 0.02, 0.51, 0.05, 0.012, 0.014, 0.012, 5, 4); });
+      if (has('ball')) ell(k, 5, '#B7412E', Lh[0] + 0.01, 0.36, 0.05, 0.03, 0.03, 0.03, 8, 6);
+    }
+    /* ---------- the painted face (planar decal over the head + jaw) ---------- */
+    const FX0 = -0.066, FX1 = 0.066, FY0 = 0.835, FY1 = 0.985;
+    function decalGeo(L, hi) {
+      const P = hi ? HEADP2(L) : HEADP(L);
+      const N = hi ? 40 : 13, pos = [], nor = [], uv = [], idx = [], ok = [];
+      for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) {
+        const u = i / N, v = j / N, x = FX0 + (FX1 - FX0) * u, y = FY0 + (FY1 - FY0) * v;
+        const r = headR(P, y), q = r * r - x * x, ok1 = q > 0 && r > 0.006;
+        const z0 = ok1 ? HZS * Math.sqrt(q) : 0, z = z0 + (ok1 ? jawZ(y) * Math.min(1, z0 / 0.03) : 0);
+        ok.push(ok1 && z0 > 0.012);
+        const e = 0.0008, rr = (yy, xx) => { const r2 = headR(P, yy), q2 = r2 * r2 - xx * xx; if (q2 <= 0) return z; const zz = HZS * Math.sqrt(q2); return zz + jawZ(yy) * Math.min(1, zz / 0.03); };
+        const dzx = (rr(y, x + e) - rr(y, x - e)) / (2 * e), dzy = (rr(y + e, x) - rr(y - e, x)) / (2 * e), l = Math.hypot(dzx, dzy, 1);
+        const nx = -dzx / l, ny = -dzy / l, nz = 1 / l;
+        pos.push(x + nx * 0.0012, y + ny * 0.0012, z + nz * 0.0012); nor.push(nx, ny, nz); uv.push(u, v);
+      }
+      for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { const a = j * (N + 1) + i, b = a + 1, c = a + N + 1, d = c + 1; if (ok[a] && ok[b] && ok[c] && ok[d]) idx.push(a, b, d, a, d, c); }
+      const g = new T.BufferGeometry();
+      g.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new T.Float32BufferAttribute(nor, 3)); g.setAttribute('uv', new T.Float32BufferAttribute(uv, 2)); g.setIndex(idx);
+      g.translate(0, -HB.neck, 0);
+      return g;
+    }
+    /* face paint: canvas x = world x (viewer's left = character's right), y down */
+    const PX = x => (x - FX0) / (FX1 - FX0) * 256, PY = y => (FY1 - y) / (FY1 - FY0) * 256;
+    function paintFace(L, mood, hi) {
+      const c = document.createElement('canvas'), SC = hi ? 2 : 1; c.width = c.height = 256 * SC;
+      const g = c.getContext('2d'), I = INKH, f = !!L.f;
+      g.scale(SC, SC); g.lineCap = 'round'; g.lineJoin = 'round';
+      const soft = (x, y, rx, ry, col, a) => { g.save(); g.translate(x, y); g.scale(1, ry / rx); const gr = g.createRadialGradient(0, 0, 0, 0, 0, rx); gr.addColorStop(0, 'rgba(' + col + ',' + a + ')'); gr.addColorStop(1, 'rgba(' + col + ',0)'); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, rx, 0, 7); g.fill(); g.restore(); };
+      const path = (d, fill, stroke, lw) => { const p = new Path2D(d); if (fill) { g.fillStyle = fill; g.fill(p); } if (stroke) { g.strokeStyle = stroke; g.lineWidth = lw; g.stroke(p); } };
+      const ey = PY(0.918), EX = [PX(-0.0238), PX(0.0238)], EW = 23, EH = 10.5;
+      const eye = { neutral:'n', happy:'smile', angry:'angry', sly:'half', sad:'sad', surprised:'wide', thinking:'n' }[mood] || 'n';
+      const kind = L.calm && eye === 'n' ? 'calm' : L.sly && eye === 'n' ? 'half' : eye;
+      const pup = { sly:[4, 1], thinking:[4, -3], sad:[0, 2] }[mood] || (kind === 'half' ? [3, 1] : [0, 0]);
+      /* blush and age */
+      const bl = (f ? 0.2 : 0.1) + (mood === 'happy' ? 0.12 : 0) + (mood === 'angry' ? 0.2 : 0);
+      g.fillStyle = mood === 'angry' ? 'rgba(214,69,47,' + bl + ')' : 'rgba(232,120,106,' + bl + ')';
+      [PX(-0.034), PX(0.034)].forEach(x => { g.beginPath(); g.ellipse(x, PY(0.888), 20, 11, 0, 0, 7); g.fill(); });
+      if (hi) {
+        /* painted modelling: eye sockets, cheekbones, the hollow under them, temples, chin and upper lip */
+        [-1, 1].forEach(s => {
+          soft(PX(s * 0.024), PY(0.928), 30, 14, '95,45,30', 0.13);
+          soft(PX(s * 0.031), PY(0.897), 22, 10, '255,226,190', 0.2);
+          soft(PX(s * 0.044), PY(0.872), 20, 26, '95,45,30', f ? 0.08 : 0.13);
+          soft(PX(s * 0.054), PY(0.94), 14, 26, '95,45,30', 0.1);
+        });
+        soft(128, PY(0.845), 26, 12, '255,226,190', 0.2); soft(128, PY(0.855), 18, 6, '95,45,30', 0.14); soft(128, PY(0.878), 16, 6, '95,45,30', 0.08);
+        soft(128, PY(0.965), 40, 14, '255,226,190', 0.12);
+      }
+      if (L.beard === 'stub' || (L.beard && L.beard !== 'point')) { g.fillStyle = hi ? 'rgba(30,20,24,.12)' : 'rgba(30,20,24,.16)'; const r = rng(7); for (let j = 0; j < (hi ? 900 : 260); j++) { const a = r() * Math.PI, rr = 60 + r() * 50, x = 128 + Math.cos(a) * rr * 0.9, y = 150 + Math.sin(a) * rr * 0.95; if (y > 190 && Math.abs(x - 128) < 92 && !(y > 196 && y < 226 && Math.abs(x - 128) < 30)) { g.beginPath(); g.arc(x, y, hi ? 0.9 : 1.6, 0, 7); g.fill(); } } }
+      if (L.lines || L.old) path('M' + (EX[0] - 30) + ' ' + (ey - 2) + 'l-8 -4M' + (EX[0] - 30) + ' ' + (ey + 6) + 'l-8 3M' + (EX[1] + 30) + ' ' + (ey - 2) + 'l8 -4M' + (EX[1] + 30) + ' ' + (ey + 6) + 'l8 3M100 170q-8 14 -4 30M156 170q8 14 4 30', null, 'rgba(60,30,20,.35)', 2.4);
+      if (L.old && L.wig === 'bald') path('M100 36q28 -8 56 0M106 50q22 -6 44 0', null, 'rgba(60,30,20,.3)', 2.4);
+      if (L.scar) path('M182 140l12 26M180 152l13 -4', null, '#7A3B2E', 3);
+      /* eyes */
+      EX.forEach((cx, j) => {
+        const s = j ? 1 : -1, o = cx + s * EW, n = cx - s * EW * 0.92;
+        let up = ey - EH * 1.9, lo = ey + EH * 1.25, oy = ey + 1, ny2 = ey + 1;
+        if (kind === 'smile') { up = ey - EH * 1.6; lo = ey - EH * 0.2; oy = ey + 3; ny2 = ey + 3; }
+        if (kind === 'angry') { oy = ey - 3; ny2 = ey + 2; up = ey - EH * 1.1; }
+        if (kind === 'half' || kind === 'calm') up = ey - EH * (kind === 'calm' ? 1.15 : 0.6);
+        if (kind === 'sad') { oy = ey + 4; up = ey - EH * 1.7; }
+        if (kind === 'wide') { up = ey - EH * 2.5; lo = ey + EH * 1.9; }
+        const d = 'M' + o + ' ' + oy + 'Q' + cx + ' ' + up + ' ' + n + ' ' + ny2 + 'Q' + cx + ' ' + lo + ' ' + o + ' ' + oy + 'Z';
+        g.save(); path(d, L.blind ? '#E8E4DC' : '#FBF6EA'); g.clip(new Path2D(d));
+        const ix = cx + pup[0], iy = ey + pup[1] + 1, ir = kind === 'wide' ? 8.4 : 9.8;
+        if (hi && !L.blind) { const gr = g.createRadialGradient(ix, iy, 1, ix, iy, ir); gr.addColorStop(0, '#8A5A32'); gr.addColorStop(0.6, L.iris || '#5A361E'); gr.addColorStop(1, '#2B1A10'); g.fillStyle = gr; }
+        else g.fillStyle = L.blind ? '#C9CCD2' : L.iris || '#4A2C1A';
+        g.beginPath(); g.arc(ix, iy, ir, 0, 7); g.fill();
+        if (!L.blind) { g.fillStyle = I; g.beginPath(); g.arc(ix, iy, ir * 0.5, 0, 7); g.fill(); g.fillStyle = '#FFF'; g.beginPath(); g.arc(ix + 2.5, iy - 2.6, 2.1, 0, 7); g.fill(); if (hi) { g.globalAlpha = 0.6; g.beginPath(); g.arc(ix - 2.6, iy + 3, 1, 0, 7); g.fill(); g.globalAlpha = 1; } }
+        if (hi) { g.fillStyle = 'rgba(90,45,30,.25)'; g.fill(new Path2D('M' + (o - s * 40) + ' ' + (up - 10) + 'H' + (o + s * 10) + 'V' + (ey - EH * 0.35) + 'Q' + cx + ' ' + (up + 4) + ' ' + (n - s * 6) + ' ' + (ey - EH * 0.35) + 'Z')); }
+        g.restore();
+        if (hi) {
+          if (kind !== 'smile' && kind !== 'angry') path('M' + (n + s * 2) + ' ' + (ny2 - 4) + 'Q' + cx + ' ' + (up - 7) + ' ' + (o - s * 3) + ' ' + (oy - 6), null, 'rgba(80,38,25,.45)', 1.5);
+          g.fillStyle = '#D98C80'; g.beginPath(); g.arc(n + s * 1.5, ny2 + 0.5, 1.6, 0, 7); g.fill();
+          g.fillStyle = I; g.fill(new Path2D('M' + (o - s * 4) + ' ' + (oy - 3) + 'L' + (o + s * (f ? 15 : 12)) + ' ' + (oy - (kind === 'angry' ? 9 : f ? 7 : 5)) + 'L' + (o + s * 1) + ' ' + (oy + 1.5) + 'Z'));
+        }
+        /* lids and kohl */
+        path('M' + n + ' ' + ny2 + 'Q' + cx + ' ' + up + ' ' + o + ' ' + oy + 'L' + (o + s * 10) + ' ' + (oy - (kind === 'angry' ? 6 : 3)), null, I, 4);
+        if (kind !== 'smile') path('M' + (n + s * 3) + ' ' + (ny2 + 1) + 'Q' + cx + ' ' + lo + ' ' + o + ' ' + oy, null, I, 1.8);
+        if (f) { path('M' + (o - s * 2) + ' ' + (oy - 3) + 'l' + s * 5 + ' -6', null, I, 2.2); if (hi) path('M' + (o - s * 7) + ' ' + (oy - 6) + 'l' + s * 3 + ' -6M' + (o - s * 12) + ' ' + (oy - 8) + 'l' + s * 2 + ' -5', null, I, 1.6); }
+      });
+      /* brows */
+      const BR = { n:[0, -7, 2], up:[-3, -10, 0], angry:[9, 0, -6], sad:[-8, -9, 4], high:[-12, -18, -6], flat:[2, -3, 3], arch:[-4, -12, -1] };
+      const bk = { neutral:L.brow === 'flat' ? 'flat' : 'n', happy:'up', angry:'angry', sly:'flat', sad:'sad', surprised:'high', thinking:'n' }[mood] || 'n';
+      const bk2 = mood === 'sly' || mood === 'thinking' || (L.sly && mood === 'neutral') ? 'arch' : bk;
+      const by = PY(0.937), bcol = L.brow && L.brow[0] === '#' ? L.brow : '#1E1612';
+      EX.forEach((cx, j) => { const s = j ? 1 : -1, b = BR[j ? bk2 : bk]; path('M' + (cx - s * 16) + ' ' + (by + b[0]) + 'Q' + (cx + s * 2) + ' ' + (by + b[1]) + ' ' + (cx + s * 20) + ' ' + (by + b[2]), null, bcol, hi ? 4.4 : 5); if (hi) { g.globalAlpha = 0.6; path('M' + (cx - s * 15) + ' ' + (by + b[0] + 2) + 'Q' + (cx + s * 2) + ' ' + (by + b[1] + 2.5) + ' ' + (cx + s * 12) + ' ' + (by + (b[1] + b[2]) / 2 + 2), null, bcol, 2.4); g.globalAlpha = 1; } if (L.brow && L.brow[0] === '#') path('M' + (cx - s * 16) + ' ' + (by + b[0]) + 'Q' + (cx + s * 2) + ' ' + (by + b[1]) + ' ' + (cx + s * 20) + ' ' + (by + b[2]), null, 'rgba(43,29,20,.35)', 1.2); });
+      if (mood === 'angry') path('M122 ' + (by - 2) + 'v9M134 ' + (by - 2) + 'v9', null, 'rgba(60,30,20,.4)', 2);
+      /* nose: shade on the far side and the nostrils */
+      g.fillStyle = 'rgba(110,50,30,.18)'; g.fill(new Path2D('M' + PX(0.004) + ' ' + PY(0.93) + 'Q' + PX(0.014) + ' ' + PY(0.905) + ' ' + PX(0.013) + ' ' + PY(0.891) + 'L' + PX(0.004) + ' ' + PY(0.893) + 'Z'));
+      path('M' + PX(0.006) + ' ' + PY(0.928) + 'Q' + PX(0.012) + ' ' + PY(0.905) + ' ' + PX(0.012) + ' ' + PY(0.893), null, 'rgba(90,40,20,.45)', 2.2);
+      path('M' + PX(-0.011) + ' ' + PY(0.891) + 'Q' + PX(0) + ' ' + PY(0.884) + ' ' + PX(0.012) + ' ' + PY(0.891), null, 'rgba(70,30,20,.55)', 2.4);
+      if (hi) {
+        path('M' + PX(-0.0015) + ' ' + PY(0.936) + 'Q' + PX(-0.003) + ' ' + PY(0.915) + ' ' + PX(-0.002) + ' ' + PY(0.898), null, 'rgba(255,232,205,.22)', 2.2);
+        path('M' + PX(-0.012) + ' ' + PY(0.896) + 'q-3 5 2 8M' + PX(0.013) + ' ' + PY(0.896) + 'q3 5 -2 8', null, 'rgba(90,40,25,.4)', 1.8);
+        soft(PX(0.001), PY(0.894), 5, 4, '255,232,205', 0.5);
+      }
+      /* mouth */
+      g.save(); g.translate(128, PY(0.866)); g.scale(1.28, 1.2); g.translate(-128, -PY(0.866));
+      const my = PY(0.866), lip = L.lip || '#A4553F', dk = '#5A2420', W = '#FFFDF6';
+      const mk = mood === 'neutral' ? (L.grin ? 'grin' : L.smile || L.calm ? 'smile' : L.sly ? 'smirk' : 'n') : mood;
+      if (hi && /^(n|smile|smirk|sly|thinking|sad)$/.test(mk)) {
+        const lu = f ? (L.lip ? L.lip : '#9C4A3A') : 'rgba(130,60,45,.45)', ll = f ? (L.lip ? L.lip : '#B85C48') : 'rgba(150,75,55,.35)', cv = mk === 'smile' ? 4 : mk === 'sad' ? -3 : 0;
+        path('M110 ' + (my - cv * 0.6) + 'Q118 ' + (my - 5) + ' 124 ' + (my - 3.5) + 'Q128 ' + (my - 2) + ' 132 ' + (my - 3.5) + 'Q138 ' + (my - 5) + ' 146 ' + (my - cv * 0.6) + 'Q128 ' + (my + 2 + cv * 0.5) + ' 110 ' + (my - cv * 0.6) + 'Z', lu);
+        path('M113 ' + (my + 1) + 'Q128 ' + (my + 11 + cv * 0.3) + ' 143 ' + (my + 1) + 'Q128 ' + (my + 3 + cv * 0.5) + ' 113 ' + (my + 1) + 'Z', ll);
+        soft(130, my + 6, 6, 2.5, '255,236,220', f ? 0.45 : 0.2);
+      }
+      if (mk === 'n') { path('M110 ' + my + 'Q128 ' + (my + 3) + ' 146 ' + my, null, '#5A2A22', 3); path('M116 ' + (my + 4) + 'Q128 ' + (my + 9) + ' 140 ' + (my + 4), null, f ? lip : 'rgba(140,60,50,.45)', 3.4); }
+      if (mk === 'smile') { path('M106 ' + (my - 3) + 'Q128 ' + (my + 9) + ' 150 ' + (my - 3), null, '#5A2A22', 3.2); path('M118 ' + (my + 6) + 'Q128 ' + (my + 9) + ' 138 ' + (my + 6), null, f ? lip : 'rgba(140,60,50,.45)', 3); }
+      if (mk === 'grin') { path('M106 ' + (my - 4) + 'Q128 ' + (my + 2) + ' 150 ' + (my - 4) + 'Q128 ' + (my + 16) + ' 106 ' + (my - 4) + 'Z', dk, '#2B1D14', 2.4); path('M110 ' + (my - 2) + 'Q128 ' + (my + 3) + ' 146 ' + (my - 2), null, W, 4); }
+      if (mk === 'happy') { path('M104 ' + (my - 6) + 'Q128 ' + (my - 1) + ' 152 ' + (my - 6) + 'Q148 ' + (my + 18) + ' 128 ' + (my + 19) + 'Q108 ' + (my + 18) + ' 104 ' + (my - 6) + 'Z', dk, I, 2.6); path('M108 ' + (my - 4) + 'Q128 ' + (my + 1) + ' 148 ' + (my - 4), null, W, 4.4); g.fillStyle = '#C9675A'; g.beginPath(); g.ellipse(128, my + 12, 10, 4, 0, 0, 7); g.fill(); }
+      if (mk === 'angry') { path('M108 ' + (my - 2) + 'Q128 ' + (my - 6) + ' 148 ' + (my - 2) + 'L146 ' + (my + 9) + 'Q128 ' + (my + 5) + ' 110 ' + (my + 9) + 'Z', W, I, 2.6); path('M110 ' + (my + 3.5) + 'Q128 ' + (my) + ' 146 ' + (my + 3.5) + 'M120 ' + (my - 4) + 'v12M128 ' + (my - 5) + 'v12M136 ' + (my - 4) + 'v12', null, 'rgba(43,29,20,.6)', 1.4); }
+      if (mk === 'sly' || mk === 'smirk') { path('M112 ' + (my + 2) + 'Q126 ' + (my + 4) + ' 138 ' + my + 'Q146 ' + (my - 3) + ' 150 ' + (my - 9), null, '#5A2A22', 3.2); path('M147 ' + (my - 11) + 'l5 5', null, I, 2); }
+      if (mk === 'sad') { path('M110 ' + (my + 5) + 'Q128 ' + (my - 5) + ' 146 ' + (my + 5), null, '#5A2A22', 3.2); }
+      if (mk === 'surprised') { g.fillStyle = dk; g.strokeStyle = I; g.lineWidth = 2.4; g.beginPath(); g.ellipse(128, my + 4, 8, 11, 0, 0, 7); g.fill(); g.stroke(); }
+      if (mk === 'thinking') { path('M118 ' + (my + 2) + 'Q128 ' + (my - 1) + ' 138 ' + (my + 1), null, '#5A2A22', 3); g.fillStyle = I; g.beginPath(); g.arc(141, my + 1, 2, 0, 7); g.fill(); }
+      g.restore();
+      return c;
+    }
+    function decalMat(L, mood, hi) {
+      const key = (L.key || '') + ':' + mood + (hi ? ':hi' : '');
+      let m = SH.decMat.get(key);
+      if (m) return m;
+      const tex = new T.CanvasTexture(paintFace(L, mood, hi)); tex.anisotropy = 4;
+      m = new T.ShaderMaterial({ uniforms:Object.assign({}, SH.U, { uMap:{ value:tex } }), vertexShader:V_DEC, fragmentShader:F_DEC, transparent:true, depthWrite:false });
+      SH.decMat.set(key, m);
+      return m;
+    }
+
+    /* ---------- build ---------- */
+    function rig(L) {
+      const D = dims(L), B = [], mk = (p, x, y, z) => { const b = new T.Bone(); b.position.set(x, y, z); if (p >= 0) B[p].add(b); B.push(b); return b; };
+      mk(-1, 0, 0, 0); mk(0, 0, HB.hip, 0); mk(1, 0, HB.chest - HB.hip, 0); mk(2, 0, HB.neck - HB.chest, 0);
+      mk(2, D.SX, HB.sh - HB.chest, 0); mk(4, 0.016, HB.elb - HB.sh, -0.006);
+      mk(2, -D.SX, HB.sh - HB.chest, 0); mk(6, -0.016, HB.elb - HB.sh, -0.006);
+      mk(1, D.HX, 0.49 - HB.hip, 0); mk(8, 0, HB.kn - 0.49, 0.006);
+      mk(1, -D.HX, 0.49 - HB.hip, 0); mk(10, 0, HB.kn - 0.49, 0.006);
+      return B;
+    }
+    let IDM = null;
+    function build(T0, key, o) {
+      T = T0 || T; o = o || {};
+      if (!T) return null;
+      shared();
+      if (typeof key === 'string' && /^\d+$/.test(key)) key = +key;
+      const L = lookOf(key, o);
+      if (!L) return null;
+      if (!L.key) L.key = String(key);
+      const lod = o.lod === 2 ? 2 : o.lod ? 1 : 0, gk = L.key + ':' + lod;
+      let geo = SH.geo.get(gk);
+      if (!geo) { geo = bodyKit(L, lod); SH.geo.set(gk, geo); }
+      const g = new T.Group(), bones = rig(L);
+      g.add(bones[0]); g.updateMatrixWorld(true);
+      let inv = SH.inv.get(L.key);
+      const skel = inv ? new T.Skeleton(bones, inv) : new T.Skeleton(bones);
+      if (!inv) SH.inv.set(L.key, skel.boneInverses);
+      let bodyMat = SH.body;
+      if (o.mat) { try { const m = o.mat('#FFFFFF'); if (m) { m.vertexColors = true; m.skinning = true; bodyMat = m; } } catch (e) {} }
+      const mesh = new T.SkinnedMesh(geo, bodyMat); mesh.bind(skel, IDM || (IDM = new T.Matrix4()));
+      mesh.onBeforeRender = SH.pre; g.add(mesh);
+      if (o.outline !== false) { const ink = new T.SkinnedMesh(geo, SH.ink); ink.bind(skel, mesh.bindMatrix); ink.onBeforeRender = SH.pre; g.add(ink); }
+      if (lod !== 1) {
+        let dg = SH.geo.get(L.key + ':dec' + lod);
+        if (!dg) { dg = decalGeo(L, lod === 2); SH.geo.set(L.key + ':dec' + lod, dg); }
+        const dm = new T.Mesh(dg, decalMat(L, o.mood || 'neutral', lod === 2)); dm.renderOrder = 1; bones[3].add(dm);
+      }
+      const s = (o.scale || 1) * (L.h || 1); g.scale.setScalar(s);
+      g.userData = { fig:true, key, bones, ph:((o.seed || 0) * 1.37) % 6.28, state:L.carry ? 'carry' : 'idle', look:L, hip0:HB.hip };
+      return g;
+    }
+
+    /* ---------- animation: rotate bones from the bind pose ---------- */
+    function animate(g, t, state) {
+      const u = g && g.userData; if (!u || !u.bones) return;
+      const B = u.bones, ph = u.ph || 0, st = state || u.state || 'idle', sn = Math.sin;
+      for (let i = 1; i < B.length; i++) B[i].rotation.set(0, 0, 0);
+      B[1].position.y = u.hip0;
+      const br = sn(t * 1.7 + ph);
+      B[2].rotation.x = br * 0.012;
+      if (st === 'walk' || (st === 'carry' && u.state === 'carry')) {
+        const s = sn(t * 6.5 + ph), c = Math.cos(t * 6.5 + ph);
+        B[8].rotation.x = s * 0.42; B[10].rotation.x = -s * 0.42;
+        B[9].rotation.x = Math.max(0, -c) * 0.55; B[11].rotation.x = Math.max(0, c) * 0.55;
+        B[1].position.y = u.hip0 + Math.abs(c) * 0.012 - 0.006; B[1].rotation.y = s * 0.06;
+        if (st === 'walk') { B[4].rotation.x = -s * 0.32; B[6].rotation.x = s * 0.32; B[5].rotation.x = -0.18; B[7].rotation.x = -0.18; B[4].rotation.z = 0.06; B[6].rotation.z = -0.06; }
+      }
+      if (st === 'carry') {
+        if (u.look && u.look.carry) { B[4].rotation.z = 2.55; B[5].rotation.z = 0.9; B[3].rotation.x = 0.02; }
+        else { B[4].rotation.x = B[6].rotation.x = -0.5; B[5].rotation.x = B[7].rotation.x = -0.9; }
+      } else if (st === 'idle') {
+        B[3].rotation.y = sn(t * 0.45 + ph) * 0.18; B[3].rotation.x = sn(t * 0.7 + ph) * 0.03;
+        B[4].rotation.z = 0.05 + br * 0.015; B[6].rotation.z = -0.05 - br * 0.015;
+      } else if (st === 'talk') {
+        B[3].rotation.x = sn(t * 5 + ph) * 0.05; B[3].rotation.y = sn(t * 1.3 + ph) * 0.15;
+        B[6].rotation.x = -0.55 + sn(t * 3 + ph) * 0.18; B[7].rotation.x = -0.7; B[6].rotation.z = -0.15;
+        B[4].rotation.z = 0.06;
+      } else if (st === 'wave') {
+        B[6].rotation.z = -2.5; B[7].rotation.z = -0.35 + sn(t * 9 + ph) * 0.4; B[3].rotation.z = 0.06;
+      } else if (st === 'sit') {
+        B[1].position.y = u.hip0 - 0.22;
+        B[8].rotation.x = B[10].rotation.x = -1.5; B[9].rotation.x = B[11].rotation.x = 1.5;
+        B[4].rotation.x = B[6].rotation.x = -0.35; B[5].rotation.x = B[7].rotation.x = -0.6;
+        B[3].rotation.y = sn(t * 0.5 + ph) * 0.2;
+      } else if (st === 'cheer') {
+        const j = Math.abs(sn(t * 5 + ph));
+        B[4].rotation.z = 2.5 + j * 0.2; B[6].rotation.z = -2.5 - j * 0.2; B[5].rotation.z = 0.3; B[7].rotation.z = -0.3;
+        B[1].position.y = u.hip0 + j * 0.03; B[3].rotation.x = -0.1;
+      }
+    }
+
+    /* ---------- portraits (head and shoulders) ---------- */
+    const PCACHE = new Map();
+    let PR = null;
+    function snapLocal(scene, cam, w, h) {
+      if (!PR) { const cv = document.createElement('canvas'); PR = new T.WebGLRenderer({ canvas:cv, alpha:true, antialias:true, preserveDrawingBuffer:true }); PR.setPixelRatio(1); }
+      PR.setSize(w, h, false); PR.setClearColor(0x000000, 0); PR.render(scene, cam);
+      return PR.domElement.toDataURL('image/png');
+    }
+    /* soft painted backdrop: warm wash, a low sun disc, loose brush clouds, paper grain, vignette */
+    const BGC = { h_ahmose:'#E6CFA2', h_neferet:'#F2C9B4', h_sitre:'#BFE0D4', h_bakenre:'#BFD9EC', paneb:'#F2D2B0', sethi:'#C9E2C2', hapu:'#E2C2C8', 0:'#C8DDF0', 1:'#EFD9AE', 2:'#CFE6D3', 3:'#F2CDBE', 4:'#D8D0EE', 5:'#BFD6E4', 6:'#F0D2B0', 7:'#BFE3E0' };
+    function paintBg(x, n, col, key) {
+      const c = new T.Color(col), hsl = {}; c.getHSL(hsl);
+      const tone = (l, a) => 'hsla(' + Math.round(hsl.h * 360) + ',' + Math.round(hsl.s * 100) + '%,' + Math.round(l * 100) + '%,' + a + ')';
+      const gr = x.createLinearGradient(0, 0, 0, n); gr.addColorStop(0, tone(Math.min(0.94, hsl.l + 0.1), 1)); gr.addColorStop(1, tone(Math.max(0.5, hsl.l - 0.12), 1));
+      x.fillStyle = gr; x.fillRect(0, 0, n, n);
+      const sun = x.createRadialGradient(n * 0.3, n * 0.3, 0, n * 0.3, n * 0.3, n * 0.55); sun.addColorStop(0, 'rgba(255,246,220,.95)'); sun.addColorStop(0.25, 'rgba(255,240,205,.55)'); sun.addColorStop(1, 'rgba(255,240,205,0)');
+      x.fillStyle = sun; x.fillRect(0, 0, n, n);
+      const r = rng(String(key).split('').reduce((a, ch) => a + ch.charCodeAt(0), 7));
+      for (let j = 0; j < 7; j++) { x.save(); x.translate(r() * n, n * (0.15 + r() * 0.7)); x.rotate(-0.15 + r() * 0.3); x.fillStyle = j % 2 ? 'rgba(255,250,236,.22)' : tone(Math.max(0.45, hsl.l - 0.08), 0.18); x.beginPath(); x.ellipse(0, 0, n * (0.18 + r() * 0.2), n * (0.03 + r() * 0.03), 0, 0, 7); x.fill(); x.restore(); }
+      x.fillStyle = 'rgba(80,50,30,.05)'; for (let j = 0; j < n * 2; j++) x.fillRect(r() * n, r() * n, 1, 1);
+      const v = x.createRadialGradient(n / 2, n * 0.45, n * 0.3, n / 2, n / 2, n * 0.75); v.addColorStop(0, 'rgba(43,29,20,0)'); v.addColorStop(1, 'rgba(43,29,20,.22)'); x.fillStyle = v; x.fillRect(0, 0, n, n);
+    }
+    function portrait(key, o) {
+      o = o || {};
+      if (!T) { try { T = (typeof V3 !== 'undefined' && V3 && V3._x && V3._x.T && V3._x.T()) || o.T || window.THREE || null; } catch (e) {} }
+      if (!T) return Promise.reject(new Error('no three'));
+      const mood = o.mood || 'neutral', size = o.size || 160, bg = o.bg == null ? 'look' : o.bg, ck = key + ':' + mood + ':' + size + ':' + bg;
+      if (PCACHE.has(ck)) return PCACHE.get(ck);
+      const p = new Promise((res, rej) => {
+        try {
+          const g = build(T, key, { mood, seed:o.seed, lod:2 }); if (!g) return rej(new Error('unknown ' + key));
+          g.scale.setScalar(1);
+          const L = g.userData.look, B = g.userData.bones;
+          /* a little acting per mood */
+          animate(g, 0, 'idle'); B[3].rotation.y = 0.12; B[3].rotation.x = 0;
+          if (mood === 'happy') { B[3].rotation.z = -0.07; B[3].rotation.x = -0.04; }
+          if (mood === 'angry') { B[3].rotation.x = 0.1; B[2].rotation.x = 0.04; }
+          if (mood === 'sly') { B[3].rotation.z = 0.06; B[3].rotation.y = 0.2; }
+          if (mood === 'sad') { B[3].rotation.x = 0.14; }
+          if (mood === 'surprised') { B[3].rotation.x = -0.08; B[2].rotation.x = -0.03; }
+          if (mood === 'thinking') { B[3].rotation.z = 0.09; B[3].rotation.x = -0.05; }
+          const sc = new T.Scene(); sc.add(g); g.updateMatrixWorld(true);
+          const cam = new T.PerspectiveCamera(16, 1, 0.05, 10), top = L.wig === 'puff' ? 1.05 : 1.025, bot = 0.735;
+          const cy = (bot + top) / 2, d = ((top - bot) / 2) / Math.tan(8 * Math.PI / 180);
+          cam.position.set(Math.sin(0.3) * d, cy + 0.04, Math.cos(0.3) * d); cam.lookAt(0, cy, 0);
+          const ss = size <= 200 ? 3 : 2, W = size * ss;
+          OVR = 1 / 135;
+          const snap = (typeof V3 !== 'undefined' && V3 && typeof V3.snap === 'function') ? V3.snap : snapLocal;
+          let url = null;
+          /* portrait light: from the camera side so the whole face reads; restored right after */
+          /* three-point cel light: warm key from the upper camera side, a lifted fill in the shade, a rim from behind */
+          const U = SH.U, sun0 = U.uSun.value.clone(), shd0 = U.uShd.value.clone(), lit0 = U.uLit.value.clone(), ta0 = U.uTintA.value;
+          U.uSun.value.set(-0.25, 0.75, 1).normalize(); U.uShd.value.set('#B48C82'); U.uLit.value.set('#FFF8EC'); U.uTintA.value = 0; U.uSoft.value = 0.035; U.uRim.value = 0.75;
+          const restore = () => { OVR = 0; U.uSun.value.copy(sun0); U.uShd.value.copy(shd0); U.uLit.value.copy(lit0); U.uTintA.value = ta0; U.uSoft.value = 0; U.uRim.value = 0; };
+          try { url = snap(sc, cam, W, W); if (!url && snap !== snapLocal) url = snapLocal(sc, cam, W, W); } catch (e) { if (snap === snapLocal) { restore(); throw e; } url = snapLocal(sc, cam, W, W); }
+          if (!(url && url.then)) restore();
+          Promise.resolve(url).then(u => { restore(); sc.remove(g); paint(u); }, e => { restore(); rej(e); });
+          function paint(url) {
+          /* composite: round tinted backdrop + the supersampled render, downscaled */
+          const img = new Image();
+          img.onload = () => {
+            const c = document.createElement('canvas'); c.width = c.height = size; const x = c.getContext('2d');
+            if (bg !== 'none') paintBg(x, size, bg === 'look' ? (BGC[key] || '#F3E2B8') : bg, key);
+            x.imageSmoothingQuality = 'high'; x.drawImage(img, 0, 0, size, size);
+            res(c.toDataURL('image/png'));
+          };
+          img.onerror = () => rej(new Error('snap failed'));
+          img.src = url;
+          }
+        } catch (e) { OVR = 0; rej(e); }
+      });
+      PCACHE.set(ck, p); p.catch(() => PCACHE.delete(ck));
+      return p;
+    }
+    return { keys:KEYS, build, animate, portrait, link, get U() { return SH && SH.U; }, tris(key, o) { const g = build(T, key, o); return g ? g.children.find(m => m.isSkinnedMesh).geometry.index.count / 3 : 0; } };
+  })();

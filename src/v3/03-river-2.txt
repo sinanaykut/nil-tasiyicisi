@@ -1,0 +1,439 @@
+    function makePick(key) {
+      const g = new T.Group(); scene.add(g); const v = { g }, k0 = key.split(':')[1];
+      v.glow = fxMesh(GEO.glow || (GEO.glow = fxGeo(k => { k.alpha = 0.32; k.add('disc', '#FFECAA', 0, 0, 0, 1); k.alpha = 0.18; k.add('disc', '#FFECAA', 0, 0.01, 0, 1.3); })), true, g);
+      v.ring = fxMesh(GEO.pickR || (GEO.pickR = ringGeo(0.88, 1, 0, Math.PI * 2, K.foam, 0.8)), false, g);
+      v.b = new T.Group(); g.add(v.b);
+      const D = (k) => { const s = new T.Shape(); s.moveTo(-4, -6); s.lineTo(0, -6); s.quadraticCurveTo(5.5, -6, 5.5, 0); s.quadraticCurveTo(5.5, 6, 0, 6); s.lineTo(-4, 6); s.lineTo(-4, -6);
+        const hl = new T.Path(); hl.moveTo(-1.6, -3.6); hl.lineTo(0, -3.6); hl.quadraticCurveTo(3, -3.6, 3, 0); hl.quadraticCurveTo(3, 3.6, 0, 3.6); hl.lineTo(-1.6, 3.6); hl.lineTo(-1.6, -3.6); s.holes.push(hl);
+        const sg = new T.ShapeGeometry(s, 4); [1, -1].forEach(sd => k.geo(sg, K.ink, mtx(0, 0, sd * 1.7, 1, 1, 1, 0, sd < 0 ? Math.PI : 0))); sg.dispose(); };
+      const B = {
+        crate:k => { k.add('box', K.wood, 0, 0, 0, 22, 18, 20); k.add('box', K.ink, 0, 9.1, 0, 22.2, 0.4, 1.4); k.add('box', K.ink, 0, 9.1, 0, 1.4, 0.4, 20.2); k.add('box', K.ink, 0, 0, 10.1, 22.2, 1.4, 0.4); k.add('box', '#B48A55', 0, -3, 10.2, 18, 1, 0.3); },
+        coin:k => { k.add('c12', K.gold, 0, 0, 0, 11, 3, 11, Math.PI / 2); k.geo(G.tor, '#B8862A', mtx(0, 0, 0, 9, 9, 3)); D(k); },
+        lotus:k => { k.add('c12', '#5FA05A', 0, -6, 0, 10, 1, 10); [-1, 0, 1].forEach(j => k.add('sph5', j ? '#F2A7B8' : '#E86A7E', j * 5, 0, 0, 4, 10, 4, 0, 0, -j * 0.45)); },
+        ankh:k => { k.geo(G.tor, K.gold, mtx(0, 7, 0, 5, 6.5, 6)); k.add('box', K.gold, 0, -4, 0, 3.2, 14, 3); k.add('box', K.gold, 0, 1.5, 0, 16, 3.2, 3); },
+        water:k => { k.add('sph', '#8E5A33', 0, -2, 0, 9, 7, 11); k.add('c8', '#8E5A33', 0, 5, -8, 2.4, 6, 2.4, -0.6); k.add('c8', K.red, 0, 7, -9.5, 2.8, 1.2, 2.8, -0.6); k.add('sph5', '#4FA3D9', 0, 14, 0, 4.2, 4.2, 4.2); k.add('cone6', '#4FA3D9', 0, 19, 0, 3, 6, 3); },
+        date:k => { k.stick([0, -6, 0], [0, 10, 0], 0.8, '#C9A262'); for (let j = 0; j < 8; j++) k.add('sph5', j % 2 ? '#7A2E1E' : '#9C4A2A', Math.cos(j * 2.4) * 5, -2 + (j % 3) * 4, Math.sin(j * 2.4) * 5, 2.6, 3.6, 2.6); k.add('cone4', K.papyrus, 0, 12, 0, 3, 9, 1, 0.4, 0, 0.6); }
+      };
+      const kk = B[k0 === 'cache' ? 'crate' : k0] ? (k0 === 'cache' ? 'crate' : k0) : 'coin';
+      v.m = model(geoOf('pick' + kk, B[kk]), false, v.b);
+      v.spin = k0 === 'coin' || k0 === 'ankh' || k0 === 'water' || k0 === 'date';
+      return v;
+    }
+    let dtNow = 0.016;
+    const KEYS = {};
+    function obsKey(o) { const k = o.k || 'x'; return KEYS['o' + k] || (KEYS['o' + k] = 'o:' + k); }
+    function pickKey(p) { const k = p.k || 'coin'; return KEYS['p' + k] || (KEYS['p' + k] = 'p:' + k); }
+
+    /* boats: one material set per boat so the oars row at their own pace */
+    function boatSpec(st) {
+      const p = st.plan || {}, s = typeof S !== 'undefined' && S ? S : null, up = (s && s.up) || {};
+      return { boat:p.boat || (s && s.boat) || 'nehir', up:{ govde:up.govde | 0, yelken:p.speed != null ? p.speed : up.yelken | 0, kurek:p.rowers != null ? p.rowers : up.kurek | 0, ambar:up.ambar | 0 }, dev:p.dev || (s && s.dev) || {}, cargo:Math.ceil((p.val || 0) / 1500), torn:!!p.torn, dmg:Math.max(0, Math.min(3, p.dmg | 0)), emblem:true, col:{ tip:p.contra ? '#5B3B6E' : undefined } };
+    }
+    function boatModel(id, mk) {
+      let b = boats[id]; if (b) return b;
+      b = boats[id] = mkBoat(mk());
+      return b;
+    }
+    function mkBoat(spec) {
+      const g = new T.Group(); scene.add(g);
+      const geo = keep(boatGeo(spec)), m = model(geo, true, g);
+      const sh = fxMesh(GEO.bshadow || (GEO.bshadow = fxGeo(k => { k.alpha = 0.2; k.add('disc', '#000000', 0, 0, 0, 1); })), false, g); sh.scale.set((BT[spec.boat] || BT.nehir).beam * 0.75, 1, 32); sh.position.set(4, 0.3, 4);
+      return { g, m, mat:m.userData.m.t };
+    }
+    function trailX(tr, wy, bx) {
+      for (let q = tr.length - 1; q > 0; q--) if (tr[q - 1].y <= wy) { const a = tr[q - 1], b = tr[q], f = b.y > a.y ? Math.min(1, (wy - a.y) / (b.y - a.y)) : 0; return a.x + (b.x - a.x) * f; }
+      return tr.length ? tr[0].x : bx;
+    }
+    function caravan(st) {
+      let b = boats.car;
+      const n = Math.max(1, Math.min(5, (st.plan && (st.plan.donkeys || st.donkeys)) || 3));
+      if (b && b.n === n) return b;
+      if (b) b.list.forEach(g => scene.remove(g));
+      const mat = { t:keep(MT.toon({ swing:true, u:{ uRow:{ value:0 } } })) }, mat2 = { t:keep(MT.toon({ swing:true, u:{ uRow:{ value:0 } } })) };
+      b = boats.car = { n, list:[], mats:[mat, mat2] };
+      for (let j = 0; j < n; j++) {
+        const g = new T.Group(); scene.add(g);
+        model(geoOf('donk' + (j ? 1 + (j % 2) : 0), k => { donkey(k, { legs:true, pack:j ? 1 + (j % 2) : 2, saddle:j ? '#1F5FA8' : K.red, s:1.25 }); }, true), true, g, j % 2 ? mat2 : mat);
+        b.list.push(g);
+      }
+      const dg = new T.Group(); scene.add(dg);
+      model(geoOf('driver', k => { person(k, 0, 0, '#FBF3DF', { stick:true, s:1.3 }); k.add('box', K.red, 0, 11.5, 0, 5.4, 1.2, 4.2); }), false, dg);
+      b.drv = dg; b.list.push(dg);
+      const sh = fxMesh(GEO.bshadow || (GEO.bshadow = fxGeo(k => { k.alpha = 0.2; k.add('disc', '#000000', 0, 0, 0, 1); })), false); b.sh = [];
+      for (let j = 0; j < n; j++) { const s2 = sh.clone(); s2.scale.set(9, 1, 16); scene.add(s2); b.sh.push(s2); b.list.push(s2); }
+      return b;
+    }
+    function raiders(id, colr) {
+      let b = boats[id]; if (b) return b;
+      const mat = { t:keep(MT.toon({ swing:true, u:{ uRow:{ value:0 } } })) }, g = new T.Group(); scene.add(g);
+      [[-12, 0], [12, -14]].forEach(([x, z], j) => {
+        const gg = new T.Group(); gg.position.set(x, 0, z); g.add(gg);
+        model(geoOf('raider' + id + j, k => { donkey(k, { legs:true, body:j ? '#6E5E50' : '#7E6A58', rider:colr.sail }); k.add('sph5', colr.hull, 0, 33, 1, 3.8, 2.6, 3.8); k.stick([3, 22, 4], [6, 40, -14], 0.6, K.wood2); k.add('cone4', '#C9C2B0', 6.2, 41, -15.5, 1.2, 4, 1.2, -0.75); }, true), true, gg, mat);
+      });
+      b = boats[id] = { g, mat:mat.t };
+      return b;
+    }
+    function label(text) {
+      let t = labels.get(text);
+      if (!t) {
+        const c = document.createElement('canvas'), x = c.getContext('2d'), f = '800 30px Nunito, sans-serif'; x.font = f;
+        const w = Math.ceil(x.measureText(text).width) + 36; c.width = w; c.height = 50;
+        x.font = f; x.fillStyle = '#FFF8EC'; x.strokeStyle = K.ink; x.lineWidth = 4; x.beginPath(); if (x.roundRect) x.roundRect(2, 2, w - 4, 46, 10); else x.rect(2, 2, w - 4, 46); x.fill(); x.stroke();
+        x.fillStyle = K.ink; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(text, w / 2, 27);
+        t = new T.CanvasTexture(c); t.userData = { w, h:50 }; labels.set(text, t);
+      }
+      const sp = new T.Sprite(keep(new T.SpriteMaterial({ map:t, depthTest:false, transparent:true }))); sp.renderOrder = 30; sp.userData.ar = t.userData.w / t.userData.h;
+      return sp;
+    }
+
+    /* the final quay with the city landmark (or the oasis gate in the desert) */
+    function buildQuay(st, api) {
+      const Y = st.len + 70, c = api.centerX(Y), hw = api.halfW(), z = -Y, k = new Kit(), dest = (typeof CITIES !== 'undefined' && CITIES[st.plan.dest]) || null, id = dest ? dest.id : '';
+      tpl();
+      if (st.desert) {
+        k.add('box', '#C9A26A', c - hw - 60, 16, z - 18, 120, 32, 16); k.add('box', '#C9A26A', c + hw + 60, 16, z - 18, 120, 32, 16);
+        [-1, 1].forEach(sd => { k.add('box', '#D8B47A', c + sd * (hw + 10), 24, z - 18, 26, 48, 26); k.add('box', '#B48A55', c + sd * (hw + 10), 49, z - 18, 30, 3, 30); palm(k, c + sd * (hw + 70), z - 50, 1.1); palm(k, c + sd * (hw + 110), z - 30, 0.9); person(k, c + sd * 50, z - 6, sd < 0 ? '#FBF3DF' : '#E6CB95', { wave:true }); });
+        [-1, 1].forEach(sd => { k.stick([c + sd * (hw + 10), 50, z - 18], [c + sd * (hw + 10), 70, z - 18], 1, K.wood2); k.add('box', sd < 0 ? K.red : K.lapis, c + sd * (hw + 10) - sd * 6, 65, z - 18, 12, 7, 0.8); });
+      } else {
+        k.add('box', K.stone, c, 4, z - 15, hw * 2 + 60, 8, 30);
+        for (let x = c - hw - 30 + 34; x < c + hw + 30; x += 34) k.add('box', K.stone2, x, 8.1, z - 15, 1.4, 0.3, 30);
+        k.add('box', K.stone2, c, 8.1, z - 15, hw * 2 + 60, 0.3, 1.4);
+        k.add('box', K.wood, c, 2.5, z + 11, 80, 3, 26);
+        for (let x = c - 30; x < c + 40; x += 12) k.add('box', K.wood2, x, 4.1, z + 11, 1.2, 0.3, 26);
+        [-1, 1].forEach(sd => { k.add('c6', K.wood2, c + sd * 38, 4, z + 22, 2, 8, 2); house(k, c + sd * (hw - 10), z - 46, 30, 22, '#E6CB95'); person(k, c + sd * 60, z - 34, sd < 0 ? '#FBF3DF' : '#E6CB95', { y:8, wave:true }); });
+        const lz = z - 50;
+        if (id === 'mennefer') [[-70, 60], [10, 42], [70, 30]].forEach(([dx, s]) => k.add('cone4', K.stone, c + dx, s * 0.55, lz - s * 0.6, s * 1.15, s * 1.1, s * 1.15, 0, Math.PI / 4));
+        else if (id === 'vaset') { obelisk(k, c - 60, lz); obelisk(k, c + 60, lz); pylon(k, c, lz - 10); }
+        else if (id === 'abidos') pylon(k, c, lz - 10);
+        else if (id === 'perbastet') { k.add('sph', '#3A3346', c, 16, lz - 6, 13, 18, 11); k.add('sph5', '#3A3346', c, 38, lz - 2, 8.5); [-1, 1].forEach(sd => { k.add('cone4', '#3A3346', c + sd * 5, 47, lz - 2, 3, 7, 2); k.add('sph5', K.gold, c + sd * 3.4, 39, lz + 6, 1.6); }); k.add('box', K.stone2, c, 2, lz - 6, 30, 4, 26); obelisk(k, c + 70, lz); }
+        else if (id === 'abu') { [[-50, 30], [40, 24], [0, 18]].forEach(([dx, r]) => k.add('dod', '#A9725F', c + dx, r * 0.3, lz - r * 0.5, r * 1.3, r * 0.75, r)); obelisk(k, c + 80, lz); }
+        else pylon(k, c, lz - 10);
+      }
+      if (_x.W && _x.W.quayDeco) try { _x.W.quayDeco(k, st, c, z, hw, id); } catch (e) {}
+      const geo = keep(k.bake()), g = new T.Group(); g.add(new T.Mesh(geo, MT.T)); g.add(new T.Mesh(geo, MT.I)); scene.add(g);
+      if (dest) { const sp = label(dest.name + (st.desert ? '' : ' iskelesi')); sp.position.set(c, 84, z - 40); sp.scale.set(24 * sp.userData.ar, 24, 1); g.add(sp); }
+      return g;
+    }
+
+    /* the race finish: posts with pennants, a banner across the river and a striped line on the water */
+    function buildFinish(st, api) {
+      const Y = st.finishY != null ? st.finishY : st.finish != null ? st.finish : st.len, c = api.centerX(Y), hw = api.halfW(), z = -Y, k = new Kit(), f = new Kit();
+      tpl();
+      const cells = Math.max(6, Math.round(hw * 2 / 22));
+      for (let i = 0; i < cells; i++) for (let j = 0; j < 2; j++) { f.alpha = 0.85; f.add('box', (i + j) % 2 ? '#FFF8EC' : K.red, c - hw + (i + 0.5) * (hw * 2 / cells), 0.4, z + (j - 0.5) * 9, hw * 2 / cells, 0.3, 9); }
+      [-1, 1].forEach(sd => {
+        const x = c + sd * (hw + 12);
+        k.add('c8', K.stone2, x, 3, z, 9, 6, 9); k.stick([x, 0, z], [x, 92, z], 2.2, K.wood2, 'c6'); k.add('cone6', K.gold, x, 96, z, 3.6, 8, 3.6);
+        k.add('box', sd < 0 ? K.red : K.lapis, x - sd * 8, 84, z, 14, 9, 0.8);
+      });
+      const n = 9;
+      for (let i = 0; i < n; i++) {
+        const x0 = c - hw - 12 + (hw * 2 + 24) * i / n, x1 = c - hw - 12 + (hw * 2 + 24) * (i + 1) / n, sag = t => 76 - Math.sin(Math.PI * t) * 9, y0 = sag(i / n), y1 = sag((i + 1) / n);
+        k.stick([x0, y0, z], [x1, y1, z], 0.5, '#5A4632');
+        if (i > 0 && i < n - 1) k.quad([x0 + 2, y0 - 0.6, z], [x1 - 2, y1 - 0.6, z], [x1 - 2, y1 - 9, z], [x0 + 2, y0 - 9, z], [K.gold, K.red, K.lapis, '#FBF3DF'][i % 4]).quad([x1 - 2, y1 - 0.6, z + 0.4], [x0 + 2, y0 - 0.6, z + 0.4], [x0 + 2, y0 - 9, z + 0.4], [x1 - 2, y1 - 9, z + 0.4], [K.gold, K.red, K.lapis, '#FBF3DF'][i % 4]);
+      }
+      const geo = keep(k.bake()), g = new T.Group(); g.add(new T.Mesh(geo, MT.T)); g.add(new T.Mesh(geo, MT.I));
+      const fm = new T.Mesh(keep(f.bake({ fx:true })), MT.F); fm.renderOrder = 1; g.add(fm);
+      const sp = label('Bitiş'); sp.position.set(c, 112, z); sp.scale.set(22 * sp.userData.ar, 22, 1); g.add(sp);
+      scene.add(g);
+      return g;
+    }
+
+    /* ---------- per-frame update ---------- */
+    let curSt = null, curApi = null, patN = 1;
+    const EMPTY = [], RC0 = { sail:'#C9A06A', hull:'#3A2E3F' }, CHK = {}, ptKey = () => 'pt';
+    const chKey = t => CHK[t] || (CHK[t] = ['ch' + t, 'rd' + t]);
+    function updObs(v, o) { v.g.position.set(curApi.sx(o.u, o.y), 0, -o.y); if (v.upd) v.upd(o, curSt); }
+    function updPick(v, p) {
+      const st = curSt; v.g.position.set(curApi.sx(p.u, p.y), 0, -p.y);
+      const bob = Math.sin(st.t * 4 + p.y) * 2; v.b.position.y = (p.k === 'lotus' ? 7 : 12) + bob; if (v.spin) v.b.rotation.y = Math.sin(clock * 2.2 + p.y) * 0.7;
+      const gl = 0.25 + 0.15 * Math.sin(st.t * 6 + p.y); v.glow.scale.set(18 + gl * 10, 1, 18 + gl * 10); v.glow.position.y = 0.6; v.ring.scale.set(16, 1, 16); v.ring.position.y = 0.5;
+    }
+    function updPatrol(v, pt) {
+      const L = U.uL.value, Gl = U.uG.value;
+      v.g.position.set(curApi.sx(pt.u, pt.y), 0, -pt.y); v.b.mat.uniforms.uRow.value = curSt.t * 6;
+      v.cone.position.set(0, 0.5, 40); v.cone.scale.set(pt.r, 26, pt.r);
+      if (patN < 6) { L[patN].set(v.g.position.x, -pt.y + 40, pt.r * 1.25, 0.95); Gl[patN].set(v.g.position.x, -pt.y + 40, pt.r, 0.35); patN++; }
+    }
+    const cache = new Map();
+    const rgb = h => { let v = cache.get(h); if (!v) { const c = new T.Color(); try { c.set(String(h).replace(/rgba?\(([^)]*)\)/, (m, a) => { const p = a.split(','); return 'rgb(' + p.slice(0, 3).join(',') + ')'; })); } catch (e) { c.set('#ffffff'); } v = [c.r, c.g, c.b]; cache.set(h, v); } return v; };
+    const TOD = [[0, '#FFE6D8', '#A88FA8', '#F4D6C2'], [0.5, '#FFFFFF', '#9C93AC', '#F3E2B8'], [1, '#FFE0C0', '#A08890', '#F2C994']];
+    const _c1 = { r:0, g:0, b:0 }, LK = ['uSunCol', 'uShade', 'uFogCol'];
+    function lerpCol(out, a, b, t) { const A = col3(a), B = col3(b); out.r = A.r + (B.r - A.r) * t; out.g = A.g + (B.g - A.g) * t; out.b = A.b + (B.b - A.b) * t; return out; }
+    function light(st, api) {
+      const t = st.tod || 0, i = t < 0.5 ? 0 : 1, f = (t - TOD[i][0]) / 0.5, night = st.kind === 'night', storm = st.kind === 'sandstorm';
+      U.uSun.value.set(-Math.cos(Math.PI * t) * 0.75, 0.55 + Math.sin(Math.PI * t) * 0.6, 0.55).normalize();
+      for (let j = 0; j < 3; j++) { lerpCol(_c1, TOD[i][1 + j], TOD[i + 1][1 + j], f); U[LK[j]].value.setRGB(_c1.r, _c1.g, _c1.b); }
+      const w = t < 0.5 ? 1 - t * 2 : (t - 0.5) * 2;
+      U.uTintA.value = !night && w > 0.3 ? (w - 0.3) * 0.22 : 0; U.uTint.value.copy(col3(t < 0.5 ? '#FFAA8C' : '#FF6E32'));
+      U.uVigA.value = night ? 0 : 0.28; U.uNight.value = night ? (st.desert ? 2 : 1) : 0;
+      const H = api.H;
+      U.uFogA.value = H * 0.8; U.uFogB.value = H * 1.12;
+      if (night) { U.uFogCol.value.copy(col3('#0B1430')); U.uSunCol.value.copy(col3('#C8D0F0')); U.uShade.value.copy(col3('#6A6F98')); U.uFogA.value = H * 0.7; }
+      if (st.desert) { if (night) { U.uFogCol.value.copy(col3('#22306A')); U.uShade.value.copy(col3('#8A86C0')); U.uSunCol.value.copy(col3('#E4E8FF')); } else U.uFogCol.value.lerp(col3('#EBCB8C'), 0.5); }
+      U.uStorm.value = storm ? 1 : 0;
+      if (storm) { U.uFogCol.value.copy(col3('#C99A5E')); U.uTint.value.copy(col3('#C98A4A')); U.uTintA.value = 0.18; U.uFogA.value = H * 0.45; U.uFogB.value = H * 0.75; }
+    }
+    function update(st, api) {
+      frame++;
+      const now = performance.now(); dtNow = Math.min(0.05, Math.max(0.001, (now - (lastNow || now)) / 1000)) || 0.016; lastNow = now; clock += dtNow;
+      U.uTime.value = clock; ground.userData.u.uT.value = clock; U.uDist.value = st.dist;
+      light(st, api);
+      const W = api.W, H = api.H, hw = api.halfW(), bx = api.sx(st.u, st.dist), bz = -st.dist;
+      U.uSt.value.set(bx, st.dist + 40, H * 0.16, H * 0.62);
+      /* camera: fixed lateral position so the boat stays where the 2D boat (and the pointer steering) expects it */
+      let shx = 0, shz = 0; if (st.shake > 0) { shx = (Math.random() * 12 - 6) * st.shake * 2; shz = (Math.random() * 12 - 6) * st.shake * 2; }
+      cam.position.set(W / 2 + shx, camGeo.h, bz + camGeo.back + shz);
+      /* ground strip */
+      const gg = ground.geometry, gp = gg.attributes.position, gx = gg.attributes.aCX, nr = ground.userData.nr, yb = st.dist - vis.behind - 40, yt = st.dist + vis.ahead + 80, xl = W / 2 - vis.side - 200, xr = W / 2 + vis.side + 200;
+      for (let i = 0; i < nr; i++) { const y = yb + (yt - yb) * i / (nr - 1), c = api.centerX(y); gp.setXYZ(i * 2, xl, 0, -y); gp.setXYZ(i * 2 + 1, xr, 0, -y); gx.setX(i * 2, c); gx.setX(i * 2 + 1, c); }
+      gp.needsUpdate = true; gx.needsUpdate = true;
+      const gu = ground.userData.u; gu.uHW.value = hw; gu.uDes.value = st.desert ? 1 : 0;
+      for (let i = 0; i < 3; i++) { const sm = st.streams[i], v = gu.uStr.value[i]; if (sm && !st.desert) v.set(sm.u, sm.y, sm.len); else v.set(0, 0, 0); }
+      if (!!st.desert !== chunks.des) { chunks.forEach(ch => { scene.remove(ch.g); ch.g.children.forEach(m => m.geometry.dispose()); }); chunks.clear(); chunks.des = !!st.desert; }
+      updChunks(st, api);
+      if (st.plan.final && !quay) quay = buildQuay(st, api);
+      if (st.kind === 'race' && !finL) finL = buildFinish(st, api);
+      /* obstacles */
+      /* (no closures per frame: the updaters read curSt / curApi) */
+      curSt = st; curApi = api;
+      sync(st.obs, obsKey, makeObs, updObs);
+      sync(st.picks, pickKey, makePick, updPick);
+      sweep('o:'); sweep('p:');
+      /* our boat or the caravan */
+      const blink = st.inv > 0 && Math.floor(st.inv * 10) % 2;
+      if (st.desert) {
+        if (boats.me) boats.me.g.visible = false;
+        const cv2 = caravan(st), tr = st.trail;
+        for (let j = 0; j < cv2.mats.length; j++) cv2.mats[j].t.uniforms.uRow.value = st.row * 1.4 + j * 0.9;
+        for (let j = 0; j < cv2.n; j++) {
+          const g = cv2.list[j], wy = st.dist + 6 - j * 38, x = j ? trailX(tr, wy, bx) : bx, xa = j ? trailX(tr, wy + 14, bx) : bx;
+          g.position.set(x, 0, -wy); g.rotation.y = j ? -Math.atan2(xa - x, 14) : -st.vu * 0.25; g.visible = !blink;
+          cv2.sh[j].position.set(x + 3, 0.3, -wy + 3); cv2.sh[j].scale.set(10, 1, 20); cv2.sh[j].visible = !blink;
+        }
+        cv2.drv.position.set(bx - 16, 0, bz - 4); cv2.drv.rotation.y = 0.2; cv2.drv.visible = !blink;
+      } else {
+        if (boats.car) for (let j = 0; j < boats.car.list.length; j++) boats.car.list[j].visible = false;
+        let me = boats.me; if (!me) { const sp = boatSpec(st); me = boats.me = mkBoat(sp); me.fen = !!(sp.dev || {}).fener; me.dmg = sp.dmg; }
+        const lst = me.dmg >= 3 ? 0.1 : me.dmg >= 2 ? 0.035 : 0;
+        me.g.visible = !blink; me.g.position.set(bx, Math.sin(clock * 2.2) * 0.6 - lst * 12, bz); me.g.rotation.set(Math.sin(clock * 1.7) * 0.02, -st.vu * 0.12, st.vu * 0.06 + lst);
+        me.mat.uniforms.uRow.value = st.row;
+      }
+      /* Sethi */
+      const rv = st.rival;
+      if (rv && !st.desert) { const b = boats.rival || boatModel('rival', () => ({ boat:'nehir', up:{ yelken:1, kurek:0 }, col:{ hull:'#2F5D46', sail:'#BFE3C2', sailBand:'#2F7346', tip:K.gold }, flagCol:K.gold })); b.g.visible = true; b.g.position.set(api.sx(rv.u, rv.y), 0, -rv.y); b.mat.uniforms.uRow.value = st.t * 7; if (!b.lab) { b.lab = label('Sethi'); b.lab.position.set(0, 52, 0); b.lab.scale.set(18 * b.lab.userData.ar, 18, 1); b.g.add(b.lab); } }
+      else if (boats.rival) boats.rival.g.visible = false;
+      /* the chaser */
+      const ch = st.chaser, chOn = ch && ch.on && !ch.gone;
+      if (chOn) {
+        const rc = (api.RIVAL && api.RIVAL[ch.type]) || RC0, x = api.sx(ch.u, ch.y), kk = chKey(ch.type);
+        if (st.desert || ch.type === 'bedevi') { const b = boats[kk[1]] || raiders(kk[1], rc); b.g.visible = true; b.g.position.set(x, 0, -ch.y); b.mat.uniforms.uRow.value = st.t * 14; }
+        else { const b = boats[kk[0]] || boatModel(kk[0], () => ({ boat:'nehir', up:{ kurek:1 }, col:{ hull:rc.hull, sail:rc.sail, sailBand:K.ink, band:K.red, tip:K.red }, flagCol:K.ink })); b.g.visible = true; b.g.position.set(x, 0, -ch.y); b.mat.uniforms.uRow.value = st.t * 11; }
+      }
+      const ck = chOn ? chKey(ch.type) : null;
+      for (const id in boats) if ((id.charCodeAt(0) === 99 && id.charCodeAt(1) === 104 || id.charCodeAt(0) === 114 && id.charCodeAt(1) === 100) && (!ck || (id !== ck[0] && id !== ck[1]))) boats[id].g.visible = false;
+      /* night patrols, their lights and our lantern */
+      const L = U.uL.value, Gl = U.uG.value; for (let i = 0; i < 6; i++) { L[i].set(0, 0, 0, 0); Gl[i].set(0, 0, 0, 0); }
+      if (st.kind === 'night') {
+        const fen = !!(boats.me && boats.me.fen);
+        L[0].set(bx, bz - 10, 120, 0.85); Gl[0].set(bx, bz - 30, fen ? 70 : 50, 0.3);
+        patN = 1;
+        sync(st.patrols || EMPTY, ptKey, () => {
+          const g = new T.Group(); scene.add(g); const v = { g };
+          v.b = mkBoat({ boat:'nehir', up:{ kurek:1 }, col:{ hull:'#1F3550', sail:'#E9D9B4', sailBand:K.ink, band:K.red }, dev:{ fener:true }, flagCol:K.lapis });
+          scene.remove(v.b.g); g.add(v.b.g);
+          v.cone = fxMesh(GEO.cone || (GEO.cone = fxGeo(k => { const N = 18; for (let i = 0; i < N; i++) { const a0 = i / N * Math.PI * 2, a1 = (i + 1) / N * Math.PI * 2; k.alpha = 0.2; k.vtx(0, 1, 0, 0, 1, 0, col3('#FFB040')); k.alpha = 0; k.vtx(Math.cos(a0), 0, Math.sin(a0), 0, 1, 0, col3('#FFB040')); k.vtx(Math.cos(a1), 0, Math.sin(a1), 0, 1, 0, col3('#FFB040')); } })), true, g);
+          return v;
+        }, updPatrol);
+        sweep('pt');
+      }
+      if (quay) quay.visible = true;
+      fxUpdate(st, api, bx);
+      ptUpdate(st, api, bx);
+      if (sky && sky.visible && sky.userData.pts) {
+        const a = sky.userData.pts.geometry.attributes.aA;
+        if (st.kind === 'night') { for (let i = 0; i < sky.userData.n; i++) a.setX(i, 0.5 + 0.3 * Math.sin(clock * 2 + i)); a.needsUpdate = true; }
+        else {
+          const p = sky.userData.pts.geometry.attributes.position, dir = Math.sign((st.gust && st.gust.dir) || st.wind || 1) || 1, hh = sky.userData.z0 * Math.tan(13 * Math.PI / 180), wx = hh * W / H;
+          for (let i = 0; i < sky.userData.n; i++) { let x = p.getX(i) + dir * dtNow * (30 + (i % 7) * 9); if (x > wx) x -= wx * 2; if (x < -wx) x += wx * 2; p.setX(i, x); }
+          p.needsUpdate = true;
+        }
+      }
+    }
+    /* wake lines behind the boat (dust puffs in the desert) and boost streaks */
+    /* one shared quad writer for the wake/streak buffer (no per-frame closure) */
+    const FXB = { P:null, C:null, A:null, cap:0, q:0 }, WHITE3 = [1, 1, 1];
+    function quad(x0, z0, x1, z1, w, col, a0, a1, y) {
+      const B = FXB; if (B.q >= B.cap) return;
+      const P = B.P, Cc = B.C, A = B.A, dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1, nx = -dz / l * w / 2, nz = dx / l * w / 2, o = B.q * 12, oc = B.q * 4;
+      P[o] = x0 - nx; P[o + 1] = y; P[o + 2] = z0 - nz; P[o + 3] = x0 + nx; P[o + 4] = y; P[o + 5] = z0 + nz; P[o + 6] = x1 + nx; P[o + 7] = y; P[o + 8] = z1 + nz; P[o + 9] = x1 - nx; P[o + 10] = y; P[o + 11] = z1 - nz;
+      for (let j = 0; j < 4; j++) { Cc[o + j * 3] = col[0]; Cc[o + j * 3 + 1] = col[1]; Cc[o + j * 3 + 2] = col[2]; }
+      A[oc] = a0; A[oc + 1] = a0; A[oc + 2] = a1; A[oc + 3] = a1; B.q++;
+    }
+    function fxUpdate(st, api, bx) {
+      const g = fxm.geometry, cap = fxm.userData.cap;
+      FXB.P = g.attributes.position.array; FXB.C = g.attributes.aCol.array; FXB.A = g.attributes.aA.array; FXB.cap = cap; FXB.q = 0;
+      const A = FXB.A;
+      const tr = st.trail, foam = rgb(K.foam), dust = rgb('#C9A06A');
+      if (!st.desert && tr.length >= 4) {
+        const n = tr.length;
+        for (let sd = -1; sd <= 1; sd += 2) for (let i = 1; i < n; i++) {
+          const a0 = n - i + 1, a1 = n - i, p0 = tr[i - 1], p1 = tr[i];
+          quad(p0.x + sd * (12 + a0 * 1.3), -(p0.y - 22), p1.x + sd * (12 + a1 * 1.3), -(p1.y - 22), 2.4, foam, 0.6 * (1 - a0 / n), 0.6 * (1 - a1 / n), 0.35);
+        }
+      }
+      const rv = st.rival;
+      if (rv && !st.desert && rv.y > st.dist - vis.behind && rv.y < st.dist + vis.ahead) { const rx = api.sx(rv.u, rv.y); for (let sd = -1; sd <= 1; sd += 2) for (let j = 0; j < 3; j++) quad(rx + sd * (12 + j * 9), -(rv.y - 30 - j * 26), rx + sd * (21 + j * 9), -(rv.y - 56 - j * 26), 2.4, foam, 0.5 - j * 0.15, 0.4 - j * 0.15, 0.35); }
+      if (st.boostT > 0) for (let k = 0; k < 6; k++) { const x = bx + (k - 2.5) * 14, y = st.dist - 40 - ((st.t * 400 + k * 37) % 60); quad(x, -y, x, -(y - 18), 2, st.desert ? dust : WHITE3, 0.5, 0.5, 2); }
+      if (st.desert && st.t > 0) for (let k = 0; k < 8; k++) { const ph = (clock * 1.3 + k / 8) % 1, x = bx + Math.sin(k * 7.1) * 10, y = st.dist - 14 - ph * 40; quad(x - 4 - ph * 4, -y, x + 4 + ph * 4, -y, 4 + ph * 4, dust, 0.35 * (1 - ph), 0.35 * (1 - ph), 1); }
+      for (let i = FXB.q; i < cap; i++) { const oc = i * 4; A[oc] = A[oc + 1] = A[oc + 2] = A[oc + 3] = 0; }
+      g.setDrawRange(0, FXB.q * 6);
+      g.attributes.position.needsUpdate = true; g.attributes.aCol.needsUpdate = true; g.attributes.aA.needsUpdate = true;
+    }
+    /* Sea's particles are in screen space around the boat; lift them into the world */
+    function ptUpdate(st, api, bx) {
+      const g = ptm.geometry, P = g.attributes.position.array, Cc = g.attributes.aCol.array, A = g.attributes.aA.array, Sz = g.attributes.aS.array, cap = ptm.userData.cap, by = api.boatY();
+      let n = 0;
+      for (let i = 0; i < st.parts.length && n < cap; i++) {
+        const p = st.parts[i], age = p.max - p.life, k = age / (p.max || 1);
+        let x, wy, y;
+        if (p.rel) { x = bx + p.vx * age; wy = st.dist - 20 - p.vy * age; y = 3 + Math.sin(k * Math.PI) * 8; }
+        else { x = p.x; wy = st.dist + (by - p.y); y = 3 + Math.sin(k * Math.PI) * (p.r > 2.5 ? 16 : 4); }
+        const c = rgb(p.c);
+        P[n * 3] = x; P[n * 3 + 1] = y; P[n * 3 + 2] = -wy; Cc[n * 3] = c[0]; Cc[n * 3 + 1] = c[1]; Cc[n * 3 + 2] = c[2]; A[n] = p.life / (p.max || 1); Sz[n] = p.r * 2; n++;
+      }
+      if (!st.desert && boats.me && boats.me.dmg >= 3 && boats.me.g.visible) for (let k = 0; k < 12 && n < cap; k++) {
+        const ph = (clock * 0.45 + k / 12) % 1, c = 0.24 + ph * 0.36;
+        P[n * 3] = bx + 4 + Math.sin(k * 1.9 + clock) * 5 * ph + ph * 14; P[n * 3 + 1] = 16 + ph * 52; P[n * 3 + 2] = -(st.dist - 10 - ph * 95);
+        Cc[n * 3] = c; Cc[n * 3 + 1] = c * 0.95; Cc[n * 3 + 2] = c * 0.9; A[n] = 0.75 * (1 - ph) * Math.min(1, ph * 6); Sz[n] = 12 + ph * 34; n++;
+      }
+      g.setDrawRange(0, n);
+      g.attributes.position.needsUpdate = true; g.attributes.aCol.needsUpdate = true; g.attributes.aA.needsUpdate = true; g.attributes.aS.needsUpdate = true;
+    }
+
+    const river = {
+      wants(st) {
+        if (fr.ep !== VIS.epoch) { fr.ep = VIS.epoch; fr.n = 0; fr.avg = 16; if (slow || prR < Math.min(1.5, window.devicePixelRatio || 1)) { slow = false; prR = Math.min(1.5, window.devicePixelRatio || 1); gW = 0; } }
+        if (!T || dead || slow || !st || !st.cfg || !st.plan || st.kind === 'dive') return false;
+        if (!Array.isArray(st.obs) || !Array.isArray(st.picks) || !Array.isArray(st.parts) || !Array.isArray(st.trail) || !Array.isArray(st.streams)) return false;
+        if (st.kind === 'race' && !(st.rival && isFinite(st.rival.u) && isFinite(st.rival.y))) return false;
+        return true;
+      },
+      draw(st, api) {
+        if (!T || dead) return false;
+        if (!ren && !initRen()) return false;
+        const t0 = performance.now(), gap = fr.last ? t0 - fr.last : 16; fr.last = t0;
+        if (st !== cur) { startScene(st, api); camGeo = null; }
+        size(st, api);
+        update(st, api);
+        ren.render(scene, cam);
+        if (!shown) {
+          shown = true; cv.style.display = 'block';
+          const sea = Sea.canvas(); if (sea) { seaBg = sea.style.background; sea.style.background = 'transparent'; }
+        }
+        /* keep phones smooth: drop the resolution when frames get slow (frame gaps, so GPU time counts too) */
+        fr.cpu = fr.cpu * 0.95 + (performance.now() - t0) * 0.05;
+        if (gap < 400 && visOK(t0)) fr.avg = fr.avg * 0.95 + Math.min(gap, 100) * 0.05;
+        if (!visOK(t0)) fr.n = Math.min(fr.n, 0);
+        if (++fr.n > 90 && fr.avg > 24 && river.adapt) {
+          if (prR > 0.75) { prR = Math.max(0.75, prR - 0.25); fr.n = 0; fr.avg = 16; gW = 0; }
+          else if (fr.avg > 40 && fr.n > 150) { slow = true; try { console.warn('3D view too slow here, back to 2D'); } catch (e) {} }
+        }
+        return true;
+      },
+      hide() {
+        if (!shown && !cur) return;
+        shown = false; fr.last = 0;
+        if (cv) cv.style.display = 'none';
+        const sea = Sea.canvas && Sea.canvas(); if (sea && seaBg != null) { sea.style.background = seaBg; seaBg = null; }
+        clearScene(); camGeo = null;
+      },
+      adapt:true,
+      debug() { return { scene, ren, ground, cam }; },
+      stats() { return { avg:fr.avg, cpu:fr.cpu, pr:prR, calls:ren ? ren.info.render.calls : 0, tris:ren ? ren.info.render.triangles : 0, geos:ren ? ren.info.memory.geometries : 0 }; }
+    };
+
+    /* ---------- the shipyard model: drag to turn, slow spin, bobbing on a little pool ---------- */
+    function shipViewer(el, spec) {
+      let dead2 = false, v = null, cur2 = spec || {};
+      const api = { update(s) { cur2 = s || cur2; if (v) v.set(cur2); }, dispose() { dead2 = true; if (v) v.kill(); v = null; }, pose(y, p, hold) { if (v) v.pose(y, p, hold); } };
+      if (!el || !available()) return api;
+      load().then(ok => { if (!ok || dead2) return; try { v = viewer(el, cur2); } catch (e) { v = null; try { console.warn('3D ship off:', e, e.stack); } catch (e2) {} } });
+      return api;
+    }
+    function viewer(el, spec) {
+      tpl();
+      /* the shared renderer is borrowed; c is our frozen last frame while another view holds it */
+      const c = document.createElement('canvas'); c.className = 'v3-cv v3-snap'; c.hidden = true;
+      el.classList.add('v3-ship'); el.appendChild(c); el.setAttribute('aria-label', 'Geminin üç boyutlu modeli: döndürmek için sürükle');
+      const r = glsGet(), own2 = [], Uv = mkU(), M = mats(Uv, own2), sc = new T.Scene(), cm = new T.PerspectiveCamera(30, 1, 5, 3000);
+      const pr = Math.min(1.5, window.devicePixelRatio || 1); Uv.uPR.value = pr; Uv.uInk.value = 1.4;
+      let mine = false;
+      const viewObj = { mount(cv) { el.appendChild(cv); mine = true; c.hidden = true; w0 = h0 = 0; r.setPixelRatio(pr); }, lose() { mine = false; try { if (w0) { r.render(sc, cm); glsSnap(c); } } catch (e) {} } };
+      const lostV = () => { el.classList.remove('v3-on'); kill(); }; GLS.subs.add(lostV);
+      setTimeout(() => { if (!killed && !mine) glsClaim(viewObj); }, 0);   /* a newly opened viewer takes the renderer (the town behind keeps a snapshot) */
+      Uv.uSun.value.set(-0.45, 0.8, 0.5).normalize();
+      const P = PALD, cc = h => new T.Color(h);
+      const gu = { uBank:{ value:cc(P.bank) }, uBank2:{ value:cc(P.bank2) }, uField:{ value:cc(P.field) }, uFurrow:{ value:cc(P.furrow) }, uFieldEdge:{ value:cc(P.fieldEdge) }, uEdge:{ value:cc(P.edge) }, uDeep:{ value:cc(P.deep) }, uWater:{ value:cc('#2E6EA8') }, uZig:{ value:cc(P.zig) }, uFoam:{ value:cc(K.foam) },
+        uSand:{ value:cc(DES.sand) }, uSand2:{ value:cc(DES.sand2) }, uRip:{ value:cc(DES.rip) }, uTrack:{ value:cc(DES.track) }, uPeb:{ value:cc(DES.peb) }, uSheen:{ value:0 }, uHW:{ value:5000 }, uSeed:{ value:3 }, uRap:{ value:0 }, uDes:{ value:0 }, uT:{ value:0 }, uStr:{ value:[new T.Vector3(), new T.Vector3(), new T.Vector3()] } };
+      const wg = new T.CircleGeometry(95, 40).rotateX(-Math.PI / 2); wg.setAttribute('aCX', new T.BufferAttribute(new Float32Array(wg.attributes.position.count).fill(-4000), 1)); own2.push(wg);
+      const water = new T.Mesh(wg, M.ground(gu)); sc.add(water);
+      const rim = new T.Mesh(new T.TorusGeometry(95, 1.6, 4, 48).rotateX(Math.PI / 2), M.toon()); own2.push(rim.geometry); sc.add(rim);
+      rim.geometry.setAttribute('aCol', new T.BufferAttribute(new Float32Array(rim.geometry.attributes.position.count * 3).fill(0.169), 3));
+      rim.geometry.setAttribute('aOut', new T.BufferAttribute(new Float32Array(rim.geometry.attributes.position.count * 3), 3)); rim.geometry.setAttribute('aSway', new T.BufferAttribute(new Float32Array(rim.geometry.attributes.position.count), 1));
+      const fm = M.fx(false), sh = new T.Mesh((() => { const k = new Kit(); k.alpha = 0.22; k.add('disc', '#000000', 0, 0, 0, 1); const g = k.bake({ fx:true }); own2.push(g); return g; })(), fm); sh.position.y = 0.4; sc.add(sh);
+      const bt = new T.Group(); sc.add(bt);
+      const mt = M.toon({ swing:true, u:{ uRow:{ value:0 } } }), mi = M.ink({ swing:true, u:{ uRow:mt.uniforms.uRow } });
+      let geo = null, yaw = 0.9, pitch = 0.42, drag = null, idle = 0, raf = 0, last = performance.now(), t = 0, len = 80, killed = false, w0 = 0, h0 = 0, dmg = 0, smZ = 0, smY = 20, held = false;
+      /* smoke for a badly damaged ship (damage 3): a few soft puffs rising from the deck */
+      const SMN = 14, smG = new T.BufferGeometry(); own2.push(smG);
+      ['position', 'aCol', 'aA', 'aS'].forEach((a, j) => smG.setAttribute(a, new T.BufferAttribute(new Float32Array(SMN * (j < 2 ? 3 : 1)), j < 2 ? 3 : 1)));
+      const smM = M.pts(), smoke = new T.Points(smG, smM); smoke.frustumCulled = false; smoke.visible = false; smoke.renderOrder = 5; sc.add(smoke);
+      function set(s) {
+        if (geo) { bt.clear(); geo.dispose(); }
+        const sp = Object.assign({ lod:1, emblem:true }, s || {}); sp.cargo = Math.min(6, Math.ceil((s && s.cargo || 0) / 10)); sp.dmg = Math.max(0, Math.min(3, sp.dmg | 0));
+        geo = boatGeo(sp); bt.add(new T.Mesh(geo, mt)); bt.add(new T.Mesh(geo, mi));
+        const D = BT[sp.boat] || BT.nehir; len = D.zs - D.zb; bt.position.z = -(D.zs + D.zb) / 2; sh.scale.set(D.beam * 0.8, 1, len * 0.5);
+        dmg = sp.dmg; smoke.visible = dmg >= 3; smZ = bt.position.z + D.zs - 22; smY = D.h0 + 8;
+      }
+      set(spec);
+      const down = e => { drag = { x:e.clientX, y:e.clientY, id:e.pointerId }; idle = 0; try { el.setPointerCapture(e.pointerId); } catch (e2) {} };
+      const move = e => { if (!drag || e.pointerId !== drag.id) return; yaw += (e.clientX - drag.x) * 0.012; pitch = Math.max(0.12, Math.min(0.95, pitch + (e.clientY - drag.y) * 0.006)); drag.x = e.clientX; drag.y = e.clientY; idle = 0; };
+      const up2 = () => { drag = null; };
+      el.addEventListener('pointerdown', down); el.addEventListener('pointermove', move); el.addEventListener('pointerup', up2); el.addEventListener('pointercancel', up2);
+      function frameV(now) {
+        if (killed) return;
+        if (!el.isConnected && t > 0.5) { kill(); return; }
+        const dt = Math.min(0.05, (now - last) / 1000); last = now; t += dt;
+        const w = Math.max(10, el.clientWidth), h = Math.max(10, el.clientHeight);
+        if (!mine && !document.hidden) { if (GLS.owner && GLS.owner !== viewObj) { raf = requestAnimationFrame(frameV); return; } if (!glsClaim(viewObj)) return; }
+        if (w !== w0 || h !== h0) { w0 = w; h0 = h; r.setSize(w, h, false); cm.aspect = w / h; cm.updateProjectionMatrix(); Uv.uFocal.value = (h / 2) / Math.tan(15 * Math.PI / 180); }
+        if (!document.hidden) {
+          if (!drag && !held) { idle += dt; if (idle > 1.5) yaw += dt * 0.35; }
+          const fit = Math.max((len + 30) / Math.min(1.8, Math.max(0.8, cm.aspect)), 100) / 2 / Math.tan(15 * Math.PI / 180) * 0.9;
+          cm.position.set(Math.sin(yaw) * Math.cos(pitch) * fit, Math.sin(pitch) * fit + 28, Math.cos(yaw) * Math.cos(pitch) * fit); cm.lookAt(0, 28, 0);
+          const lst = dmg >= 3 ? 0.13 : dmg >= 2 ? 0.04 : 0;
+          bt.position.y = Math.sin(t * 1.6) * 1.2 - lst * 18; bt.rotation.z = Math.sin(t * 1.1) * 0.03 + lst; bt.rotation.x = Math.sin(t * 0.9) * 0.015 + lst * 0.25;
+          if (smoke.visible) {
+            const P = smG.attributes.position.array, C = smG.attributes.aCol.array, A = smG.attributes.aA.array, Z = smG.attributes.aS.array;
+            for (let k = 0; k < SMN; k++) { const ph = (t * 0.3 + k / SMN) % 1, c = 0.3 + ph * 0.38, wob = Math.sin(k * 2.3 + t * 1.3); P[k * 3] = 3 + wob * (2 + 7 * ph) - ph * 16; P[k * 3 + 1] = smY + ph * 62; P[k * 3 + 2] = smZ + ph * 8 + Math.cos(k * 1.7) * 3 * ph; C[k * 3] = c; C[k * 3 + 1] = c * 0.95; C[k * 3 + 2] = c * 0.9; A[k] = 0.42 * (1 - ph) * Math.min(1, ph * 5); Z[k] = (5 + ph * 20) * (0.8 + 0.4 * ((k * 7) % 5) / 5); }
+            smG.attributes.position.needsUpdate = true; smG.attributes.aCol.needsUpdate = true; smG.attributes.aA.needsUpdate = true; smG.attributes.aS.needsUpdate = true;
+          }
+          mt.uniforms.uRow.value = t * 3; Uv.uTime.value = t; gu.uT.value = t;
+          r.render(sc, cm);
+          if (!el.classList.contains('v3-on')) el.classList.add('v3-on');
+        }
+        raf = requestAnimationFrame(frameV);
+      }
+      raf = requestAnimationFrame(frameV);
+      function kill() {
+        if (killed) return; killed = true; cancelAnimationFrame(raf);
+        el.removeEventListener('pointerdown', down); el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up2); el.removeEventListener('pointercancel', up2);
+        GLS.subs.delete(lostV); glsRelease(viewObj);
+        if (geo) geo.dispose(); own2.forEach(o => { try { o.dispose(); } catch (e) {} }); [mt, mi, fm, smM, water.material, rim.material].forEach(m => { try { m.dispose(); } catch (e) {} });
+        if (c.parentNode) c.parentNode.removeChild(c); el.classList.remove('v3-on');
+      }
+      return { set, kill, pose(y, p, hold) { if (y != null) yaw = y; if (p != null) pitch = p; held = !!hold; idle = 0; } };
+    }
+
+

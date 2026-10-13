@@ -1,0 +1,479 @@
+
+  /* ================= tavern Senet against a local player (owner: bulmaca) =================
+     3×10 board snaking 1→10, 11←20, 21→30; three pieces each; four throw sticks (light sides = 1..4, none = 5).
+     Land on a lone enemy → swap places; two enemies side by side protect each other; 26 is safe;
+     27 (water) sends the piece back to 15 (ankh); bear off by reaching exactly 31; 1, 4 and 5 throw again.
+     v28: o.tutorial → Paneb coaches the first game step by step (snTut*); "Kurallar" opens a picture card in every game. */
+  const SN_START = { p:[5, 7, 9], a:[6, 8, 10] };
+  function snLegal(me, op, v) {
+    const out = [];
+    me.forEach((f, i) => {
+      if (f >= 31) return;
+      const t = f + v;
+      if (t > 31) return;
+      if (t === 31) { out.push({ i, f, t, kind:'off', fin:31, v }); return; }
+      if (me.includes(t)) return;
+      const j = op.indexOf(t);
+      if (j >= 0) { if (t === 26 || op.includes(t - 1) || op.includes(t + 1)) return; out.push({ i, f, t, kind:'cap', j, fin:t, v }); return; }
+      if (t === 27) { let r = 15; while (r > 1 && (me.includes(r) || op.includes(r))) r--; out.push({ i, f, t, kind:'water', fin:r, v }); return; }
+      out.push({ i, f, t, kind:'move', fin:t, v });
+    });
+    return out;
+  }
+  /* a plain heuristic: bear off, capture advanced pieces, reach the safe house, keep pairs, avoid the water */
+  function snScore(me, op, m, noise) {
+    let s = (m.fin - m.f) * 0.8;
+    if (m.kind === 'off') s += 100;
+    if (m.kind === 'cap') s += 30 + op[m.j] * 0.6;
+    if (m.kind === 'water') s -= 50;
+    if (m.fin === 26) s += 22;
+    const after = me.map((p, k) => k === m.i ? m.fin : p);
+    if (m.fin < 31 && m.fin !== 26) {
+      if (after.includes(m.fin - 1) || after.includes(m.fin + 1)) s += 10;
+      else s -= op.filter(p => p < m.fin && m.fin - p <= 5).length * 6;
+    }
+    if (me.includes(m.f - 1) || me.includes(m.f + 1)) s -= 5;
+    return s + (noise ? Math.random() * 3 : 0);
+  }
+  function snBest(side, ms, noise) {
+    const me = PZ.pos[side], op = PZ.pos[side === 'p' ? 'a' : 'p'];
+    let b = 0, bs = -1e9; ms.forEach((m, k) => { const s = snScore(me, op, m, noise); if (s > bs) { bs = s; b = k; } });
+    return b;
+  }
+
+  /* ---------- board geometry: horizontal on wide sheets, transposed (3 columns × 10 rows) on phones ---------- */
+  function snGeo(vert) {
+    const m = 8, EX = 44;
+    return vert ? { vert, m, cw:62, ch:44, EX, W:m * 2 + 3 * 62, H:m * 2 + 10 * 44 + EX } : { vert, m, cw:50, ch:50, EX, W:m * 2 + 10 * 50 + EX, H:m * 2 + 3 * 50 };
+  }
+  function snRC(sq) { const r = Math.floor((sq - 1) / 10); let c = (sq - 1) % 10; if (r === 1) c = 9 - c; return [r, c]; }
+  function snXY(G, sq) {
+    if (sq >= 31) return G.vert ? [G.m + 2.5 * G.cw, G.m + 10 * G.ch + G.EX / 2] : [G.m + 10 * G.cw + G.EX / 2, G.m + 2.5 * G.ch];
+    const [r, c] = snRC(sq);
+    return G.vert ? [G.m + r * G.cw + G.cw / 2, G.m + c * G.ch + G.ch / 2] : [G.m + c * G.cw + G.cw / 2, G.m + r * G.ch + G.ch / 2];
+  }
+  function snCell(G, sq) { const [x, y] = snXY(G, sq); return [x - G.cw / 2, y - G.ch / 2]; }
+  const SN_ICON = {
+    15:'<g stroke-linecap="round" fill="none"><path d="M0 -3c-6 0 -6 -10 0 -10s6 10 0 10zM-8 -2h16M0 -3v15" stroke="#2B1D14" stroke-width="6.4"/><path d="M0 -3c-6 0 -6 -10 0 -10s6 10 0 10zM-8 -2h16M0 -3v15" stroke="#E9B949" stroke-width="3.2"/></g>',
+    26:'<g stroke="#2B1D14" stroke-width="1.8" stroke-linejoin="round"><path d="M0 -14V0M-4 -10h8M-4 -6.5h8" fill="none" stroke-width="2.2" stroke-linecap="round"/><path d="M0 -1c-8 0 -9 8 -5 12 2 2 3 2 5 2s3 0 5 -2c4 -4 3 -12 -5 -12z" fill="#2BA59A"/></g>',
+    27:'<g fill="none" stroke="#1F5FA8" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"><path d="M-12 -7l3 -3 3 3 3 -3 3 3 3 -3 3 3 3 -3 3 3"/><path d="M-12 0l3 -3 3 3 3 -3 3 3 3 -3 3 3 3 -3 3 3"/><path d="M-12 7l3 -3 3 3 3 -3 3 3 3 -3 3 3 3 -3 3 3"/></g>',
+    28:'<path d="M-7 -9v15M0 -9v15M7 -9v15" stroke="#2B1D14" stroke-width="3" stroke-linecap="round"/>',
+    29:'<path d="M-4 -9v15M4 -9v15" stroke="#2B1D14" stroke-width="3" stroke-linecap="round"/>',
+    30:'<g><circle cy="-4" r="6" fill="#E9B949" stroke="#2B1D14" stroke-width="1.8"/><path d="M0 4v8" stroke="#2B1D14" stroke-width="3" stroke-linecap="round"/></g>'
+  };
+  const SN_FILL = { 15:'#F6DB8E', 26:'#B9E3DB', 27:'#A9C8EC', 28:'#F3CDB2', 29:'#F3CDB2', 30:'#F3CDB2' };
+  function snPieceSVG(side) {
+    if (side === 'p') return '<ellipse cy="13" rx="12" ry="3.5" fill="#2B1D14" opacity=".2"/><path d="M-11 -14h22l-3 3c-3 3 -4 6 -4 11s1 8 4 11l3 3h-22l3 -3c3 -3 4 -6 4 -11s-1 -8 -4 -11z" fill="#1F5FA8" stroke="#2B1D14" stroke-width="2.2" stroke-linejoin="round"/><path d="M-11 -14h22M-11 14h22" stroke="#2B1D14" stroke-width="2.2"/><path d="M-7 -10q2 9 0 19" fill="none" stroke="#8DB3EE" stroke-width="2" stroke-linecap="round" opacity=".8"/>';
+    return '<ellipse cy="13" rx="12" ry="3.5" fill="#2B1D14" opacity=".2"/><path d="M0 -15c3 0 4 2 5 5l7 21c1 3 -1 3 -3 3h-18c-2 0 -4 0 -3 -3l7 -21c1 -3 2 -5 5 -5z" fill="#B7412E" stroke="#2B1D14" stroke-width="2.2" stroke-linejoin="round"/><path d="M-3 -9l-5 16" stroke="#E59A82" stroke-width="2" stroke-linecap="round" opacity=".8"/><circle cy="-13" r="3" fill="#D9A43A" stroke="#2B1D14" stroke-width="1.4"/>';
+  }
+  function snBoardSVG(G) {
+    let s = '<svg viewBox="0 0 ' + G.W + ' ' + G.H + '" class="snsvg" role="img" aria-label="Senet tahtası">';
+    const bw = G.vert ? 3 * G.cw : 10 * G.cw, bh = G.vert ? 10 * G.ch : 3 * G.ch;
+    s += '<rect x="2" y="2" width="' + (bw + G.m * 2 - 4) + '" height="' + (bh + G.m * 2 - 4) + '" rx="9" fill="#8E5A33" stroke="' + INK + '" stroke-width="3"/>';
+    /* the exit gate past square 30 */
+    const [ex, ey] = snXY(G, 31);
+    s += '<g data-snsq="31"><rect x="' + (ex - (G.vert ? G.cw : G.EX) / 2 + 2) + '" y="' + (ey - (G.vert ? G.EX : G.ch) / 2 + 2) + '" width="' + ((G.vert ? G.cw : G.EX) - 4) + '" height="' + ((G.vert ? G.EX : G.ch) - 4) + '" rx="8" fill="#E9C46A" stroke="' + INK + '" stroke-width="2.2" stroke-dasharray="5 3"/>';
+    s += '<g transform="translate(' + ex + ' ' + (ey - 6) + ')' + (G.vert ? ' rotate(90)' : '') + ' scale(.85)">' + pth('M-9 -6h8v-6l12 12 -12 12v-6h-8z', '#D9A43A', ink(2.2)) + '</g><text x="' + ex + '" y="' + (ey + 16) + '" text-anchor="middle" class="snlab">ÇIK</text></g>';
+    for (let q = 1; q <= 30; q++) {
+      const [x, y] = snCell(G, q), [r] = snRC(q), [cx, cy] = snXY(G, q);
+      s += '<g data-snsq="' + q + '"><rect x="' + x + '" y="' + y + '" width="' + G.cw + '" height="' + G.ch + '" fill="' + (SN_FILL[q] || ((q % 2) ? '#F4E5BE' : '#EAD39F')) + '" stroke="' + INK + '" stroke-width="1.6"/>';
+      if (SN_ICON[q]) s += '<g transform="translate(' + cx + ' ' + cy + ')" opacity=".9">' + SN_ICON[q] + '</g>';
+      else {
+        /* faint chevrons: which way the row runs */
+        const dir = r === 1 ? -1 : 1, a = G.vert ? 'M' + (cx - 6) + ' ' + (cy - 4 * dir) + 'l6 ' + (6 * dir) + ' 6 ' + (-6 * dir) : 'M' + (cx - 4 * dir) + ' ' + (cy - 6) + 'l' + (6 * dir) + ' 6 ' + (-6 * dir) + ' 6';
+        s += pth(a, 'none', 'stroke="#B08A4E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" opacity=".55"');
+      }
+      s += '<text x="' + (x + 4) + '" y="' + (y + 11) + '" class="snnum">' + q + '</text></g>';
+    }
+    s += '</svg><svg viewBox="0 0 ' + G.W + ' ' + G.H + '" class="snov" aria-hidden="true"><g id="snTut" class="sntutg"></g><g id="snHl" class="snhl"></g><g id="snPcs">';
+    ['p', 'a'].forEach(sd => PZ.pos[sd].forEach((q, i) => { const [x, y] = snXY(G, q); s += '<g class="snpc ' + sd + '" id="snP' + sd + i + '" style="transform:translate(' + x + 'px,' + y + 'px)"><g class="snpcb">' + snPieceSVG(sd) + '</g></g>'; }));
+    return s + '</g></svg>';
+  }
+  function snSticksSVG(f) {
+    return '<svg viewBox="0 0 124 64" class="snstk" aria-hidden="true">' + f.map((l, k) => {
+      const x = 6 + k * 30;
+      return '<g class="snst" style="--k:' + k + '"><rect x="' + x + '" y="4" width="22" height="56" rx="10" fill="' + (l ? '#F6E7C1' : '#6B4528') + '" stroke="' + INK + '" stroke-width="2.2"/>' + (l ? pth('M' + (x + 6) + ' 18h10M' + (x + 6) + ' 32h10M' + (x + 6) + ' 46h10', 'none', 'stroke="#B7412E" stroke-width="2.4" stroke-linecap="round"') : pth('M' + (x + 8) + ' 10v44', 'none', 'stroke="#8E6440" stroke-width="2" stroke-linecap="round"')) + '</g>';
+    }).join('') + '</svg>';
+  }
+
+  /* ---------- the game ---------- */
+  function playSenet(o) {
+    o = o || {};
+    pzClear();
+    const stake = o.stake || 0, who = o.who ? String(o.who) : 'Rakip';
+    const vert = !!(window.matchMedia && matchMedia('(max-width:560px)').matches);
+    PZ = { kind:'senet', tok:Math.random(), timers:[], cb:o.cb, stake, who, pos:{ p:SN_START.p.slice(), a:SN_START.a.slice() }, turn:'p', phase:'idle', v:0, faces:[1, 0, 1, 0], ms:[], sel:0, auto:false, speed:1, fin:false, giveUp:0, G:snGeo(vert),
+      tut:o.tutorial ? { seen:{}, wait:null, cur:null, swapSq:0, lastP:0, nP:0 } : null };
+    snBind();
+    if (window.__nil && window.__nil.fn) window.__nil.fn.senetAuto = senetAuto;
+    const dots = '<span class="sndots"><i></i><i></i><i></i></span>';
+    let s = '<div class="sh-h"><h2 id="shTitle">Senet<small>' + (PZ.tut ? 'İlk oyun · ' : '') + 'Bahis: <b>' + fmt(stake) + ' deben</b> · Rakip: ' + esc(who) + '</small></h2><button class="btn sm snrb" type="button" data-snrules>' + snRulesIco() + 'Kurallar</button></div>';
+    if (PZ.tut) s += '<div class="sncoach" id="snCoach"><div class="sncp" id="snCp"></div><div class="sncb"><b>Paneb</b><p id="snCoachT" aria-live="polite"></p><button class="btn go1 sm sncok" type="button" data-snok hidden>Tamam</button></div></div>';
+    s += '<div class="sn ' + (vert ? 'v' : 'h') + (PZ.tut ? ' sntm' : '') + '"><div class="snbd" id="snBd">' + snBoardSVG(PZ.G) + '</div><div class="snpn">';
+    const oppK = (() => { try { if (typeof CAST !== 'undefined') for (const c in CAST) if (CAST[c].name === who) return c; } catch (e) {} return null; })();
+    s += '<div class="snpl a" id="snPa"><svg viewBox="-16 -18 32 36" width="26" height="30" aria-hidden="true">' + snPieceSVG('a') + '</svg>' + (oppK ? '<span class="snav" data-k="' + oppK + '"></span>' : '') + '<b>' + esc(who) + '</b>' + dots + '</div>';
+    s += '<div class="snthrow"><div id="snStk">' + snSticksSVG(PZ.faces) + '</div><div class="snv"><b id="snV">?</b><small>1 · 4 · 5<br>bir daha</small></div></div>';
+    s += '<p class="snmsg" id="snMsg" aria-live="polite"></p>';
+    s += '<button class="btn go1 snact" type="button" data-snact data-first>Çubukları at</button>';
+    s += '<div class="snpl p on" id="snPp"><svg viewBox="-16 -18 32 36" width="26" height="30" aria-hidden="true">' + snPieceSVG('p') + '</svg><b>Sen</b>' + dots + '</div>';
+    s += '<div class="snleg"><span><svg viewBox="-14 -14 28 28" width="22" height="22">' + SN_ICON[15] + '</svg>15 dönüş</span><span><svg viewBox="-14 -14 28 28" width="22" height="22">' + SN_ICON[26] + '</svg>26 güvenli</span><span><svg viewBox="-14 -14 28 28" width="22" height="22">' + SN_ICON[27] + '</svg>27 su → 15</span><span><svg viewBox="-14 -14 28 28" width="22" height="22">' + SN_ICON[28] + '</svg>28–30 tam at</span></div>';
+    s += '</div></div><div class="snfoot"><span class="muted">Tek taşa denk gelirsen yer değiştirirsiniz. Yan yana iki taş korunur.</span><button class="btn sm" type="button" data-sngive>Pes et</button></div>';
+    openSheet(s, true, 'pz', !vert);
+    try { const av = document.querySelector('#snPa .snav'); if (av) figInto(av, av.dataset.k, 'neutral', 96); } catch (e) {}
+    if (PZ.tut) snTutStart(); else snTurn('p');
+  }
+  const snT = ms => Math.max(0, Math.round(ms * (PZ ? PZ.speed : 1)));
+  function snLater(fn, ms) { const tok = PZ.tok; PZ.timers.push(setTimeout(() => { if (!PZ || PZ.tok !== tok || PZ.fin) return; fn(); }, snT(ms))); }
+  function snMsg(t) { const m = $('#snMsg'); if (m) m.innerHTML = t; }
+  function snAct(label, on) { const b = document.querySelector('#sheet [data-snact]'); if (b) { b.innerHTML = label; b.disabled = !on; } }
+  function snTurn(side) {
+    if (!PZ || PZ.kind !== 'senet' || PZ.fin) return;
+    PZ.turn = side; PZ.phase = 'throw'; PZ.ms = []; snHl();
+    ['p', 'a'].forEach(k => { const el = $('#snP' + k); if (el) el.classList.toggle('on', k === side); });
+    if (side === 'a') { snAct('Rakip oynuyor…', false); snMsg('<b>' + esc(PZ.who) + '</b> atıyor…'); snLater(snThrow, 340); }
+    else {
+      snAct('Çubukları at', true); snMsg('Sıra sende: <b>çubukları at</b>.'); snTutPoint('throw');
+      const b = document.querySelector('#sheet [data-snact]'); if (b && document.activeElement !== b && !PZ.auto && document.activeElement && document.activeElement.closest && document.activeElement.closest('#sheet')) b.focus({ preventScroll:true });
+      if (PZ.auto) snLater(snThrow, 250);
+    }
+  }
+  function snThrow() {
+    if (!PZ || PZ.kind !== 'senet' || PZ.phase !== 'throw' || PZ.fin) return;
+    PZ.phase = 'roll'; PZ.nThrow = (PZ.nThrow || 0) + 1;
+    let f = [0, 1, 2, 3].map(() => Math.random() < 0.5 ? 1 : 0);
+    if (PZ.tut) f = snTutFaces(f);
+    const c = f.reduce((a, b) => a + b, 0), v = c || 5;
+    PZ.faces = f; PZ.v = v;
+    if (PZ.turn === 'p') snTutClear();
+    snAct(PZ.turn === 'p' ? 'Atılıyor…' : 'Rakip oynuyor…', false);
+    const vb = $('#snV'); if (vb) { vb.textContent = '…'; vb.className = ''; }
+    play('lash');
+    const n = reduce || PZ.speed < 0.5 ? 0 : 4;
+    for (let k = 0; k < n; k++) snLater(() => { const st = $('#snStk'); if (st) st.innerHTML = snSticksSVG([0, 1, 2, 3].map(() => Math.random() < 0.5 ? 1 : 0)); const sv = st && st.querySelector('svg'); if (sv) sv.classList.add('roll'); }, k * 70);
+    snLater(() => snThrown(), n * 70 + 50);
+  }
+  function snThrown() {
+    const v = PZ.v, side = PZ.turn, again = v === 1 || v === 4 || v === 5;
+    const st = $('#snStk'); if (st) st.innerHTML = snSticksSVG(PZ.faces);
+    const vb = $('#snV'); if (vb) { vb.textContent = v; vb.className = again ? 'again' : ''; }
+    play('tick');
+    const ms = snLegal(PZ.pos[side], PZ.pos[side === 'p' ? 'a' : 'p'], v);
+    PZ.ms = ms;
+    if (!ms.length) {
+      PZ.phase = 'busy';
+      snMsg(v + ' geldi ama oynayacak taş yok: <b>sıra geçti</b>.');
+      snLater(() => snTurn(side === 'p' ? 'a' : 'p'), 1000);
+      return;
+    }
+    if (side === 'a') {
+      PZ.phase = 'busy'; PZ.sel = PZ.tut ? snWeak(ms) : snBest('a', ms, true); snHl();
+      snMsg('<b>' + esc(PZ.who) + '</b>: ' + v + (again ? ' · bir daha atacak' : ''));
+      snLater(() => snMove(PZ.sel), 360);
+      return;
+    }
+    PZ.phase = 'move'; PZ.sel = snBest('p', ms, false); snHl();
+    snAct('Taşı oynat ▸', true);
+    snMsg('<b>' + v + '</b> kare. ' + (ms.length > 1 ? 'Parlayan taşlardan birini seç.' : 'Taşı oynat.') + (again ? ' Sonra <b>bir daha</b> atarsın.' : ''));
+    if (PZ.tut) { PZ.tut.lastP = v; snTutPoint('move'); }
+    if (PZ.auto) snLater(() => snMove(snBest('p', PZ.ms, true)), 300);
+    else if (ms.length === 1 && !PZ.tut) { snMsg('<b>' + v + '</b> kare: tek hamle var.' + (again ? ' Sonra <b>bir daha</b> atarsın.' : '')); snLater(() => { if (PZ.phase === 'move' && PZ.turn === 'p') snMove(0); }, 650); }
+  }
+  /* highlight: movable pieces glow; the chosen one shows its whole path to the target */
+  function snHl() {
+    const hl = $('#snHl'); if (!hl || !PZ) return;
+    const G = PZ.G; let s = '';
+    document.querySelectorAll('#snPcs .snpc').forEach(el => el.classList.remove('can', 'sel'));
+    if ((PZ.phase === 'move' || PZ.phase === 'anim' || (PZ.phase === 'busy' && PZ.turn === 'a')) && PZ.ms.length) {
+      const side = PZ.turn, col = side === 'p' ? '#D9A43A' : '#B7412E';
+      PZ.ms.forEach((m, k) => {
+        const el = $('#snP' + side + m.i); if (el && side === 'p') el.classList.add('can');
+        if (k !== PZ.sel) return;
+        if (el) el.classList.add('sel');
+        const path = []; for (let q = m.f; q <= Math.min(m.t, 31); q++) path.push(snXY(G, q));
+        s += '<path d="M' + path.map(p => p.join(' ')).join('L') + '" fill="none" stroke="' + col + '" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1 9" class="snpath"/>';
+        const [tx, ty] = snXY(G, m.t);
+        if (m.t <= 30) { const [x, y] = snCell(G, m.t); s += '<rect x="' + (x + 2.5) + '" y="' + (y + 2.5) + '" width="' + (G.cw - 5) + '" height="' + (G.ch - 5) + '" rx="6" fill="' + col + '" fill-opacity=".22" stroke="' + col + '" stroke-width="3.5" class="sntgt"/>'; }
+        else s += '<circle cx="' + tx + '" cy="' + ty + '" r="19" fill="none" stroke="' + col + '" stroke-width="3.5" class="sntgt"/>';
+        if (m.kind === 'cap') s += '<g transform="translate(' + tx + ' ' + (ty - G.ch / 2 + 8) + ')"><circle r="9" fill="#FBF3DF" stroke="' + INK + '" stroke-width="1.6"/>' + pth('M-5 -2h9l-3 -3M5 2h-9l3 3', 'none', 'stroke="' + INK + '" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"') + '</g>';
+        if (m.kind === 'water') { const [wx, wy] = snXY(G, m.fin); s += '<path d="M' + tx + ' ' + ty + 'L' + wx + ' ' + wy + '" fill="none" stroke="#1F5FA8" stroke-width="3" stroke-dasharray="6 5"/><circle cx="' + wx + '" cy="' + wy + '" r="16" fill="none" stroke="#1F5FA8" stroke-width="3"/>'; }
+      });
+    }
+    hl.innerHTML = s;
+  }
+  function snSetPos(el, q, slow) {
+    if (!el) return; const [x, y] = snXY(PZ.G, q);
+    el.style.transitionDuration = reduce ? '0s' : snT(slow ? 380 : 90) + 'ms';
+    el.style.transform = 'translate(' + x + 'px,' + y + 'px)';
+  }
+  function snMove(k) {
+    if (!PZ || PZ.kind !== 'senet' || PZ.fin) return;
+    const side = PZ.turn, op = side === 'p' ? 'a' : 'p', m = PZ.ms[k];
+    if (!m || (side === 'p' && PZ.phase !== 'move') || (side === 'a' && PZ.phase !== 'busy')) return;
+    PZ.phase = 'anim'; PZ.sel = k; snHl();
+    if (PZ.tut) { if (side === 'p') snTutClear(); else if (m.kind === 'cap') PZ.tut.swapSq = m.f; }
+    snAct(side === 'p' ? 'Oynanıyor…' : 'Rakip oynuyor…', false);
+    const el = $('#snP' + side + m.i), step = 95, n = Math.min(m.t, 31) - m.f;
+    for (let q = 1; q <= n; q++) snLater(() => { snSetPos(el, m.f + q); play('tick'); }, (q - 1) * step);
+    let t = n * step + 80;
+    PZ.pos[side][m.i] = m.fin;
+    let msg = '';
+    if (m.kind === 'cap') {
+      PZ.pos[op][m.j] = m.f;
+      const oe = $('#snP' + op + m.j);
+      snLater(() => { snSetPos(oe, m.f, true); play('haggle'); }, t); t += 420;
+      msg = side === 'p' ? 'Yer değiştirdiniz: rakip geri gitti!' : esc(PZ.who) + ' seninle <b>yer değiştirdi</b>!';
+    } else if (m.kind === 'water') {
+      snLater(() => { play('splash'); if (el) el.classList.add('wet'); }, t); t += 320;
+      snLater(() => { snSetPos(el, m.fin, true); }, t); t += 420;
+      snLater(() => { if (el) el.classList.remove('wet'); }, t);
+      msg = (side === 'p' ? 'Taşın' : 'Rakibin taşı') + ' <b>suya düştü</b>: ' + m.fin + '. kareye döndü.';
+    } else if (m.kind === 'off') {
+      snLater(() => { if (el) el.classList.add('gone'); play(side === 'p' ? 'coin' : 'no'); snDots(); }, t); t += 260;
+      msg = side === 'p' ? 'Bir taşın <b>çıktı</b>!' : esc(PZ.who) + ' bir taş <b>çıkardı</b>.';
+    } else if (m.fin === 26) msg = (side === 'p' ? 'Güzellik Evi: burada güvendesin.' : esc(PZ.who) + ' Güzellik Evi\'nde güvende.');
+    snLater(() => {
+      PZ.ms = []; snHl();
+      if (msg) snMsg(msg);
+      if (PZ.pos[side].every(q => q >= 31)) { snOver(side === 'p'); return; }
+      const again = m.v === 1 || m.v === 4 || m.v === 5;
+      if (again) {
+        PZ.phase = 'throw';
+        if (side === 'p') { snAct('Bir daha at!', true); snMsg((msg ? msg + ' ' : '') + '<b>Bir daha at!</b>'); snTutPoint('again'); if (PZ.auto) snLater(snThrow, 250); }
+        else { snMsg((msg ? msg + ' ' : '') + esc(PZ.who) + ' bir daha atıyor…'); snLater(snThrow, msg ? 750 : 380); }
+      } else snLater(() => snTurn(op), msg ? 650 : 200);
+    }, t);
+  }
+  function snDots() {
+    ['p', 'a'].forEach(sd => { const n = PZ.pos[sd].filter(q => q >= 31).length; document.querySelectorAll('#snP' + sd + ' .sndots i').forEach((d, k) => d.classList.toggle('on', k < n)); });
+  }
+  function snOver(win) {
+    PZ.phase = 'over';
+    const bd = $('#snBd');
+    if (bd) bd.insertAdjacentHTML('beforeend', '<div class="snend ' + (win ? 'win' : 'lose') + '"><b>' + (win ? 'Kazandın!' : 'Kaybettin') + '</b><span>' + (win ? '+' : '−') + fmt(PZ.stake) + ' deben</span></div>');
+    snAct(win ? 'Kazandın!' : 'Kaybettin', false);
+    const gv = document.querySelector('#sheet [data-sngive]'); if (gv) gv.disabled = true;
+    snMsg(win ? 'Üç taşın da çıktı. Bahis senin!' : esc(PZ.who) + ' üç taşını da çıkardı.');
+    play(win ? 'fanfare' : 'bad'); buzz(win ? 'big' : 'caught');
+    if (PZ.tut) { PZ.tut.win = win; meta.senetTut = 1; saveMeta(); snCoach(win ? 'İşte bu! İlk oyununu kazandın. Artık meyhanede herkes senden korkar.' : 'Olsun ortak, ilk oyundu. Kuralları artık biliyorsun!', { mood:win ? 'happy' : 'sad', ok:'Teşekkürler Paneb!', end:win }); snLater(() => snFin(win), 4200); return; }
+    snLater(() => snFin(win), 1700);
+  }
+  function snFin(win) {
+    if (!PZ || PZ.kind !== 'senet' || PZ.fin) return;
+    PZ.fin = true; const cb = PZ.cb, stake = PZ.stake; pzClear();
+    try { if (typeof cb === 'function') cb({ win:!!win, stake }); }
+    finally { if (document.querySelector('#sheet .sn')) closeSheet(); }
+  }
+  /* player input: a square (piece or target) or the big action button */
+  function snTapSq(q) {
+    if (!PZ || PZ.kind !== 'senet' || PZ.turn !== 'p' || PZ.fin) return;
+    if (PZ.phase === 'throw') { if (PZ.pos.p.includes(q)) snThrow(); return; }
+    if (PZ.phase !== 'move') return;
+    const cur = PZ.ms[PZ.sel];
+    if (cur && (q === cur.t || (cur.t > 31 && q === 31) || (q === cur.f))) { snMove(PZ.sel); return; }
+    const k = PZ.ms.findIndex(m => m.f === q || m.t === q);
+    if (k >= 0) { PZ.sel = k; play('click'); snHl(); }
+    else if (PZ.pos.p.includes(q)) { play('no'); snMsg('Bu taş ' + PZ.v + ' kare gidemez.'); }
+  }
+  function snAction() {
+    if (!PZ || PZ.kind !== 'senet' || PZ.turn !== 'p' || PZ.fin) return;
+    if (PZ.phase === 'throw') snThrow(); else if (PZ.phase === 'move') snMove(PZ.sel);
+  }
+  /* ---------- the first game: Paneb teaches while you play ---------- */
+  const SN_TUT = [
+    { id:'sticks', at:'throw', t:() => 'Önce çubukları at. Kaç çubuk <b>çizgili</b> yüzünü gösterirse o kadar gidersin. Hiçbiri çizgili değilse: <b>5</b>!', hl:() => ({ el:['#snStk', '.snact'] }) },
+    { id:'move', at:'move', t:() => '<b>' + PZ.v + '</b> geldi! Parlayan taşın ' + PZ.v + ' kare gider, noktalı çizgi yolu gösterir. <b>Taşı oynat</b>\'a bas.', hl:() => ({ sq:[PZ.ms[PZ.sel].f], el:['.snact'] }) },
+    { id:'again', at:'again', t:() => '<b>' + PZ.tut.lastP + '</b> geldi, yani <b>bir daha</b> atıyorsun! 1, 4 ve 5 hep bir daha attırır.', hl:() => ({ el:['.snv', '.snact'] }) },
+    { id:'swapped', at:'throw', when:() => PZ.tut.swapSq, mood:'surprised', t:() => 'Eyvah! ' + esc(PZ.who) + ' senin <b>yalnız</b> taşına denk geldi, yer değiştirdiniz. Yalnız taş korunmasızdır.', hl:() => ({ sq:[PZ.tut.swapSq] }) },
+    { id:'swap', at:'move', when:() => PZ.ms.some(m => m.kind === 'cap'), mood:'sly', pre:() => { PZ.sel = PZ.ms.findIndex(m => m.kind === 'cap'); snHl(); },
+      t:() => 'Bak! Rakibin <b>yalnız</b> taşına denk gelebilirsin: yer değiştirirsiniz, o geri gider.', hl:() => ({ sq:[PZ.ms[PZ.sel].f, PZ.ms[PZ.sel].t] }) },
+    { id:'pair', at:'move', when:() => snTutPair() || snTutOwnPair() || PZ.tut.nP >= 7, mood:'thinking',
+      t:() => snTutPair() ? 'Yan yana iki rakip taş <b>birbirini korur</b>: üstlerine gidemezsin. Sen de taşlarını yan yana tut!' : snTutOwnPair() ? 'Bak, iki taşın <b>yan yana</b>: birbirini korur, rakip onlara denk gelemez.' : 'Unutma: yan yana iki taş <b>birbirini korur</b>. Tek kalan taş yer değiştirmeye açıktır.',
+      hl:() => ({ sq:snTutPair() || snTutOwnPair() || [] }) },
+    { id:'safe', at:'move', when:() => PZ.pos.p.some(q => q >= 20 && q <= 25) || PZ.ms.some(m => m.fin === 26), t:() => '<b>26</b>, Güzellik Evi: orada kimse taşına dokunamaz. Güvenli liman!', hl:() => ({ sq:[26] }) },
+    { id:'water', at:'move', when:() => PZ.pos.p.some(q => q >= 22 && q <= 26), mood:'surprised', t:() => '<b>27</b> su karesi! Oraya düşen taş <b>15</b>\'e geri yüzer. Mümkünse üstünden atla.', hl:() => ({ sq:[27, 15] }) },
+    { id:'exact', at:'throw', when:() => PZ.pos.p.some(q => q >= 26 && q <= 30), mood:'thinking', t:() => 'Çıkmak için <b>tam</b> sayı lazım: 30\'dan 1, 29\'dan 2, 28\'den 3, 26\'dan 5. Fazlası olmaz.', hl:() => ({ sq:[26, 28, 29, 30, 31] }) },
+    { id:'off', at:'throw', when:() => PZ.pos.p.some(q => q >= 31), mood:'happy', t:() => 'Bir taşın çıktı! <b>Üçü de</b> çıkınca bahis senin.', hl:() => ({ el:['#snPp'] }) }
+  ];
+  /* an enemy pair within reach of one of your pieces */
+  function snTutPair() {
+    const me = PZ.pos.p, op = PZ.pos.a;
+    for (const f of me) { if (f >= 31) continue; for (let d = 1; d <= 5; d++) { const t = f + d; if (t !== 26 && op.includes(t) && (op.includes(t + 1) || op.includes(t - 1))) return [t, op.includes(t + 1) ? t + 1 : t - 1]; } }
+    return null;
+  }
+  function snTutOwnPair() {
+    const me = PZ.pos.p; for (const f of me) if (f < 31 && me.includes(f + 1)) return [f, f + 1];
+    return null;
+  }
+  function snTutStart() {
+    PZ.tut.wait = 'hi'; snAct('Çubukları at', false); snMsg('');
+    snCoach('Selam ortak! Senet\'i bana babam öğretti, şimdi sıra sende. <b>Mavi</b> taşlar senin. Yol yılan gibi kıvrılır, 1\'den 30\'a. Üç taşını da rakipten önce <b>ÇIK</b>\'tan çıkaran kazanır.', { ok:'Hadi oynayalım!', mood:'happy', hl:{ sq:[5, 7, 9, 31] } });
+  }
+  function snTutOk() {
+    if (!PZ || PZ.kind !== 'senet' || !PZ.tut || !PZ.tut.wait) return;
+    const w = PZ.tut.wait; PZ.tut.wait = null; play('click');
+    const ok = document.querySelector('#sheet [data-snok]'); if (ok) ok.hidden = true;
+    snTutClear();
+    if (w === 'hi') snTurn('p'); else if (w === 'end') snFin(PZ.tut.win);
+  }
+  function snTutPoint(at) {
+    if (!PZ || !PZ.tut || PZ.fin || PZ.turn !== 'p') return;
+    const T = PZ.tut;
+    for (const tp of SN_TUT) {
+      if (T.seen[tp.id] || !(tp.at === at || (at === 'again' && tp.at === 'throw'))) continue;
+      if (tp.when && !tp.when()) continue;
+      T.seen[tp.id] = 1; if (tp.pre) tp.pre();
+      snCoach(tp.t(), { mood:tp.mood || 'neutral', hl:tp.hl && tp.hl() });
+      return;
+    }
+    const c = $('#snCoach'); if (c) c.classList.add('old');
+  }
+  function snCoach(html, o) {
+    o = o || {};
+    const c = $('#snCoach'); if (!c) return;
+    c.classList.remove('old');
+    const cp = $('#snCp');
+    /* v33: Paneb as a live 3D character (CH33) when 3D is on */
+    let live = false;
+    try { if (cp && typeof CH33 !== 'undefined' && CH33.on() && face3d() && CH33.has('paneb')) {
+      if (!PZ.c33 || !PZ.c33.alive) { if (!cp.firstElementChild) cp.innerHTML = snPanebSVG(o.mood); PZ.c33 = CH33.stage(cp, 'paneb', { mood:o.mood || 'neutral', frame:'face' }); try { H3.push(PZ.c33); } catch (e) {} }
+      if (PZ.c33) { live = true; PZ.c33.update({ mood:o.mood || 'neutral', talk:!reduce }); const h = PZ.c33, tok = PZ.tok; PZ.timers.push(setTimeout(() => { if (PZ && PZ.tok === tok) h.update({ talk:false }); }, 1800)); }
+    } } catch (e) { live = false; }
+    if (!live && cp && cp.dataset.mood !== (o.mood || 'neutral')) {
+      let fig = '';
+      if (typeof bustSVG === 'function') { try { fig = bustSVG('paneb', { mood:o.mood || 'neutral', talk:true, lv:0 }); } catch (e) { fig = ''; } }
+      cp.innerHTML = fig || snPanebSVG(o.mood); cp.dataset.mood = o.mood || 'neutral'; cp.classList.toggle('fb', !fig);
+    }
+    const t = $('#snCoachT'); if (t) { t.innerHTML = html; t.classList.remove('pop'); void t.offsetWidth; t.classList.add('pop'); }
+    const ok = c.querySelector('[data-snok]'); if (ok) { ok.hidden = !o.ok; if (o.ok) { ok.textContent = o.ok; if (!PZ.auto) ok.focus({ preventScroll:true }); } }
+    if (o.ok) PZ.tut.wait = o.end != null ? 'end' : PZ.tut.wait || 'hi';
+    const fig = cp && cp.firstElementChild;
+    if (fig && !reduce) { fig.classList.add('talk'); const tok = PZ.tok; PZ.timers.push(setTimeout(() => { if (PZ && PZ.tok === tok) fig.classList.remove('talk'); }, 1600)); }
+    snTutHl(o.hl);
+    if (!PZ.auto) play('tick');
+  }
+  function snTutHl(spec) {
+    snTutClear();
+    if (!spec) return;
+    const g = $('#snTut'), G = PZ.G;
+    if (g && spec.sq) g.innerHTML = spec.sq.map(q => {
+      let x, y, w = G.cw, h = G.ch;
+      if (q >= 31) { const [ex, ey] = snXY(G, 31); w = G.vert ? G.cw : G.EX; h = G.vert ? G.EX : G.ch; x = ex - w / 2; y = ey - h / 2; }
+      else [x, y] = snCell(G, q);
+      return '<rect x="' + (x + 1) + '" y="' + (y + 1) + '" width="' + (w - 2) + '" height="' + (h - 2) + '" rx="7" class="sntr"/>';
+    }).join('');
+    (spec.el || []).forEach(sel => document.querySelectorAll('#sheet ' + sel).forEach(e => e.classList.add('sntut')));
+  }
+  function snTutClear() {
+    const g = $('#snTut'); if (g) g.innerHTML = '';
+    document.querySelectorAll('#sheet .sntut').forEach(e => e.classList.remove('sntut'));
+  }
+  /* the teaching game is gentle: the first throw is a calm 2, hopeless throws are often thrown again, the friend's rival rarely throws again */
+  function snTutFaces(f) {
+    const T = PZ.tut, val = x => x.reduce((a, b) => a + b, 0) || 5, roll = () => [0, 1, 2, 3].map(() => Math.random() < 0.5 ? 1 : 0);
+    if (PZ.turn === 'p') {
+      T.nP++;
+      if (T.nP === 1) return [1, 0, 1, 0];
+      const me = PZ.pos.p, op = PZ.pos.a, ms = x => snLegal(me, op, val(x));
+      const bad = x => !ms(x).length || (me.some(q => q >= 26 && q <= 30) && !ms(x).some(m => m.kind === 'off')) || ms(x).every(m => m.kind === 'water');
+      if (bad(f) && Math.random() < 0.6) f = roll();
+      return f;
+    }
+    if ([1, 4, 5].includes(val(f)) && Math.random() < 0.55) f = roll();
+    /* and it hesitates over its last piece while you still have work to do */
+    const A = PZ.pos.a;
+    if (A.filter(q => q >= 31).length === 2 && snLegal(A, PZ.pos.p, val(f)).some(m => m.kind === 'off') && Math.random() < 0.7) f = roll();
+    return f;
+  }
+  /* the rival in the teaching game: plays poorly and does not race ahead in bearing off */
+  function snWeak(ms) {
+    const offA = PZ.pos.a.filter(q => q >= 31).length, offP = PZ.pos.p.filter(q => q >= 31).length;
+    let ks = ms.map((m, k) => k); if (offA >= offP) { const n = ks.filter(k => ms[k].kind !== 'off'); if (n.length) ks = n; }
+    if (ks.length < 2 || Math.random() < 0.3) return ks[Math.floor(Math.random() * ks.length)];
+    let b = ks[0], bs = 1e9; ks.forEach(k => { const s = snScore(PZ.pos.a, PZ.pos.p, ms[k], true); if (s < bs) { bs = s; b = k; } });
+    return b;
+  }
+  function snPanebSVG(mood) {
+    const k = ++uid, grin = mood === 'sad' ? 'M42 70q8 -5 16 0' : mood === 'surprised' ? '' : 'M40 66q10 9 20 0';
+    let s = '<svg class="snpb" viewBox="0 0 100 100" aria-hidden="true"><defs><clipPath id="pbc' + k + '"><rect width="100" height="100" rx="10"/></clipPath></defs><g clip-path="url(#pbc' + k + ')"><rect width="100" height="100" fill="#BFE3DD"/>';
+    s += pth('M8 104q4 -24 42 -26q38 2 42 26z', '#A8693F', ink(2)) + pth('M22 90q28 14 56 0l-4 -8q-24 10 -48 0z', '#2BA59A', ink(1.6)) + pth('M28 86q22 9 44 0', 'none', 'stroke="#D9A43A" stroke-width="3"');
+    s += '<g transform="translate(70 93) rotate(-30)">' + pth('M0 -9v16', 'none', 'stroke="#2B1D14" stroke-width="2.4" stroke-linecap="round"') + pth('M-3 5h6l-1 6h-4z', '#D9A43A', ink(1.2)) + '</g>';
+    s += '<rect x="43" y="56" width="14" height="18" rx="6" fill="#A8693F"/><ellipse cx="50" cy="48" rx="19" ry="21" fill="#B57A50" stroke="#2B1D14" stroke-width="2"/>';
+    s += pth('M31 44q-1 -22 19 -22t19 22q-4 -10 -19 -10t-19 10z', '#1F1A2E');
+    s += pth('M30 38q20 -8 40 0', 'none', 'stroke="#B7412E" stroke-width="5" stroke-linecap="round"') + pth('M70 38q8 2 12 10M70 38q10 -2 14 4', 'none', 'stroke="#B7412E" stroke-width="3.4" stroke-linecap="round"');
+    s += pth('M38 45q4 -3 8 0M54 45q4 -3 8 0', 'none', 'stroke="#2B1D14" stroke-width="2" stroke-linecap="round"');
+    s += mood === 'happy' ? pth('M38 51q4 -4 8 0M54 51q4 -4 8 0', 'none', 'stroke="#2B1D14" stroke-width="2.4" stroke-linecap="round"') : '<circle cx="42" cy="51" r="2.6" fill="#2B1D14"/><circle cx="58" cy="51" r="2.6" fill="#2B1D14"/>';
+    s += '<circle cx="36" cy="58" r="3.4" fill="#F08F8F" opacity=".4"/><circle cx="64" cy="58" r="3.4" fill="#F08F8F" opacity=".4"/>';
+    s += grin ? pth(grin, mood === 'sad' ? 'none' : '#7A3B2E', 'stroke="#2B1D14" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"') : '<ellipse cx="50" cy="67" rx="4" ry="5" fill="#7A3B2E" stroke="#2B1D14" stroke-width="1.6"/>';
+    return s + '</g></svg>';
+  }
+
+  /* ---------- the rules card: one screen of pictures ---------- */
+  const snRulesIco = () => '<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M4 4h12l4 4v12H4z" fill="#FBF3DF" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 11h8M8 15h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+  function snRules(open) {
+    const old = document.querySelector('#sheet .snrules'); if (old) old.remove();
+    if (!open || !PZ || PZ.kind !== 'senet') return;
+    play('click');
+    const pc = (sd, x, y, sc) => '<g transform="translate(' + x + ' ' + y + ') scale(' + (sc || 1) + ')">' + snPieceSVG(sd) + '</g>';
+    const sq = (x, y, fill, w) => '<rect x="' + x + '" y="' + y + '" width="' + (w || 34) + '" height="34" rx="3" fill="' + (fill || '#F4E5BE') + '" stroke="' + INK + '" stroke-width="1.6"/>';
+    const ar = (d, c) => pth(d, 'none', 'stroke="' + (c || INK) + '" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"');
+    const stick = (x, l) => '<rect x="' + x + '" y="6" width="12" height="36" rx="6" fill="' + (l ? '#F6E7C1' : '#6B4528') + '" stroke="' + INK + '" stroke-width="1.8"/>' + (l ? pth('M' + (x + 3.5) + ' 16h5M' + (x + 3.5) + ' 24h5M' + (x + 3.5) + ' 32h5', 'none', 'stroke="#B7412E" stroke-width="2.4" stroke-linecap="round"') : '');
+    const tiles = [
+      ['Üç taşını rakipten önce <b>çıkar</b>.', pc('p', 22, 26) + pc('p', 50, 26) + pc('p', 78, 26) + ar('M98 26h22M112 18l8 8 -8 8') + '<rect x="126" y="9" width="30" height="34" rx="6" fill="#E9C46A" stroke="' + INK + '" stroke-width="2" stroke-dasharray="4 3"/><text x="141" y="31" text-anchor="middle" class="snrt">ÇIK</text>'],
+      ['Çizgili yüz kadar git. Hiç yoksa <b>5</b>.', stick(0, 1) + stick(15, 0) + stick(30, 1) + stick(45, 0) + '<text x="60" y="32" class="snrn">=2</text><g transform="translate(84 0)">' + stick(0, 0) + stick(15, 0) + stick(30, 0) + stick(45, 0) + '</g><text x="142" y="32" class="snrn">=5</text>'],
+      ['<b>1 · 4 · 5</b> gelirse bir daha at.', '<text x="10" y="34" class="snrn big">1 · 4 · 5</text>' + ar('M118 30a14 14 0 1 1 6 10', '#1E7D74') + pth('M118 22l0 9 8 -3', 'none', 'stroke="#1E7D74" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"')],
+      ['Yol yılan gibi: <b>1 → 30</b>.', [0, 1, 2].map(r => [0, 1, 2, 3, 4].map(c => '<rect x="' + (14 + c * 26) + '" y="' + (3 + r * 15) + '" width="26" height="15" fill="' + ((r + c) % 2 ? '#EAD39F' : '#F4E5BE') + '" stroke="' + INK + '" stroke-width="1"/>').join('')).join('') + ar('M20 10h116v15H20v15h120', '#1F5FA8')],
+      ['<b>Yalnız</b> rakibe denk gel: yer değiştirin.', sq(20, 8) + sq(90, 8) + pc('p', 37, 26, 0.8) + pc('a', 107, 26, 0.8) + ar('M48 4q35 -10 58 0', '#D9A43A') + ar('M100 46q-35 10 -58 0', '#B7412E') + pth('M100 0l7 4 -7 5', 'none', 'stroke="#D9A43A" stroke-width="3" stroke-linecap="round"')],
+      ['Yan yana <b>iki</b> taş korunur.', sq(60, 8) + sq(94, 8) + pc('a', 77, 26, 0.8) + pc('a', 111, 26, 0.8) + pc('p', 24, 26, 0.8) + ar('M38 26h14', '#B7412E') + ar('M42 18l10 16M52 18l-10 16', '#B7412E') + pth('M94 2l9 4v7q0 7 -9 10q-9 -3 -9 -10v-7z', '#2BA59A', ink(1.6))],
+      ['<b>26</b> güvenli. <b>27</b> su: taş <b>15</b>\'e döner.', sq(8, 8, '#B9E3DB') + '<g transform="translate(25 25) scale(.9)">' + SN_ICON[26] + '</g>' + sq(54, 8, '#A9C8EC') + '<g transform="translate(71 25) scale(.9)">' + SN_ICON[27] + '</g>' + ar('M92 25h22M106 18l8 7 -8 7', '#1F5FA8') + sq(120, 8, '#F6DB8E') + '<g transform="translate(137 27) scale(.8)">' + SN_ICON[15] + '</g>'],
+      ['Son kareler: <b>tam</b> atışla çık.', sq(4, 8, '#F3CDB2') + sq(40, 8, '#F3CDB2') + sq(76, 8, '#F3CDB2') + '<text x="21" y="31" text-anchor="middle" class="snrn">3</text><text x="57" y="31" text-anchor="middle" class="snrn">2</text><text x="93" y="31" text-anchor="middle" class="snrn">1</text>' + ar('M114 25h14M122 18l7 7 -7 7') + '<rect x="132" y="8" width="26" height="34" rx="5" fill="#E9C46A" stroke="' + INK + '" stroke-width="1.8" stroke-dasharray="4 3"/>']
+    ];
+    let h = '<div class="snrules" role="dialog" aria-label="Senet kuralları"><div class="snrh"><b>Senet kuralları</b><button class="btn go1 sm" type="button" data-snrx>Oyuna dön</button></div><div class="snrg">';
+    h += tiles.map((t, i) => '<div class="snrc"><svg viewBox="0 0 160 50" aria-hidden="true">' + t[1] + '</svg><p><i>' + (i + 1) + '</i>' + t[0] + '</p></div>').join('');
+    h += '</div></div>';
+    const host = document.querySelector('#sheet .sh-in'); if (host) { host.insertAdjacentHTML('beforeend', h); const b = host.querySelector('[data-snrx]'); if (b) b.focus({ preventScroll:true }); }
+  }
+  /* test helper: the player's turns play themselves (fast = short animations) */
+  function senetAuto(opt) {
+    if (!PZ || PZ.kind !== 'senet' || PZ.fin) return false;
+    PZ.auto = true; if (opt && opt.fast) PZ.speed = 0.12; else if (opt && opt.speed) PZ.speed = opt.speed;
+    if (PZ.tut && PZ.tut.wait) { snTutOk(); return true; }
+    if (PZ.turn === 'p' && PZ.phase === 'throw') snThrow();
+    else if (PZ.turn === 'p' && PZ.phase === 'move') snMove(snBest('p', PZ.ms, true));
+    return true;
+  }
+  function snBind() {
+    const sh = $('#sheet');
+    if (sh && !sh._snBound) {
+      sh._snBound = true;
+      sh.addEventListener('click', e => {
+        if (!PZ || PZ.kind !== 'senet') return;
+        const b = e.target.closest && e.target.closest('button');
+        if (b) {
+          if (b.disabled) return;
+          if (b.hasAttribute('data-snact')) snAction();
+          else if (b.hasAttribute('data-snok')) snTutOk();
+          else if (b.hasAttribute('data-snrules')) snRules(true);
+          else if (b.hasAttribute('data-snrx')) snRules(false);
+          else if (b.hasAttribute('data-sngive') && !PZ.fin && PZ.phase !== 'over') {
+            if (PZ.giveUp && Date.now() - PZ.giveUp < 3500) { PZ.phase = 'over'; play('bad'); snFin(false); }
+            else { PZ.giveUp = Date.now(); b.textContent = 'Emin misin?'; b.classList.add('red'); const tok = PZ.tok; PZ.timers.push(setTimeout(() => { if (PZ && PZ.tok === tok) { b.textContent = 'Pes et'; b.classList.remove('red'); } }, 3500)); }
+          }
+          return;
+        }
+        const g = e.target.closest && e.target.closest('[data-snsq]');
+        if (g) snTapSq(+g.getAttribute('data-snsq'));
+      });
+    }
+    if (!document._snKey) {
+      document._snKey = true;
+      document.addEventListener('keydown', e => {
+        if (!PZ || PZ.kind !== 'senet' || PZ.turn !== 'p' || PZ.fin) return;
+        const onBtn = e.target && e.target.closest && e.target.closest('button');
+        if ((e.key === ' ' || e.key === 'Enter') && !onBtn) { e.preventDefault(); snAction(); }
+        else if (PZ.phase === 'move' && /^Arrow/.test(e.key) && PZ.ms.length > 1) {
+          e.preventDefault(); const d = e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 1;
+          PZ.sel = (PZ.sel + d + PZ.ms.length) % PZ.ms.length; play('click'); snHl();
+        }
+      });
+    }
+  }

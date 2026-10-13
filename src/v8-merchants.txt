@@ -1,0 +1,47 @@
+const MERCHANTS = [
+  { name:'Meret', title:'kedili liman tüccarı', fav:'sarap', favQty:1, reward:{ g:'sarap', q:8 },
+    look:{ skin:'#C98E62', hair:'#2B2340', wig:'bob', band:'#2C6BA6', bg:'#D6E8F5', c1:'#2C6BA6', c2:'#E5B93F', ear:true, extra:'cat' },
+    lines:[
+      ['Kedilerim seni süzüyor. Ben de. Bir şey alacak mısın, yoksa sadece güzel mi görünüyorsun?', 'Limanda her şey bulunur. Dürüst bir kayıkçı hariç.'],
+      ['Yine sen! Kediler seni hatırladı. Bu iyiye işaret.', 'Bir testi şarap getirirsen kedileri de ikna ederim.'],
+      ['Dostum! Bastet\'in gözü üzerinde. Ben de fiyatı biraz kırarım.', 'Kediler artık sana tıslamıyor. Bu Per-Bastet\'te evlilik teklifi sayılır.'],
+      ['Kedilerden biri sana isim koydu. Telaffuzu zor ama sevgi dolu.', 'Limanın en iyi yeri senin için ayrıldı. Kediler nöbet tutuyor.']
+    ],
+    thanks:'Şarap! Kedilere vermeyeceğim, söz veriyorum. Belki biraz.' },
+  { name:'Ptahhotep', title:'yaşlı piramit ustası', fav:'bakir', favQty:1, reward:{ g:'sedir', q:2 },
+    look:{ skin:'#B57A50', hair:'#2B2340', wig:'bald', band:'#F3EEE2', bg:'#F5E6BF', c1:'#C97B4A', c2:'#4E9A6B', beard:true, old:true },
+    lines:[
+      ['Kırk yıldır taş yontarım. Senin gibi tüccarları da yonttum.', 'Piramitler sabırla yapılır. Pazarlık da öyle.'],
+      ['Seni hatırlıyorum. Geçen sefer pazarlıkta ağlamamıştın.', 'Bakır getirirsen keskilerimi bilerim, sen de iyi fiyat alırsın.'],
+      ['Keskilerim senin bakırınla keskin. Sana iyi fiyat vereceğim.', 'Çıraklarıma seni örnek gösteriyorum. Pazarlıkta değil, sabırda.'],
+      ['Bir gün senin için küçük bir piramit yapacağım. Çok küçük. Masaya sığacak kadar.', 'Kırk yılda üç dost edindim. Biri sensin, ikisi taş.']
+    ],
+    thanks:'Bakır! Bununla bir keski daha. Taşlar titresin.' },
+  { name:'Nefer', title:'tapınak yazıcısı', fav:'papirus', favQty:3, reward:{ g:'papirus', q:20 },
+    look:{ skin:'#D9A577', hair:'#1F1A2E', wig:'long', band:'#E5B93F', bg:'#D9EEDF', c1:'#4E9A6B', c2:'#E5B93F', ear:true, extra:'lotus' },
+    lines:[
+      ['Adını deftere yazayım. Yanlış yazarsam sen de yanlış biri olursun.', 'Osiris kalpleri tartar. Ben sadece fiyatları.'],
+      ['Defterime seni "güvenilir olabilir" diye not ettim.', 'Üç tomar papirüs getirirsen sana iyi bir sayfa açarım.'],
+      ['Not güncellendi: "Güvenilir. Biraz gürültülü."', 'Rahipler seni soruyor. Ben de iyi şeyler yazıyorum.'],
+      ['Sana bir şiir yazdım. Kafiyesi yok ama papirüsü çok kaliteli.', 'Adını tapınak duvarına yazdım. Küçük harflerle, köşeye.']
+    ],
+    thanks:'Papirüs! Bütün yazıcıların rüyası. Teşekkür ederim.' },
+  { name:'Kha', title:'gürültücü bakır tüccarı', fav:'sarap', favQty:2, reward:{ g:'bakir', q:4 },
+    look:{ skin:'#A86E47', hair:'#2B2340', wig:'cap', band:'#C97B4A', bg:'#F6DCD2', c1:'#C97B4A', c2:'#2C6BA6', jolly:true },
+    lines:[
+      ['KHA\'NIN TEZGÂHINA HOŞ GELDİN! Pardon, alışkanlık. Hoş geldin.', 'Bakırım öyle parlak ki güneş kıskanıyor.'],
+      ['Sen o geçenki tüccarsın! Ya da kardeşi. Fark etmez, hoş geldin!', 'İki testi şarap getirirsen sana gemimin hikâyesini anlatırım. Kısa versiyonunu.'],
+      ['Dostlarıma özel fiyat! Bağırmadan söylüyorum, gizli kalsın.', 'Bütün Vaset seni tanıyor. Çünkü herkese ben anlattım.'],
+      ['Yeni gemime senin adını koyacağım. Ya da kedinin. Henüz karar vermedim.', 'SEN BENİM EN İYİ DOSTUMSUN! Bu sefer bilerek bağırdım.']
+    ],
+    thanks:'ŞARAP! Pardon. Şarap. Bu akşam bütün Vaset şarkımı dinleyecek.' },
+  { name:'Tiye', title:'Nubyalı lapis ustası', fav:'bugday', favQty:8, reward:{ g:'lapis', q:1 },
+    look:{ skin:'#7A4A2E', hair:'#1B1420', wig:'puff', band:'#2F5FB3', bg:'#E4DDF3', c1:'#2F5FB3', c2:'#E5B93F', ear:'hoop' },
+    lines:[
+      ['Lapis taşı gökyüzünün parçasıdır. Fiyatı da gökyüzü kadar.', 'Güneyin taşları sabırlıdır. Ben o kadar değilim.'],
+      ['Yolun yine buraya düştü. Taşlar seni sevmeye başladı.', 'Burada ekmek pahalı. Bir çuval buğday çok şey değiştirir.'],
+      ['Burada ekmek pahalı, dostluk değil. Sana iyi fiyat var.', 'Taşı ışığa tut. Mavi değil mi? Senin için daha da mavi.'],
+      ['Sana en mavi taşımı ayırdım. Gökyüzü bile kıskandı.', 'Nubya\'da dostluk taşa yazılır. Seninki lapise yazıldı.']
+    ],
+    thanks:'Buğday! Bu akşam evde ekmek var. Bunu unutmam.' }
+];

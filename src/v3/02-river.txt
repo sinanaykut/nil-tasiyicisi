@@ -1,0 +1,479 @@
+    function shaduf(k, x, z, side) {
+      k.stick([x, 0, z], [x, 30, z], 1.8, K.wood2);
+      k.stick([x - 24 * side, 36, z], [x + 18 * side, 25, z], 1.4, K.wood);
+      k.add('sph5', '#94776A', x + 18 * side, 25, z, 4);
+      k.stick([x - 24 * side, 36, z], [x - 24 * side, 20, z], 0.5, K.ink);
+      k.add('hemi', K.red, x - 24 * side, 17, z, 4, 4, 4, Math.PI);
+      person(k, x + 10 * side, z + 4, '#FBF3DF');
+    }
+    function lotusPads(k, x, z, flower) {
+      k.add('c12', '#5FA05A', x, 0.6, z, 9, 1, 9); k.add('c12', '#4F8E4C', x - 14, 0.5, z + 8, 6, 1, 6);
+      if (flower) { k.add('cone6', '#F2A7B8', x + 12, 3, z + 6, 4.5, 6, 4.5, Math.PI); k.add('sph5', '#E86A7E', x + 12, 4, z + 6, 2); }
+    }
+    function rockKit(k, a, b) {
+      k.add('dod', a, 0, 0.1, 0, 1, 0.78, 0.86, 0.3, 0.5, 0.1); k.add('ico', b, 0.45, 0.25, 0.35, 0.5, 0.42, 0.45, 0.8, 0.2, 0);
+    }
+    function dune(k, x, z, w, h, d, c1, c2) {
+      const r = (x * 0.013 + z * 0.007) % 1;
+      k.add('hemi', c1, x, -0.5, z, w, h, d, 0, r * 0.8 - 0.4); k.add('hemi', c2, x + w * 0.18, -0.6, z + d * 0.22, w * 0.7, h * 0.62, d * 0.62, 0, 0.3 - r * 0.5);
+    }
+    function acacia(k, x, z, s) { const e0 = k.ed; k.ed = false; acacia0(k, x, z, s); k.ed = e0; }
+    function acacia0(k, x, z, s) {
+      k.stick([x, 0, z], [x + 4 * s, 22 * s, z], 2 * s, K.wood2, 'c6'); k.stick([x + 4 * s, 22 * s, z], [x - 8 * s, 30 * s, z], 1.4 * s, K.wood2);
+      k.sway = 1; k.add('sph5', '#6F8A3A', x + 2 * s, 32 * s, z, 18 * s, 5 * s, 14 * s); k.add('sph5', '#5C7A30', x - 8 * s, 31 * s, z + 3, 10 * s, 4 * s, 9 * s); k.sway = 0;
+    }
+
+    /* ---------- the boats ---------- */
+    const BT = {
+      nehir:  { zb:-36, zs:31, beam:26, h0:6, rb:8, rs:20, pf:0.62, hull:'#8E5A33', oars:2, crates:2, mast:-2, sail:'sq', sw:22, sh:34 },
+      feluka: { zb:-38, zs:30, beam:18, h0:5, rb:7, rs:9, pf:0.8, hull:'#A86F3E', oars:1, crates:1, mast:-12, sail:'lat', sw:0, sh:0 },
+      mavna:  { zb:-36, zs:34, beam:42, h0:5, rb:3, rs:4, pf:0.22, hull:'#7A5636', oars:2, crates:5, mast:-14, sail:'sq', sw:15, sh:20, hold:true },
+      kadirga:{ zb:-46, zs:40, beam:28, h0:8, rb:9, rs:16, pf:0.55, hull:'#9C5B3A', oars:6, crates:3, mast:-4, sail:'tall', sw:22, sh:50, castle:true }
+    };
+    /* spec = { boat, up:{govde,yelken,kurek,ambar}, dev:{burun,fener,goz}, cargo, torn, col:{hull,sail,sailBand,band,tip}, emblem, lod } */
+    function boatKit(k, spec) {
+      const D = BT[spec.boat] || BT.nehir, up = spec.up || {}, dev = spec.dev || {}, cl = spec.col || {}, lod = spec.lod || 0;
+      const gv = up.govde | 0, ye = up.yelken | 0, ku = up.kurek | 0, am = up.ambar | 0, dmg = Math.max(0, Math.min(3, spec.dmg | 0));
+      const hull = cl.hull || D.hull, L = D.zs - D.zb, N = lod ? 20 : 13, rings = [];
+      const wAt = t => Math.max(0.8, D.beam / 2 * Math.pow(Math.sin(Math.PI * Math.min(0.995, Math.max(0.005, t))), D.pf));
+      const hAt = t => D.h0 + D.rb * Math.pow(Math.max(0, 1 - t / 0.22), 2) + D.rs * Math.pow(Math.max(0, (t - 0.78) / 0.22), 2);
+      const tOf = z => (z - D.zb) / L;
+      const bandA = cl.band || K.red, bandB = gv >= 1 ? K.gold : hull, bandC = gv >= 2 ? K.lapis : hull, deck = '#C9A36A', inner = '#5E3A1F';
+      /* ring: gunwale and deck on top, painted bands down the sides, keel below the water */
+      const prof = [[1, 1, 0], [0.86, 1, 0], [0.84, 1, -1.4], [-0.84, 1, -1.4], [-0.86, 1, 0], [-1, 1, 0], [-0.985, 0.72, 0], [-0.95, 0.46, 0], [-0.88, 0.2, 0], [-0.62, -0.5, 0], [0, -1, 0], [0.62, -0.5, 0], [0.88, 0.2, 0], [0.95, 0.46, 0], [0.985, 0.72, 0]];
+      const pc = ['#C38E58', inner, deck, inner, '#C38E58', bandA, bandB, bandC, hull, '#5E3A1F', '#5E3A1F', hull, bandC, bandB, bandA];
+      for (let i = 0; i <= N; i++) {
+        const t = i / N, z = D.zb + L * t, w = wAt(t), h = hAt(t), kb = -5 * Math.pow(Math.sin(Math.PI * t), 0.5) - 0.5;
+        rings.push(prof.map(([px, py, dy]) => [px * w, py > 0 ? h * py + dy : kb * -py, z]));
+      }
+      for (let i = 0; i < N; i++) for (let j = 0; j < prof.length; j++) {
+        const j2 = (j + 1) % prof.length, a = rings[i][j], b = rings[i][j2], c = rings[i + 1][j2], d = rings[i + 1][j];
+        k.quad(a, b, c, d, pc[j]);
+      }
+      const capCol = hull;
+      [0, N].forEach(i => { const r = rings[i], cz = r[0][2], cy = r.reduce((s, p) => s + p[1], 0) / r.length; for (let j = 0; j < r.length; j++) { const j2 = (j + 1) % r.length; if (i) k.tri(r[j2], [0, cy, cz], r[j], capCol); else k.tri(r[j], [0, cy, cz], r[j2], capCol); } });
+      if (gv >= 2) for (let z = D.zb + L * 0.2; z < D.zs - L * 0.18; z += 7) { const t = tOf(z), w = wAt(t), h = hAt(t); [-1, 1].forEach(sd => k.add('sph5', '#E9C46A', sd * w * 0.99, h * 0.33, z, 0.9)); }
+      /* finials: papyrus umbel at the stern, lotus (or the given tip colour) at the bow */
+      const hs = hAt(1), hb = hAt(0);
+      if (spec.boat === 'mavna') { k.add('box', hull, 0, hs + 1, D.zs - 1, D.beam * 0.7, 2, 2); }
+      else {
+        k.add('cone6', '#3E8E5A', 0, hs + 3, D.zs + 2, 5, 8, 5, 0.5); k.add('sph5', '#2F7346', 0, hs - 1, D.zs, 2);
+        k.add('cone6', cl.tip || '#E86A7E', 0, hb + 3, D.zb - 1, 4, 7, 4, -0.5); k.add('sph5', '#F2A7B8', 0, hb + 1, D.zb, 1.8);
+      }
+      /* oars and rowers */
+      const no = D.oars + ku * (spec.boat === 'kadirga' ? 2 : 1), z0 = D.zb + L * 0.3, z1 = D.zb + L * (spec.boat === 'kadirga' ? 0.78 : 0.62);
+      for (let j = 0; j < no; j++) {
+        const z = no === 1 ? (z0 + z1) / 2 : z0 + (z1 - z0) * j / (no - 1), t = tOf(z), w = wAt(t), h = hAt(t);
+        [-1, 1].forEach(sd => {
+          const px = sd * w * 0.92, py = h + 1;
+          /* damage 2+: one oar is gone, a broken stub is left in the tholepin */
+          if (dmg >= 2 && sd > 0 && j === no - 1) k.stick([px, py, z], [sd * (w + 6), py - 1.5, z + 1.5], 0.75, '#A8743F');
+          else {
+            k.swing(px, py, z, j * 0.3, 0, sd < 0 ? 0.38 : -0.38);
+            k.stick([px, py, z], [sd * (w + 20), -1.5, z + 5], 0.75, '#A8743F');
+            k.add('box', '#A8743F', sd * (w + 19), -1, z + 4.5, 1.2, 1.2, 5);
+            k.swing();
+          }
+          if (lod || no <= 4) { k.add('box', '#FBF3DF', sd * w * 0.55, h + 2.4, z, 3, 4, 3); k.add('sph5', SKIN, sd * w * 0.55, h + 6, z, 2.1); k.add('sph5', HAIR, sd * w * 0.55, h + 6.8, z, 2.2, 1.4, 2.2); }
+        });
+      }
+      /* steering oar and helmsman */
+      [-1, 1].forEach(sd => { if (sd > 0 && spec.boat !== 'mavna' && spec.boat !== 'kadirga') return; k.stick([sd * 4, hAt(0.86) + 4, D.zs - 8], [sd * 9, -2, D.zs + 14], 1, K.wood2); k.add('box', K.wood, sd * 9, -1, D.zs + 13, 1.2, 1.4, 7); });
+      person(k, 0, D.zs - 10, '#FBF3DF', { y:hAt(tOf(D.zs - 10)) - 1, s:0.75 });
+      /* deck gear by type */
+      const hm = hAt(0.5);
+      if (spec.boat === 'nehir' || spec.boat === 'kadirga') {
+        const cz = D.zs - 22;
+        k.add('box', '#3A2A1E', 0, hm + 5, cz, D.beam * 0.5, 9, 9);
+        for (let j = 0; j < 5; j++) [-1, 1].forEach(sd => k.add('box', j % 2 ? '#FBF3DF' : K.red, sd * D.beam * 0.26, hm + 5, cz - 4 + j * 2, 0.6, 9, 2));
+        k.add('box', K.gold, 0, hm + 10.2, cz, D.beam * 0.6, 1.6, 11); k.add('box', K.lapis, 0, hm + 11.1, cz + 5.6, D.beam * 0.6, 0.8, 0.5);
+      }
+      if (D.castle) [[D.zb + 9, 1], [D.zs - 10, 1]].forEach(([z]) => {
+        const t = tOf(z), h = hAt(t) + 4, w = wAt(t) * 0.8;
+        k.add('box', '#7A4426', 0, h, z, w * 2, 2, 12);
+        [-1, 1].forEach(sd => { for (let q = -1; q <= 1; q++) k.stick([sd * w, h, z + q * 5], [sd * w, h + 5, z + q * 5], 0.5, K.wood2); k.add('box', K.gold, sd * w, h + 5, z, 0.8, 0.8, 12); });
+      });
+      if (D.castle) for (let z = D.zb + L * 0.3; z < D.zb + L * 0.75; z += 6.5) { const t = tOf(z), w = wAt(t), h = hAt(t); [-1, 1].forEach((sd, j) => k.add('c12', ((z / 6.5 | 0) + j) % 2 ? K.gold : K.red, sd * (w + 0.4), h + 0.8, z, 2.8, 0.8, 2.8, 0, 0, Math.PI / 2)); }
+      /* the hold and the cargo */
+      const nc = D.crates + am * (spec.boat === 'mavna' ? 3 : 2), cz0 = spec.boat === 'mavna' ? D.zb + L * 0.3 : D.mast + 5;
+      if (D.hold) k.add('box', '#3A2A1E', 0, hm - 0.4, D.zb + L * 0.5, D.beam * 0.62, 0.6, L * 0.5);
+      for (let j = 0; j < nc; j++) {
+        const row = spec.boat === 'mavna' ? 3 : 2, cx = (j % row - (row - 1) / 2) * 6.6, cz = cz0 + Math.floor(j / row) * 6.6, h = hAt(tOf(cz));
+        if (spec.boat === 'mavna' && j % 3 === 1) k.add('sph5', '#D8C49A', cx, h + 1.4, cz, 3.2, 2.6, 3.2);
+        else { k.add('box', '#E9CFA0', cx, h + 2.6, cz, 5.6, 5, 5.6); k.add('box', '#B48A55', cx, h + 4.6, cz, 5.8, 0.5, 5.8); }
+      }
+      const jars = Math.min(6, spec.cargo | 0);
+      for (let j = 0; j < jars; j++) { const cx = (j % 2 ? 1 : -1) * 3.6, cz = D.mast - 6 - Math.floor(j / 2) * 5, h = hAt(tOf(cz)); k.add('sph5', ['#B7412E', '#C98E62', '#D9A43A'][j % 3], cx, h + 3, cz, 2.4, 3.4, 2.4); k.add('c6', ['#B7412E', '#C98E62', '#D9A43A'][j % 3], cx, h + 6.4, cz, 1.2, 1.6, 1.2); }
+      /* mast, yards and the sail */
+      const hmz = hAt(tOf(D.mast)), sb = cl.sailBand || K.lapis, sc = cl.sail || K.sail;
+      const sail = (x0, x1, yb, yt, z, bulge, rows, col) => {
+        if (dmg >= 3) { const r2 = []; rows.forEach((q, j) => { r2.push(q); const n = rows[j + 1]; if (n && n[0] - q[0] > 0.3) for (let f = 1; f < 4; f++) r2.push([q[0] + (n[0] - q[0]) * f / 4, q[1]]); }); rows = r2; }
+        const nx = 6, ny = rows.length, Pf = (u, v) => [x0 + (x1 - x0) * u, yb + (yt - yb) * v, z - bulge * Math.sin(Math.PI * u) * Math.sin(Math.PI * Math.min(1, v * 1.1 + 0.05))], P = (i, j) => Pf(i / nx, rows[j][0]);
+        const holes = dmg >= 3 ? [[0.58, 0.45], [0.25, 0.66], [0.75, 0.8], [0.92, 0.3]] : [];
+        /* a point on the sail as built (flat cells between the grid points), for patches and stains */
+        const Pl = (u, v) => { let j = 0; while (j < ny - 2 && rows[j + 1][0] < v) j++; const i = Math.min(nx - 1, Math.max(0, Math.floor(u * nx))), fu = u * nx - i, fv = Math.max(0, Math.min(1, (v - rows[j][0]) / ((rows[j + 1][0] - rows[j][0]) || 1))), a = P(i, j), b = P(i + 1, j), c = P(i + 1, j + 1), d = P(i, j + 1);
+          return [0, 1, 2].map(q => (a[q] * (1 - fu) + b[q] * fu) * (1 - fv) + (d[q] * (1 - fu) + c[q] * fu) * fv); };
+        /* a cloth piece following the sail, on both faces */
+        const piece = (u0, u1, v0, v1, pc) => { const N2 = 4, q = (a2, b2, dz) => { const p2 = Pl(u0 + (u1 - u0) * a2 / N2, v0 + (v1 - v0) * b2 / N2); p2[2] += dz; return p2; };
+          for (let a2 = 0; a2 < N2; a2++) for (let b2 = 0; b2 < N2; b2++) { k.quad(q(a2, b2, 0.62), q(a2 + 1, b2, 0.62), q(a2 + 1, b2 + 1, 0.62), q(a2, b2 + 1, 0.62), pc); k.quad(q(a2 + 1, b2, -0.12), q(a2, b2, -0.12), q(a2, b2 + 1, -0.12), q(a2 + 1, b2 + 1, -0.12), pc); }
+          return q; };
+        k.noOut = true;
+        for (let j = 0; j < ny - 1; j++) for (let i = 0; i < nx; i++) {
+          const c = rows[j][1] || col, a = P(i, j), b = P(i + 1, j), cc = P(i + 1, j + 1), d = P(i, j + 1), o = q => [q[0], q[1], q[2] + 0.5];
+          const cu = (i + 0.5) / nx, cv2 = (rows[j][0] + rows[j + 1][0]) / 2;
+          if ((spec.torn && j === 1 && i === 3) || holes.some(hq => Math.abs(hq[0] - cu) < 0.09 && Math.abs(hq[1] - cv2) < 0.09)) {
+            /* a torn flap hangs from the upper edge */
+            if (holes.length) { const m = [d[0] + (a[0] - d[0]) * 0.65 + 1, d[1] + (a[1] - d[1]) * 0.65, d[2] + (a[2] - d[2]) * 0.65 - 1.2]; k.tri(d, cc, m, c); k.tri(o(cc), o(d), o(m), c); }
+            continue;
+          }
+          k.quad(a, b, cc, d, c); k.quad(o(b), o(a), o(d), o(cc), c);
+        }
+        /* patches (damage 2+): darker squares with ink stitches on both faces */
+        if (dmg >= 1) [[0.62, 0.7, 0.1, 0.08], [0.3, 0.3, 0.08, 0.1]].slice(0, dmg >= 2 ? 1 : 2).forEach(([u, v, du, dv]) => piece(u - du, u + du, v - dv, v + dv, '#DCC59A'));
+        if (dmg >= 2) [[0.3, 0.55, 0.16, 0.17, '#B8894E'], [0.72, 0.3, 0.14, 0.14, '#A87A48']].slice(0, dmg >= 3 ? 1 : 2).forEach(([u, v, du, dv, pc]) => {
+          const q = piece(u - du, u + du, v - dv, v + dv, pc);
+          [-0.22, 0.72].forEach(dz => { for (let e = 0; e < 4; e++) { k.stick(q(e, 0, dz), q(e + 1, 0, dz), 0.3, K.ink); k.stick(q(e, 4, dz), q(e + 1, 4, dz), 0.3, K.ink); k.stick(q(0, e, dz), q(0, e + 1, dz), 0.3, K.ink); k.stick(q(4, e, dz), q(4, e + 1, dz), 0.3, K.ink); } });
+        });
+        k.noOut = false;
+        for (let j = 0; j < ny - 1; j++) [0, nx].forEach(i => { const a = P(i, j), b = P(i, j + 1); k.stick([a[0], a[1], a[2] + 0.25], [b[0], b[1], b[2] + 0.25], 0.3, K.ink); });
+      };
+      if (D.sail === 'lat') {
+        const s = (1 + ye * 0.18) * (lod ? 1 : 0.7), foot = [0, hmz + 3, D.mast + 34 * s], top = [0, hmz + 60 * s, D.zs + 6], tack = [0, hmz + 4, D.zb - 6];
+        k.stick([0, hmz, D.mast], [0, hmz + 40 * s, D.mast + 4], 1.4, K.wood, 'c6');
+        const mid = (a, b, f) => [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f];
+        if (dmg >= 3) { const br = mid(tack, top, 0.72); k.stick(tack, br, 1.1, '#A8743F'); k.stick(br, [br[0] + 3, br[1] - 16 * s, br[2] - 7], 1, '#A8743F'); }
+        else k.stick(tack, top, 1.1, '#A8743F');
+        k.noOut = true;
+        for (let j = 0; j < 4; j++) {
+          const f0 = j / 4, f1 = (j + 1) / 4, a = mid(tack, top, f0), b = mid(tack, top, f1), bl = 3.5 * Math.sin(Math.PI * (f0 + f1) / 2), c = [bl, foot[1], foot[2]], A = [a[0] + bl * 0.4, a[1], a[2]], B = [b[0] + bl * 0.4, b[1], b[2]];
+          const cc = dmg >= 2 && j === 2 ? '#C9A36A' : j === 1 ? sb : sc;
+          if (dmg >= 3 && j === 3) { const m = mid(A, c, 0.45); k.tri(A, mid(A, B, 0.5), m, cc); k.tri([m[0] + 0.5, m[1], m[2]], [A[0] + 0.5, A[1], A[2] + 0], [A[0] + 0.5, (A[1] + B[1]) / 2, (A[2] + B[2]) / 2], cc); continue; }
+          if (dmg >= 3 && j === 1) { const m = mid(B, c, 0.5); k.tri(A, B, m, cc); k.tri([B[0] + 0.5, B[1], B[2]], [A[0] + 0.5, A[1], A[2]], [m[0] + 0.5, m[1], m[2]], cc); continue; }
+          k.tri(A, B, c, cc); k.tri([B[0] + 0.5, B[1], B[2]], [A[0] + 0.5, A[1], A[2]], [c[0] + 0.5, c[1], c[2]], cc);
+        }
+        k.noOut = false;
+        if (dmg >= 2) { const pa = mid(mid(tack, top, 0.5), foot, 0.3), pb = mid(mid(tack, top, 0.62), foot, 0.3), pc = mid(mid(tack, top, 0.56), foot, 0.55); [[pa, pb], [pb, pc], [pc, pa]].forEach(([p1, p2]) => k.stick([p1[0] - 0.4, p1[1], p1[2]], [p2[0] - 0.4, p2[1], p2[2]], 0.22, K.ink)); }
+        k.stick([tack[0] + 1.4, tack[1], tack[2]], [foot[0] + 1.4, foot[1], foot[2]], 0.35, K.ink); k.stick([top[0] + 1.4, top[1], top[2]], [foot[0] + 1.4, foot[1], foot[2]], 0.35, K.ink);
+        k.stick([0, hmz + 40 * s, D.mast + 4], foot, 0.4, '#5A4632');
+      } else {
+        const tall = D.sail === 'tall', w = D.sw * (1 + ye * 0.22), h = D.sh * (1 + ye * 0.14) * (lod ? 1 : 0.62), mh = hmz + h + 12;
+        k.stick([0, hmz - 2, D.mast], [0, mh, D.mast], tall ? 1.8 : 1.5, K.wood, 'c6');
+        const yb = hmz + 9, yt = yb + h, z = D.mast - 1.6;
+        if (dmg >= 3) { k.stick([-w - 3, yt + 0.6, z], [w * 0.15, yt + 0.6, z], 1.2, '#A8743F', 'c6'); k.stick([w * 0.15, yt + 0.2, z], [w + 1, yt - h * 0.38, z - 2.5], 1.1, '#A8743F', 'c6'); }
+        else k.stick([-w - 3, yt + 0.6, z], [w + 3, yt + 0.6, z], 1.2, '#A8743F', 'c6');
+        k.stick([-w - 1, yb - 0.5, z], [w + 1, yb - 0.5, z], 1, '#A8743F', 'c6');
+        if (dmg >= 1) { const ry = dmg >= 3 ? yt - h * 0.38 : yt + 0.6, rx = dmg >= 3 ? w + 1 : w + 3; k.stick([rx, ry, z], [rx + 2.5, (ry + hm) / 2 + 2, z + 3], 0.35, '#5A4632'); k.stick([rx + 2.5, (ry + hm) / 2 + 2, z + 3], [rx - 1, hm + 5, z + 7], 0.35, '#5A4632'); }
+        const rows = tall ? [[0, '#FBF3DF'], [0.16, sc === K.sail ? K.red : sb], [0.32, null], [0.48, sc === K.sail ? K.red : sb], [0.64, null], [0.8, sc === K.sail ? K.red : sb], [1]] : [[0, null], [0.07, sb], [0.15, cl.sailBand ? null : K.red], [0.21, null], [0.86, sb], [0.91, null], [1]];
+        sail(-w, w, yb, yt, z, 4 + ye, rows, sc);
+        if (spec.emblem) { const zc = z - (4 + ye) * 0.97; [[zc + 1, 1.5], [zc - 0.5, -0.4]].forEach(([ze, o]) => { k.add('c12', K.gold, 0, yb + h * 0.5, ze, 6.5, 0.6, 6.5, Math.PI / 2); k.add('c12', K.lapis, 0, yb + h * 0.5, ze + o * 0.3, 3.4, 0.6, 3.4, Math.PI / 2); }); }
+        k.stick([0, mh - 2, D.mast], [0, hb + 1, D.zb + 2], 0.35, '#5A4632'); k.stick([0, mh - 2, D.mast], [0, hs - 2, D.zs - 4], 0.35, '#5A4632');
+        if (spec.flag !== false) k.add('box', spec.flagCol || K.red, 0, mh + 1, D.mast + 4.5, 0.6, 3, 9);
+      }
+      /* damage: scuffs and a loose rope (1), cracked planks, a missing plank, bailing bucket (2), holes and scorch (3) */
+      if (dmg >= 1) [-1, 1].forEach(sd => [0.22, 0.36, 0.5, 0.64, 0.76].forEach((t, q) => {
+        if ((q + (sd > 0 ? 1 : 0)) % 2 && dmg < 2) return;
+        const z = D.zb + L * t, w = wAt(t), h = hAt(t), y = h * (0.4 + (q % 3) * 0.16), x = sd * (w * 0.985 + 0.35);
+        k.stick([x, y, z], [x, y - 2.2, z + 7], 0.42, '#F1DDB0'); k.stick([x, y + 1.2, z + 1.5], [x, y - 0.4, z + 6], 0.3, '#E9CFA0');
+      }));
+      if (dmg >= 2) {
+        [[-1, 0.43], [1, 0.63], [1, 0.28], [-1, 0.7]].forEach(([sd, t]) => { const z = D.zb + L * t, w = wAt(t), h = hAt(t); let p = [sd * (w * 0.99 + 0.35), h * 0.95, z]; for (let q = 1; q <= 4; q++) { const n = [sd * (w * 0.97 + 0.35), h * (0.95 - q * 0.2), z + (q % 2 ? 2.4 : -1.6)]; k.stick(p, n, 0.5, K.ink); p = n; } });
+        [1, -1].forEach(sd => { const t = sd > 0 ? 0.4 : 0.55, z = D.zb + L * t, w = wAt(t), h = hAt(t); k.add('box', '#1A110B', sd * w * 0.99, h * 0.55, z, 1, Math.max(2.4, h * 0.2), 12); k.add('box', '#C9955A', sd * (w * 0.99 + 0.4), h * 0.55 + Math.max(1.2, h * 0.1) + 0.4, z, 0.6, 0.8, 13); });
+        k.add('c8', '#8E5A33', D.beam * 0.22, hAt(0.5) + 0.4, D.mast + 12, 2.2, 3.2, 2.2); k.geo(G.tor, '#5A4632', mtx(D.beam * 0.22, hAt(0.5) + 2.4, D.mast + 12, 2.1, 2.1, 2.1, Math.PI / 2));
+        [[0.5, 3.5], [0.8, 3], [1.0, 1.4], [1.1, -0.6]].forEach(([f, dy]) => k.add('sph5', '#4FA3D9', D.beam * (0.22 + f * 0.33), hAt(0.5) + 2 + dy, D.mast + 12, 0.9));
+      }
+      if (dmg >= 3) {
+        [[1, 0.5], [-1, 0.6]].forEach(([sd, t]) => { const z = D.zb + L * t, w = wAt(t), h = hAt(t); k.add('box', '#1A110B', sd * w * 0.98, h * 0.6, z, 0.8, Math.max(2.4, h * 0.22), 6); k.add('box', '#1A110B', sd * w * 0.985, h * 0.32, z + 5, 0.8, Math.max(1.6, h * 0.14), 4); });
+        k.add('sph5', '#2A1E18', -D.beam * 0.12, hAt(0.8) - 0.6, D.zb + L * 0.8, 5, 0.5, 4); k.add('sph5', '#2A1E18', D.beam * 0.18, hAt(0.3) - 0.8, D.zb + L * 0.28, 3.5, 0.5, 3);
+      }
+      /* devices: copper ram, stern lantern, the eye of Horus */
+      if (dev.burun) {
+        k.add('cone6', '#C46A3A', 0, 1.6, D.zb - 6, 3.4, 14, 3.4, -Math.PI / 2); k.add('c8', '#E39A5E', 0, 1.6, D.zb + 1, 4, 1.6, 4, Math.PI / 2);
+        k.add('c8', '#C46A3A', 0, 1.6, D.zb + 3.5, 3.2, 1.2, 3.2, Math.PI / 2);
+      }
+      if (dev.fener) {
+        const z = D.zs - 4, h = hAt(tOf(z));
+        k.stick([0, h, z], [0, h + 18, z], 0.8, K.wood2); k.stick([0, h + 18, z], [0, h + 18, z + 4], 0.5, K.wood2);
+        k.add('box', '#A8742E', 0, h + 15, z + 4, 4.4, 1, 4.4); k.add('box', '#FFD27A', 0, h + 12.6, z + 4, 3.6, 4, 3.6); k.add('cone4', '#A8742E', 0, h + 16.4, z + 4, 3, 2.6, 3, 0, Math.PI / 4);
+      }
+      const ez = D.zb + L * 0.12, et = tOf(ez), ew = wAt(et), eh = hAt(et);
+      if (dev.goz) [-1, 1].forEach(sd => {
+        k.at(sd * (ew + 1.4), eh * 0.62, ez, sd < 0 ? -Math.PI / 2 : Math.PI / 2, 1);
+        const E = (x, y) => [x, y * 0.92, -y * 0.38], pts = 10, ex = 6.5, ey = 2.6;
+        for (let i = 0; i < pts; i++) { const a0 = i / pts * Math.PI * 2, a1 = (i + 1) / pts * Math.PI * 2; k.tri(E(0, 0), E(Math.cos(a0) * ex, Math.sin(a0) * ey), E(Math.cos(a1) * ex, Math.sin(a1) * ey), '#FBF3DF'); }
+        k.add('sph5', K.ink, 0, 0, 0.25, 2.2, 2.1, 0.8, -0.38);
+        k.stick(E(-ex - 1, ey + 2.6), E(ex + 1, ey + 2.2), 0.7, K.lapis); k.stick(E(-ex, 0), E(-ex - 4, -0.2), 0.6, K.ink);
+        k.stick(E(-1, -ey), E(-1.5, -ey - 6), 0.6, K.ink); k.stick(E(1.5, -ey), E(4.5, -ey - 5), 0.6, K.ink); const e5 = E(4.8, -ey - 5.4); k.add('sph5', K.ink, e5[0], e5[1], e5[2], 1.1);
+        k.at();
+      });
+      else if (lod) [-1, 1].forEach(sd => { k.at(sd * (ew * 0.98 + 0.2), eh * 0.6, ez, sd < 0 ? -Math.PI / 2 : Math.PI / 2, 1); k.add('sph5', '#FBF3DF', 0, 0, 0, 2.6, 1.1, 0.4); k.add('sph5', K.ink, 0, 0, 0.2, 0.8, 0.8, 0.4); k.at(); });
+      return k;
+    }
+    function boatGeo(spec) { tpl(); return boatKit(new Kit(), spec).bake({ swing:true }); }
+
+    /* ---------- the river view ---------- */
+    let slow = false, ren = null, cv = null, scene = null, cam = null, U = null, MT = null, own = [], dead = false, cur = null, shown = false, seaBg = null;
+    let gW = 0, gH = 0, prR = 1, fr = { n:0, cpu:4, last:0, avg:16 }, clock = 0, lastNow = 0;
+    let ground = null, chunks = new Map(), pools = {}, fxm = null, ptm = null, sky = null, quay = null, finL = null, labels = new Map(), boats = {}, frame = 0, camGeo = null, vis = { ahead:900, behind:200, side:600 };
+    const PALD = { water:'#2A62A8', deep:'#1F4F8C', zig:'#8FD3E0', bank:'#E2BF7E', bank2:'#D4A866', edge:'#9A7444', field:'#6DAA4E', furrow:'#4F8A3A', fieldEdge:'#3F6F2E', sheen:'rgba(255,255,255,.08)' };
+    function initRen() {
+      try {
+        const sea = Sea.canvas(); if (!sea || !sea.parentNode) return false;
+        cv = document.createElement('canvas'); cv.className = 'v3-river'; cv.setAttribute('aria-hidden', 'true');
+        cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:none;pointer-events:none;background:#E2BF7E';
+        sea.parentNode.insertBefore(cv, sea);
+        ren = new T.WebGLRenderer({ canvas:cv, antialias:(window.devicePixelRatio || 1) < 1.6, alpha:false, powerPreference:'high-performance', preserveDrawingBuffer:false });
+        ren.setClearColor(0xE2BF7E, 1); ren.sortObjects = true;
+        cv.addEventListener('webglcontextlost', e => { e.preventDefault(); dead = true; }, false);
+        cv.addEventListener('webglcontextrestored', () => { freeRen(); dead = false; }, false);
+        prR = Math.min(1.5, window.devicePixelRatio || 1);
+        return true;
+      } catch (e) { freeRen(); dead = true; return false; }
+    }
+    function freeRen() {
+      clearScene();
+      if (ren) { try { ren.dispose(); ren.forceContextLoss(); } catch (e) {} }
+      if (cv && cv.parentNode) cv.parentNode.removeChild(cv);
+      ren = null; cv = null; gW = gH = 0;
+    }
+    function clearScene() {
+      chunks.forEach(ch => ch.g.children.forEach(m => { try { m.geometry.dispose(); } catch (e) {} }));
+      own.forEach(o => { try { o.dispose(); } catch (e) {} }); own = [];
+      for (const k in GEO) delete GEO[k];
+      labels.forEach(t => { try { t.dispose(); } catch (e) {} }); labels.clear();
+      chunks.clear(); pools = {}; boats = {}; scene = null; cam = null; ground = null; fxm = null; ptm = null; sky = null; quay = null; finL = null; U = null; MT = null; cur = null;
+      if (ren) try { ren.renderLists.dispose(); } catch (e) {}
+    }
+    const keep = o => { own.push(o); return o; };
+    function mesh(geo, mat, parent) { const m = new T.Mesh(geo, mat); if (parent) parent.add(m); return m; }
+    /* a model: toon mesh + ink hull sharing one geometry */
+    function model(geo, swing, parent, m) {
+      const g = new T.Group(); m = m || (swing ? { t:keep(MT.toon({ swing:true, u:{ uRow:{ value:0 } } })) } : { t:MT.T, i:MT.I });
+      if (!m.i) m.i = keep(MT.ink({ swing:true, u:{ uRow:m.t.uniforms.uRow } }));
+      g.add(new T.Mesh(geo, m.t)); g.add(new T.Mesh(geo, m.i)); g.userData.m = m;
+      if (parent) parent.add(g);
+      return g;
+    }
+    function fxGeo(build) { const k = new Kit(); build(k); return keep(k.bake({ fx:true })); }
+    function startScene(st, api) {
+      clearScene(); tpl(); cur = st;
+      Object.assign(K, api.C || {});
+      scene = new T.Scene(); cam = new T.PerspectiveCamera(26, 1, 20, 6000); scene.add(cam);
+      U = mkU(); MT = mats(U, own); MT.T = MT.toon(); MT.I = MT.ink(); MT.F = MT.fx(false); MT.A = MT.fx(true);
+      const P = Object.assign({}, PALD, api.P || {}), c = h => new T.Color(h), sheen = /rgba\([^)]*,\s*([\d.]+)\)/.exec(P.sheen || '');
+      const gu = { uBank:{ value:c(P.bank) }, uBank2:{ value:c(P.bank2) }, uField:{ value:c(P.field) }, uFurrow:{ value:c(P.furrow) }, uFieldEdge:{ value:c(P.fieldEdge) }, uEdge:{ value:c(P.edge) }, uDeep:{ value:c(P.deep) }, uWater:{ value:c(P.water) }, uZig:{ value:c(P.zig) }, uFoam:{ value:c(K.foam) },
+        uSand:{ value:c(DES.sand) }, uSand2:{ value:c(DES.sand2) }, uRip:{ value:c(DES.rip) }, uTrack:{ value:c(DES.track) }, uPeb:{ value:c(DES.peb) },
+        uSheen:{ value:sheen ? +sheen[1] : 0.08 }, uHW:{ value:api.halfW() }, uSeed:{ value:(st.seedDeco || 0) % 97 }, uRap:{ value:st.kind === 'rapids' ? 1 : 0 }, uDes:{ value:st.desert ? 1 : 0 }, uT:{ value:0 }, uStr:{ value:[new T.Vector3(), new T.Vector3(), new T.Vector3()] } };
+      ground = mesh(keep(new T.BufferGeometry()), MT.ground(gu), scene); ground.userData.u = gu; ground.frustumCulled = false; ground.renderOrder = -1;
+      const NR = 64, gp = new Float32Array(NR * 2 * 3), gx = new Float32Array(NR * 2), idx = [];
+      for (let i = 0; i < NR - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+      ground.geometry.setAttribute('position', new T.BufferAttribute(gp, 3)); ground.geometry.setAttribute('aCX', new T.BufferAttribute(gx, 1)); ground.geometry.setIndex(idx); ground.userData.nr = NR;
+      /* shared dynamic buffers: wake + streaks + dust (fx quads) and particles */
+      const FQ = 140, fp = new Float32Array(FQ * 4 * 3), fc = new Float32Array(FQ * 4 * 3), fa = new Float32Array(FQ * 4), fi = [];
+      for (let i = 0; i < FQ; i++) { const a = i * 4; fi.push(a, a + 1, a + 2, a, a + 2, a + 3); }
+      const fg = keep(new T.BufferGeometry()); fg.setAttribute('position', new T.BufferAttribute(fp, 3)); fg.setAttribute('aCol', new T.BufferAttribute(fc, 3)); fg.setAttribute('aA', new T.BufferAttribute(fa, 1)); fg.setIndex(fi);
+      fxm = mesh(fg, MT.F, scene); fxm.frustumCulled = false; fxm.renderOrder = 2; fxm.userData.cap = FQ;
+      const PN = 260, pg = keep(new T.BufferGeometry());
+      pg.setAttribute('position', new T.BufferAttribute(new Float32Array(PN * 3), 3)); pg.setAttribute('aCol', new T.BufferAttribute(new Float32Array(PN * 3), 3)); pg.setAttribute('aA', new T.BufferAttribute(new Float32Array(PN), 1)); pg.setAttribute('aS', new T.BufferAttribute(new Float32Array(PN), 1));
+      ptm = new T.Points(pg, MT.pts()); ptm.frustumCulled = false; ptm.renderOrder = 3; scene.add(ptm); ptm.userData.cap = PN;
+      setupSky(st);
+      gW = gH = 0;
+    }
+    /* night sky and sandstorm dust live in front of the camera */
+    function setupSky(st) {
+      sky = new T.Group(); cam.add(sky); sky.visible = false;
+      const night = st.kind === 'night', storm = st.kind === 'sandstorm';
+      if (!night && !storm) return;
+      sky.visible = true;
+      const n = night ? 46 : 90, g = keep(new T.BufferGeometry()), p = new Float32Array(n * 3), c = new Float32Array(n * 3), a = new Float32Array(n), s = new Float32Array(n);
+      for (let i = 0; i < n; i++) { const cc = night ? [1, 1, 0.92] : [0.86, 0.7, 0.48]; c.set(cc, i * 3); a[i] = night ? 0.5 : 0.35; s[i] = night ? 2.6 + (i % 3) * 0.6 : 3.5; }
+      g.setAttribute('position', new T.BufferAttribute(p, 3)); g.setAttribute('aCol', new T.BufferAttribute(c, 3)); g.setAttribute('aA', new T.BufferAttribute(a, 1)); g.setAttribute('aS', new T.BufferAttribute(s, 1));
+      const pm = keep(new T.ShaderMaterial({ uniforms:{ uPR:U.uPR, uFocal:{ value:1 } }, vertexShader:PT_V.replace('varying vec3 vW;', 'varying vec3 vW;'), fragmentShader:'varying vec3 vC; varying float vA; varying vec3 vW; void main() { vec2 q = gl_PointCoord - 0.5; if (dot(q, q) > 0.25) discard; gl_FragColor = vec4(vC, vA); }', transparent:true, depthTest:false, depthWrite:false }));
+      const pts = new T.Points(g, pm); pts.frustumCulled = false; pts.renderOrder = 20; sky.add(pts); sky.userData.pts = pts; sky.userData.n = n;
+      if (night) {
+        const mm = keep(new T.MeshBasicMaterial({ color:0xF5EBC8, depthTest:false, transparent:true })), md = keep(new T.MeshBasicMaterial({ color:0x0B1430, depthTest:false, transparent:true })), cg = keep(new T.CircleGeometry(1, 24));
+        const moon = new T.Mesh(cg, mm), mo = new T.Mesh(cg, md); moon.renderOrder = 21; mo.renderOrder = 22; sky.add(moon); sky.add(mo); sky.userData.moon = [moon, mo];
+      }
+    }
+    function size(st, api) {
+      const W = api.W, H = api.H;
+      if (W === gW && H === gH && camGeo) return;
+      gW = W; gH = H;
+      ren.setPixelRatio(prR); ren.setSize(W, H, false);
+      const fov = 26, th = 60 * Math.PI / 180, t = Math.tan(fov / 2 * Math.PI / 180), D = (H / 2) / t, by = api.boatY(), a = Math.atan(((by - H / 2) / (H / 2)) * t), dist = D / Math.cos(a);
+      const h = dist * Math.sin(th + a), back = dist * Math.cos(th + a), far = h / Math.tan(th - fov / 2 * Math.PI / 180);
+      cam.fov = fov; cam.aspect = W / H; cam.near = Math.max(20, h * 0.3); cam.far = Math.hypot(h, far) * 1.3; cam.rotation.set(-th, 0, 0); cam.updateProjectionMatrix();
+      camGeo = { h, back, D };
+      vis.ahead = far - back; vis.behind = Math.max(60, back - h / Math.tan(th + fov / 2 * Math.PI / 180)) + 40; vis.side = Math.hypot(h, far) * t * (W / H) + 80;
+      U.uFocal.value = D; U.uPR.value = prR; U.uVig.value.set(W / 2, H * 0.45, Math.min(W, H) * 0.35, Math.max(W, H) * 0.8);
+      ground.userData.u.uHW.value = api.halfW();
+      if (sky && sky.userData.pts) placeSky(st, W, H);
+      chunks.forEach(ch => { if (ch.g) { scene.remove(ch.g); ch.g.children.forEach(m => { if (m.geometry) m.geometry.dispose(); }); } }); chunks.clear();
+    }
+    /* screen pixel -> camera space at distance z0 in front of the camera */
+    function scr(x, y, z0, W, H, out) { const hh = z0 * Math.tan(13 * Math.PI / 180); out.set((x / W * 2 - 1) * hh * (W / H), (1 - y / H * 2) * hh, -z0); return out; }
+    function placeSky(st, W, H) {
+      const z0 = cam.near * 1.5, pts = sky.userData.pts, n = sky.userData.n, p = pts.geometry.attributes.position, v = new T.Vector3(), hash = n2 => { const x = Math.sin(n2 * 12.9898 + 78.233) * 43758.5453; return x - Math.floor(x); };
+      for (let i = 0; i < n; i++) { scr(hash(i * 3.3) * W, hash(i * 7.7) * H * (st.kind === 'night' ? 0.3 : 1), z0, W, H, v); p.setXYZ(i, v.x, v.y, v.z); }
+      p.needsUpdate = true;
+      pts.material.uniforms.uFocal.value = z0; sky.userData.z0 = z0;
+      if (sky.userData.moon) { const [m, d] = sky.userData.moon, k = z0 * Math.tan(13 * Math.PI / 180) * 2 / H; scr(W * 0.82, H * 0.12, z0, W, H, v); m.position.copy(v); m.scale.setScalar(16 * k); scr(W * 0.82 + 7, H * 0.12 - 4, z0 - 0.1, W, H, v); d.position.copy(v); d.scale.setScalar(14 * k * 0.999); }
+    }
+
+    /* ---------- decoration chunks: banks, villages, palms, reeds, lotus (or dunes in the desert) ---------- */
+    const CL = 320;
+    function buildChunk(i, st, api) {
+      const k = new Kit(), f = new Kit(), y0 = i * CL, y1 = y0 + CL, hw = api.halfW(), H = api.hash, sd0 = st.seedDeco || 0, cX = api.centerX, side = vis.side;
+      /* v33: the world library (world33.txt) paints richer banks when it is there */
+      let done = false; if (_x.W && _x.W.riverChunk) { try { const t0 = performance.now(); _x.W.riverChunk(k, f, st, api, y0, y1, vis); done = true; const W2 = _x.W.stat || (_x.W.stat = { n:0, ms:0, max:0, tris:0 }); const dt = performance.now() - t0; W2.n++; W2.ms += dt; W2.max = Math.max(W2.max, dt); W2.tris = Math.max(W2.tris, k.p.length / 9); } catch (e) { try { console.warn('riverChunk:', e); } catch (e2) {} [k, f].forEach(q => { ['p', 'n', 'c', 'w', 'v', 's', 'a', 'no', 'm', 'e', 'po'].forEach(n => { q[n].length = 0; }); }); } }
+      if (done) {}
+      else if (st.desert) {
+        for (let y = Math.ceil(y0 / 80) * 80; y < y1; y += 80) [-1, 1].forEach(sd => {
+          const h = H(y * 0.131 + sd * 5 + sd0), h2 = H(y * 0.57 + sd * 9), c = cX(y), x = c + sd * (hw + 70 + h2 * 90);
+          if (h < 0.42) dune(k, x + sd * 40, -y, 70 + h2 * 70, 18 + h * 40, 34 + h2 * 30, '#E0BC78', '#EBCB8C');
+          else if (h < 0.52) { rockKit(k.at(x, 0, -y, h * 6, 8 + h2 * 8), '#B07A5A', '#94664A'); k.at(); }
+          else if (h < 0.6) acacia(k, x, -y, 0.9 + h2 * 0.4);
+          else if (h < 0.64 && h2 < 0.5) { palm(k, x + sd * 30, -y, 0.9, f); palm(k, x + sd * 54, -y - 16, 0.75, f); k.add('c12', '#2A62A8', x + sd * 42, 0.3, -y + 12, 14, 0.6, 9); }
+          else if (h < 0.7) { k.add('box', '#D9C08E', x, 10, -y, 9, 20, 9); k.add('box', '#C7A86E', x + sd * 8, 3, -y + 6, 12, 6, 8, 0, 0.4, 0.3); }
+          else if (h < 0.8) for (let j = 0; j < 3; j++) k.add('sph5', j % 2 ? '#8E9A4A' : '#7A8A3A', x + j * 6, 2, -y + j * 4, 5 - j, 3.5, 4);
+          const fx2 = c + sd * (hw + 260 + h * 260);
+          if (fx2 > -side + api.W / 2 && fx2 < api.W / 2 + side) dune(k, fx2, -y - 40, 120 + h * 100, 26 + h2 * 34, 60 + h * 30, '#DDB673', '#E8C789');
+        });
+      } else {
+        for (let y = Math.ceil(y0 / 64) * 64; y < y1; y += 64) {
+          const c = cX(y), z = -y;
+          [-1, 1].forEach(sd => {
+            const h = H(y * 0.113 + sd * 7 + sd0), h2 = H(y * 0.71 + sd * 3), bx = c + sd * (hw + 22 + h2 * 22);
+            if (h < 0.3) papyrus(k, bx, z, 0.8 + h2 * 0.6);
+            else if (h < 0.48) palm(k, bx + sd * 14, z, 0.9 + h2 * 0.4, f);
+            else if (h < 0.58) village(k, bx + sd * 46, z, sd);
+            else if (h < 0.62) obelisk(k, bx + sd * 40, z);
+            else if (h < 0.65) pylon(k, bx + sd * 70, z);
+            else if (h < 0.7) { k.at(bx + sd * 34, 0, z, sd < 0 ? -Math.PI / 2 : Math.PI / 2, 0.9); donkey(k, { rider:'#FBF3DF', pack:1 }); k.at(); }
+            else if (h < 0.75) shaduf(k, bx + sd * 6, z, sd);
+            else if (h < 0.79) { person(k, bx + sd * 20, z, '#FBF3DF', { wave:true }); person(k, bx + sd * 32, z + 4, '#E6CB95'); person(k, bx + sd * 42, z - 2, '#FBF3DF', { wave:true }); }
+            else if (h < 0.83) cattle(k, bx + sd * 44, z, sd);
+          });
+        }
+        for (let y = Math.ceil(y0 / 18) * 18; y < y1; y += 18) [-1, 1].forEach(sd => { const h = H(y * 0.37 + sd * 13 + sd0); if (h < 0.55) reeds(k, cX(y) + sd * (hw + 6 + h * 8), -y, 0.7 + h * 0.6, sd); });
+        for (let y = Math.ceil(y0 / 120) * 120; y < y1; y += 120) { const h = H(y * 0.21 + sd0); if (h > 0.55) continue; const sd = h < 0.27 ? -1 : 1; lotusPads(k, cX(y) + sd * (hw - 26 - h * 30), -y, h < 0.15); }
+        /* palm groves in the gaps between fields, further out */
+        for (let y = Math.ceil(y0 / 190) * 190; y < y1; y += 190) [-1, 1].forEach(sd => {
+          const h = H(y * 0.37 + sd * 11 + sd0); if (h <= 0.72) return;
+          for (let j = 0; j < 3; j++) { const hj = H(y + j * 3.3 + sd), x = cX(y) + sd * (hw + 100 + hj * 160); palm(k, x, -y - j * 50 - hj * 20, 0.9 + hj * 0.3, f); }
+        });
+      }
+      const g = new T.Group();
+      if (k.p.length) { const geo = k.bake(); g.add(new T.Mesh(geo, MT.T)); g.add(new T.Mesh(geo, MT.I)); }
+      if (f.p.length) { const fm = new T.Mesh(f.bake({ fx:true }), MT.F); fm.renderOrder = 1; g.add(fm); }
+      return g;
+    }
+    function updChunks(st, api) {
+      const a = Math.floor((st.dist - vis.behind - 80) / CL), b = Math.floor((st.dist + vis.ahead + 120) / CL);
+      chunks.forEach((ch, i) => { if (i < a - 1 || i > b + 1) { scene.remove(ch.g); ch.g.children.forEach(m => m.geometry.dispose()); chunks.delete(i); } });
+      let built = 0;
+      for (let i = a; i <= b; i++) {
+        if (chunks.has(i)) continue;
+        if (built && chunks.size && i > Math.floor(st.dist / CL) + 1) break;
+        const g = buildChunk(i, st, api); scene.add(g); chunks.set(i, { g }); built++;
+      }
+    }
+
+    /* ---------- pooled models for obstacles, picks and boats ---------- */
+    function geoOf(key, build, swing) { let g = GEO[key]; if (!g || !g.attributes) { tpl(); const k = new Kit(); build(k); g = GEO[key] = keep(k.bake({ swing })); } return g; }
+    function pool(key) { return pools[key] || (pools[key] = { live:new Map(), free:[] }); }
+    function sync(list, keyOf, make, upd) {
+      for (let i = 0; i < list.length; i++) {
+        const o = list[i], key = keyOf(o), p = pool(key); let v = p.live.get(o);
+        if (!v) { v = p.free.pop() || make(key, o); v.g.visible = true; p.live.set(o, v); v.o = o; v.t0 = clock; if (v.init) v.init(o); }
+        v.gen = frame; upd(v, o);
+      }
+    }
+    let swP = null;
+    const swF = (v, o) => { if (v.gen !== frame) { v.g.visible = false; swP.live.delete(o); swP.free.push(v); } };
+    function sweep(prefix) {
+      for (const k in pools) { if (k.indexOf(prefix) !== 0) continue; swP = pools[k]; swP.live.forEach(swF); }
+    }
+    const ringGeo = (r0, r1, a0, a1, col, al, seg) => fxGeo(k => { k.alpha = al; k.geo(new T.RingGeometry(r0, r1, seg || 20, 1, a0, a1).rotateX(-Math.PI / 2), col, mtx(0, 0, 0, 1)); });
+    function fxMesh(geo, add, parent) { const m = new T.Mesh(geo, add ? MT.A : MT.F); m.renderOrder = add ? 4 : 1; if (parent) parent.add(m); return m; }
+    function makeObs(key, o) {
+      const g = new T.Group(); scene.add(g); const v = { g };
+      const k0 = key.split(':')[1];
+      if (k0 === 'rock' || k0 === 'boulder' || k0 === 'x') {
+        const des = k0 === 'boulder';
+        v.m = model(geoOf(des ? 'boulder' : 'rock', k => { rockKit(k, des ? '#B07A5A' : K.rock, des ? '#94664A' : K.rock2); if (des) { k.add('ico', '#A98476', 1.1, -0.2, 0.6, 0.3); k.add('ico', '#A98476', -1, -0.2, -0.4, 0.22); } }), false, g);
+        if (!des) v.f = fxMesh(GEO.foamHalf || (GEO.foamHalf = ringGeo(0.9, 1, Math.PI * 0.1, Math.PI * 0.8, K.foam, 0.9, 12)), false, g);
+        else v.f = fxMesh(GEO.shadow || (GEO.shadow = fxGeo(k => { k.alpha = 0.16; k.add('disc', '#000000', 0, 0, 0, 1); })), false, g);
+        v.init = o2 => { v.m.scale.set(o2.r, o2.r, o2.r); v.m.rotation.y = (o2.y * 0.013) % 6.28; };
+        v.upd = (o2, st) => { const r = o2.r + 5 + Math.sin(st.t * 5 + o2.y) * 1.5; v.f.scale.set(des ? o2.r * 1.1 : r, 1, des ? o2.r * 0.8 : r); v.f.position.set(des ? 5 : 0, 0.4, des ? 4 : 0); };
+      } else if (k0 === 'croc') {
+        const body = geoOf('croc', k => {
+          k.add('sph', K.croc, 0, 1, 0, 8, 4.5, 30); k.add('cone4', K.croc, 0, 1.2, 36, 6, 18, 2.6, Math.PI / 2, Math.PI / 4);
+          for (let z = -22; z < 24; z += 7) k.add('cone4', K.croc2, 0, 5, z, 1.6, 2.6, 1.6);
+          [-1, 1].forEach(sd => { k.add('sph5', '#F2C65A', sd * 4.5, 4.2, 22, 2.3); k.add('sph5', K.ink, sd * 4.6, 5.2, 22.6, 0.9); [-12, 12].forEach(z => k.add('box', K.croc2, sd * 9, 0, z, 5, 2, 3, 0, sd * 0.4)); });
+        });
+        v.m = model(body, false, g);
+        v.tail = new T.Group(); v.tail.position.z = -28; g.add(v.tail);
+        model(geoOf('crocT', k => { k.add('cone4', K.croc2, 0, 1.4, -11, 4.5, 24, 2.6, -Math.PI / 2, Math.PI / 4); for (let z = -4; z > -20; z -= 6) k.add('cone4', K.croc2, 0, 3.4, z, 1.2, 2.2, 1.2); }), false, v.tail);
+        v.sob = model(geoOf('crocS', k => { k.add('c12', K.gold, 0, 5.2, 16, 3, 0.8, 8); }), false, g);
+        v.f = fxMesh(GEO.crocW || (GEO.crocW = fxGeo(k => { k.alpha = 0.5; [-1, 1].forEach(sd => k.add('box', K.foam, sd * 15, 0.3, -46, 1.6, 0.2, 22, 0, sd * 0.35)); })), false, g);
+        v.upd = (o2, st) => { g.rotation.y = Math.sin(o2.ph) * 0.15; v.tail.rotation.y = Math.sin(o2.ph * 2) * 0.28; v.sob.visible = st.plan.bless === 'sobek'; };
+      } else if (k0 === 'log') {
+        v.m = model(geoOf('log', k => { k.add('c8', K.log, 0, 0, 0, 9, 1, 9, 0, 0, Math.PI / 2); k.add('c8', '#C9955A', 0.5, 0, 0, 7.5, 0.02, 7.5, 0, 0, Math.PI / 2); k.add('box', K.wood2, 0.05, 8.6, 2, 0.75, 0.6, 1.4); k.add('box', K.wood2, -0.05, 8.2, -3.5, 0.6, 0.6, 1.4); }), false, g);
+        v.f = fxMesh(GEO.logF || (GEO.logF = fxGeo(k => { k.alpha = 0.45; k.add('disc', K.foam, 0, 0, 0, 1); })), false, g);
+        v.init = o2 => { v.m.scale.set(o2.len, 1, 1); v.f.scale.set(o2.len * 0.55, 1, 12); };
+        v.upd = (o2, st) => { v.m.position.y = 1 + Math.sin(st.t * 2 + o2.y) * 0.6; v.m.rotation.y = Math.sin(st.t * 0.8 + o2.y) * 0.08; v.f.position.y = 0.3; };
+      } else if (k0 === 'sand' || k0 === 'dune') {
+        const des = k0 === 'dune';
+        v.init = o2 => {
+          const w = Math.round((o2.w || 80) / 10) * 10, key2 = (des ? 'dune' : 'sand') + w;
+          if (v.key !== key2) {
+            if (v.m) g.remove(v.m);
+            v.m = model(geoOf(key2, k => {
+              if (des) { k.add('hemi', '#DDB471', 0, -1, 0, w / 2, 16, 21); k.add('hemi', '#EACA8C', 3, -0.5, 4, w / 2 * 0.78, 12, 14); for (let j = -1; j <= 1; j += 2) k.add('sph5', '#8E9A4A', j * w * 0.24, 7, -4, 4, 2.4, 3); }
+              else { k.add('hemi', '#D8B064', 0, -1.5, 0, w / 2, 6, 20); for (let j = -2; j <= 2; j++) { k.add('cone3', K.papyrus, j * w * 0.15, 5.5, (j % 2) * 4 - 2, 2.2, 7, 2.2); } }
+            }), false, g);
+            v.key = key2;
+          }
+          if (!des) { if (!v.f) v.f = fxMesh(GEO.sandF || (GEO.sandF = fxGeo(k => { k.alpha = 0.35; k.add('disc', K.foam, 0, 0, 0, 1); })), false, g); v.f.scale.set(w / 2 + 6, 1, 25); v.f.position.y = 0.2; }
+        };
+      } else if (k0 === 'hippo') {
+        v.m = model(geoOf('hippo', k => {
+          k.add('sph', K.hippo, 0, 0, -26, 18, 9, 18); k.add('sph', K.hippo, 0, 0, 0, 20, 10, 15); k.add('sph5', K.hippo, 0, 1, 9, 14, 8, 8);
+          [-1, 1].forEach(sd => { k.add('sph5', K.hippo, sd * 11, 9, -12, 4.5); k.add('sph5', '#6B5A78', sd * 11, 11.5, -12, 2); k.add('sph5', '#FBF3DF', sd * 7, 9, -4, 3); k.add('sph5', K.ink, sd * 7, 10.5, -3.2, 1.8); k.add('sph5', '#6B5A78', sd * 5, 7.6, 12, 2.4); });
+        }), false, g);
+        v.f = fxMesh(GEO.hipF || (GEO.hipF = ringGeo(0.86, 1, 0, Math.PI * 2, K.foam, 0.85)), false, g);
+        v.y = 0;
+        v.upd = (o2, st) => { const up = Math.sin(o2.ph * 2.2) > -0.1; v.y += ((up ? 0 : -9.5) - v.y) * Math.min(1, 0.12 * 60 * Math.max(0.008, dtNow)); v.m.position.y = v.y; v.f.scale.set(24, 1, 13); v.f.position.set(0, 0.4, 4); };
+      } else if (k0 === 'whirl' || k0 === 'quick') {
+        const des = k0 === 'quick';
+        v.d = fxMesh(GEO[k0 + 'D'] || (GEO[k0 + 'D'] = fxGeo(k => { k.alpha = des ? 0.55 : 0.2; k.add('disc', des ? '#7A5A34' : '#001440', 0, 0, 0, 1); k.alpha = des ? 0.5 : 0.18; k.add('disc', des ? '#5E4426' : '#001440', 0, 0.05, 0, 0.45); })), false, g);
+        v.a = fxMesh(GEO[k0 + 'A'] || (GEO[k0 + 'A'] = fxGeo(k => { k.alpha = des ? 0.8 : 0.85; for (let j = 0; j < 3; j++) k.geo(new T.RingGeometry(1 - j * 0.3 - 0.04, 1 - j * 0.3 + 0.04, 20, 1, j, Math.PI * 1.3).rotateX(-Math.PI / 2), des ? '#5E4426' : K.foam, mtx(0, 0.1, 0, 1)); })), false, g);
+        v.upd = o2 => { v.d.scale.set(o2.r, 1, o2.r); v.a.scale.set(o2.r, 1, o2.r); v.a.rotation.y = -(o2.ph || 0); v.d.position.y = 0.3; v.a.position.y = 0.5; };
+      } else if (k0 === 'snake') {
+        v.m = model(geoOf('snake', k => {
+          [[9, 0], [7, 3], [5, 6]].forEach(([r, y], j) => k.geo(G.tor, j % 2 ? '#C9B46A' : '#7A6A2E', mtx(0, 2 + y, 0, r, r, r * 1.6, Math.PI / 2)));
+          k.add('box', '#3A2A1E', 0, 0.2, 0, 0.1, 0.1, 0.1);
+        }), false, g);
+        v.head = new T.Group(); v.head.position.set(0, 8, 0); g.add(v.head);
+        model(geoOf('snakeH', k => {
+          k.stick([0, 0, 0], [0, 10, 4], 2.4, '#7A6A2E', 'c6'); k.add('sph5', '#C9B46A', 0, 11, 5, 6, 7, 1.6, -0.3); k.add('sph5', '#7A6A2E', 0, 13, 7, 3, 2.2, 4);
+          [-1, 1].forEach(sd => k.add('sph5', '#F2C65A', sd * 1.6, 14, 9, 0.8)); k.stick([0, 12.4, 10.5], [0, 12, 14], 0.3, K.red);
+        }), false, v.head);
+        v.upd = (o2, st) => { const ahead = o2.y - st.dist, near = ahead < 110 && ahead > -20 ? Math.max(0, Math.sin(st.t * 9)) : 0; v.head.position.z = near * 7; v.head.rotation.x = near * 0.5; g.rotation.y = Math.sin(st.t * 1.5 + o2.y) * 0.15; };
+      } else if (k0 === 'scorpion') {
+        v.m = model(geoOf('scorp', k => {
+          const dk = '#4A3020', am = '#C98E3A';
+          k.add('sph', dk, 0, 3, 0, 6, 3, 8); k.add('sph5', dk, 0, 3, -8, 4.4, 2.6, 4);
+          for (let j = 0; j < 4; j++) [-1, 1].forEach(sd => { k.swing(sd * 4, 3, -4 + j * 3, j + (sd > 0 ? 1.6 : 0), 0, 0.3); k.stick([sd * 4, 3, -4 + j * 3], [sd * 11, 0, -6 + j * 4.5], 0.6, dk); k.swing(); });
+          [-1, 1].forEach(sd => { k.stick([sd * 3, 3, -10], [sd * 8, 3, -17], 1, dk); k.add('sph5', am, sd * 9, 3, -20, 3, 1.8, 4); k.add('cone4', am, sd * 10, 3, -24, 1.4, 4, 1, -Math.PI / 2); });
+          let p = [0, 4, 7];
+          [[0, 6, 12], [0, 11, 14], [0, 15, 11], [0, 16, 6]].forEach((q, j) => { k.stick(p, q, 2 - j * 0.3, j % 2 ? am : dk); p = q; });
+          k.add('cone4', K.red, 0, 14, 4, 1.4, 4, 1.4, 2.2);
+        }), true, g);
+        v.upd = (o2, st) => { g.rotation.y = (o2.vu || 0) > 0 ? -0.5 : 0.5; v.m.userData.m.t.uniforms.uRow.value = st.t * 16; };
+      } else {
+        v.m = model(geoOf('rock', k => rockKit(k, K.rock, K.rock2)), false, g);
+        v.init = o2 => v.m.scale.setScalar(o2.r || 16);
+      }
+      return v;
+    }

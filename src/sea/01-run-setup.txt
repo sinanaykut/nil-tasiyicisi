@@ -1,0 +1,394 @@
+  /* ================= the river run: a short top-down steering game drawn on canvas ================= */
+  const Sea = (() => {
+    const C = { ink:'#2B1D14', sail:'#FBF3DF', lapis:'#1F5FA8', gold:'#D9A43A', red:'#B7412E', rock:'#B89A8C', rock2:'#94776A', croc:'#5E8A4E', croc2:'#46703A', hippo:'#8E7C9A',
+      log:'#7A4E2C', foam:'#E8FAFC', white:'#FFF8EC', wood:'#8E5A33', wood2:'#6B4226', papyrus:'#4C9A62', papyrus2:'#2F7346', umbel:'#A9C95A', mud:'#4A3523', stone:'#ECD7A6', stone2:'#CDB07A' };
+    /* one palette per season: flood, sowing, harvest */
+    const PAL = [
+      { water:'#2C6E98', deep:'#215676', zig:'#9ADBE3', bank:'#DDBB7C', bank2:'#C9A262', edge:'#8C7A52', field:'#5FA0AC', furrow:'#4A8794', fieldEdge:'#3E6F78', sheen:'rgba(255,255,255,.07)' },
+      { water:'#2A62A8', deep:'#1F4F8C', zig:'#8FD3E0', bank:'#E2BF7E', bank2:'#D4A866', edge:'#9A7444', field:'#6DAA4E', furrow:'#4F8A3A', fieldEdge:'#3F6F2E', sheen:'rgba(255,255,255,.08)' },
+      { water:'#2E66A0', deep:'#235287', zig:'#8FD3E0', bank:'#E8C784', bank2:'#D8B064', edge:'#A07842', field:'#E1B64A', furrow:'#C4952F', fieldEdge:'#9A7024', sheen:'rgba(255,255,255,.08)' }
+    ];
+    const RIVAL = { haydut:{ name:'Haydutlar', sail:'#B7412E', hull:'#3A2E3F' }, medjay:{ name:'Medjay devriyesi', sail:'#E9D9B4', hull:'#1F3550' }, tefeci:{ name:'Tefecinin adamları', sail:'#5B3B6E', hull:'#2B1D14' }, djedi:{ name:'Djedi\'nin adamları', sail:'#2B1D14', hull:'#6B2E2E' },
+      bedevi:{ name:'Çöl akıncıları', sail:'#3E5C7A', hull:'#6B4226', rider:true } };
+    /* desert sand palettes at dawn, noon and dusk; st.tod blends between them */
+    const DPAL = [
+      { sand:'#EBC394', sand2:'#DDAE7E', ripple:'#B9805E', track:'#D9A676', berm:'#C4946A', rut:'#B9875F', dune:'#F0CDA2', duneSh:'#C38D78', duneHi:'#FBE6C6', rock:'#C49072', rock2:'#946450', dust:'#F4DEC4', haze:'#D49874', shrub:'#8E9A62' },
+      { sand:'#EAC487', sand2:'#DCAE6E', ripple:'#B4823E', track:'#DDAA6A', berm:'#C8955A', rut:'#B9884E', dune:'#F2D29A', duneSh:'#C8914F', duneHi:'#FBE7BC', rock:'#C98F62', rock2:'#9E6644', dust:'#F5E4BE', haze:'#CC9050', shrub:'#8A9A58' },
+      { sand:'#E6AE72', sand2:'#D6985E', ripple:'#A86A44', track:'#CF965E', berm:'#B97E4E', rut:'#AE7548', dune:'#EDBC82', duneSh:'#A26656', duneHi:'#F9D8A2', rock:'#A88070', rock2:'#7C5A50', dust:'#F0D0A6', haze:'#C27044', shrub:'#7E8A50' }
+    ];
+    const mixC = (a, b, k) => { const p = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)), A = p(a), B = p(b); return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * k).toString(16).padStart(2, '0')).join(''); };
+    function dpal(t) {
+      const a = t < 0.5 ? DPAL[0] : DPAL[1], b = t < 0.5 ? DPAL[1] : DPAL[2], k = t < 0.5 ? t * 2 : (t - 0.5) * 2, o = {};
+      Object.keys(a).forEach(n => { o[n] = mixC(a[n], b[n], k); });
+      /* the river keys too, so a renderer that only knows the river palette still paints sand */
+      return Object.assign({}, PAL[1], { water:o.track, deep:o.berm, zig:o.ripple, bank:o.sand, bank2:o.sand2, edge:o.berm, field:o.dune, furrow:o.duneSh, fieldEdge:o.duneSh, sheen:'rgba(255,255,255,.06)' }, o, { desert:true });
+    }
+    const CU = { cop:'#C77B45', cop2:'#8E4E2A', copHi:'#F2B98A', bronze:'#B5803A' };
+    let cv, cx, W = 0, H = 0, dpr = 1, raf = 0, st = null, done = null, last = 0, keys = {}, padL = false, padR = false, pointerX = null, pointerY = null, paused = false, sfx = () => {};
+    let held = false, R = Math.random, P = PAL[1], RV = { speed:1, whirl:1, sand:1, width:1 };
+    const coarse = !!(window.matchMedia && matchMedia('(pointer:coarse)').matches);
+    const rnd = (a, b) => a + R() * (b - a);
+    const hash = n => { const x = Math.sin(n * 12.9898 + 78.233) * 43758.5453; return x - Math.floor(x); };
+    function init(canvas, playFx) { cv = canvas; cx = cv.getContext('2d'); sfx = playFx || sfx; bind(); }
+    function resize() {
+      const r = cv.getBoundingClientRect(); dpr = Math.min(2, window.devicePixelRatio || 1);
+      W = Math.max(200, r.width); H = Math.max(200, r.height);
+      cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    const centerX = y => W / 2 + Math.sin(y * 0.0019) * W * 0.11 + Math.sin(y * 0.0043 + 1.3) * W * 0.05;
+    const halfW = () => Math.max(110, Math.min(W * 0.33, 300)) * RV.width;
+    const boatY = () => H * 0.76;
+    /* river scene variants; the voyage map decides which one is played */
+    const RK = {
+      calm:   { dur:10, obs:1.7, pick:0.42, pair:-0.2, title:'Sakin su',    hint:['← → yönet · sandıkları ve debenleri topla', 'Parmağınla sürükle · sandıkları topla'] },
+      rapids: { dur:12, obs:0.62, pick:0.8, pair:0.25, title:'Çağlayan',   hint:['Kayaların yanından kıl payı geç: bahşiş!', 'Kayaların yanından kıl payı geç: bahşiş!'] },
+      chase:  { dur:13, obs:1.15, pick:1.1, pair:0,   title:'Pusu!',       hint:['Boşluk ile kürek çek, aradaki farkı aç', 'Kürek! ile hızlan, aradaki farkı aç'] },
+      night:  { dur:12, obs:1.6, pick:0.6, pair:-0.2, title:'Gece geçişi', hint:['Devriye fenerlerinin ışığına girme', 'Devriye fenerlerinin ışığına girme'] },
+      sandstorm: { dur:13, obs:1.5, pick:0.6, pair:-0.25, title:'Kum fırtınası', hint:['Ok çıkınca ← → ile okun durduğu yana, rüzgâra karşı yüklen', 'Ok çıkınca parmağını okun durduğu yana çek'] },
+      /* v28: the Sethi race is a river run too (so the 3D view can paint it); see raceInit / raceStep */
+      race:   { dur:18, obs:1.3, pick:0.95, pair:-0.1, title:'Sethi ile yarış', hint:['← → dümen · davul vurunca Boşluk: güçlü hamle', 'Parmağınla dümen · davul vurunca Çek!'] }
+    };
+    /* the same kinds played as a donkey caravan walk (o.terrain === 'desert') */
+    const DS = {
+      calm:   { title:'Kum tepeleri',    hint:['← → yönet · su tulumlarını ve sandıkları topla', 'Parmağınla sürükle · su tulumlarını topla'] },
+      rapids: { title:'Kayalık geçit',   hint:['Kayaların yanından kıl payı geç: bahşiş!', 'Kayaların yanından kıl payı geç: bahşiş!'] },
+      chase:  { title:'Çöl akıncıları',  hint:['Boşluk ile koş, akıncılardan uzaklaş', 'Koş! ile hızlan, akıncılardan uzaklaş'] },
+      night:  { title:'Gece yürüyüşü',   hint:['Akıncıların meşale ışığına girme', 'Akıncıların meşale ışığına girme'] },
+      sandstorm: { title:'Kum fırtınası', hint:RK.sandstorm.hint }
+    };
+    const SCN = {
+      storm: { title:'Fırtına',      hint:['Rüzgâr hangi yandan gelirse ← → ile tayfayı oraya yığ · Boşluk: sandığı bağla', 'Rüzgâr hangi yandan gelirse tayfayı oraya sürükle · Halat! sandığı bağlar'] },
+      dive:  { title:'Batık',        hint:['Ok tuşlarıyla yüz · eşyayı tekneye taşı', 'Gideceğin yere basılı tut · eşyayı tekneye taşı'] }
+    };
+    const ACTION = { calm:'Kürek!', rapids:'Kürek!', chase:'Kürek!', night:'Kürek!', sandstorm:'Koş!', storm:'Halat!', dive:'Kulaç!', race:'Çek!' };
+    const BOATS = ['nehir', 'feluka', 'mavna', 'kadirga'];
+    function play(kind, o, cb) {
+      resize();
+      let seed = o.seed | 0; R = () => { seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+      const si = o.season == null ? 1 : o.season, tod = Math.max(0, Math.min(1, ((o.day || 8) - 1) / 14));
+      const desert = !!RK[kind] && kind !== 'race' && (o.terrain === 'desert' || kind === 'sandstorm');
+      P = desert ? dpal(tod) : PAL[si]; RV = desert ? { speed:1, whirl:1, sand:1, width:1 } : (typeof SEASONS !== 'undefined' && SEASONS[si]) ? SEASONS[si].river : { speed:1, whirl:1, sand:1, width:1 };
+      const base = (270 + 45 * (o.speed || 0)) * RV.speed, mc = 3 + (o.rowers || 0) + (o.extra || 0);
+      const cfg = RK[kind] ? (desert ? Object.assign({}, RK[kind], DS[kind]) : RK[kind]) : null;
+      const bt = BOATS.includes(o.boat) ? o.boat : 'nehir', dev = o.dev || {};
+      st = { kind, cfg, plan:o, t:0, dist:0, base, v:base, len: base * (cfg ? cfg.dur : 12), dur: cfg ? cfg.dur : 12, u:0, vu:0, hp:o.hp, maxhp:o.maxhp || o.hp,
+             charges:mc, maxc:mc, rech:0, rechT:5.2 - (o.rowers || 0) * 1.2, boostT:0, inv:0, slowT:0, shake:0, row:0,
+             obs:[], picks:[], parts:[], trail:[], texts:[], streams:[], patrols:[], streamY:700, patrolY:420, near:0, nearCoins:0, combo:0, comboT:0, inStream:0, spawnY:520, pickY:600, hits:0, coins:0, crates:0, caught:false, wreck:false, spotted:false, msg:null, msgT:0, count:1.8,
+             chaser: kind === 'chase' ? { type:desert ? 'bedevi' : o.chaser || 'haydut', y:-9999, u:0, on:false, at:0.6, gone:false } : null,
+             rival:null, seedDeco: ((o.seed | 0) % 997) * 31, end:false, tod,
+             /* v27: desert caravan, boat types and ship devices */
+             desert, dp:desert ? P : null, donkeys:Math.max(2, Math.min(4, o.donkeys || 3)), water:0, stumble:0, gust:null, nextG:2.2, wind:0, haze:0,
+             boatType:desert ? null : bt, dev:desert ? {} : dev, ram:!desert && !!dev.burun, ramUsed:false, ramFlash:0, br:!desert && bt === 'mavna' ? 17 : 15,
+             /* v28: hull damage 0..3 (scratches, patched sail, torn sail + smoke); a torn sail always shows */
+             dmg:desert ? 0 : Math.max(0, Math.min(3, o.dmg | 0)), torn:!desert && (!!o.torn || (o.dmg | 0) >= 3), race:null };
+      if (kind === 'race') raceInit(st, o);
+      if (!cfg && SC[kind]) SC[kind].init(st, o);
+      done = cb; paused = false; held = false; last = performance.now(); pointerX = null; pointerY = null; keys = {};
+      cancelAnimationFrame(raf); raf = requestAnimationFrame(loop);
+      /* 'sethi', not 'race': the old css hid the steering pads for the drum-only race */
+      document.body.dataset.scene = kind === 'race' ? 'sethi' : kind;
+      return { action:desert ? 'Koş!' : ACTION[kind] || 'Kürek!' };
+    }
+    function stop() { cancelAnimationFrame(raf); st = null; done = null; delete document.body.dataset.scene; if (view && view.hide) try { view.hide(); } catch (e) {} }
+    function bind() {
+      const down = e => {
+        if (!st || paused) return;
+        const k = e.key;
+        if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'a', 'd', 'w', 's', 'A', 'D', 'W', 'S'].includes(k)) e.preventDefault();
+        if (st.kind === 'dive') { if (k === 'ArrowUp' || k === 'w' || k === 'W') { keys.U = true; return; } if (k === 'ArrowDown' || k === 's' || k === 'S') { keys.D = true; return; } }
+        if (k === 'ArrowLeft' || k === 'a' || k === 'A') keys.L = true;
+        if (k === 'ArrowRight' || k === 'd' || k === 'D') keys.R = true;
+        if ((k === ' ' || k === 'ArrowUp' || k === 'w' || k === 'W') && !e.repeat) boost();
+      };
+      const up = e => { const k = e.key; if (k === 'ArrowLeft' || k === 'a' || k === 'A') keys.L = false; if (k === 'ArrowRight' || k === 'd' || k === 'D') keys.R = false; if (k === 'ArrowUp' || k === 'w' || k === 'W') keys.U = false; if (k === 'ArrowDown' || k === 's' || k === 'S') keys.D = false; };
+      window.addEventListener('keydown', down); window.addEventListener('keyup', up);
+      cv.addEventListener('pointerdown', e => { if (!st || paused) return; const r = cv.getBoundingClientRect(); pointerX = e.clientX - r.left; pointerY = e.clientY - r.top; cv.setPointerCapture(e.pointerId); });
+      cv.addEventListener('pointermove', e => { if (pointerX != null) { const r = cv.getBoundingClientRect(); pointerX = e.clientX - r.left; pointerY = e.clientY - r.top; } });
+      const off = () => { pointerX = null; pointerY = null; };
+      cv.addEventListener('pointerup', off); cv.addEventListener('pointercancel', off);
+      window.addEventListener('blur', () => { keys = {}; });
+      document.addEventListener('visibilitychange', () => { paused = document.hidden || held; last = performance.now(); });
+      window.addEventListener('resize', () => { if (st) resize(); });
+    }
+    function setPad(side, on) { if (side === 'L') padL = on; else if (side === 'R') padR = on; else if (on) boost(); }
+    function boost() {
+      if (!st || st.end || st.count > 0 || paused) return;
+      if (!st.cfg) { SC[st.kind].action(st); return; }
+      if (st.race && st.race.tP != null) return;
+      if (st.charges <= 0) { sfx('no'); if (st.race) drumFb('Kürek yok!', '#F0A894'); return; }
+      st.charges--; st.boostT = 1.25; st.boostK = 1.75; sfx('boost');
+      if (st.race) raceBoost();
+      for (let k = 0; k < 12; k++) st.parts.push(st.desert ? { x:0, y:0, rel:true, vx:rnd(-60, 60), vy:rnd(40, 140), life:.7, max:.7, c:st.dp.dust, r:rnd(3, 6), g:1.6 } : { x:0, y:0, rel:true, vx:rnd(-70, 70), vy:rnd(60, 170), life:.6, max:.6, c:C.foam, r:rnd(2, 4) });
+    }
+    /* ---------- simulation ---------- */
+    function spawnDesert(y, prog) {
+      const storm = st.kind === 'sandstorm', wB = 0.3, wD = storm ? 0.26 : 0.2, wN = 0.16, wS = 0.18, wQ = storm ? 0.07 : 0.12, tot = wB + wD + wN + wS + wQ;
+      let r = R() * tot, o;
+      if ((r -= wB) < 0) o = { k:'boulder', u:rnd(-0.85, 0.85), y, r:rnd(15, 23), sh:R() * 9 };
+      else if ((r -= wD) < 0) o = { k:'dune', u:R() < 0.6 ? (R() < .5 ? rnd(-0.85, -0.45) : rnd(0.45, 0.85)) : rnd(-0.6, 0.6), y, r:18, w:rnd(64, 96) };
+      else if ((r -= wN) < 0) o = { k:'snake', u:rnd(-0.75, 0.75), y, r:13, ph:R() * 6, sk:0 };
+      else if ((r -= wS) < 0) o = { k:'scorpion', u:rnd(-0.7, 0.7), y, r:11, vu:rnd(0.18, 0.34) * (R() < .5 ? -1 : 1), ph:R() * 6 };
+      else o = { k:'quick', u:rnd(-0.6, 0.6), y, r:30, ph:0 };
+      st.obs.push(o);
+      st.spawnY = y + rnd(175, 265) * (1.15 - prog * 0.4) * st.cfg.obs;
+      if (R() < 0.25 + prog * 0.25 + st.cfg.pair) st.obs.push({ k:'boulder', u:Math.max(-0.9, Math.min(0.9, o.u + (R() < .5 ? -1 : 1) * rnd(0.55, 0.9))), y:y + rnd(-30, 30), r:rnd(14, 19), sh:R() * 9 });
+    }
+    function spawn() {
+      const y = st.dist + H * 1.05, prog = st.dist / st.len;
+      if (st.desert) { spawnDesert(y, prog); return; }
+      if (st.race) { raceSpawn(y, prog); return; }
+      const wR = 0.32, wC = 0.18, wL = 0.14, wS = 0.12 * RV.sand, wH = 0.14, wW = 0.1 * RV.whirl, tot = wR + wC + wL + wS + wH + wW;
+      let r = R() * tot, o;
+      if ((r -= wR) < 0) o = { k:'rock', u:rnd(-0.85, 0.85), y, r:rnd(15, 24) };
+      else if ((r -= wC) < 0) o = { k:'croc', u:rnd(-0.8, 0.8), y, r:16, ph:R() * 6 };
+      else if ((r -= wL) < 0) o = { k:'log', u:rnd(-0.7, 0.7), y, r:13, vu:rnd(0.12, 0.3) * (R() < .5 ? -1 : 1), len:rnd(50, 74) };
+      else if ((r -= wS) < 0) o = { k:'sand', u:R() < .5 ? rnd(-0.85, -0.45) : rnd(0.45, 0.85), y, r:20, w:rnd(60, 90) };
+      else if ((r -= wH) < 0) o = { k:'hippo', u:rnd(-0.75, 0.75), y, r:20, ph:R() * 3 };
+      else o = { k:'whirl', u:rnd(-0.6, 0.6), y, r:30, ph:0 };
+      st.obs.push(o);
+      st.spawnY = y + rnd(175, 265) * (1.15 - prog * 0.4) * st.cfg.obs;
+      if (R() < 0.25 + prog * 0.25 + st.cfg.pair) st.obs.push({ k:'rock', u:Math.max(-0.9, Math.min(0.9, o.u + (R() < .5 ? -1 : 1) * rnd(0.55, 0.9))), y:y + rnd(-30, 30), r:rnd(14, 20) });
+    }
+    function spawnPick() {
+      const y = st.dist + H * 1.05, r = R();
+      const k = st.race ? (r < 0.5 ? 'lotus' : r < 0.88 ? 'coin' : r < 0.96 ? 'crate' : 'ankh') : st.desert ? (st.kind === 'night' ? (r < 0.3 ? 'water' : r < 0.6 ? 'cache' : r < 0.85 ? 'coin' : 'date') : r < 0.36 ? 'water' : r < 0.62 ? 'coin' : r < 0.8 ? 'crate' : r < 0.92 ? 'date' : 'ankh')
+        : st.kind === 'night' ? (r < 0.55 ? 'cache' : r < 0.85 ? 'coin' : 'lotus') : r < 0.4 ? 'crate' : r < 0.75 ? 'coin' : r < 0.9 ? 'lotus' : 'ankh';
+      if (k === 'ankh' && st.hp >= st.maxhp) { st.pickY = y + 200; return; }
+      st.picks.push({ k, u:rnd(-0.8, 0.8), y, r:14 });
+      st.pickY = y + rnd(360, 620) * st.cfg.pick;
+    }
+    function spawnPatrol() {
+      const y = st.dist + H * 1.1;
+      st.patrols.push({ u:rnd(-0.8, 0.8), y, vu:rnd(0.25, 0.45) * (R() < .5 ? -1 : 1), r:Math.min(95, halfW() * 0.42) * (st.dev.fener ? 0.8 : 1), ph:R() * 6 });
+      st.patrolY = y + rnd(420, 600);
+    }
+    function spawnStream() {
+      const y = st.dist + H * 1.05;
+      st.streams.push({ u:rnd(-0.6, 0.6), y, len:rnd(240, 360) });
+      st.streamY = y + (st.race ? rnd(700, 1000) : rnd(700, 1200));
+    }
+    function floatText(x, y, txt, col) { st.texts.push({ x, y, txt, col:col || '#FFF8EC', life:1, max:1 }); }
+    const sx = (u, y) => centerX(y) + u * halfW();
+    const sy = y => boatY() - (y - st.dist);
+    function hit(cause) {
+      if (st.inv > 0 || st.end) return;
+      const bx = sx(st.u, st.dist), by = boatY();
+      /* the copper ram takes the first blow of every scene */
+      if (st.ram && !st.ramUsed) {
+        st.ramUsed = true; st.inv = 1.0; st.shake = 0.2; st.slowT = 0.3; st.ramFlash = 0.7; sfx('lash');
+        for (let k = 0; k < 16; k++) st.parts.push({ x:bx, y:by - 40, vx:rnd(-150, 150), vy:rnd(-160, 40), life:.6, max:.6, c:k % 2 ? CU.cop : CU.copHi, r:rnd(2, 4.5) });
+        floatText(Math.max(150, Math.min(W - 150, bx)), by - 70, 'Bakır mahmuz darbeyi karşıladı', CU.copHi);
+        return;
+      }
+      /* the race is a sprint, not a hazard: a knock slows you but never takes the last plank */
+      if (!st.race || st.hp > 1) st.hp--;
+      st.hits++; st.inv = 1.4; st.shake = 0.35; st.slowT = 0.6; st.combo = 0; st.comboT = 0; sfx('hit');
+      if (st.desert) { st.stumble = 0.8; for (let k = 0; k < 18; k++) st.parts.push({ x:bx, y:by, vx:rnd(-150, 150), vy:rnd(-150, 50), life:.8, max:.8, c:k % 3 ? st.dp.dust : st.dp.duneSh, r:rnd(3, 6), g:1.2 }); }
+      else for (let k = 0; k < 18; k++) st.parts.push({ x:bx, y:by, vx:rnd(-170, 170), vy:rnd(-170, 60), life:.7, max:.7, c:k % 3 ? C.foam : C.gold, r:rnd(2, 5) });
+      flash(cause);
+      if (st.hp <= 0) { st.wreck = true; finish(); }
+    }
+    function flash(text) { st.msg = { text }; st.msgT = 1.6; }
+    function step(dt) {
+      if (st.count > 0) { if (st.race) raceCount(dt); st.count -= dt; return; }
+      if (st.race && st.race.slow) dt *= 0.35;
+      st.t += dt;
+      const L = keys.L || padL, Rr = keys.R || padR;
+      let target = 0;
+      if (st.race && st.race.tP != null) target = Math.max(-1, Math.min(1, (st.race.park - st.u) * 3));
+      else if (pointerX != null) target = Math.max(-1.6, Math.min(1.6, (pointerX - sx(st.u, st.dist)) / 40));
+      else target = (Rr ? 1 : 0) - (L ? 1 : 0);
+      st.vu += (target * 1.6 - st.vu) * Math.min(1, dt * 6);
+      st.u += st.vu * dt * 0.62;
+      if (st.kind === 'sandstorm') stormGusts(dt);
+      if (Math.abs(st.u) > 0.94) { st.u = Math.sign(st.u) * 0.94; st.vu *= -0.4; st.slowT = Math.max(st.slowT, 0.35); }
+      if (st.stumble > 0) st.stumble -= dt;
+      if (st.ramFlash > 0) st.ramFlash -= dt;
+      if (st.boostT > 0) st.boostT -= dt;
+      if (st.comboT > 0) { st.comboT -= dt; if (st.comboT <= 0) st.combo = 0; }
+      if (st.inStream > 0) st.inStream -= dt;
+      if (st.charges < st.maxc) { st.rech += dt * (st.inStream > 0 ? 2 : 1) * (st.race && st.race.draft ? 1.6 : 1); if (st.rech >= st.rechT) { st.rech = 0; st.charges++; } } else st.rech = 0;
+      if (st.inv > 0) st.inv -= dt;
+      if (st.slowT > 0) st.slowT -= dt;
+      if (st.shake > 0) st.shake -= dt;
+      if (st.msgT > 0) st.msgT -= dt;
+      let v = st.base * (1 + Math.min(0.4, st.t / 40) * 0.25);
+      if (st.boostT > 0) v *= st.boostK || 1.75;
+      if (st.inStream > 0) v *= st.race ? RT.sm : 1.22;
+      if (st.slowT > 0) v *= 0.6;
+      if (st.race) { const r = st.race; if (r.wake) v *= 0.84; else if (r.draft) v *= 1.1; if (r.tP != null) v = st.base * 0.12; }
+      st.v += (v - st.v) * Math.min(1, dt * 4);
+      st.dist += st.v * dt;
+      st.row += dt * (st.boostT > 0 ? 14 : 7);
+      const endY = st.race ? st.race.finY - 40 : st.len;
+      while (st.spawnY < st.dist + H * 1.05 && st.spawnY < endY - 200) spawn();
+      while (st.pickY < st.dist + H * 1.05 && st.pickY < endY - 300) spawnPick();
+      while (st.streamY < st.dist + H * 1.05 && st.streamY < endY - 400 && st.kind !== 'night') spawnStream();
+      while (st.kind === 'night' && st.patrolY < st.dist + H * 1.1 && st.patrolY < st.len - 150) spawnPatrol();
+      const bx = sx(st.u, st.dist), by = boatY();
+      st.trail.push({ x:bx, y:st.dist }); if (st.trail.length > (st.desert ? 110 : 46)) st.trail.shift();
+      st.obs.forEach(o => {
+        if (o.k === 'log') { o.u += o.vu * dt; if (Math.abs(o.u) > 0.85) o.vu *= -1; }
+        if (o.k === 'croc') { o.ph += dt * 3; const ahead = o.y - st.dist; if (ahead < 300 && ahead > -20) o.u += Math.sign(st.u - o.u) * 0.35 * dt; }
+        if (o.k === 'hippo') o.ph += dt;
+        if (o.k === 'whirl') { o.ph += dt * 3; const ahead = o.y - st.dist; if (Math.abs(ahead) < 70) st.u += (o.u - st.u) * dt * 1.4; }
+        /* desert: scorpions scuttle sideways, cobras strike when you pass close, quicksand pulls and drags */
+        if (o.k === 'scorpion') { o.ph += dt * 14; o.u += o.vu * dt; if (Math.abs(o.u) > 0.85) o.vu *= -1; }
+        if (o.k === 'snake') { o.ph += dt; const ahead = o.y - st.dist; if (!o.sk && ahead < 125 && ahead > -10 && Math.abs(sx(o.u, o.y) - bx) < 75) o.sk = 0.001; if (o.sk > 0) { o.sk += dt; if (o.sk > 0.85) o.sk = -1; } }
+        if (o.k === 'quick') {
+          o.ph += dt * 2; const ahead = o.y - st.dist;
+          if (Math.abs(ahead) < 75) st.u += (o.u - st.u) * dt * 1.4;
+          if (Math.hypot(bx - sx(o.u, o.y), (by - 8) - sy(o.y)) < o.r * 0.7) { st.slowT = Math.max(st.slowT, 0.25); if (!o.told) { o.told = true; flash('Bataklık kum! Çabuk çık!'); } }
+          return;
+        }
+        const ox = sx(o.u, o.y), oy = sy(o.y);
+        const up = o.k === 'hippo' ? (Math.sin(o.ph * 2.2) > -0.1) : true;
+        if (!up || o.k === 'whirl') return;
+        const orr = o.k === 'snake' ? snakeR(o) : o.r, wide = o.k === 'sand' || o.k === 'dune';
+        const rr = wide ? o.w * 0.45 : o.k === 'log' ? o.len * 0.45 : orr;
+        const dx = bx - ox, dy = (by - 8) - oy;
+        const d2 = o.k === 'log' || wide ? Math.hypot(dx / (rr / o.r), dy) : Math.hypot(dx, dy);
+        if (o.k === 'croc' && st.plan.bless === 'sobek') return;
+        if (Math.abs(dy) < 40) { const m = d2 - (orr + st.br); if (o.minM == null || m < o.minM) o.minM = m; }
+        if (d2 < orr + st.br) { o.touched = true; hit({ rock:'Kayaya çarptın!', croc:'Timsah ısırdı!', log:'Kütüğe çarptın!', sand:'Kum sığlığı!', hippo:'Su aygırı!', boulder:'Eşek kayaya takıldı!', dune:'Kum yığınına saplandın!', snake:'Kobra soktu!', scorpion:'Akrep soktu!' }[o.k]); }
+      });
+      st.obs.forEach(o => {
+        if (o.passed || o.y > st.dist - 34) return;
+        o.passed = true;
+        if (!o.touched && o.minM != null && o.minM >= 0 && o.minM < 24 && !st.end) {
+          st.near++; st.combo++; st.comboT = 3.5; st.maxCombo = Math.max(st.maxCombo || 0, st.combo);
+          const bonus = Math.min(40, 4 * st.combo); st.nearCoins += bonus;
+          floatText(bx, by - 46, 'Kıl payı! +' + bonus, st.combo >= 3 ? '#F2C65A' : '#FFF8EC');
+          sfx('near');
+        }
+      });
+      st.streams.forEach(sm => { if (st.dist > sm.y && st.dist < sm.y + sm.len && Math.abs(st.u - sm.u) < 0.16) { if (st.inStream <= 0) sfx('stream'); st.inStream = 0.25; } });
+      /* keep what is still ahead of a trailing Sethi too */
+      const back = st.race ? Math.min(st.dist, st.rival.y) : st.dist;
+      st.streams = st.streams.filter(sm => sm.y + sm.len > back - H * 0.4);
+      st.picks = st.picks.filter(p => {
+        const px = sx(p.u, p.y), py = sy(p.y);
+        if (Math.hypot(bx - px, (by - 8) - py) < p.r + st.br + 3) {
+          if (p.k === 'crate' || p.k === 'cache') { st.crates++; floatText(px, py - 20, p.k === 'cache' ? 'Kaçakçı zulası!' : st.desert ? 'Yük denki!' : 'Sandık!', '#FFF8EC'); }
+          if (p.k === 'coin') { const c = Math.round(rnd(30, 90) * (1 + Math.min(1, st.combo * 0.2))); st.coins += c; floatText(px, py - 20, '+' + c + ' deben', '#F2C65A'); }
+          if (p.k === 'lotus') { st.charges = Math.min(st.maxc, st.charges + 1); flash('Kürek hamlesi doldu'); }
+          if (p.k === 'date') { st.charges = Math.min(st.maxc, st.charges + 1); flash('Hurma! Koş hamlesi doldu'); }
+          if (p.k === 'water') { st.water++; floatText(px, py - 20, '+1 su tulumu', '#BFE6EC'); }
+          if (p.k === 'ankh') { st.hp = Math.min(st.maxhp, st.hp + 1); flash(st.desert ? 'Eşekler dinlendi' : 'Gövde onarıldı'); }
+          for (let k = 0; k < 10; k++) st.parts.push({ x:px, y:py, vx:rnd(-90, 90), vy:rnd(-110, 30), life:.5, max:.5, c:p.k === 'water' ? '#8FD3E0' : C.gold, r:rnd(1.5, 3.5) });
+          sfx('pick');
+          return false;
+        }
+        return p.y > st.dist - H * 0.4;
+      });
+      st.obs = st.obs.filter(o => o.y > back - H * 0.4);
+      const ch = st.chaser;
+      if (ch && !ch.gone) {
+        if (!ch.on && st.t > ch.at) { ch.on = true; ch.y = st.dist - H * 0.32; ch.u = st.u; sfx('chase'); flash(RIVAL[ch.type].name + (st.desert ? ' peşinde! Koş!' : ' peşinde! Kürek çek!')); }
+        if (ch.on) {
+          const gap = st.dist - ch.y;
+          const cv2 = gap < 0 ? st.v * 0.97 : st.base * 1.09 + (gap > H * 0.5 ? 45 : 0);
+          ch.y += cv2 * dt;
+          ch.u += (st.u - ch.u) * Math.min(1, dt * 1.3);
+          if (gap < 30 && gap > -34 && Math.abs(ch.u - st.u) < 0.3) { st.caught = true; ch.gone = true; sfx('caught'); flash(RIVAL[ch.type].name + ' yetişti!'); }
+          if (gap > H * 0.9) { ch.gone = true; flash('Kaçtın!'); sfx('escape'); }
+        }
+      }
+      st.patrols.forEach(pt => {
+        pt.u += pt.vu * dt; if (Math.abs(pt.u) > 0.85) pt.vu *= -1; pt.ph += dt;
+        const px = sx(pt.u, pt.y), py = sy(pt.y) + 40;
+        if (!st.spotted && Math.hypot(bx - px, by - py) < pt.r * 0.85) { st.spotted = true; sfx('caught'); flash('Devriye seni gördü!'); st.shake = 0.3; }
+      });
+      st.patrols = st.patrols.filter(pt => pt.y > st.dist - H * 0.5);
+      if (!st.told) { st.told = true; if (st.plan.bless === 'sobek') flash('Sobek seni koruyor: timsahlar dokunmaz'); }
+      const rv = st.rival;
+      if (st.race) raceStep(dt, bx);
+      else if (rv) {
+        if (st.t > 1.6 && !rv.told) { rv.told = true; flash('Sethi de aynı limana gidiyor!'); }
+        rv.y += rv.v * dt;
+        let danger = null;
+        st.obs.forEach(o => { const a = o.y - rv.y; if (a > 0 && a < 220 && Math.abs(o.u - rv.tu) < 0.35) danger = o; });
+        if (danger) rv.tu = danger.u > 0 ? Math.max(-0.8, danger.u - 0.6) : Math.min(0.8, danger.u + 0.6);
+        rv.u += (rv.tu - rv.u) * Math.min(1, dt * 2);
+        const was = rv.ahead; rv.ahead = rv.y > st.dist;
+        if (was === true && !rv.ahead) flash('Sethi\'yi geçtin!');
+        if (was === false && rv.ahead) flash('Sethi öne geçti!');
+      }
+      st.texts.forEach(t => { t.life -= dt; t.y -= 40 * dt; });
+      st.texts = st.texts.filter(t => t.life > 0);
+      st.parts.forEach(p => { p.life -= dt; if (!p.rel) { p.x += p.vx * dt; p.y += p.vy * dt; } });
+      st.parts = st.parts.filter(p => p.life > 0);
+      if (st.desert) { if (R() < dt * (st.boostT > 0 ? 26 : 12)) { const d = R() * (st.donkeys * 32), x = trailX(d, bx); st.parts.push({ x:x + rnd(-9, 9), y:by + d + 12, vx:rnd(-18, 18) + st.wind * 40, vy:st.v * 0.25, life:.9, max:.9, c:st.dp.dust, r:rnd(3, 5.5), g:1.8 }); } }
+      else if (R() < dt * 30) st.parts.push({ x:bx + rnd(-8, 8), y:by + 18, vx:rnd(-20, 20), vy:st.v * 0.5, life:.8, max:.8, c:C.foam, r:rnd(1.5, 3) });
+      /* a badly damaged boat trails smoke from the stern */
+      if (st.dmg >= 3 && R() < dt * 22) st.parts.push({ x:bx - 4 + rnd(-4, 4), y:by - 14, vx:rnd(-12, 12) + 8, vy:st.v * 0.4 + 24, life:1.6, max:1.6, c:R() < 0.4 ? '#4A433E' : R() < 0.5 ? '#8C847B' : '#CFC8BE', r:rnd(3.5, 6), g:2.6 });
+      if (!st.race && st.dist >= st.len) finish();
+    }
+    /* cobra reach: coiled 13, rears up and lunges to 25 while you pass */
+    function snakeR(o) { if (!(o.sk > 0.25)) return o.r; return o.r + 12 * Math.max(0, Math.sin(Math.min(1, (o.sk - 0.25) / 0.45) * Math.PI)); }
+    /* sandstorm gusts: announced 0.8 s ahead, then they shove the caravan sideways */
+    function stormGusts(dt) {
+      const prog = st.dist / st.len;
+      st.nextG -= dt;
+      if (!st.gust && st.nextG <= 0 && st.dist < st.len - 300) { st.gust = { dir:R() < 0.5 ? -1 : 1, str:rnd(0.4, 0.56) * (1 + prog * 0.3), warn:0.8, life:rnd(1.0, 1.5), age:0 }; sfx('gust'); }
+      const g = st.gust;
+      if (g) {
+        if (g.warn > 0) g.warn -= dt;
+        else { g.life -= dt; g.age += dt; st.u += g.dir * g.str * dt * Math.min(1, g.age * 4); if (g.life <= 0) { st.gust = null; st.nextG = rnd(1.3, 2.3); } }
+      }
+      const wt = (g ? (g.warn > 0 ? g.dir * 0.3 : g.dir) : 0) + Math.sin(st.t * 0.6) * 0.15;
+      st.wind += (wt - st.wind) * Math.min(1, dt * 3);
+      st.haze += ((g && g.warn <= 0 ? 1 : 0) - st.haze) * Math.min(1, dt * 2.5);
+    }
+    /* lateral screen x of the caravan d px behind the lead, read from the trail so the line follows the path */
+    function trailX(d, fb) {
+      const tr = st.trail, wy = st.dist - d;
+      for (let i = tr.length - 1; i > 0; i--) if (tr[i - 1].y <= wy) { const a = tr[i - 1], b = tr[i], k = (wy - a.y) / Math.max(1e-3, b.y - a.y); return a.x + (b.x - a.x) * k; }
+      return tr.length ? tr[0].x : fb;
+    }
+    function finish() {
+      if (st.end) return;
+      st.end = true;
+      const res = { kind:st.kind, hp:Math.max(0, st.hp), hits:st.hits, wreck:st.wreck, caught:st.caught, escaped:!!st.chaser && !st.caught, coins:st.coins, crates:st.crates, near:st.near, nearCoins:st.nearCoins, maxCombo:st.maxCombo || 0, spotted:st.spotted, beat:!!st.beat, goods:st.goods || null, overboard:st.lost || 0, special:st.special || null, water:st.water || 0, ramUsed:!!st.ramUsed };
+      /* v28 race details: margin in boat lengths (>0 = we won), photo finish, drum strokes, Sethi's knocks */
+      if (st.race) { const r = st.race, rv = st.rival; res.race = { margin:Math.round(r.margin * 10) / 10, photo:r.photo, onBeat:r.onBeat, offBeat:r.offBeat, draft:Math.round(r.draftT * 10) / 10, wake:Math.round(r.wakeT * 10) / 10, swaps:r.swaps, rivalHits:rv.hits, rivalBoosts:rv.boosts, time:Math.round((r.tP != null ? r.tP : st.t) * 10) / 10 }; }
+      if (st.kind === 'dive') res.dive = { banked:st.banked, blackouts:st.blackouts, items:st.items.length, bites:st.bites || 0 };
+      const mine = st, fire = () => { if (st !== mine) return; if (paused) { setTimeout(fire, 200); return; } const cb = done; stop(); if (cb) cb(res); };
+      setTimeout(fire, st.wreck ? 900 : st.race ? 250 : 500);
+    }
+
+    /* ---------- v28: the Sethi race — two boats on the river, drums, currents, wake and draft ---------- */
+    /* RT: tuning knobs — ks Sethi's pace vs ours, sb his stroke, pb our on-beat stroke, sm current, miss/blunder his mistakes,
+       rb/ra catch-up when behind / ease-off when ahead; exposed as Sea.tune (nodraw: test-only, skips painting) */
+    const BOY = 66, RT = { ks:1.068, sb:1.24, miss:0.2, look:240, rech:4.5, rubber:1, rb:0.1, ra:0.16, pb:1.25, sm:1.16, blunder:0.14, nodraw:false };
+    function raceInit(s, o) {
+      const finY = Math.round(s.base * s.cfg.dur), sp = o.speed || 0;
+      s.len = finY + 260; s.u = 0.3; s.count = 2.4;
+      s.maxc = Math.max(3, Math.min(5, 2 + (o.rowers || 0) + Math.min(1, o.extra || 0))); s.charges = s.maxc; s.rechT = Math.max(2.8, 4.2 - (o.rowers || 0) * 0.4);
+      s.spawnY = 760; s.pickY = 640; s.streamY = 380;
+      s.rival = { u:-0.3, tu:-0.3, vu:0, lane:-0.3, y:0, v:s.base, base:s.base * RT.ks * (1 + 0.012 * (1 - sp)), boostT:0, charges:3, rech:0, slowT:0, stall:0, blunder:R() < RT.blunder ? rnd(0.7, 0.92) : 0, inv:0, row:0, plan:0, trail:[], hits:0, boosts:0, wake:false, draft:false, inStream:false, park:-0.6 };
+      s.race = { finY, phase:'run', tP:null, tS:null, slow:false, slowUsed:false, fin:0, flashT:0, wake:false, draft:false, bump:0, per:0.6, lastBeat:-1, cnt:-1, fb:null, fbT:0, fbC:null, combo:0, onBeat:0, offBeat:0, draftT:0, wakeT:0, lead:0, swaps:0, park:0.6, margin:0, photo:false, conf:[] };
+    }
+    function raceSpawn(y, prog) {
+      const r = R(); let o;
+      if (r < 0.5) o = { k:'rock', u:rnd(-0.8, 0.8), y, r:rnd(15, 22) };
+      else if (r < 0.74) o = { k:'log', u:rnd(-0.6, 0.6), y, r:13, vu:rnd(0.1, 0.24) * (R() < .5 ? -1 : 1), len:rnd(50, 70) };
+      else if (r < 0.88) o = { k:'sand', u:R() < .5 ? rnd(-0.85, -0.5) : rnd(0.5, 0.85), y, r:20, w:rnd(60, 86) };
+      else o = { k:'hippo', u:rnd(-0.7, 0.7), y, r:20, ph:R() * 3 };
+      o.miss = R() < RT.miss; st.obs.push(o);
+      st.spawnY = y + rnd(200, 290) * st.cfg.obs * (1.1 - prog * 0.25);
+      if (R() < 0.3 + prog * 0.2 + st.cfg.pair) st.obs.push({ k:'rock', u:Math.max(-0.9, Math.min(0.9, o.u + (R() < .5 ? -1 : 1) * rnd(0.55, 0.9))), y:y + rnd(-30, 30), r:rnd(14, 19), miss:R() < RT.miss });
+    }
+    /* a war drum: a short pitched thump straight into the audio context (respects the sfx switch) */
+    function drumSnd(strong) {
+      try {
+        if (typeof Snd === 'undefined' || !Snd.pref || !Snd.pref.sfx) return;
+        const ac = Snd.unlock(); if (!ac || ac.state !== 'running') return;
+        const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
+        o.type = 'sine'; o.frequency.setValueAtTime(strong ? 130 : 100, t); o.frequency.exponentialRampToValueAtTime(46, t + 0.18);
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(strong ? 0.42 : 0.26, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.24);
+        o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + 0.27);
+      } catch (e) {}
+    }
+    function raceCount(dt) { const r = st.race, k = Math.floor((2.4 - st.count) / 0.6); if (k !== r.cnt && k < 4) { r.cnt = k; drumSnd(k >= 3); } }
+    function drumFb(t, c) { const r = st.race; r.fb = t; r.fbC = c; r.fbT = 0.9; }

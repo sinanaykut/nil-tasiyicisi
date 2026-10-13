@@ -1,0 +1,339 @@
+  /* ================= haggling: read the merchant's face; the old games become each merchant's own ================= */
+  const HAG_STYLES = {
+    needle: { name:'Göz kararı', sub:'ok altın bölgedeyken bas', ico:'i-bolt' },
+    duel:   { name:'Laf düellosu', sub:'her lafa oturan cevabı seç', ico:'i-whisper' },
+    scale:  { name:'Terazi', sub:'ağırlıklarla kefeleri denkleştir', ico:'i-stall' }
+  };
+  const FAV_STYLE = ['duel', 'scale', 'needle', 'scale', 'duel'];
+  let hagStyle = null;
+  /* each merchant has a tell that means "I can give more" and one that means "one more push and I walk" */
+  const TELLS = { sweat:'terliyor', glance:'gözlerini kaçırıyor', smile:'gülümsüyor', frown:'kaşlarını çatıyor', tap:'parmaklarını tıklatıyor', arms:'kollarını kavuşturuyor' };
+  const MTELL = [{ give:'glance', walk:'frown' }, { give:'sweat', walk:'tap' }, { give:'smile', walk:'glance' }, { give:'tap', walk:'arms' }, { give:'sweat', walk:'smile' }];
+  const FACE_LINES = [
+    { open:'Kedilerim fiyatı belirledi: %{o}. Onlarla tartışamam.', push:['Hmm… kediler hırladı ama olur, %{o}.', 'Bir testi daha koy üstüne… şaka. %{o}.', 'Kedi tüylerine yemin ederim, son teklif: %{o}.'], walk:'Kedilerim seni sevmekten vazgeçti. Git!', ok:'Anlaştık. Kediler onayladı.' },
+    { open:'Taş gibi fiyat. %{o} inerim, kırk yıldır bu kadar.', push:['Kırk yıl… peki, %{o}.', 'Torunum duysa kızar. %{o}.', 'Piramit bile aşınır. %{o}.'], walk:'Piramit sabır ister; ben sabrımı bitirdim.', ok:'Tamam. Sağlam anlaşma.' },
+    { open:'Tapınak defterine %{o} yazarım, Osiris şahit.', push:['Osiris bakıyor… %{o}.', 'Mürekkep kurumadan: %{o}.', 'Son kez kamışı batırıyorum: %{o}.'], walk:'Defteri kapattım. Başka gün.', ok:'Yazıldı, mühürlendi.' },
+    { open:'BAKIR GİBİ FİYAT! %{o} inerim, duydun mu?!', push:['HA! %{o}, daha ne istiyorsun?!', 'Kulağım çınlıyor… %{o}!', 'SON! %{o}! Başka laf yok!'], walk:'YETER! Tezgâhı kapatıyorum!', ok:'ANLAŞTIK! Herkes duydu!' },
+    { open:'Lapis gibi berrak konuşayım: %{o}.', push:['Nehrin yukarısında bu kadarına ev alınır… %{o}.', 'Dağların hatırına: %{o}.', 'Taşım kadar sert son söz: %{o}.'], walk:'Sabrım lapis kadar nadir. Bitti.', ok:'Güzel. Taş sahibini buldu.' }
+  ];
+  FACE_LINES.push(...DESERT_UI.faceLines); MTELL.push(...DESERT_UI.mtell); FAV_STYLE.push(...DESERT_UI.favStyle); DUEL_M.push(...DESERT_UI.duel);
+  const fl = (t, o) => t.replace('%{o}', '%' + o);
+  function tellBadge(t) {
+    const G = { sweat:'<path d="M50 22q-16 24 0 40q16 -16 0 -40z" fill="#8FD3E0" stroke="#2B1D14" stroke-width="5"/>',
+      glance:'<ellipse cx="50" cy="50" rx="30" ry="18" fill="#fff" stroke="#2B1D14" stroke-width="5"/><circle cx="66" cy="50" r="9" fill="#2B1D14"/><path d="M78 30l12 -8M78 70l12 8" stroke="#2B1D14" stroke-width="5" stroke-linecap="round"/>',
+      smile:'<path d="M22 44q28 34 56 0" fill="none" stroke="#2B1D14" stroke-width="7" stroke-linecap="round"/>',
+      frown:'<path d="M20 34l24 12M80 34l-24 12" stroke="#2B1D14" stroke-width="7" stroke-linecap="round"/><path d="M34 70q16 -10 32 0" fill="none" stroke="#2B1D14" stroke-width="6" stroke-linecap="round"/>',
+      tap:'<rect x="24" y="52" width="52" height="22" rx="6" fill="#B57A50" stroke="#2B1D14" stroke-width="4"/><path d="M34 52v-16M48 52v-22M62 52v-16" stroke="#2B1D14" stroke-width="6" stroke-linecap="round"/><path d="M80 30l6 -8M86 44h10" stroke="#2B1D14" stroke-width="4" stroke-linecap="round"/>',
+      arms:'<path d="M18 36l64 32M82 36l-64 32" stroke="#B57A50" stroke-width="14" stroke-linecap="round"/><path d="M18 36l64 32M82 36l-64 32" stroke="#2B1D14" stroke-width="4" stroke-linecap="round" opacity=".4"/>' };
+    return '<svg class="tb" viewBox="0 0 100 100" aria-hidden="true">' + (G[t] || '') + '</svg>';
+  }
+  let FG = null;
+  function showHaggle() {
+    if (!canHaggle(S) || phase !== 'port') return;
+    const m = MERCHANTS[S.city], fav = FAV_STYLE[S.city], lv = trustLv(S), special = lv >= 1 && !(S.hagSpecial || {})[S.city + ':' + S.day];
+    if (!special) { startHaggle('face'); return; }
+    const h = HAG_STYLES[fav];
+    let s = '<div class="sh-h"><span class="pt big">' + portrait(S.city, lv) + '</span><h2 id="shTitle">Pazarlık · ' + esc(m.name) + '<small>Seni tanıyor: bugün kendi oyununu da teklif ediyor</small></h2>' + xBtn + '</div>';
+    s += '<div class="choices">' + choiceHtml({ ico:'i-c-' + CITIES[S.city].id, label:'Yüz okuma', sub:'Sıkıştır ya da kabul et: yüzü ne diyor?', gain:2 }, 'data-hag="face"', true) + choiceHtml({ ico:h.ico, label:m.name.split(' ')[0] + '\'in oyunu: ' + h.name, sub:h.sub + ' · kazanırsan güveni de artar', gain:3, risk:1 }, 'data-hag="' + fav + '"') + '</div>';
+    openSheet(s, false, 'hagpick');
+  }
+  function startHaggle(k) {
+    if (!canHaggle(S) || phase !== 'port') return;
+    const m = MERCHANTS[S.city], nm = MERCHANT_NAMES[S.city]; hagStyle = k;
+    if (k !== 'face') { S.hagSpecial = S.hagSpecial || {}; S.hagSpecial[S.city + ':' + S.day] = true; save(); }
+    if (k === 'duel') pzDuel({ title:'Laf düellosu · ' + nm, sub:'3 tur: 3 doğru mükemmel, 2 doğru iyi', who:nm, city:S.city, rounds:3, cb:sc => hagFinish(sc >= 3 ? 'perfect' : sc === 2 ? 'good' : 'miss') });
+    else if (k === 'scale') pzBalance({ title:'Terazi · ' + nm, sub:'Teraziyi dengelersen fiyatta haklı çıkarsın', text:nm + ' malını kefeye koydu: "Ağırlıkların doğruysa fiyatın da doğrudur."', lim:30, cb:hagFinish });
+    else if (k === 'needle') showNeedle();
+    else faceStart();
+  }
+  function faceStart() {
+    const lv = trustLv(S), ci = S.city;
+    FG = { ci, o:3 + lv, L:Math.min(16, 8 + lv * 2 + Math.floor(Math.random() * 5)), left:2 + Math.floor(Math.random() * 3), k:0, tell:null, bluff:false, seen:[] };
+    if (FG.o >= FG.L) FG.left = 0;
+    faceTell();
+    faceRender(fl(FACE_LINES[ci].open, FG.o), true);
+  }
+  function faceTell() {
+    const T = MTELL[FG.ci], honest = Math.random() >= 0.15, more = FG.left > 0;
+    FG.bluff = !honest; FG.tell = (more === honest) ? T.give : T.walk;
+  }
+  function faceRender(lineTxt, first) {
+    const ci = FG.ci, m = MERCHANTS[ci], known = (meta.tells || {})[ci] || {}, T = MTELL[ci];
+    let s = '<div class="sh-h"><h2 id="shTitle">Pazarlık · ' + esc(m.name) + '<small>Sıkıştır ya da kabul et. Yüzüne bak: ipucu verir, bazen de blöf yapar.</small></h2></div>';
+    s += '<div class="face' + (first ? '' : ' shake') + '"><span class="pt huge">' + portrait(ci, FG.k >= 2 ? 0 : trustLv(S)) + tellBadge(FG.tell) + '</span><div class="fb"><div class="bub"><b>' + esc(m.name) + '</b>' + esc(lineTxt) + '</div><p class="tellt">' + esc(m.name) + ' <b>' + esc(TELLS[FG.tell]) + '</b>' + (known[FG.tell] ? ' · <em>' + (known[FG.tell] === 'give' ? 'daha verir' : 'çekip gider') + '</em>' : ' · <em>bu ne demek, öğreneceksin</em>') + '</p></div></div>';
+    s += '<div class="omt"><small>Teklif</small><i><em style="width:' + Math.round(FG.o / 17 * 100) + '%"></em></i><b>%' + FG.o + '</b></div>';
+    s += '<div class="row"><button class="btn red" type="button" data-act="facePush"' + (FG.k >= 4 ? ' disabled' : '') + '>Sıkıştır</button><button class="btn go1" type="button" data-act="faceOk" data-first>Kabul et: %' + FG.o + '</button></div>';
+    const kn = Object.keys(known); if (kn.length) s += '<p class="muted" style="margin:0">' + esc(m.name) + ' hakkında bildiklerin: ' + kn.map(t => TELLS[t] + ' → ' + (known[t] === 'give' ? 'daha verir' : 'gider')).join(' · ') + '</p>';
+    openSheet(s, true, 'face');
+  }
+  function faceLearn(tell, meaning) {
+    meta.tells = meta.tells || {}; meta.tells[FG.ci] = meta.tells[FG.ci] || {};
+    if (!FG.bluff && !meta.tells[FG.ci][tell]) { meta.tells[FG.ci][tell] = meaning; saveMeta(); toast(MERCHANT_NAMES[FG.ci] + ' ' + TELLS[tell] + ' → ' + (meaning === 'give' ? 'daha verir.' : 'çekip gider.') + ' Deftere yazıldı.'); }
+  }
+  function facePush() {
+    if (!FG) return;
+    const ci = FG.ci, T = MTELL[ci];
+    if (FG.left <= 0) { faceLearn(FG.tell, 'walk'); FG = null; hagStyle = 'face'; play('no'); hagFinish('miss'); return; }
+    faceLearn(FG.tell, 'give');
+    FG.o = Math.min(FG.L, FG.o + 2 + (Math.random() < 0.5 ? 1 : 0)); FG.left--; FG.k++;
+    if (FG.o >= FG.L) FG.left = 0;
+    play('tick'); faceTell();
+    faceRender(fl(FACE_LINES[ci].push[Math.min(2, FG.k - 1)], FG.o));
+  }
+  function faceOk() {
+    if (!FG) return;
+    const q = FG.o >= FG.L - 1 ? 'perfect' : 'good', b = FG.o / 100; FG = null; hagStyle = 'face';
+    hagFinish(q, b);
+  }
+  function showNeedle() {
+    hagC = 0.26 + Math.random() * 0.48;
+    const m = MERCHANTS[S.city];
+    openSheet('<div class="sh-h"><h2 id="shTitle">Göz kararı · ' + esc(m.name) + '<small>Ok altın bölgedeyken bas. Bölge her pazarlıkta yer değiştirir.</small></h2></div>' +
+      '<div class="meter" aria-hidden="true"><i class="zg" style="left:' + ((hagC - 0.2) * 100) + '%"></i><i class="zp" style="left:' + ((hagC - 0.06) * 100) + '%"></i><span class="needle" id="needle"></span></div>' +
+      '<button class="btn go1 wide" type="button" data-act="hagNow" data-first>Şimdi! <small>(Boşluk)</small></button>', true, 'haggle');
+    const speed = (1.5 - trustLv(S) * 0.18) * (0.85 + Math.random() * 0.4) * (1 + (S.stats.haggles || 0) * 0.06);
+    hagT0 = performance.now();
+    const tick = now => { const t = (now - hagT0) / 1000 * speed, ph = t % 2, pos = ph < 1 ? ph : 2 - ph; const n = $('#needle'); if (!n) return; n.style.left = (pos * 100) + '%'; n.dataset.p = pos; hagRaf = requestAnimationFrame(tick); };
+    cancelAnimationFrame(hagRaf); hagRaf = requestAnimationFrame(tick);
+  }
+  function hagFinish(q, bo) {
+    const b = haggle(S, q, bo), m = MERCHANTS[S.city], fav = q !== 'miss' && hagStyle === FAV_STYLE[S.city];
+    moodBoost = q === 'miss' ? -1 : 2;
+    const lv = fav ? addTrust(S, S.city, 60) : 0;
+    line = hagStyle === 'face' && FACE_LINES[S.city] ? (q === 'miss' ? FACE_LINES[S.city].walk : FACE_LINES[S.city].ok) : q === 'perfect' ? rpick(['Peki peki! Sen kazandın, ama kimseye söyleme.', 'Bu pazarlığı torunlarıma anlatacağım.', 'Firavun bile bu kadar sıkı pazarlık etmez!']) : q === 'good' ? rpick(['Hmm, makul. Anlaştık.', 'Tamam, biraz indiririm. Biraz.']) : rpick(['Bu teklifle mi geldin? Hakaret bu!', 'Git başka kapıya! Şaka şaka… ama fiyat aynı.']);
+    play(q === 'miss' ? 'bad' : q === 'perfect' ? 'good' : 'haggle'); buzz(q === 'miss' ? [60] : [15, 20, 30]);
+    save(); renderAll();
+    openSheet('<div class="who big"><span class="pt big' + (q === 'miss' ? ' sour' : ' glad') + '">' + portrait(S.city, q === 'perfect' ? 3 : q === 'good' ? 1 : 0) + '</span><div class="bub"><b>' + esc(m.name) + '</b>' + esc(line) + '</div></div><div class="out"><div class="oi ' + (q === 'miss' ? 'bad' : 'good') + '"><span class="dot"></span><div><b>' + (q === 'perfect' ? 'Mükemmel pazarlık!' : q === 'good' ? 'İyi pazarlık' : 'Pazarlığı kaybettin') + '</b><p>' + (b ? 'Bugün ' + esc(m.name) + ' ile bütün alış ve satışların %' + Math.round(b * 100) + ' daha iyi.' + (fav ? ' En sevdiği pazarlık yolunu seçtin: güveni arttı.' : '') : esc(m.name) + ' biraz kırıldı, güveni azaldı. Fiyatlar aynı.') + '</p></div></div></div><button class="btn go1" type="button" data-close data-first>Pazara dön</button>', false, 'hagres');
+    if (lv) trustToast(lv, S.city);
+  }
+
+  /* ================= story arcs: one per run, inspired by films and games ================= */
+  const ARCS = ['kedi', 'ba', 'lapis'];
+  const QUESTS = {
+    kedi: { name:'Bastet\'in Altın Kedisi', ico:'i-chest',
+      intro:'Kâtip Merenre: "Leydi Nebet altın kediyi bana bıraktı ama yeğeni Djedi onu çalacak. Heykeli Per-Bastet\'teki tapınak kasasından sen al, Abidos\'taki Cemiyet\'e götür. Ödülü bölüşürüz."',
+      reward:'1.800 deben, 3 Lonca itibarı ve bütün tüccarların güveni' },
+    ba: { name:'Ba\'nın Şarkısı', ico:'i-music',
+      intro:'Direğe insan yüzlü bir kuş kondu: Hesy\'nin ruhu. Şarkısını unutmuş, kapı ona açılmıyor. "Udumu bir batıktan çıkar, şarkımı Vaset\'te hatırlat, Abidos\'ta kapıda çal."',
+      reward:'900 deben, 3 Lonca itibarı ve kalan seferde hep coşkulu bir tayfa' },
+    lapis: { name:'Kalpazanlar', ico:'i-scroll',
+      intro:'Müfettiş Nakht: "Pazarlar sahte lapisle doldu. Gözü keskin bir kervancı lazım. Beni Vaset\'te bul, kalpazanların izini birlikte sürelim."',
+      reward:'1.500 deben, 2 lapis ve 3 Lonca itibarı' }
+  };
+  const SONG = [62, 66, 69, 74];
+  const Q = () => S && S.quest;
+  function qGoal(q) {
+    q = q || Q(); if (!q || q.st !== 'active') return null;
+    if (q.id === 'kedi') {
+      if (q.step === 1) return { t:'Per-Bastet\'teki tapınak kasasından altın kediyi al', c:0, by:8 };
+      if (q.f.stolen) return { t:'Djedi heykeli Vaset\'te satıyor: geri al', c:3, by:13 };
+      return { t:'Altın kediyi Abidos\'taki Cemiyet\'e götür', c:2, by:13 };
+    }
+    if (q.id === 'ba') {
+      if (q.step === 1) return { t:'Yolda bir batığa dal, Hesy\'nin udunu bul', c:null, by:11 };
+      if (q.step === 2) return { t:'Vaset\'teki kör arpçı şarkıyı hatırlatabilir', c:3, by:13 };
+      return { t:'Şarkıyı Abidos\'ta Osiris\'in kapısında çal', c:2, by:15 };
+    }
+    if (q.step === 1) return { t:'Vaset\'te Müfettiş Nakht ile buluş', c:3, by:9 };
+    if (q.step === 2) return { t:'Abu\'da üç şüpheliyi sorgula', c:4, by:12 };
+    return { t:'Yolda kalpazanların gece iskelesini bas', c:null, by:15 };
+  }
+  const qVoyage = () => { const q = Q(); if (!q || q.st !== 'active') return null; if (q.id === 'ba' && q.step === 1) return 'dive'; if (q.id === 'lapis' && q.step === 3) return 'forgers'; return null; };
+  function qScene() {
+    const q = Q(), g = qGoal(q); if (!g || g.c !== S.city || phase !== 'port' || S.over) return null;
+    if (q.id === 'kedi') return q.step === 1 ? kediVault : q.f.stolen ? kediDjedi : q.cargo ? kediGuild : null;
+    if (q.id === 'ba') return q.step === 2 ? baHarp : q.step === 3 ? baGate : null;
+    return q.step === 1 ? lapisScale : q.step === 2 ? lapisLiar : null;
+  }
+  function qLog(t) { const q = Q(); q.log.push({ d:S.day, t }); S.log.push({ d:S.day, t:QUESTS[q.id].name + ': ' + t }); }
+  function qDone(t, cash, extra) {
+    const q = Q(); q.st = 'done'; q.cargo = 0; S.cash += cash || 0; S.repBonus = (S.repBonus || 0) + (extra && extra.rep != null ? extra.rep : 3);
+    qLog(t); save(); renderAll(); play('fanfare');
+    if (phase === 'sea' && VG) { VG.acc.notes.push({ kind:'good', title:'Görev tamamlandı: ' + QUESTS[q.id].name, text:t + (cash ? ' (+' + fmt(cash) + ' deben)' : '') }); toast(QUESTS[q.id].name + ' tamamlandı!'); return; }
+    qStory(QUESTS[q.id].name, t + (cash ? ' (+' + fmt(cash) + ' deben)' : ''), 'good', 'Görev tamamlandı');
+  }
+  /* a story beat in a sheet */
+  const qFace = title => /Djedi/.test(title || '') ? 'djedi' : { kedi:'merenre', ba:'ba', lapis:'nakht' }[Q().id];
+  function qStory(title, text, kind, head, btns) {
+    openSheet('<div class="sh-h"><span class="pt big">' + faceOf(qFace(title)) + '</span><h2 id="shTitle">' + esc(title) + '<small>' + esc(head || QUESTS[Q().id].name) + '</small></h2></div><div class="out">' + outHtml({ kind:kind || 'info', title:'', text }) + '</div>' +
+      (btns || '<button class="btn go1" type="button" data-close data-first>Devam</button>'), true, 'qstory');
+  }
+  function showQuest() {
+    const q = Q(); if (!q) return;
+    const A = QUESTS[q.id], g = qGoal(q), here = qScene();
+    let s = '<div class="sh-h"><span class="pt big">' + faceOf(qFace()) + '</span><h2 id="shTitle">' + esc(A.name) + '<small>Hikâye görevi' + (q.st === 'done' ? ' · tamamlandı' : q.st === 'fail' ? ' · kaybedildi' : '') + '</small></h2>' + (q.st === 'offer' ? '' : xBtn) + '</div>';
+    s += '<p class="ntext">' + esc(A.intro) + '</p>';
+    if (q.log.length) s += '<div class="qlog">' + q.log.map(l => '<p><b>' + l.d + '. gün</b> ' + esc(l.t) + '</p>').join('') + '</div>';
+    if (q.st === 'offer') {
+      s += '<p class="muted" style="margin:0">Ödül: ' + esc(A.reward) + '. Görevin adımları seni belli şehirlere götürür; ticaretini aksatmadan yolunun üstünde yapabilirsin.</p>';
+      s += '<div class="row"><button class="btn go1" type="button" data-act="qAccept" data-first>Kabul et</button><button class="btn" type="button" data-act="qDecline">Bu sefer değil</button></div>';
+    } else if (g) {
+      s += '<div class="box qgoal"><h3>Şimdiki adım</h3><p>' + esc(g.t) + (g.by ? ' · en geç <b>' + g.by + '. gün</b>' : '') + '</p>' + (g.c != null && g.c !== S.city ? '<p class="muted" style="margin:0">' + esc(CITIES[g.c].name) + ' ' + (canGo(S, g.c) ? travelDays(S, g.c) + ' gün uzakta.' : 'şu an ulaşılamıyor.') + '</p>' : '') +
+        (qVoyage() ? '<p class="muted" style="margin:0">Bir sonraki yolculuğunda haritada ★ işaretli durağı ara.</p>' : '') + '</div>';
+      s += '<p class="muted" style="margin:0">Ödül: ' + esc(A.reward) + '</p>';
+      if (here) s += '<button class="btn go1 wide" type="button" data-act="qScene" data-first>Şimdi yap</button>';
+    }
+    openSheet(s, q.st === 'offer', 'quest');
+  }
+  function qOfferDue() { const q = Q(); return q && q.st === 'offer' && !S.over && phase === 'port' && (!firstRun() || S.stats.trips >= 2); }
+  /* called whenever the player is free in port: offer the story or play the beat waiting in this city */
+  function qPort(auto) {
+    const q = Q(); if (!q || S.over || phase !== 'port' || !$('#veil').hidden) return false;
+    if (qOfferDue() && !q.offered) { q.offered = true; save(); showQuest(); return true; }
+    const sc = qScene(), key = S.day + ':' + S.city;
+    if (sc && (!auto || q.auto !== key)) { q.auto = key; save(); sc(); return true; }
+    return false;
+  }
+  /* deadlines are checked on arrival and reported with the rest of the voyage */
+  function qArrive(out) {
+    const q = Q(); if (!q || q.st !== 'active') return;
+    const g = qGoal(q);
+    if (g && g.by && S.day > g.by) {
+      q.st = 'fail'; q.cargo = 0;
+      const t = q.id === 'kedi' ? 'Djedi heykeli başka bir yoldan kaçırdı; Merenre eli boş kaldı.' : q.id === 'ba' ? 'Hesy\'nin şarkısı zamanında çalınamadı. Ba kuşu sessizce uçup gitti.' : 'Kalpazanlar izlerini sildi ve Nil\'in aşağısına kaçtı.';
+      qLog(t); out.push({ kind:'bad', title:QUESTS[q.id].name + ': görev kaçtı', text:t });
+    } else if (g && g.c === S.city) out.push({ kind:'info', title:QUESTS[q.id].name, text:'Görevin burada devam ediyor. Pazara çıkınca hikâye kaldığı yerden sürer.' });
+  }
+  function needRoom(n, then) {
+    if (freeCap(S) >= n) { then(); return true; }
+    qStory('Ambarda yer yok', 'Bunun için ambarda ' + n + ' boş yer lazım (şu an ' + Math.max(0, freeCap(S)) + '). Biraz mal sat ya da tersanede ambarı büyüt; sonra üstteki görev çipine dokun.', 'bad', null,
+      '<div class="row"><button class="btn go1" type="button" data-close data-first>Pazara dön</button>' + (upCost(S, 'ambar') != null ? '<button class="btn gold" type="button" data-open="ship">Tersane</button>' : '') + '</div>');
+    return false;
+  }
+  /* ---- Bastet's golden cat (a heist with a wink at The Grand Budapest Hotel and Monkey Island) ---- */
+  function kediVault() {
+    const q = Q();
+    if (q.f.open) { needRoom(2, () => { q.cargo = 2; q.step = 2; q.f.open = false; qLog('Altın kedi ambarda, iki sandık kılığında. Sıra Abidos\'ta.'); save(); renderAll(); qStory('Altın kedi ambarda', 'Heykeli eski bir buğday çuvalına sardın. Djedi\'nin adamları seni ararken dikkatli ol: Abidos\'a kadar peşinde olabilirler.', 'good'); }); return; }
+    const seq = Array.from({ length:5 }, () => Math.floor(Math.random() * 4));
+    pzMemory({ title:'Tapınak kasası', sub:'Per-Bastet · Bastet tapınağı', text:'Kasa dört kutsal işaretle mühürlü. Bekçi horlarken rahibenin sırrını hatırla: işaretler sırayla parlayacak, sen de aynı sırayla dokun.',
+      pads:[{ ico:'i-ankh', label:'Ankh' }, { ico:'i-sun', label:'Güneş' }, { ico:'i-moon', label:'Ay' }, { ico:'i-heart', label:'Kalp' }], seq, cancel:'Sonra',
+      cb(ok) {
+        if (ok) { q.f.open = true; qLog('Tapınak kasasının mührünü çözdün.'); save(); kediVault(); return; }
+        q.f.tries = (q.f.tries || 0) + 1; save();
+        const b = '<div class="row"><button class="btn go1" type="button" data-act="qScene" data-first>Tekrar dene</button>' + (S.cash >= 300 ? '<button class="btn gold" type="button" data-act="qBribe">Bekçiye 300 deben ver</button>' : '') + '<button class="btn" type="button" data-close>Sonra</button></div>';
+        qStory('Mühür direndi', q.f.tries < 3 ? 'Yanlış işarete dokundun; kasa tıkırdadı ama açılmadı. Bekçi uykusunda homurdandı.' : 'Bekçi kıpırdandı. Bir daha deneyebilirsin; bekçi de rüşvete hayır demez.', 'bad', null, b);
+      } });
+  }
+  function kediDjedi() {
+    const q = Q();
+    if (q.f.won) { needRoom(2, () => { q.cargo = 2; q.f.stolen = false; q.f.won = false; qLog('Altın kediyi Djedi\'den geri aldın.'); save(); renderAll(); qStory('Kedi yeniden senin', 'Heykel ambara geri döndü. Abidos\'a, Cemiyet\'e!', 'good'); }); return; }
+    qStory('Djedi', 'Djedi Vaset çarşısında heykeli açık artırmaya çıkarmış. Seni görünce sırıttı: "Kılıçla değil, dille dövüşürüz. Kazanırsan kedi senin." Arkasındaki iri adamlar kollarını çaprazladı.', 'info', 'Bastet\'in Altın Kedisi',
+      '<div class="row"><button class="btn go1" type="button" data-act="qDuel" data-first>Laf düellosu</button>' + (S.cash >= 900 ? '<button class="btn gold" type="button" data-act="qBuy">900 deben öde</button>' : '') + '<button class="btn" type="button" data-close>Sonra</button></div>');
+  }
+  const RIDDLES = [
+    ['Sabah dört ayakla, öğlen iki ayakla, akşam üç ayakla yürüyen nedir?', ['İnsan', 'Timsah', 'Kayık'], 0],
+    ['Suyu taşır ama bir damlasını içmez. Nedir?', ['Testi', 'Deve', 'Bulut'], 0],
+    ['Ne kadar çok alırsan o kadar büyür. Nedir?', ['Çukur', 'Borç', 'Ambar'], 0],
+    ['Önünden koşarsın yetişemezsin, arkasını dönersin peşinden gelir. Nedir?', ['Gölge', 'Sethi', 'Nil'], 0]
+  ];
+  function kediGuild() {
+    const r = RIDDLES[Math.floor(Math.random() * RIDDLES.length)], opts = shuffle(r[1].map((x, i) => i));
+    Q().f.riddle = r;
+    openSheet('<div class="sh-h"><span class="vm big t-quest">' + ico('i-chest', 30) + '</span><h2 id="shTitle">Çapraz Kürekler Cemiyeti<small>Abidos · kapıda maskeli bir kapıcı</small></h2></div><p class="ntext">"Parolayı bilmeyen içeri giremez. Bilmece şu: ' + esc(r[0]) + '"</p><div class="choices neutral">' +
+      opts.map((i, n) => '<button type="button" class="choice" data-qriddle="' + i + '"' + (n ? '' : ' data-first') + '><b>' + esc(r[1][i]) + '</b></button>').join('') + '</div>', true, 'qstory');
+  }
+  function kediRiddle(i) {
+    const q = Q(), r = q.f.riddle, ok = r && i === r[2];
+    CITIES.forEach((c, k) => addTrust(S, k, 150));
+    qDone(ok ? 'Kapıcı eğildi: "Hoş geldin, kardeş." Cemiyet altın kediyi kasasına koydu, Merenre gözyaşlarını sildi. Bütün tüccarlar artık senden saygıyla söz ediyor.' : 'Yanlış cevap, ama kapıcı heykeli görünce kapıyı yine de açtı. Cemiyet ödülün bir kısmını "gecikme ve görgüsüzlük" diye kesti.', ok ? 1800 : 1100);
+  }
+  /* ---- the Ba's song (a lost soul and a song that must be remembered: Soul, Coco) ---- */
+  function baHarp() {
+    const q = Q(); if (!q.f.song) { q.f.song = Array.from({ length:6 }, () => Math.floor(Math.random() * 4)); save(); }
+    pzMemory({ title:'Kör arpçı', sub:'Vaset · tapınak avlusu', text:'Yaşlı arpçı Hesy\'nin udunu okşadı: "Bu şarkıyı bilirim. Hesy her bayram çalardı." Dört notayı çalacak; dinle ve aynısını çal.',
+      pads:SONG.map((n, k) => ({ ico:'i-music', label:['Re', 'Fa♯', 'La', 'Re↑'][k], note:n })), seq:q.f.song.slice(0, 4), cancel:'Sonra',
+      cb(ok) {
+        if (ok) { q.step = 3; qLog('Arpçı şarkının başını hatırlattı. Hesy mırıldanıyor: "Gerisi de gelecek…"'); save(); renderAll(); qStory('Şarkı geri dönüyor', 'Hesy kanatlarını açıp ilk notaları mırıldandı. "Abidos\'ta, Osiris\'in kapısında bütününü çalacağız. Şimdi öğrendiğini unutma: kapıda iki nota daha gelecek."', 'good'); }
+        else qStory('Notalar karıştı', 'Arpçı sabırla gülümsedi: "Bir daha dinle evlat."', 'bad', null, '<div class="row"><button class="btn go1" type="button" data-act="qScene" data-first>Tekrar dene</button><button class="btn" type="button" data-close>Sonra</button></div>');
+      } });
+  }
+  function baGate() {
+    const q = Q();
+    pzMemory({ title:'Osiris\'in kapısı', sub:'Abidos · ölüler şehrinin eşiği', text:'Hesy direkten indi ve kapının önüne kondu. Şarkının tamamı altı nota: Vaset\'te öğrendiğin dört notayla başlıyor. Dinle ve çal.',
+      pads:SONG.map((n, k) => ({ ico:'i-music', label:['Re', 'Fa♯', 'La', 'Re↑'][k], note:n })), seq:q.f.song || [0, 1, 2, 3, 2, 0], cancel:'Sonra',
+      cb(ok) {
+        if (ok) { S.qPerk = 'ba'; qDone('Kapı ağır ağır açıldı. Hesy son kez dönüp baktı: "Beni hatırladığın için teşekkürler." Tayfan bu şarkıyı seferin sonuna kadar mırıldanacak: her yolculuğa coşkuyla başlarlar.', 900); }
+        else qStory('Kapı kıpırdamadı', 'Bir nota eksik kaldı. Hesy sabırla bekliyor.', 'bad', null, '<div class="row"><button class="btn go1" type="button" data-act="qScene" data-first>Tekrar dene</button><button class="btn" type="button" data-close>Sonra</button></div>');
+      } });
+  }
+  /* ---- the forgers (an investigation: Blade Runner, Mindhunter, True Detective) ---- */
+  function lapisScale() {
+    const q = Q();
+    pzScale({ title:'Müfettiş Nakht', sub:'Vaset · vezirin mahzeni', text:'Nakht masaya sekiz lapis dizdi: "Biri sahte; boyalı kireç taşı, gerçeğinden biraz hafif. Terazim ancak iki tartıya dayanır." Sahteyi bul.',
+      cb(ok) {
+        q.step = 2; q.f.sharp = ok;
+        qLog(ok ? 'Sahte taşı buldun. Tozunda Abu ocaklarının kırmızı kumu var.' : 'Yanlış taşı seçtin ama Nakht tozdan bir iz buldu: Abu ocakları.');
+        save(); renderAll();
+        qStory(ok ? 'İz bulundu' : 'Yanlış taş', (ok ? 'Nakht taşı ışığa tuttu: "Kırmızı kum. Bu toz Abu ocaklarından." ' : 'Nakht iç geçirdi, sonra taşları tek tek kazıdı: "Kırmızı kum… Abu ocakları." ') + 'Abu\'da ocakta çalışan üç taş ustası var; biri yalan söyleyecek.', ok ? 'good' : 'bad');
+      } });
+  }
+  function lapisLiar() {
+    const q = Q();
+    pzLiar({ title:'Sorgu', sub:'Abu · taş ocağı', text:'Üç taş ustası sırayla konuştu. Nakht kulağına fısıldadı: "Kalpazan yalan söyler, diğerleri korkudan doğruyu söyler."',
+      cb(ok) {
+        q.step = 3; q.f.warned = !ok;
+        qLog(ok ? 'Yalancı çözüldü: kalpazanlar geceleri nehirdeki eski bir iskelede çalışıyor.' : 'Yanlış kişiyi suçladın; asıl kalpazan kaçıp çetesini uyardı. Yine de iskelenin yeri belli.');
+        save(); renderAll();
+        qStory(ok ? 'İtiraf' : 'Kaçak', (ok ? 'Yalancı dizlerinin üstüne çöktü ve iskelenin yerini söyledi. ' : 'Yanlış adamı tutukladınız; gerçek kalpazan gecenin içinde kayboldu. ') + 'Bir sonraki yolculuğunda haritada ★ işaretli Kalpazan iskelesini seç ve fenerlere görünmeden yaklaş.', ok ? 'good' : 'bad');
+      } });
+  }
+  function qForgers(res) {
+    const q = Q(); if (!q || q.id !== 'lapis' || q.st !== 'active') return;
+    if (!res.spotted) {
+      const got = addGoods(S, 'lapis', 2);
+      qDone('Fenerlere görünmeden yanaştın; Nakht\'ın adamları kalpazanları kalıplarıyla birlikte yakaladı. Vezir ödülü ve el konan ' + got + ' gerçek lapisi sana bıraktı.', q.f.sharp ? 1500 : 1200);
+    } else qDone('Devriye fenerleri seni ele verdi, kalpazanlar kaçtı. Yine de kalıplarına el koydun; vezir yarım ödül gönderdi.', 500, { rep:1 });
+  }
+  function goalChip() {
+    const el = $('#goal'); if (!el) return;
+    const q = Q(), g = qGoal(q);
+    if (phase !== 'port' || S.over) { el.hidden = true; return; }
+    let h = '', cls = 'goal';
+    if (q && q.st === 'offer' && qOfferDue()) { h = ico(QUESTS[q.id].ico, 18) + '<span><small>Yeni görev</small>' + esc(QUESTS[q.id].name) + '</span>'; cls += ' new'; }
+    else if (g) { const here = !!qScene(); h = ico(QUESTS[q.id].ico, 18) + '<span><small>' + esc(QUESTS[q.id].name) + (g.by ? ' · ' + g.by + '. güne kadar' : '') + '</small>' + esc(g.t) + '</span>' + (here ? '<em>Burada!</em>' : ''); if (here) cls += ' here'; }
+    else if (q && (q.st === 'done' || q.st === 'fail')) { h = ico(QUESTS[q.id].ico, 18) + '<span><small>Hikâye</small>' + esc(QUESTS[q.id].name) + (q.st === 'done' ? ' ✓' : ' ✗') + '</span>'; cls += ' old'; }
+    el.className = cls; el.hidden = !h; el.innerHTML = h;
+  }
+
+  /* ================= the Nile's news board: Sethi's plan and the market crises ================= */
+  function crisisList() {
+    if (!S || !has(S, 'crisis')) return [];
+    return (S.crises || []).filter(c => S.day >= c.from - 1).map(c => Object.assign({ state:S.day < c.from ? 'soon' : S.day > c.until ? 'past' : 'now' }, c));
+  }
+  function crisisLine(c) {
+    const d = CRISES[c.k];
+    if (d.close) return S.day <= c.closeUntil ? c.from + '–' + c.closeUntil + '. gün kapalı, sonra ' + c.until + '. güne kadar her mal %30 pahalı' : c.until + '. güne kadar her mal %30 pahalı';
+    return gName(d.g) + ' ' + (d.mult > 1 ? '×' + d.mult.toFixed(1).replace('.', ',') + ' pahalı' : 'yarı fiyatına') + ' · ' + c.from + '–' + c.until + '. gün';
+  }
+  function boardBox() {
+    if (S.over) return '';
+    const sp = S.rival.plan, cl = crisisList().filter(c => c.state !== 'past');
+    if (!sp && !cl.length) return '';
+    let s = '<button type="button" class="box board" data-act="board"><h3>Nil\'den haberler <span class="muted">· dokun, ayrıntı</span></h3>';
+    if (sp) s += '<span class="bl"><i class="bS">S</i>Sethi ' + esc(CITIES[sp.to].dat) + ' ' + gName(sp.g) + ' götürüyor · ' + sp.arrive + '. gün</span>';
+    cl.forEach(c => { s += '<span class="bl"><i class="bK">⚠</i>' + esc(CITIES[c.city].name) + ': ' + esc(CRISES[c.k].name) + (c.state === 'soon' ? ' · yarın başlıyor' : ' · ' + c.until + '. güne kadar') + '</span>'; });
+    return s + '</button>';
+  }
+  /* ================= features that open over the first runs ================= */
+  const FEATS = {
+    haggle: { ico:'i-whisper', name:'Pazarlık', desc:'Tüccarla günde bir kez pazarlık et: göz kararı, laf düellosu ya da terazi. Kazanırsan o gün bütün alış satışların daha iyi.' },
+    crisis: { ico:'i-storm', name:'Pazar krizleri', desc:'Kıtlık, bayram, bolluk, kapanan liman. Bir gün önceden duyulur, birkaç gün sürer ve o şehirde sana avanslı teslimat gibi seçenekler sunar.' },
+    sethi:  { ico:'i-c-vaset', name:'Sethi\'nin planları', desc:'Rakibin artık planını açıkça yürütüyor: bir malı toplar, başka şehirde boşaltır, siparişleri kapar. Şehir resmindeki sipariş panosuna bak.' },
+    quest:  { ico:'i-map', name:'Hikâye görevleri', desc:'Her seferde bir hikâye: bir soygun, kayıp bir ruhun şarkısı ya da bir kalpazan çetesi.' },
+    contra: { ico:'i-chest', name:'Hapu\'nun kaçak işleri', desc:'Borcunu kapatınca tefeci sana kârlı ama tehlikeli bir iş teklif eder.' },
+    tekne:  { ico:'i-boat', name:'Tekneler, tapınaklar, meyhaneler', desc:'Sefer artık 30 gün. Mennefer tersanesinde yeni tekne al, Ptah\'ın ustalarına gemi cihazı yaptır. Tapınaklarda ışık odalarını çöz, meyhanede Senet oyna.' },
+    desert: { ico:'i-donkey', name:'Çöl kervanları', desc:'Mennefer, Abidos ve Vaset\'ten eşek kervanıyla Siwa, Harga ve Kızıldeniz kıyısındaki Saww\'a git. Su biterse eşek kaybedersin.' },
+    atolye: { ico:'i-workshop', name:'Atölyeler', desc:'Per-Bastet, Abidos ve Vaset ustalarına hammadde bırak; iki gün sonra kyphi, muska ya da Ölüler Kitabı olarak geri al.' }
+  };
+  function showUnlocks() {
+    if (!S || S.mode !== 'free' || S.over || S.day > 1 || S.stats.trips) return false;
+    let seen = meta.seenFeat || (meta.runs >= 2 ? ['haggle', 'quest', 'contra'] : []);
+    const list = Object.keys(FEATS).filter(k => (k === 'sethi' || k === 'tekne' ? meta.runs >= 1 : S.feat && S.feat[k]) && !seen.includes(k));
+    if (meta.runs === 0) ['sethi', 'haggle'].forEach(k => { if (!seen.includes(k)) seen = seen.concat(k); });
+    meta.seenFeat = seen.concat(list); saveMeta();
+    if (!list.length) return false;
+    openSheet('<div class="sh-h"><h2 id="shTitle">Bu seferde yeni<small>Her seferde Nil biraz daha açılıyor</small></h2></div>' + list.map(k => '<div class="oi good"><span class="oiI">' + ico(FEATS[k].ico, 20) + '</span><div><b>' + esc(FEATS[k].name) + '</b><p>' + esc(FEATS[k].desc) + '</p></div></div>').join('') +
+      '<button class="btn go1" type="button" data-act="unlockOk" data-first>Sefere başla</button>', true, 'unlock');
+    return true;
+  }
+

@@ -1,0 +1,71 @@
+# Nil Kervancısı source map (v33)
+
+Build: `python3 p33/assemble.py` → v33.html + preview33.html. Order is in assemble.py.
+Folders ui/, sea/, v3/ are single files split by section; parts are joined in name order (same IIFE scope, so names are shared).
+
+| part | KB |
+|---|---|
+| art27.css | 1 |
+| art27.txt | 68 |
+| art28.css | 4 |
+| art28.txt | 91 |
+| assemble.py | 4 |
+| body.txt | 3 |
+| boot.txt | 3 |
+| chars28.css | 5 |
+| chars28.txt | 63 |
+| chars30.txt | 60 |
+| chars33.css | 1 |
+| chars33.dat | 648 |
+| chars33.txt | 101 |
+| core.txt | 78 |
+| css.txt | 63 |
+| css27.txt | 5 |
+| css28.txt | 48 |
+| haggle28.css | 9 |
+| haggle28.txt | 35 |
+| merch27.txt | 5 |
+| mini.css | 2 |
+| mini.txt | 13 |
+| portraits31.txt | 1695 |
+| sea/01-run-setup.txt | 33 |
+| sea/02-run-steer.txt | 26 |
+| sea/03-run-draw.txt | 46 |
+| sea/04-run-scenes.txt | 39 |
+| sea/05-special-scenes.txt | 6 |
+| sea/06-special-scenes-2.txt | 61 |
+| senet.css | 7 |
+| senet.txt | 39 |
+| snd.txt | 40 |
+| sprites27.txt | 13 |
+| sprites28.txt | 1 |
+| temple.css | 3 |
+| temple.txt | 22 |
+| town29.css | 1 |
+| town29.txt | 128 |
+| ui/01-port-scene.txt | 35 |
+| ui/02-faces.txt | 26 |
+| ui/03-state-render.txt | 24 |
+| ui/04-feedback-sheets.txt | 27 |
+| ui/05-actions.txt | 3 |
+| ui/06-voyage.txt | 52 |
+| ui/07-heroes.txt | 18 |
+| ui/08-puzzles.txt | 23 |
+| ui/09-haggle-story-board.txt | 32 |
+| ui/10-share-device-water.txt | 15 |
+| ui/11-places27.txt | 5 |
+| ui/12-hub.txt | 36 |
+| ui/13-hub-sheets.txt | 48 |
+| ui/14-input.txt | 17 |
+| ui/15-start.txt | 1 |
+| v3.css | 6 |
+| v3/01-core-kit.txt | 34 |
+| v3/02-river.txt | 43 |
+| v3/03-river-2.txt | 36 |
+| v3/04-map-table.txt | 36 |
+| v3/05-map-table-2.txt | 66 |
+| v3/06-rays-export.txt | 14 |
+| v8-merchants.txt | 4 |
+| v8-portrait.txt | 5 |
+| v8-sprites.svg | 19 |
+| world33.txt | 54 |

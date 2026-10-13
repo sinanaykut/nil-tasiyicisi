@@ -1,0 +1,860 @@
+  /* ================= v28 art (sahne): the living town picture, damaged ships, map emblems ================= */
+  /* frame: viewBox 0 0 1000 560; Y0 = horizon / top of the water band, QY = quay top, the ship's waterline at SY */
+  const TS28 = { W:1000, H:560, Y0:330, QY:488, SX:748, SY:514 };
+  const f28 = v => +(+v).toFixed(1);
+  const r28 = (x, y, w, h, f, ex) => '<rect x="' + f28(x) + '" y="' + f28(y) + '" width="' + f28(w) + '" height="' + f28(h) + '" fill="' + f + '"' + (ex ? ' ' + ex : '') + '/>';
+  const c28 = (x, y, r, f, ex) => '<circle cx="' + f28(x) + '" cy="' + f28(y) + '" r="' + f28(r) + '" fill="' + f + '"' + (ex ? ' ' + ex : '') + '/>';
+  const e28 = (x, y, rx, ry, f, ex) => '<ellipse cx="' + f28(x) + '" cy="' + f28(y) + '" rx="' + f28(rx) + '" ry="' + f28(ry) + '" fill="' + f + '"' + (ex ? ' ' + ex : '') + '/>';
+  const l28 = (d, c, w, ex) => pth(d, 'none', 'stroke="' + c + '" stroke-width="' + w + '" stroke-linecap="round" stroke-linejoin="round"' + (ex ? ' ' + ex : ''));
+  /* a thick ink line with a coloured core: poles, oars, beams */
+  const pole28 = (d, c, w) => l28(d, INK, w + 2.4) + l28(d, c, w);
+  /* many dots in one path (stars, swarms, speckles) */
+  const dots28 = pts => pts.map(([x, y, r]) => 'M' + f28(x - r) + ' ' + f28(y) + 'a' + r + ' ' + r + ' 0 1 0 ' + f28(2 * r) + ' 0a' + r + ' ' + r + ' 0 1 0 ' + f28(-2 * r) + ' 0').join('');
+  /* a tiny seeded random so every town looks the same each time it is drawn */
+  const rnd28 = seed => () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+  const TOWN28 = ['perbastet', 'mennefer', 'abidos', 'vaset', 'abu', 'siwa', 'kharga', 'saww'];
+
+  /* ---------- palette: dayPal's sky for the season, stretched over the 30-day run, plus wall/ground colours ---------- */
+  function tsPal28(o) {
+    const si = o.si == null ? 1 : o.si, N = SKY[si] || SKY[1];
+    const tt = o.tod != null ? Math.max(0, Math.min(1, o.tod)) : Math.max(0, Math.min(1, ((o.day || 1) - 1) / 29));
+    const P = dayPal(si, 1 + tt * 14);
+    Object.assign(P, { field:N.field, far:N.far, lit:N.lit, shade:N.shade, wall:N.wall, door:N.door, cliff:N.cliff, granite:N.granite, granite2:N.granite2 });
+    const k = Math.pow(Math.abs(tt - 0.5) * 2, 1.5), warm = tt > 0.5 ? '#E8946A' : '#F0B4A4', cool = '#76688A';
+    P.tt = tt; P.k = k;
+    P.sx = 130 + 740 * tt; P.sy = 212 - Math.sin(tt * Math.PI) * 106;
+    P.L = mix(mix(N.lit, '#FFF2D8', 0.2), warm, 0.26 * k);
+    P.D = mix(mix(N.shade, P.top, 0.1), cool, 0.28 * k);
+    P.WW = mix('#F5EAD2', warm, 0.22 * k); P.WD = mix('#D6C29C', cool, 0.24 * k);
+    P.G = mix('#E8CF9C', warm, 0.2 * k); P.G2 = mix('#C9A46C', cool, 0.22 * k);
+    P.H1 = mix(N.far, P.mid, 0.5); P.H2 = mix(N.far, P.mid, 0.28); P.H3 = mix(N.cliff, P.low, 0.18);
+    P.green = mix('#3E8E5A', cool, 0.22 * k); P.green2 = mix('#2F6E44', cool, 0.25 * k); P.palm = mix('#2F5A3E', P.mid, 0.3);
+    P.win = mix('#3A2A1E', '#FFC864', P.stars); P.dark = mix('#3A2A1E', '#5A3A2A', P.stars);
+    P.cloud = mix('#FFFBF0', P.sun, 0.35 * k);
+    return P;
+  }
+
+  /* ---------- small shared pieces ---------- */
+  /* a flat-roofed mud-brick or whitewashed house: front, a shaded side, a thin roof, beam ends, door and high windows */
+  function house28(x, b, w, h, P, o) {
+    o = o || {};
+    const dp = o.dp != null ? o.dp : Math.max(6, Math.round(w * 0.15)), F = o.F || P.WW, D = o.D || P.WD, iw = o.iw || 1.5, t = b - h;
+    let s = pth('M' + (x + w) + ' ' + b + 'V' + t + 'l' + dp + ' ' + (-dp * 0.45) + 'V' + (b - dp * 0.45) + 'Z', D, ink(iw));
+    s += pth('M' + x + ' ' + t + 'l' + dp + ' ' + f28(-dp * 0.45) + 'H' + (x + w + dp) + 'l' + (-dp) + ' ' + f28(dp * 0.45) + 'Z', mix(F, '#FFFFFF', 0.25), ink(iw));
+    s += r28(x, t, w, h, F, ink(iw));
+    if (o.band) s += r28(x + 1, t + 4, w - 2, 4, o.band);
+    if (o.logs !== false && w > 26) { let d = ''; for (let q = x + 6; q < x + w - 3; q += 9) d += 'M' + (q - 1.8) + ' ' + (t + 1) + 'h3.6'; s += l28(d, '#7A5434', 2.6); }
+    if (o.door) s += pth('M' + (x + o.door[0]) + ' ' + b + 'v' + (-o.door[1]) + 'q' + (o.door[2] / 2) + ' -5 ' + o.door[2] + ' 0v' + o.door[1] + 'z', o.doorC || P.dark, ink(1.2));
+    if (o.wins) s += pth(o.wins.map(([a, c, ww, hh]) => 'M' + (x + a) + ' ' + (t + c) + 'h' + (ww || 6) + 'v' + (hh || 8) + 'h' + (-(ww || 6)) + 'z').join(''), P.win);
+    if (o.wc) s += pth('M' + (x + o.wc) + ' ' + t + 'v-16l14 -7v23z', D, ink(iw));
+    return s;
+  }
+  /* a lantern on a post; glows at dusk */
+  function lamp28(x, b, P, h) {
+    h = h || 46;
+    let s = pole28('M' + x + ' ' + b + 'v' + (-h), '#6B4226', 2.4) + pth('M' + (x - 8) + ' ' + (b - h) + 'h16l-3 -6h-10z', '#8E5A33', ink(1.3));
+    s += r28(x - 5.5, b - h - 18, 11, 13, P.stars ? '#FFD27A' : '#E9C88A', 'rx="2" stroke="' + INK + '" stroke-width="1.3"');
+    if (P.stars) s += c28(x, b - h - 11, 22, 'url(#' + P.kk + 'gl)', 'class="a27-fl" opacity="' + f28(0.5 + 0.5 * P.stars) + '"');
+    return s;
+  }
+  /* rising smoke: three soft puffs that drift up and fade (CSS t28-puff) */
+  function smoke28(x, y, sc, col) {
+    sc = sc || 1; col = col || '#E6DCCB';
+    let s = '<g class="t28-smk" transform="translate(' + f28(x) + ' ' + f28(y) + ') scale(' + sc + ')" pointer-events="none">';
+    for (let j = 0; j < 3; j++) s += e28(0, 0, 7, 6, col, 'class="t28-puff" style="animation-delay:' + (-j * 1.3).toFixed(1) + 's" opacity=".75"');
+    return s + '</g>';
+  }
+  /* a golden glow with sparkles over finished goods (CSS t28-glow, t28-spark) */
+  function glow28(x, y, r, P) {
+    let s = c28(x, y, r, 'url(#' + P.kk + 'gl)', 'class="t28-glow"');
+    s += '<g class="t28-spark" fill="#FFF6D2">' + [[-r * 0.5, -r * 0.35, 1], [r * 0.45, -r * 0.5, 0.8], [r * 0.2, r * 0.1, 0.6]].map(([a, b, q], j) => pth('M' + f28(x + a) + ' ' + f28(y + b - 7 * q) + 'l' + f28(2 * q) + ' ' + f28(5 * q) + ' ' + f28(5 * q) + ' ' + f28(2 * q) + ' ' + f28(-5 * q) + ' ' + f28(2 * q) + ' ' + f28(-2 * q) + ' ' + f28(5 * q) + ' ' + f28(-2 * q) + ' ' + f28(-5 * q) + ' ' + f28(-5 * q) + ' ' + f28(-2 * q) + ' ' + f28(5 * q) + ' ' + f28(-2 * q) + 'z', '#FFF6D2', 'style="animation-delay:' + (j * 0.5) + 's"')).join('') + '</g>';
+    return s;
+  }
+  /* a pennant flag on a pole (CSS flag) */
+  const flag28 = (x, b, h, c) => pole28('M' + x + ' ' + b + 'V' + (b - h), '#7A5A3A', 2) + '<g class="flag">' + pth('M' + x + ' ' + (b - h) + 'l22 6 -22 7z', c, ink(1.2)) + '</g>';
+  /* a person scaled from personSVG; walkers get the walk / walk2 classes */
+  const pp28 = (x, y, sc, cloth, load, flip, cls, dl) => '<g' + (cls ? ' class="' + cls + '"' + (dl ? ' style="animation-delay:' + dl + 's"' : '') : '') + '><g transform="translate(' + f28(x) + ' ' + f28(y) + ') scale(' + sc + ')">' + personSVG(0, 0, cloth, load, flip) + '</g></g>';
+  /* the black cat of Bastet, sitting */
+  const cat28 = (x, y, sc, col) => '<g transform="translate(' + f28(x) + ' ' + f28(y) + ') scale(' + sc + ')">' + pth('M-12 0q-4 -22 6 -30l-2 -12 8 6h6l8 -6 -2 12q10 8 6 30z', col || '#3A3346', ink(1.8)) + l28('M10 -4q12 2 10 -14', col || '#3A3346', 4) + c28(-1, -30, 2, '#E9C46A') + c28(7, -30, 2, '#E9C46A') + l28('M-6 -22h18', '#E9C46A', 2) + '</g>';
+  /* a palm with the shared palmSVG, scaled */
+  const palm28 = (x, y, h, lean, dark) => palmSVG(x, y, h, lean, dark);
+  /* a clump of papyrus / reeds (CSS sway2) */
+  function reeds28(x, y, n, sc, P) {
+    let s = '', d = '', hd = '';
+    for (let j = 0; j < n; j++) { const dx = (j - n / 2) * 7 * sc, h = (58 + (j * 23) % 30) * sc, tx = x + dx * 1.4, ty = y - h; d += 'M' + f28(x + dx * 0.4) + ' ' + y + 'Q' + f28(x + dx) + ' ' + f28(y - h * 0.6) + ' ' + f28(tx) + ' ' + f28(ty); hd += 'M' + f28(tx) + ' ' + f28(ty) + 'l' + f28(-8 * sc) + ' ' + f28(-12 * sc) + 'h' + f28(16 * sc) + 'z'; }
+    s += l28(d, P.green2, f28(2.4 * sc)) + pth(hd, '#A9C95A', ink(1.1));
+    return '<g class="sway2">' + s + '</g>';
+  }
+  const lotus28 = (x, y, fl) => e28(x, y, 17, 5.5, '#4F8E4C', 'stroke="' + INK + '" stroke-width="1.2"') + l28('M' + x + ' ' + y + 'l14 -3', '#2F6E44', 1.4) + (fl ? pth('M' + (x - 5) + ' ' + (y - 2) + 'q5 -14 10 0q-5 4 -10 0z', '#F2A7B8', ink(1.1)) : '');
+  /* a far palm row in one stroke colour */
+  function farPalms28(xs, y, h, c) { let s = ''; xs.forEach((x, j) => { s += mpalm27(x, y, h + (j * 7) % 9, c); }); return s; }
+  /* a small boat for the river life: a felucca or a papyrus skiff with a fisherman */
+  function skiff28(kind) {
+    if (kind === 'fish') return pth('M-60 -6Q-40 8 0 8T60 -8L52 -4Q20 0 -2 0T-52 -2Z', '#C9A85A', ink(2.4)) + l28('M-50 -3h96', '#8E6A3A', 1.4) + '<g transform="translate(-14 -2) scale(1.5)">' + personSVG(0, 0, '#FBF3DF', 'none', false) + '</g>' + pole28('M-2 -36L40 -66', '#8E6A3A', 1.6) + l28('M40 -66Q46 -30 44 0', '#FFF6E0', 1, 'opacity=".8"');
+    return pth('M-80 -10C-70 8 60 8 82 -12L70 -10C40 -2 -50 -2 -70 -10Z', '#7A4E2C', ink(3)) + l28('M0 -8V-90', INK, 4) + pth('M0 -86L50 -14H0Z', '#F4EAD4', ink(3));
+  }
+
+  /* ---------- the plaque that names a place, and the tappable group around it ---------- */
+  function lab28(x, y, text, icon, sub) {
+    const fs = 23, two = text.length > 12 && text.indexOf(' ') > 0 && !sub;
+    const lines = two ? [text.slice(0, text.lastIndexOf(' ')), text.slice(text.lastIndexOf(' ') + 1)] : [text];
+    const tw = Math.max.apply(null, lines.map(t => t.length * 0.6 * fs)) + (sub ? sub.length * 0.54 * 18 + 12 : 0), w = Math.round(tw + 50), h = two ? 56 : 38;
+    let s = '<g class="spot-lab" transform="translate(' + f28(x) + ' ' + f28(y) + ')"><g class="t28-labi">';
+    s += r28(-w / 2 + 2, 3, w, h, INK, 'rx="10" opacity=".35"') + r28(-w / 2, 0, w, h, '#FBF3DF', 'rx="10" stroke="' + INK + '" stroke-width="2.6"');
+    s += r28(-w / 2 + 4, 4, w - 8, 4, '#D9A43A', 'rx="2"');
+    s += c28(-w / 2 + 21, h / 2 + 1, 14, '#D9A43A', 'stroke="' + INK + '" stroke-width="2"') + '<use href="#' + icon + '" x="' + f28(-w / 2 + 10) + '" y="' + f28(h / 2 - 10) + '" width="22" height="22" color="' + INK + '"/>';
+    s += '<text x="' + f28(-w / 2 + 42) + '" y="' + (two ? 25 : 28) + '" font-size="' + fs + '" font-weight="800" fill="' + INK + '" font-family="Nunito,system-ui,sans-serif">' + esc(lines[0]) + (sub ? '<tspan dx="8" font-size="18" font-weight="700" fill="#8F2F21">' + esc(sub) + '</tspan>' : '') + '</text>';
+    if (two) s += '<text x="' + f28(-w / 2 + 42) + '" y="48" font-size="' + fs + '" font-weight="800" fill="' + INK + '" font-family="Nunito,system-ui,sans-serif">' + esc(lines[1]) + '</text>';
+    return s + '</g></g>';
+  }
+  /* hit = [x, y, w, h] a generous invisible tap box; lab = [x, y] where the plaque hangs */
+  function spot28(key, aria, art, hit, lab, text, icon, sub, badge) {
+    let s = '<g class="spot" data-spot="' + key + '" tabindex="0" role="button" aria-label="' + esc(aria) + '">';
+    s += r28(hit[0], hit[1], hit[2], hit[3], 'transparent', 'class="hit" rx="18"');
+    s += art + lab28(lab[0], lab[1], text, icon, sub);
+    if (badge) s += '<g transform="translate(' + f28(badge[0]) + ' ' + f28(badge[1]) + ')"><g class="spot-badge">' + c28(0, 0, 15, '#B7412E', 'stroke="' + INK + '" stroke-width="2.4"') + '<text y="7" text-anchor="middle" font-size="19" font-weight="900" fill="#FFF6E0" font-family="Nunito,system-ui,sans-serif">' + esc(String(badge[2])) + '</text></g></g>';
+    return s + '</g>';
+  }
+
+  /* ---------- sky: gradient, stars, sun with slow rays, clouds, birds ---------- */
+  function sky28(P, k, o) {
+    const Y0 = TS28.Y0;
+    let s = r28(0, 0, 1000, Y0 + 6, 'url(#' + k + 'sky)');
+    if (P.stars) { const R = rnd28(7), pts = []; for (let j = 0; j < 46; j++) pts.push([R() * 1000, 8 + R() * 220, j % 5 ? 1.1 : 1.8]); s += pth(dots28(pts), '#FFF6DC', 'opacity="' + f28(0.25 + 0.7 * P.stars) + '"'); }
+    s += c28(P.sx, P.sy, 240, 'url(#' + k + 'sun)');
+    let rays = ''; for (let j = 0; j < 16; j++) { const a = j * Math.PI / 8, ca = Math.cos(a), sa = Math.sin(a); rays += 'M' + f28(62 * sa) + ' ' + f28(-62 * ca) + 'L' + f28(44 * sa + 4 * ca) + ' ' + f28(-44 * ca + 4 * sa) + 'L' + f28(44 * sa - 4 * ca) + ' ' + f28(-44 * ca - 4 * sa) + 'Z'; }
+    s += '<g transform="translate(' + f28(P.sx) + ' ' + f28(P.sy) + ')">' + pth(rays, P.sun, 'class="sunr" opacity=".55"') + c28(0, 0, 34, P.sun) + c28(0, 0, 34, 'none', 'stroke="#E9A93A" stroke-width="3" opacity=".7"') + c28(0, 0, 24, 'none', 'stroke="#F2C65A" stroke-width="2" opacity=".6"') + '</g>';
+    const cl = o.crisis === 'cekirge' ? 0.5 : 1;
+    [[150, 92, 1], [760, 70, 0.85], [470, 168, 0.6]].forEach(([x, y, q], j) => { s += '<g class="cloud" style="animation-delay:' + (-j * 29) + 's" opacity="' + f28(q * cl * (1 - P.stars * 0.55)) + '">' + e28(x, y, 84, 14, P.cloud, 'opacity=".78"') + e28(x + 34, y - 9, 44, 13, P.cloud, 'opacity=".85"') + e28(x - 30, y - 4, 34, 10, P.cloud, 'opacity=".72"') + '</g>'; });
+    return s;
+  }
+  function birds28(P) {
+    const c = P.stars > 0.6 ? '#2B2340' : '#3A2A20';
+    let s = '<g class="t28-bird" pointer-events="none"><g class="t28-flap">' + l28('M500 132q9 -9 18 0q9 -9 18 0', c, 2.4) + l28('M548 156q7 -7 14 0q7 -7 14 0', c, 2) + l28('M470 160q6 -6 12 0q6 -6 12 0', c, 1.8) + '</g></g>';
+    s += '<g class="t28-bird t28-bird2" pointer-events="none"><g class="t28-flap" style="animation-delay:-.3s">' + l28('M520 236q8 -8 16 0q8 -8 16 0', c, 2.2) + l28('M556 252q6 -6 12 0q6 -6 12 0', c, 1.8) + '</g></g>';
+    return s;
+  }
+
+  /* ---------- the far layer of each town: hills, landmarks, the opposite bank (drawn before the water) ---------- */
+  function farBank28(P, x0, palms) {
+    const Y0 = TS28.Y0;
+    let s = pth('M' + x0 + ' ' + (Y0 + 2) + 'Q' + (x0 + 60) + ' ' + (Y0 - 16) + ' ' + (x0 + 160) + ' ' + (Y0 - 14) + 'T' + (x0 + 360) + ' ' + (Y0 - 15) + 'T1010 ' + (Y0 - 13) + 'V' + (Y0 + 2) + 'Z', mix(P.field, P.mid, 0.3));
+    s += l28('M' + x0 + ' ' + (Y0 + 1) + 'H1010', mix(P.field, '#2B1D14', 0.3), 1.4, 'opacity=".4"');
+    if (palms) s += farPalms28(palms, Y0 - 10, 18, P.palm);
+    return s;
+  }
+  const FAR28 = {
+    perbastet(P) {
+      const Y0 = TS28.Y0;
+      let s = pth('M0 ' + (Y0 - 30) + 'Q120 ' + (Y0 - 40) + ' 260 ' + (Y0 - 34) + 'T560 ' + (Y0 - 36) + 'T820 ' + (Y0 - 30) + 'T1000 ' + (Y0 - 36) + 'V' + Y0 + 'H0Z', mix(P.field, P.mid, 0.55));
+      s += farPalms28([20, 52, 90, 140, 170, 230, 300, 380, 420, 600, 640, 700, 760, 790, 860, 910, 960], Y0 - 26, 16, mix(P.palm, P.mid, 0.35));
+      /* a far village on the delta and the great temple enclosure of Bastet */
+      [[640, 14, 10], [656, 18, 14], [676, 12, 9], [880, 16, 12], [896, 12, 8]].forEach(([x, w, h]) => { s += r28(x, Y0 - 24 - h, w, h, mix(P.WW, P.mid, 0.35)); });
+      s += pth('M720 ' + (Y0 - 24) + 'l4 -32h22l4 32zM760 ' + (Y0 - 24) + 'l4 -32h22l4 32z', mix(P.L, P.mid, 0.35)) + r28(748, Y0 - 46, 14, 22, mix(P.D, P.mid, 0.3));
+      s += farBank28(P, 470, [500, 530, 572, 610, 690, 740, 800, 850, 930, 975]);
+      return s;
+    },
+    mennefer(P) {
+      const Y0 = TS28.Y0, L = mix(P.L, P.mid, 0.25), D = mix(P.D, P.mid, 0.25), H = mix(P.H2, P.mid, 0.15);
+      let s = pth('M0 ' + (Y0 - 28) + 'Q200 ' + (Y0 - 44) + ' 420 ' + (Y0 - 40) + 'L600 ' + (Y0 - 52) + 'Q760 ' + (Y0 - 60) + ' 1000 ' + (Y0 - 54) + 'V' + Y0 + 'H0Z', H);
+      /* Djoser's step pyramid and the three of Giza on the western plateau */
+      let st = ''; for (let j = 0; j < 5; j++) st += r28(546 + j * 9, Y0 - 52 - (j + 1) * 15, 116 - j * 18, 15, j % 2 ? D : L, 'stroke="' + mix(D, '#5A4632', 0.3) + '" stroke-width=".8"');
+      s += st;
+      const pyr = (x, b, w, h) => pth('M' + (x - w / 2) + ' ' + b + 'L' + x + ' ' + (b - h) + 'L' + (x + w / 2) + ' ' + b + 'Z', L) + pth('M' + x + ' ' + (b - h) + 'L' + (x + w / 2) + ' ' + b + 'H' + (x + w * 0.08) + 'Z', D);
+      s += pyr(950, Y0 - 50, 120, 84) + pyr(860, Y0 - 52, 190, 150) + pyr(740, Y0 - 54, 210, 170) + pth('M733 ' + (Y0 - 214) + 'l7 -10 7 10z', '#F2D27A');
+      s += farBank28(P, 480, [510, 540, 580, 620, 655, 700, 790, 830, 905, 980]);
+      return s;
+    },
+    abidos(P) {
+      const Y0 = TS28.Y0, C = mix(mix(P.cliff, '#D9A86A', 0.3), P.mid, 0.12), CD = mix(P.cliff, '#8E6A44', 0.5);
+      let s = pth('M-10 ' + (Y0 - 20) + 'V' + (Y0 - 126) + 'Q40 ' + (Y0 - 136) + ' 110 ' + (Y0 - 130) + 'L210 ' + (Y0 - 140) + 'Q300 ' + (Y0 - 148) + ' 380 ' + (Y0 - 132) + 'L470 ' + (Y0 - 120) + 'Q560 ' + (Y0 - 110) + ' 640 ' + (Y0 - 80) + 'Q700 ' + (Y0 - 58) + ' 780 ' + (Y0 - 50) + 'L1010 ' + (Y0 - 44) + 'V' + Y0 + 'H-10Z', C);
+      s += l28('M-10 ' + (Y0 - 124) + 'Q40 ' + (Y0 - 134) + ' 110 ' + (Y0 - 128) + 'L210 ' + (Y0 - 138) + 'Q300 ' + (Y0 - 146) + ' 380 ' + (Y0 - 130) + 'L470 ' + (Y0 - 118) + 'Q560 ' + (Y0 - 108) + ' 640 ' + (Y0 - 78), '#FFF2D6', 3, 'opacity=".5"');
+      let d = ''; for (let j = 0; j < 18; j++) { const x = 10 + j * 36 + (j * 13) % 17, y = Y0 - 124 + Math.abs(x - 300) * 0.03 + (x > 470 ? (x - 470) * 0.22 : 0); d += 'M' + x + ' ' + f28(y) + 'q' + ((j % 3) - 1) * 6 + ' 30 ' + ((j % 2) * 4 - 2) + ' ' + (50 + (j * 11) % 20); }
+      s += l28(d, CD, 3, 'opacity=".55"');
+      s += pth('M-10 ' + (Y0 - 34) + 'Q200 ' + (Y0 - 52) + ' 480 ' + (Y0 - 40) + 'T1010 ' + (Y0 - 36) + 'V' + Y0 + 'H-10Z', mix(P.H2, P.low, 0.2));
+      s += farBank28(P, 500, [530, 566, 600, 660, 720, 780, 840, 890, 950]);
+      return s;
+    },
+    vaset(P) {
+      const Y0 = TS28.Y0, M = mix('#C99A6A', P.mid, 0.35), MD = mix('#A9784E', P.mid, 0.3);
+      let s = pth('M-10 ' + (Y0 - 30) + 'Q160 ' + (Y0 - 52) + ' 380 ' + (Y0 - 44) + 'V' + Y0 + 'H-10Z', mix(P.H2, P.mid, 0.2));
+      /* the Theban hills with the peak of el-Qurn, Hatshepsut's terraces and the two colossi on the plain */
+      s += pth('M470 ' + Y0 + 'L540 ' + (Y0 - 70) + 'Q600 ' + (Y0 - 96) + ' 660 ' + (Y0 - 120) + 'L760 ' + (Y0 - 186) + 'L800 ' + (Y0 - 160) + 'Q860 ' + (Y0 - 138) + ' 920 ' + (Y0 - 104) + 'Q970 ' + (Y0 - 86) + ' 1010 ' + (Y0 - 80) + 'V' + Y0 + 'Z', M);
+      s += pth('M760 ' + (Y0 - 186) + 'L800 ' + (Y0 - 160) + 'Q860 ' + (Y0 - 138) + ' 920 ' + (Y0 - 104) + 'Q970 ' + (Y0 - 86) + ' 1010 ' + (Y0 - 80) + 'V' + Y0 + 'H780Z', MD, 'opacity=".55"');
+      s += l28('M560 ' + (Y0 - 76) + 'l20 30M640 ' + (Y0 - 110) + 'l16 46M700 ' + (Y0 - 146) + 'l10 60M830 ' + (Y0 - 150) + 'l-8 50M900 ' + (Y0 - 112) + 'l-14 40', MD, 2.4, 'opacity=".6"');
+      const T = mix('#F3E6C8', P.mid, 0.2);
+      s += r28(800, Y0 - 66, 70, 8, T) + r28(812, Y0 - 76, 46, 10, T) + r28(824, Y0 - 84, 22, 8, T) + l28('M806 ' + (Y0 - 62) + 'h58M816 ' + (Y0 - 72) + 'h38', mix(T, '#5A4632', 0.4), 1.2, 'stroke-dasharray="3 3"');
+      s += pth('M690 ' + (Y0 - 18) + 'v-20h5v-6h6v26zM712 ' + (Y0 - 18) + 'v-20h5v-6h6v26z', mix('#B08A62', P.mid, 0.3));
+      s += farBank28(P, 470, [500, 530, 590, 630, 740, 770, 860, 940, 980]);
+      return s;
+    },
+    abu(P) {
+      const Y0 = TS28.Y0, Du = mix('#E9BE72', P.mid, 0.28), Du2 = mix('#D6A85E', P.mid, 0.25), G = mix(P.granite, P.mid, 0.3);
+      let s = pth('M-10 ' + (Y0 - 30) + 'Q90 ' + (Y0 - 70) + ' 200 ' + (Y0 - 58) + 'Q300 ' + (Y0 - 74) + ' 420 ' + (Y0 - 50) + 'V' + Y0 + 'H-10Z', G);
+      /* golden dunes of the west bank and the hill of the tombs with its doorways */
+      s += pth('M480 ' + Y0 + 'Q560 ' + (Y0 - 96) + ' 660 ' + (Y0 - 110) + 'Q740 ' + (Y0 - 122) + ' 800 ' + (Y0 - 96) + 'Q880 ' + (Y0 - 70) + ' 1010 ' + (Y0 - 84) + 'V' + Y0 + 'Z', Du);
+      s += pth('M600 ' + Y0 + 'Q700 ' + (Y0 - 60) + ' 820 ' + (Y0 - 56) + 'Q920 ' + (Y0 - 50) + ' 1010 ' + (Y0 - 30) + 'V' + Y0 + 'Z', Du2);
+      s += pth('M620 ' + (Y0 - 104) + 'Q700 ' + (Y0 - 118) + ' 790 ' + (Y0 - 100) + 'V' + (Y0 - 84) + 'H620Z', mix(P.granite2, P.mid, 0.3));
+      s += pth([640, 672, 704, 740, 768].map(x => 'M' + x + ' ' + (Y0 - 86) + 'v-9q3 -3 6 0v9z').join(''), mix('#3A2A1E', P.mid, 0.25));
+      s += l28('M640 ' + (Y0 - 70) + 'l30 22M720 ' + (Y0 - 80) + 'l40 34', mix(Du2, '#8E6A3A', 0.3), 3, 'opacity=".5"');
+      s += farBank28(P, 520, [550, 590, 900, 950]);
+      return s;
+    },
+    siwa(P) {
+      const Y0 = TS28.Y0, far = mix('#CDB08A', P.mid, 0.38), far2 = mix('#C2A07A', P.mid, 0.25);
+      let s = pth('M-10 ' + (Y0 - 30) + 'V' + (Y0 - 64) + 'Q40 ' + (Y0 - 76) + ' 110 ' + (Y0 - 72) + 'L160 ' + (Y0 - 64) + 'Q190 ' + (Y0 - 46) + ' 210 ' + (Y0 - 30) + 'Z', far) + pth('M640 ' + (Y0 - 30) + 'Q680 ' + (Y0 - 70) + ' 730 ' + (Y0 - 76) + 'L820 ' + (Y0 - 90) + 'Q870 ' + (Y0 - 94) + ' 900 ' + (Y0 - 80) + 'Q950 ' + (Y0 - 70) + ' 1010 ' + (Y0 - 74) + 'V' + (Y0 - 30) + 'Z', far);
+      s += pth('M200 ' + (Y0 - 30) + 'Q240 ' + (Y0 - 46) + ' 290 ' + (Y0 - 44) + 'L330 ' + (Y0 - 34) + 'Z', far2);
+      /* the salt lake glittering under the mesas */
+      s += r28(-10, Y0 - 32, 1020, 22, 'url(#' + P.kk + 'lk)') + pth('M-10 ' + (Y0 - 32) + 'Q200 ' + (Y0 - 35) + ' 400 ' + (Y0 - 32) + 'T800 ' + (Y0 - 33) + 'T1010 ' + (Y0 - 32) + 'V' + (Y0 - 28) + 'H-10Z', '#F7F3EA', 'opacity=".9"');
+      s += '<g class="wglint">'; for (let j = 0; j < 12; j++) s += r28((j * 89 + 23) % 1000, Y0 - 26 + (j * 7) % 14, 10 + (j % 4) * 6, 2, '#FFFFFF', 'rx="1" class="glint" style="animation-delay:' + (j * 0.23).toFixed(2) + 's"'); s += '</g>';
+      s += pth('M-10 ' + (Y0 - 12) + 'Q200 ' + (Y0 - 16) + ' 420 ' + (Y0 - 12) + 'T1010 ' + (Y0 - 14) + 'V' + (Y0 + 4) + 'H-10Z', mix('#E6D4AE', P.low, 0.2));
+      s += farPalms28([420, 446, 470, 500, 528, 556, 590, 620, 870, 900, 932, 960, 990], Y0 - 6, 18, P.palm);
+      /* Shali, the mud-brick fortress town on its rock, behind the market */
+      s += '<g transform="translate(' + f28(470 - 313 * 0.86) + ' ' + f28(Y0 + 14 - 278 * 0.86) + ') scale(.86)">' + shali27(P) + '</g>';
+      return s;
+    },
+    kharga(P) {
+      const Y0 = TS28.Y0, C = mix('#DDAE7A', P.mid, 0.16), CD = mix('#A87A50', P.mid, 0.15);
+      let s = pth('M-10 ' + Y0 + 'V' + (Y0 - 118) + 'Q40 ' + (Y0 - 126) + ' 100 ' + (Y0 - 122) + 'L200 ' + (Y0 - 132) + 'Q270 ' + (Y0 - 136) + ' 330 ' + (Y0 - 128) + 'L470 ' + (Y0 - 134) + 'Q560 ' + (Y0 - 142) + ' 630 ' + (Y0 - 130) + 'L780 ' + (Y0 - 136) + 'Q880 ' + (Y0 - 142) + ' 1010 ' + (Y0 - 128) + 'V' + Y0 + 'Z', C);
+      s += l28('M-10 ' + (Y0 - 116) + 'Q40 ' + (Y0 - 124) + ' 100 ' + (Y0 - 120) + 'L200 ' + (Y0 - 130) + 'Q270 ' + (Y0 - 134) + ' 330 ' + (Y0 - 126) + 'L470 ' + (Y0 - 132) + 'Q560 ' + (Y0 - 140) + ' 630 ' + (Y0 - 128) + 'L780 ' + (Y0 - 134) + 'Q880 ' + (Y0 - 140) + ' 1010 ' + (Y0 - 126), '#F6E6C4', 3, 'opacity=".6"');
+      let d = ''; for (let j = 0; j < 24; j++) { const x = 14 + j * 42 + (j * 17) % 23; d += 'M' + x + ' ' + (Y0 - 122 + (j * 5) % 8) + 'q' + ((j % 3) - 1) * 6 + ' 26 ' + ((j % 2) * 4 - 2) + ' ' + (44 + (j * 11) % 18); }
+      s += l28(d, CD, 2.6, 'opacity=".6"');
+      s += pth('M-10 ' + (Y0 - 40) + 'Q120 ' + (Y0 - 62) + ' 300 ' + (Y0 - 54) + 'T640 ' + (Y0 - 58) + 'T1010 ' + (Y0 - 50) + 'V' + (Y0 + 4) + 'H-10Z', mix('#D6B585', P.mid, 0.22));
+      /* the date groves, two rows deep */
+      const xs = [], xs2 = []; for (let j = 0; j < 30; j++) xs.push(6 + j * 34); for (let j = 0; j < 18; j++) xs2.push(430 + j * 33 + (j * 11) % 9);
+      s += farPalms28(xs, Y0 - 34, 20, mix('#2A5236', P.mid, 0.3)) + farPalms28(xs2, Y0 - 4, 30, mix('#2F6E44', P.mid, 0.14));
+      return s;
+    },
+    saww(P) {
+      const Y0 = TS28.Y0, M1 = mix('#A68FA8', P.mid, 0.45), M2 = mix('#A06F62', P.mid, 0.3);
+      let s = pth('M-10 ' + Y0 + 'V' + (Y0 - 120) + 'L36 ' + (Y0 - 146) + 'L70 ' + (Y0 - 128) + 'L118 ' + (Y0 - 176) + 'L160 ' + (Y0 - 140) + 'L200 ' + (Y0 - 160) + 'L250 ' + (Y0 - 122) + 'L300 ' + (Y0 - 148) + 'L350 ' + (Y0 - 116) + 'L400 ' + (Y0 - 132) + 'L460 ' + (Y0 - 96) + 'L520 ' + (Y0 - 70) + 'L580 ' + (Y0 - 40) + 'L620 ' + Y0 + 'Z', M1);
+      s += pth('M-10 ' + Y0 + 'V' + (Y0 - 70) + 'L40 ' + (Y0 - 92) + 'L90 ' + (Y0 - 74) + 'L140 ' + (Y0 - 98) + 'L196 ' + (Y0 - 80) + 'L250 ' + (Y0 - 102) + 'L310 ' + (Y0 - 76) + 'L370 ' + (Y0 - 90) + 'L430 ' + (Y0 - 58) + 'L500 ' + (Y0 - 34) + 'L540 ' + Y0 + 'Z', M2);
+      s += l28('M118 ' + (Y0 - 176) + 'l-12 30M300 ' + (Y0 - 148) + 'l-10 26M36 ' + (Y0 - 146) + 'l-8 22', '#FFF2E0', 2, 'opacity=".3"');
+      return s;
+    }
+  };
+
+  /* ---------- temples (spot: temple), one per city ---------- */
+  /* a pylon gate: two battered towers, the gateway, a winged sun, flagpoles and painted reliefs */
+  function pylon28(cx, b, tw, th, gw, P, o) {
+    o = o || {};
+    const F = o.F || P.L, D = o.D || P.D, bt = th * 0.09, gh = th * 0.74;
+    let s = '';
+    const tower = (x0, x1, left) => {
+      let t = pth('M' + x0 + ' ' + b + 'L' + f28(x0 + bt) + ' ' + (b - th) + 'H' + f28(x1 - bt) + 'L' + x1 + ' ' + b + 'Z', F, ink(2));
+      t += pth('M' + f28(x1 - tw * 0.26) + ' ' + b + 'L' + f28(x1 - tw * 0.26 + bt * 0.25) + ' ' + (b - th) + 'H' + f28(x1 - bt) + 'L' + x1 + ' ' + b + 'Z', D);
+      t += pth('M' + f28(x0 + bt - 5) + ' ' + (b - th + 1) + 'q' + f28((x1 - x0 - 2 * bt) / 2 + 5) + ' -6 ' + f28(x1 - x0 - 2 * bt + 10) + ' 0v-9q' + f28(-(x1 - x0 - 2 * bt) / 2 - 5) + ' -9 ' + f28(-(x1 - x0 - 2 * bt) - 10) + ' 0z', mix(F, '#FFFFFF', 0.2), ink(1.6));
+      t += l28('M' + f28(x0 + bt + 3) + ' ' + (b - th + 14) + 'H' + f28(x1 - bt - 3), o.c1 || '#1F5FA8', 3);
+      /* relief: the king with a raised mace, painted big on each tower */
+      const mx = (x0 + x1) / 2 - tw * 0.06, my = b - th * 0.55, q = th / 150;
+      t += '<g transform="translate(' + f28(mx) + ' ' + f28(my) + ') scale(' + f28(q * (left ? 1 : -1)) + ' ' + f28(q) + ')" opacity=".75">' + l28('M-4 30L0 0L6 30M0 0V-26M0 -18L-16 -34M0 -16L14 -8', o.c2 || '#B7412E', 4) + c28(0, -33, 6, o.c2 || '#B7412E') + pth('M-6 -38h12l-2 -10h-8z', '#E9C46A') + l28('M-16 -34l-2 -12', INK, 2.4) + '</g>';
+      return t;
+    };
+    s += tower(cx - gw / 2 - tw, cx - gw / 2 + 4, true) + tower(cx + gw / 2 - 4, cx + gw / 2 + tw, false);
+    /* the gateway between the towers */
+    s += r28(cx - gw / 2, b - gh, gw, gh, F, ink(2)) + pth('M' + (cx - gw / 2 - 4) + ' ' + (b - gh + 1) + 'q' + (gw / 2 + 4) + ' -5 ' + (gw + 8) + ' 0v-8q' + (-gw / 2 - 4) + ' -8 ' + (-gw - 8) + ' 0z', mix(F, '#FFFFFF', 0.2), ink(1.4));
+    const dw = gw * 0.56;
+    s += r28(cx - dw / 2, b - gh * 0.66, dw, gh * 0.66, o.done ? '#FFD27A' : P.dark, ink(1.6));
+    if (o.done) s += r28(cx - dw / 2 + 4, b - gh * 0.66 + 4, dw - 8, gh * 0.66 - 4, '#FFF0B8', 'opacity=".8" class="t28-glow"');
+    /* the winged sun over the door */
+    const wy = b - gh * 0.8;
+    s += pth('M' + cx + ' ' + wy + 'Q' + f28(cx - gw * 0.3) + ' ' + f28(wy - 7) + ' ' + f28(cx - gw * 0.44) + ' ' + f28(wy + 2) + 'Q' + f28(cx - gw * 0.24) + ' ' + f28(wy + 1) + ' ' + cx + ' ' + f28(wy + 5) + 'Q' + f28(cx + gw * 0.24) + ' ' + f28(wy + 1) + ' ' + f28(cx + gw * 0.44) + ' ' + f28(wy + 2) + 'Q' + f28(cx + gw * 0.3) + ' ' + f28(wy - 7) + ' ' + cx + ' ' + wy + 'Z', o.c1 || '#1F5FA8', ink(1.2)) + c28(cx, wy, 6, '#B7412E', 'stroke="' + INK + '" stroke-width="1.2"');
+    /* flagpoles in their niches */
+    if (o.flags !== false) [[cx - gw / 2 - tw * 0.72, o.f1 || '#B7412E'], [cx - gw / 2 - tw * 0.3, '#FBF3DF'], [cx + gw / 2 + tw * 0.3, o.f2 || '#1F5FA8'], [cx + gw / 2 + tw * 0.72, '#B7412E']].forEach(([x, c]) => { s += flag28(f28(x), b - th * 0.3, th * 0.7 + 34, c); });
+    return s;
+  }
+  /* drawn around (222, 382) within x 128–316; townScene lifts it onto its terrace at 1.2× */
+  function temple28(cid, P, o) {
+    const done = o.notes && o.notes.temple === 'done';
+    let s = '', b = 382;
+    const plinthCat = (x, sc) => r28(x - 15, b - 22, 30, 22, P.L, ink(1.6)) + l28('M' + (x - 15) + ' ' + (b - 16) + 'h30', P.D, 2) + cat28(x, b - 22, sc);
+    if (cid === 'perbastet') {
+      const F = mix('#D99A80', P.L, 0.35), D = mix('#A9604E', P.D, 0.3);
+      s += pylon28(222, b, 54, 150, 44, P, { F, D, done, c1:'#2BA59A' });
+      s += plinthCat(160, 1.15) + plinthCat(284, 1.15);
+    } else if (cid === 'mennefer') {
+      /* the white walls of Ptah's temple and a seated colossus */
+      s += pylon28(248, b, 46, 146, 38, P, { F:P.WW, D:P.WD, done, f1:'#2BA59A' });
+      const sx = 152, F = mix('#E2C48A', P.L, 0.3), D = mix('#B8945E', P.D, 0.3);
+      s += r28(sx - 22, b - 24, 46, 24, P.D, ink(1.6));
+      s += pth('M' + (sx - 15) + ' ' + (b - 24) + 'v-40h22v-20h10v60z', F, ink(1.8)) + pth('M' + (sx + 7) + ' ' + (b - 84) + 'h10v60h-10z', D);
+      s += pth('M' + (sx - 4) + ' ' + (b - 84) + 'q0 -24 12 -26q12 2 12 26z', F, ink(1.8)) + pth('M' + (sx - 6) + ' ' + (b - 100) + 'q14 -20 28 0l-4 14h-20z', '#3E6EA8', ink(1.4)) + l28('M' + (sx - 2) + ' ' + (b - 93) + 'h20M' + (sx - 1) + ' ' + (b - 88) + 'h18', '#E9C46A', 2);
+    } else if (cid === 'abidos') {
+      /* Osiris' temple: a portico of papyrus columns behind a low pylon, djed banners */
+      const F = P.L, D = P.D;
+      s += r28(134, b - 112, 176, 112, F, ink(2)) + r28(130, b - 122, 184, 12, mix(F, '#FFFFFF', 0.2), ink(1.6)) + l28('M136 ' + (b - 104) + 'h172', '#1F5FA8', 3);
+      for (let j = 0; j < 5; j++) { const x = 150 + j * 36; s += r28(x - 7, b - 100, 14, 100, mix(F, '#FFFFFF', 0.1), ink(1.4)) + pth('M' + (x - 10) + ' ' + (b - 100) + 'q10 -10 20 0z', mix(F, '#3E8E5A', 0.4), ink(1.2)); }
+      [[124, '#B7412E'], [302, '#1F5FA8']].forEach(([x, c]) => { s += pole28('M' + x + ' ' + b + 'V' + (b - 170), '#7A5A3A', 2.4) + '<g class="flag">' + r28(x, b - 168, 18, 40, c, ink(1.2)) + pth('M' + (x + 4) + ' ' + (b - 160) + 'h10M' + (x + 4) + ' ' + (b - 154) + 'h10M' + (x + 4) + ' ' + (b - 148) + 'h10M' + (x + 9) + ' ' + (b - 160) + 'v26', 'none', 'stroke="#FFF6E0" stroke-width="2"') + '</g>'; });
+      s += pylon28(222, b, 40, 92, 34, P, { F, D, done, flags:false });
+      if (done) s += glow28(222, b - 34, 36, P);
+    } else if (cid === 'vaset') {
+      /* Karnak: a great pylon, two gold-tipped obelisks and the avenue of rams */
+      s += pylon28(222, b, 56, 160, 44, P, { done });
+      const ob = (x, h) => pth('M' + (x - 9) + ' ' + b + 'L' + (x - 6) + ' ' + (b - h) + 'L' + x + ' ' + (b - h - 14) + 'L' + (x + 6) + ' ' + (b - h) + 'L' + (x + 9) + ' ' + b + 'Z', P.L, ink(1.8)) + pth('M' + x + ' ' + (b - h - 14) + 'L' + (x + 6) + ' ' + (b - h) + 'L' + (x + 9) + ' ' + b + 'H' + x + 'Z', P.D) + pth('M' + (x - 6) + ' ' + (b - h) + 'L' + x + ' ' + (b - h - 14) + 'L' + (x + 6) + ' ' + (b - h) + 'Z', '#F2C65A', ink(1.2)) + l28('M' + x + ' ' + (b - h + 12) + 'v' + (h - 30), mix(P.D, '#5A4632', 0.3), 1.2, 'stroke-dasharray="4 5"');
+      s += ob(138, 176) + ob(306, 158);
+      const ram = x => '<g transform="translate(' + x + ' ' + (b + 2) + ')">' + r28(-12, -8, 24, 8, P.D, ink(1.2)) + pth('M-10 -8q0 -12 10 -12q10 0 12 8z', P.L, ink(1.3)) + pth('M8 -16q6 -4 4 6', 'none', ink(1.3)) + '</g>';
+      s += ram(176) + ram(268);
+    } else if (cid === 'siwa') {
+      /* the oracle of Amun on its rock (Aghurmi) */
+      const L = mix('#E3C899', P.low, 0.12), D = mix('#BD9C6E', P.low, 0.08);
+      s += pth('M128 ' + b + 'L138 ' + (b - 50) + 'Q146 ' + (b - 76) + ' 172 ' + (b - 84) + 'L262 ' + (b - 92) + 'Q292 ' + (b - 90) + ' 302 ' + (b - 70) + 'L312 ' + (b - 36) + 'L318 ' + b + 'Z', L, ink(2)) + pth('M262 ' + (b - 92) + 'Q292 ' + (b - 90) + ' 302 ' + (b - 70) + 'L312 ' + (b - 36) + 'L318 ' + b + 'H276Z', D);
+      s += l28('M142 ' + (b - 50) + 'H306M134 ' + (b - 24) + 'H314M170 ' + (b - 66) + 'l14 8M250 ' + (b - 40) + 'l20 -6', D, 2, 'opacity=".8"');
+      s += pylon28(222, b - 90, 40, 88, 32, P, { F:L, D, done, c1:'#2BA59A' });
+    } else if (cid === 'kharga') {
+      /* Hibis: the sandstone gate and temple among the palms */
+      const L = mix(P.lit, '#FFF4DC', 0.3), D = mix(P.shade, '#8E6A44', 0.35);
+      s += r28(136, b - 106, 172, 106, L, ink(2)) + pth('M130 ' + (b - 104) + 'q92 -8 184 0v-12q-92 -10 -184 0z', mix(L, '#FFFFFF', 0.25), ink(1.6)) + l28('M140 ' + (b - 92) + 'h164', '#1F5FA8', 2.6) + r28(286, b - 106, 22, 106, D, 'opacity=".55"');
+      [152, 184, 260, 292].forEach(x => { s += r28(x - 6, b - 88, 12, 88, mix(L, '#FFFFFF', 0.12), ink(1.3)) + pth('M' + (x - 9) + ' ' + (b - 88) + 'q9 -12 18 0z', mix(L, '#3E8E5A', 0.45), ink(1.1)); });
+      s += pth('M158 ' + b + 'v-36h26v36zM266 ' + b + 'v-36h26v36z', mix(L, P.D, 0.25), ink(1.2));
+      s += pth('M190 ' + b + 'L195 ' + (b - 156) + 'H249L254 ' + b + 'Z', L, ink(2)) + pth('M236 ' + (b - 156) + 'H249L254 ' + b + 'H238Z', D) + pth('M188 ' + (b - 155) + 'q34 -8 68 0v-11q-34 -9 -68 0z', mix(L, '#FFFFFF', 0.25), ink(1.6));
+      s += r28(207, b - 92, 30, 92, done ? '#FFD27A' : P.dark, ink(1.6)) + (done ? glow28(222, b - 46, 34, P) : '');
+      s += pth('M222 ' + (b - 126) + 'q-14 -6 -26 2q12 0 26 4q14 -4 26 -4q-12 -8 -26 -2z', '#1F5FA8', ink(1.1)) + c28(222, b - 126, 5.5, '#B7412E', 'stroke="' + INK + '" stroke-width="1.1"');
+      s += flag28(200, b - 40, 140, '#3E8E5A') + flag28(244, b - 40, 140, '#B7412E');
+    }
+    if (done) s += smoke28(222, b - 122, 1.1, '#F3EAD8');
+    return s;
+  }
+
+  /* ---------- the tavern (Senet board sign), Hapu's house, the workshops ---------- */
+  function tavern28(cid, P, o, x, b, w) {
+    const sea = cid === 'saww', F = sea ? mix('#EFE4CC', P.WW, 0.4) : P.WW, D = sea ? mix('#CDBB98', P.WD, 0.4) : P.WD, h = 132;
+    const aw = sea ? ['#2BA59A', '#FBF3DF'] : cid === 'abu' ? ['#1F5FA8', '#FBF3DF'] : ['#B7412E', '#FBF3DF'];
+    let s = e28(x + w / 2 + 6, b + 2, w * 0.62, 6, INK, 'opacity=".12"');
+    s += house28(x, b, w, h, P, { F, D, wc:w - 30, wins:[[12, 14, 8, 9], [w - 22, 14, 8, 9]], band:aw[0] });
+    /* the open ground floor: a warm interior, beer jars, a drinker on a bench */
+    s += r28(x + 8, b - 58, w - 16, 58, P.stars ? mix('#5A3A2A', '#E9A24A', P.stars * 0.7) : '#5A3F2C', ink(1.4));
+    s += l28('M' + f28(x + w * 0.36) + ' ' + b + 'v-58M' + f28(x + w * 0.68) + ' ' + b + 'v-58', mix(F, '#8E6A3A', 0.3), 5);
+    s += jar27(x + 18, b - 2, 0) + jar27(x + 27, b - 2, 1) + jar27(x + w - 16, b - 2, 2);
+    s += pth('M' + f28(x + w * 0.4) + ' ' + (b - 12) + 'h' + f28(w * 0.26) + 'v4h' + f28(-w * 0.26) + 'z', '#8E5A33', ink(1.2));
+    s += '<g transform="translate(' + f28(x + w * 0.52) + ' ' + (b - 12) + ') scale(1.05)">' + pth('M-6 0l-2 -16h12l2 16z', '#E6CB95', ink(1.2)) + c28(0, -22, 5, '#B57A50', 'stroke="' + INK + '" stroke-width="1.2"') + pth('M-5.2 -23a5.2 5.2 0 0 1 10.4 0z', '#2B2340') + l28('M4 -12l8 -8', '#B57A50', 2.2) + pth('M10 -24l6 0 -1 6h-4z', '#C98E62', ink(1)) + '</g>';
+    /* the striped awning */
+    const n = Math.round((w + 16) / 18); let st = '';
+    for (let j = 0; j < n; j++) st += pth('M' + f28(x - 4 + j * (w + 8) / n) + ' ' + (b - 72) + 'h' + f28((w + 8) / n / 2) + 'l-3 14h' + f28(-(w + 8) / n / 2) + 'z', aw[0]);
+    s += pth('M' + (x - 8) + ' ' + (b - 58) + 'L' + (x - 2) + ' ' + (b - 74) + 'H' + (x + w + 2) + 'L' + (x + w + 8) + ' ' + (b - 58) + 'Z', aw[1], ink(1.6)) + st + pth('M' + (x - 8) + ' ' + (b - 58) + Array.from({ length:n }, () => 'q' + f28((w + 16) / n / 2) + ' 7 ' + f28((w + 16) / n) + ' 0').join(''), 'none', ink(1.5));
+    /* the Senet board as the shop sign: thirty squares and a few pieces, hung on the upper floor */
+    const sw = Math.min(88, w - 12), sh = 33, sx = x + (w - sw) / 2, sy = b - 116, q = sw / 10;
+    s += l28('M' + f28(sx + 10) + ' ' + (sy - 8) + 'v8M' + f28(sx + sw - 10) + ' ' + (sy - 8) + 'v8', INK, 1.6) + pole28('M' + f28(sx + 4) + ' ' + (sy - 8) + 'H' + f28(sx + sw - 4), '#6B4226', 2.2);
+    s += '<g class="t28-sign">' + r28(sx, sy, sw, sh, '#E9CFA0', 'rx="3" stroke="' + INK + '" stroke-width="2.4"');
+    let gd = ''; for (let k2 = 1; k2 < 10; k2++) gd += 'M' + f28(sx + k2 * q) + ' ' + sy + 'v' + sh; gd += 'M' + sx + ' ' + f28(sy + sh / 3) + 'h' + sw + 'M' + sx + ' ' + f28(sy + sh * 2 / 3) + 'h' + sw;
+    s += l28(gd, '#8E6A3A', 1.2) + l28('M' + f28(sx + 8.4 * q) + ' ' + f28(sy + sh / 3 + 3) + 'l' + f28(q * 0.6) + ' 5M' + f28(sx + 9 * q) + ' ' + f28(sy + sh / 3 + 3) + 'l' + f28(-q * 0.6) + ' 5', '#1F5FA8', 1.6);
+    s += pth(dots28([[sx + q * 0.5, sy + sh / 6, 3.2], [sx + q * 3.5, sy + sh / 2, 3.2], [sx + q * 6.5, sy + sh * 5 / 6, 3.2]]), INK) + pth(dots28([[sx + q * 2.5, sy + sh / 2, 3.2], [sx + q * 5.5, sy + sh / 6, 3.2], [sx + q * 7.5, sy + sh * 5 / 6, 3.2]]), '#FBF3DF', 'stroke="' + INK + '" stroke-width="1.2"') + '</g>';
+    s += lamp28(x - 10, b, P, 52);
+    return s;
+  }
+  function hapu28(P, o) {
+    const x = 334, b = 398, w = 124;
+    const F = mix('#E7D3B0', P.WW, 0.3), D = mix('#B29A7A', P.WD, 0.4), plum = mix('#5B3B6E', P.D, 0.15);
+    let s = e28(x + w / 2 + 8, b + 2, w * 0.6, 6, INK, 'opacity=".14"');
+    s += house28(x, b, w, 162, P, { F, D, dp:20, band:'#D9A43A', wins:[[14, 22, 8, 12], [w - 22, 22, 8, 12], [14, 70, 8, 12], [w - 22, 70, 8, 12]] });
+    s += r28(x, b - 86, w, 6, plum);
+    /* the moneylender's balance, painted big on the upper floor */
+    const bx = x + w / 2, by = b - 140;
+    s += r28(bx - 26, by - 6, 52, 44, mix(F, plum, 0.12), 'stroke="' + plum + '" stroke-width="2"') + l28('M' + bx + ' ' + (by - 2) + 'v30M' + (bx - 18) + ' ' + (by + 4) + 'h36M' + (bx - 18) + ' ' + (by + 4) + 'l-5 12M' + (bx - 18) + ' ' + (by + 4) + 'l5 12M' + (bx + 18) + ' ' + (by + 4) + 'l-5 12M' + (bx + 18) + ' ' + (by + 4) + 'l5 12M' + (bx - 8) + ' ' + (by + 30) + 'h16', INK, 1.6) + pth('M' + (bx - 26) + ' ' + (by + 16) + 'h16q-8 7 -16 0zM' + (bx + 10) + ' ' + (by + 16) + 'h16q-8 7 -16 0z', '#D9A43A', ink(1.2)) + c28(bx + 18, by + 13, 3, '#E5B93F', 'stroke="' + INK + '" stroke-width=".8"');
+    /* the heavy double door in a purple and gold frame */
+    s += r28(bx - 24, b - 76, 48, 76, plum, ink(1.8)) + r28(bx - 16, b - 68, 32, 68, '#2B1D24', ink(1.4)) + l28('M' + bx + ' ' + (b - 68) + 'v68', '#5A4048', 1.6) + c28(bx - 5, b - 34, 2.2, '#E9C46A') + c28(bx + 5, b - 34, 2.2, '#E9C46A');
+    s += pth('M' + (bx - 28) + ' ' + (b - 76) + 'h56l-4 -8h-48z', '#D9A43A', ink(1.4));
+    /* on the roof terrace: the open money chest, gold glinting */
+    const cx = x + 30, cy = b - 162;
+    s += r28(cx - 18, cy - 20, 36, 20, '#6E4425', ink(1.6)) + pth('M' + (cx - 18) + ' ' + (cy - 20) + 'l-4 -14h44l-4 14z', '#8E5A33', ink(1.4)) + pth(dots28([[cx - 8, cy - 22, 4], [cx + 1, cy - 24, 4], [cx + 9, cy - 22, 4], [cx - 3, cy - 27, 3.5], [cx + 5, cy - 28, 3.5]]), '#E5B93F', 'stroke="' + INK + '" stroke-width="1"') + r28(cx - 18, cy - 12, 36, 3, '#D9A43A');
+    s += pth('M' + (cx + 4) + ' ' + (cy - 38) + 'l2 5 5 2 -5 2 -2 5 -2 -5 -5 -2 5 -2z', '#FFF6D2', 'class="t28-spark"');
+    /* a black jackal on a plinth and a guard with spear and shield */
+    s += r28(x + 4, b - 18, 22, 18, plum, ink(1.4)) + '<g transform="translate(' + (x + 15) + ' ' + (b - 18) + ')">' + pth('M-9 0q-2 -16 6 -20l2 -12 2 6 3 -6 1 12q6 6 5 20z', '#2B2330', ink(1.4)) + l28('M5 -24l9 3', '#2B2330', 3) + c28(2, -27, 1.4, '#E9C46A') + '</g>';
+    const gx = x + w - 14;
+    s += '<g transform="translate(' + gx + ' ' + b + ') scale(1.45)">' + personSVG(0, 0, '#FBF3DF', 'none', true).replace(/#B57A50/g, '#6E4430') + pole28('M8 2V-52', '#8E6A3A', 1.4) + pth('M5 -56l3 -9 3 9z', '#C9D3DA', ink(1)) + pth('M-12 -24q-2 -12 4 -16h8v18q-6 4 -12 -2z', '#F2E8D6', ink(1.2)) + pth('M-9 -32h6M-9 -27h6', 'none', 'stroke="#8E5A33" stroke-width="1.4"') + '</g>';
+    if (P.stars) s += c28(bx, b - 40, 46, 'url(#' + P.kk + 'gl)', 'opacity=".6" class="a27-fl"');
+    return s;
+  }
+  /* workshops: Per-Bastet's perfume press, Abidos' faience kiln, Vaset's scribes (art spans x 440–566) */
+  function work28(cid, P, o) {
+    const x = 444, b = 440, st = o.notes && o.notes.work, ready = st === 'ready', busy = st === 'busy';
+    let s = e28(x + 58, b + 2, 66, 6, INK, 'opacity=".12"');
+    if (cid === 'abidos') {
+      /* a beehive kiln with its fire, a mat of blue amulets, a potter */
+      s += house28(x + 62, b, 44, 64, P, { wins:[[10, 12, 7, 9]], logs:false });
+      s += pth('M' + (x + 2) + ' ' + b + 'Q' + x + ' ' + (b - 86) + ' ' + (x + 38) + ' ' + (b - 92) + 'Q' + (x + 76) + ' ' + (b - 86) + ' ' + (x + 74) + ' ' + b + 'Z', mix('#B07A50', P.D, 0.2), ink(2));
+      s += pth('M' + (x + 50) + ' ' + (b - 84) + 'Q' + (x + 72) + ' ' + (b - 70) + ' ' + (x + 74) + ' ' + b + 'H' + (x + 56) + 'Q' + (x + 58) + ' ' + (b - 60) + ' ' + (x + 44) + ' ' + (b - 84) + 'Z', mix('#8E5A3A', P.D, 0.2));
+      s += l28('M' + (x + 12) + ' ' + (b - 40) + 'q26 -8 52 0M' + (x + 6) + ' ' + (b - 16) + 'q32 -8 64 0M' + (x + 20) + ' ' + (b - 64) + 'q18 -6 36 0', '#7A4A2A', 1.4, 'opacity=".6"');
+      s += pth('M' + (x + 24) + ' ' + b + 'v-24q14 -14 28 0v24z', '#2B1D14') + pth('M' + (x + 28) + ' ' + b + 'q2 -15 10 -19q8 4 10 19z', '#F28C2A', 'class="a27-fl"') + pth('M' + (x + 33) + ' ' + b + 'q2 -8 5 -10q3 2 5 10z', '#FFE08A');
+      s += r28(x + 33, b - 98, 10, 8, mix('#B07A50', P.D, 0.3), ink(1.2));
+      s += pth('M' + (x + 66) + ' ' + (b + 10) + 'h52l-4 -10h-44z', '#C9A262', ink(1.2)) + pth(dots28([[x + 74, b + 2, 3.6], [x + 86, b, 3.6], [x + 98, b + 2, 3.6], [x + 110, b, 3.6]]), '#2BA59A', 'stroke="' + INK + '" stroke-width="1"');
+      s += pp28(x + 92, b - 4, 1.25, '#FBF3DF', 'none', true);
+      if (busy) s += smoke28(x + 38, b - 104, 1.3, '#D8CFC0');
+      if (ready) s += glow28(x + 92, b - 6, 32, P) + crate27(x + 80, b - 32, 'muska', 26, 24);
+    } else if (cid === 'vaset') {
+      /* the house of scribes: a porch with papyrus columns, two scribes and their scrolls */
+      s += house28(x, b, 108, 96, P, { F:P.L, D:P.D, wc:80, band:'#1F5FA8' });
+      s += r28(x + 8, b - 70, 92, 70, mix('#5A3F2C', P.D, 0.2), ink(1.4));
+      [x + 10, x + 54, x + 98].forEach(cx => { s += r28(cx - 5, b - 72, 10, 72, P.L, ink(1.4)) + pth('M' + (cx - 9) + ' ' + (b - 72) + 'q9 -12 18 0z', mix(P.L, '#3E8E5A', 0.5), ink(1.2)); });
+      const scribe = (sx, f) => '<g transform="translate(' + sx + ' ' + b + ') scale(' + (1.3 * f) + ' 1.3)">' + pth('M-12 0q2 -8 12 -8h8l2 8z', '#FBF3DF', ink(1.2)) + pth('M-4 -8l-2 -14h10l2 14z', '#FBF3DF', ink(1.2)) + c28(0, -27, 5, '#B57A50', 'stroke="' + INK + '" stroke-width="1.2"') + pth('M-5.2 -28a5.2 5.2 0 0 1 10.4 0v4h-2v-2h-6v4h-2z', '#2B2340') + r28(4, -12, 14, 5, '#F3E6C2', 'stroke="' + INK + '" stroke-width=".9"') + l28('M6 -14l8 -8', '#B57A50', 1.8) + '</g>';
+      s += scribe(x + 30, 1) + scribe(x + 80, -1);
+      s += pth('M' + (x + 42) + ' ' + (b - 2) + 'h26v-8q-13 -5 -26 0z', '#F3E6C2', ink(1.2)) + l28('M' + (x + 46) + ' ' + (b - 6) + 'h18', '#8E6A3A', 1);
+      if (busy) s += smoke28(x + 95, b - 118, 1.1, '#D8CFC0');
+      if (ready) s += glow28(x + 54, b - 22, 34, P) + crate27(x + 41, b - 28, 'kitap', 26, 24);
+    } else {
+      /* Per-Bastet: the lily perfume press, a sack twisted between two poles, dripping into a jar */
+      s += house28(x + 70, b, 44, 80, P, { wins:[[10, 14, 7, 9]] });
+      s += pole28('M' + (x + 6) + ' ' + b + 'v-80M' + (x + 66) + ' ' + b + 'v-80', '#7A5434', 3) + pth('M' + (x - 4) + ' ' + (b - 80) + 'h80l-6 -10h-68z', '#C9A86A', ink(1.6));
+      s += pole28('M' + (x + 12) + ' ' + (b - 32) + 'v-36M' + (x + 60) + ' ' + (b - 32) + 'v-36', '#8E6A3A', 2.2);
+      s += '<g class="t28-twist">' + pth('M' + (x + 12) + ' ' + (b - 54) + 'q24 -8 48 0v8q-24 8 -48 0z', '#F1E6CC', ink(1.6)) + l28('M' + (x + 18) + ' ' + (b - 56) + 'l6 12M' + (x + 30) + ' ' + (b - 58) + 'l6 14M' + (x + 42) + ' ' + (b - 58) + 'l6 14', '#B8A47A', 1.2) + '</g>';
+      s += l28('M' + (x + 36) + ' ' + (b - 42) + 'v12', '#E9C46A', 2.2, 'class="t28-drip"') + jar27(x + 36, b, 2);
+      s += pp28(x - 2, b, 1.25, '#FBF3DF', 'none', false) + pp28(x + 76, b, 1.25, '#E6CB95', 'none', true);
+      s += pth('M' + (x + 92) + ' ' + (b + 8) + 'q-2 -10 6 -12h18q8 2 6 12z', '#C9A262', ink(1.2)) + pth(dots28([[x + 100, b - 6, 4], [x + 108, b - 7, 4], [x + 116, b - 6, 4]]), '#5A7EC9', 'stroke="' + INK + '" stroke-width="1"');
+      if (busy) s += smoke28(x + 92, b - 96, 1.1, '#E6DCCB');
+      if (ready) s += glow28(x + 36, b - 16, 34, P) + crate27(x + 88, b - 32, 'kyphi', 26, 24);
+    }
+    return s;
+  }
+
+  /* ---------- the shipyard at the end of the quay: a hull on the stocks, the slipway into the river; Mennefer's is the royal dockyard ---------- */
+  function yard28(P, o, big) {
+    const QY = TS28.QY;
+    let s = '';
+    /* the slipway running down into the water */
+    s += pth('M560 ' + (QY + 2) + 'L606 550L632 544L592 ' + (QY - 6) + 'Z', mix('#8E6A44', P.D, 0.3), ink(1.6));
+    let tr = ''; for (let j = 1; j < 6; j++) { const f = j / 6; tr += 'M' + f28(560 + 46 * f) + ' ' + f28(QY + 2 + 60 * f) + 'l28 -7'; }
+    s += l28(tr, '#6B4226', 3) + pole28('M560 ' + (QY + 2) + 'L606 550M592 ' + (QY - 6) + 'L632 544', '#A8743F', 2.4);
+    /* the hull on its stocks: ribs showing at the bow, half planked */
+    const hx = big ? 520 : 516, hy = big ? QY - 22 : QY - 16, hs = big ? 0.66 : 0.5;
+    s += '<g transform="translate(' + hx + ' ' + hy + ') rotate(' + (big ? 2 : 5) + ') scale(' + hs + ')">';
+    s += l28('M-90 18v14M-30 22v14M30 22v14M90 18v14', '#6B4226', 7) + l28('M-104 34h208', INK, 3);
+    s += pth('M-118 -40C-112 -10 -96 4 -70 8C-20 13 30 13 74 8C98 4 112 -14 120 -40L110 -38C100 -22 88 -16 70 -14C30 -10 -20 -10 -66 -14C-90 -18 -104 -26 -108 -40Z', mix('#B0784A', P.L, 0.2), ink(2.6));
+    s += l28('M-100 -14C-60 -2 40 -2 104 -14M-90 -4C-40 6 40 6 92 -4', '#6E4425', 1.8, 'opacity=".7"');
+    let rb = ''; for (let j = 0; j < 6; j++) { const rx = 30 + j * 16; rb += 'M' + rx + ' ' + (-12 - j * 0.6) + 'q' + (4 + j) + ' -26 ' + (2 + j * 1.5) + ' -48'; }
+    s += l28(rb, INK, 6) + l28(rb, '#C9935A', 3);
+    s += pth('M-118 -40l-14 -16q16 -10 26 6z', '#3E8E5A', ink(1.8));
+    if (big) s += r28(-80, -64, 76, 50, 'none', 'stroke="' + INK + '" stroke-width="2.4"') + r28(-80, -64, 76, 12, '#1F5FA8', ink(1.6)) + r28(-80, -52, 76, 5, '#D9A43A');
+    s += '</g>';
+    /* timber, a pitch pot on its fire, the caulker with his mallet */
+    for (let j = 0; j < 3; j++) s += r28(452 + j * 4, QY - 10 - j * 9, 44 - j * 8, 9, j % 2 ? '#B0784A' : '#C98E5A', 'rx="4" stroke="' + INK + '" stroke-width="1.4"') + c28(455 + j * 4, QY - 5.5 - j * 9, 4, '#E9C08A', 'stroke="' + INK + '" stroke-width="1"');
+    s += pth('M572 ' + QY + 'l4 -14h12l4 14z', '#3A2A1E', ink(1.4)) + pth('M576 ' + (QY + 1) + 'q6 -12 12 0', '#F28C2A', 'class="a27-fl"') + smoke28(582, QY - 24, 0.8, '#9C9488');
+    const kx = big ? 600 : 594, ky = QY - 2;
+    s += '<g transform="translate(' + kx + ' ' + ky + ') scale(1.35)">' + personSVG(0, 0, '#E6CB95', 'none', true).replace(/<path d="M4 -22l7 6"[^>]*\/>/, '') + '<g class="t28-ham">' + pole28('M-3 -22l-12 -10', '#B57A50', 1.6) + r28(-22, -40, 10, 7, '#8E5A33', 'rx="2" stroke="' + INK + '" stroke-width="1.2"') + '</g></g>';
+    if (big) {
+      /* the royal dockyard: scaffolding, a shear-leg crane and the king's banners */
+      s += pole28('M452 ' + (QY - 4) + 'V420M592 ' + (QY - 26) + 'V420M452 428H592', '#A8743F', 2.4);
+      s += pole28('M484 ' + (QY - 8) + 'L524 420L560 ' + (QY - 30), '#8E6A44', 3) + l28('M524 420L528 446', '#C9A36A', 1.8) + pth('M522 446h12l-6 8z', '#6B4226', ink(1));
+      s += '<g transform="translate(452 420)"><g class="flag">' + pth('M0 0l26 6 -26 7z', '#1F5FA8', ink(1.2)) + '</g></g><g transform="translate(592 420)"><g class="flag">' + pth('M0 0l26 6 -26 7z', '#D9A43A', ink(1.2)) + '</g></g>';
+    }
+    return s;
+  }
+
+  /* ---------- the notice board of orders, the well, the market ---------- */
+  function board28(P, o) {
+    const x = 380, b = 470, n = (o.notes && o.notes.board) || 0;
+    let s = e28(x, b + 2, 44, 5, INK, 'opacity=".14"');
+    s += pole28('M' + (x - 32) + ' ' + b + 'v-96M' + (x + 32) + ' ' + b + 'v-96', '#7A5434', 3.6);
+    s += r28(x - 42, b - 92, 84, 62, '#B98A55', 'rx="3" stroke="' + INK + '" stroke-width="2.2"') + l28('M' + (x - 40) + ' ' + (b - 72) + 'h80M' + (x - 40) + ' ' + (b - 52) + 'h80', '#8E6A3A', 1.2);
+    s += pth('M' + (x - 48) + ' ' + (b - 96) + 'h96l-6 -10h-84z', '#8E5A33', ink(1.8)) + l28('M' + (x - 30) + ' ' + (b - 101) + 'h60', '#E9C46A', 2, 'stroke-dasharray="5 4"');
+    const notes = Math.min(4, Math.max(2, n || 2));
+    [[-36, -88, -4], [-6, -86, 3], [-30, -60, 2], [6, -60, -3]].slice(0, notes).forEach(([a, c, r]) => { s += '<g transform="rotate(' + r + ' ' + (x + a + 15) + ' ' + (b + c) + ')">' + r28(x + a, b + c, 30, 24, '#F6ECD2', 'stroke="' + INK + '" stroke-width="1.3"') + l28('M' + (x + a + 5) + ' ' + (b + c + 7) + 'h20M' + (x + a + 5) + ' ' + (b + c + 12) + 'h14M' + (x + a + 5) + ' ' + (b + c + 17) + 'h18', '#8E6A3A', 1.4) + c28(x + a + 15, b + c + 2, 2.4, '#B7412E') + '</g>'; });
+    return s;
+  }
+  function well28(cid, P, o) {
+    const wx = 498, wy = TS28.QY;
+    let s = e28(wx, wy + 3, 40, 6, INK, 'opacity=".16"');
+    s += pth('M' + (wx - 30) + ' ' + wy + 'V' + (wy - 30) + 'H' + (wx + 30) + 'V' + wy + 'Z', mix('#D8C3A0', P.L, 0.3), ink(1.8)) + l28('M' + (wx - 30) + ' ' + (wy - 16) + 'H' + (wx + 30) + 'M' + (wx - 14) + ' ' + (wy - 30) + 'v14M' + (wx + 10) + ' ' + (wy - 30) + 'v14M' + wx + ' ' + (wy - 16) + 'v16M' + (wx + 20) + ' ' + (wy - 16) + 'v16M' + (wx - 22) + ' ' + (wy - 16) + 'v16', '#9E8460', 1.2);
+    s += e28(wx, wy - 30, 31, 7, '#C9B08A', 'stroke="' + INK + '" stroke-width="1.8"') + e28(wx, wy - 30, 23, 4.4, '#2F5D6E');
+    const px = wx + 44, py = wy - 96;
+    s += pole28('M' + px + ' ' + wy + 'V' + py, '#8E5A33', 4.4) + l28('M' + (px - 6) + ' ' + (py - 8) + 'l6 8 6 -8', INK, 2.2);
+    s += '<g class="a27-shaduf" style="transform-origin:' + px + 'px ' + py + 'px">' + pole28('M' + (wx - 10) + ' ' + (py - 26) + 'L' + (px + 62) + ' ' + (py + 36), '#A8743F', 3) + c28(px + 64, py + 38, 10, '#8E6A44', 'stroke="' + INK + '" stroke-width="1.8"') + l28('M' + (wx - 10) + ' ' + (py - 26) + 'V' + (wy - 56), '#5A3B22', 1.6) + pth('M' + (wx - 18) + ' ' + (wy - 56) + 'h16l-2 12h-12z', '#B7412E', ink(1.4)) + '</g>';
+    s += pp28(wx - 44, wy, 1.3, '#FBF3DF', 'jar', false);
+    s += jar27(wx + 50, wy + 2, 1) + jar27(wx + 64, wy + 4, 0);
+    return s;
+  }
+  /* the merchant's stall: awning, counter, stock that empties as the shop runs low, the merchant himself */
+  function market28(ci, cid, P, o) {
+    const x0 = 150, x1 = 306, b = TS28.QY, sea = cid === 'saww';
+    const AW = { perbastet:['#1F5FA8', '#FBF3DF'], mennefer:['#C97B4A', '#FBF3DF'], abidos:['#B7412E', '#FBF3DF'], vaset:['#3E8E5A', '#E5B93F'], abu:['#2BA59A', '#FBF3DF'], siwa:['#C9A86A', '#E6D4A8'], kharga:['#3E8E5A', '#FBF3DF'], saww:['#2BA59A', '#D9A43A'] }[cid] || ['#B7412E', '#FBF3DF'];
+    let s = e28((x0 + x1) / 2, b + 2, 96, 7, INK, 'opacity=".16"');
+    /* back wall of woven mats and a shelf of jars */
+    s += r28(x0 + 6, b - 120, x1 - x0 - 12, 80, mix('#C9A86A', P.D, 0.25), ink(1.4));
+    let mt = ''; for (let q = x0 + 14; q < x1 - 8; q += 10) mt += 'M' + q + ' ' + (b - 118) + 'v76'; s += l28(mt, '#A8844A', 1.2, 'opacity=".7"');
+    s += r28(x0 + 10, b - 92, x1 - x0 - 20, 5, '#8E5A33', ink(1));
+    /* the merchant, larger than life, behind the counter */
+    const ms = 1.75, mx = (x0 + x1) / 2 + 4, my = b - 22;
+    s += '<g transform="translate(' + f28(mx - 126 * ms) + ' ' + f28(my - 258 * ms) + ') scale(' + ms + ')">' + merchantFig(ci, o.mood || 0) + '</g>';
+    /* posts and the striped awning */
+    s += pole28('M' + (x0 + 4) + ' ' + b + 'V' + (b - 136) + 'M' + (x1 - 4) + ' ' + b + 'V' + (b - 136), '#6B4226', 4);
+    if (cid === 'siwa') {
+      s += pth('M' + (x0 - 14) + ' ' + (b - 128) + 'L' + (x0 - 2) + ' ' + (b - 150) + 'H' + (x1 + 2) + 'L' + (x1 + 14) + ' ' + (b - 128) + 'Z', '#C9A86A', ink(1.8));
+      let fr = ''; for (let j = 0; j < 30; j++) fr += 'M' + (x0 - 10 + j * 7.4) + ' ' + (b - 128) + 'l' + (j % 2 ? 1 : -1) + ' ' + (7 + (j * 5) % 6); s += l28(fr, '#A8844A', 2);
+    } else {
+      let st = ''; const n = 9, sw = (x1 - x0 + 28) / n;
+      for (let j = 0; j < n; j++) st += pth('M' + f28(x0 - 14 + j * sw) + ' ' + (b - 150) + 'h' + f28(sw / 2) + 'l' + f28(-sw * 0.18) + ' 22h' + f28(-sw / 2) + 'z', AW[0]);
+      s += pth('M' + (x0 - 20) + ' ' + (b - 128) + 'L' + (x0 - 10) + ' ' + (b - 152) + 'H' + (x1 + 10) + 'L' + (x1 + 20) + ' ' + (b - 128) + 'Z', AW[1], ink(1.8)) + st;
+      s += pth('M' + (x0 - 20) + ' ' + (b - 128) + Array.from({ length:9 }, () => 'q' + f28((x1 - x0 + 40) / 18) + ' 9 ' + f28((x1 - x0 + 40) / 9) + ' 0').join(''), AW[1], ink(1.6));
+    }
+    /* the counter */
+    s += r28(x0 + 8, b - 46, x1 - x0 - 16, 46, '#C99A62', ink(2)) + l28('M' + (x0 + 10) + ' ' + (b - 30) + 'H' + (x1 - 10) + 'M' + (x0 + 10) + ' ' + (b - 15) + 'H' + (x1 - 10), '#8E6A3A', 1.2, 'opacity=".7"') + r28(x0 + 4, b - 50, x1 - x0 - 8, 6, '#A8743F', ink(1.4));
+    /* stock: what the city sells cheapest, in crates, baskets and jars; fewer as the shelf empties */
+    const lvl = o.stockLevel == null ? 0.8 : Math.max(0, Math.min(1, o.stockLevel));
+    const grainOut = o.crisis === 'kitlik' || o.crisis === 'cekirge';
+    let gl = GOODS.filter(g => CITIES[ci] && CITIES[ci].mult[g.id] != null && !g.craft).sort((a, c) => CITIES[ci].mult[a.id] - CITIES[ci].mult[c.id]).map(g => g.id).slice(0, 4);
+    if (!gl.length) gl = ['bugday'];
+    if (grainOut) gl = gl.filter(g => g !== 'bugday' && g !== 'papirus').concat(gl.length ? [] : ['hurma']);
+    const slots = [[x0 + 18, b - 72], [x0 + 46, b - 72], [x1 - 74, b - 72], [x1 - 46, b - 72], [x0 + 30, b - 96], [x1 - 60, b - 96]], nfull = Math.round(lvl * slots.length);
+    slots.forEach(([sx, sy], j) => { if (j < nfull && gl.length) s += crate27(sx, sy, gl[j % gl.length], 26, 24); else if (j < 4) s += pth('M' + (sx + 1) + ' ' + (sy + 24) + 'l3 -10h18l3 10z', '#C9A262', ink(1.2) + ' opacity=".9"'); });
+    /* baskets and sacks in front: full grain heaps, or flat empty sacks in a famine */
+    [[x0 - 2, 0], [x1 + 6, 1]].forEach(([bx, j]) => {
+      if (grainOut || lvl < 0.25) s += pth('M' + (bx - 16) + ' ' + b + 'q2 -8 16 -8t16 8z', '#D8BB7C', ink(1.4)) + pth('M' + (bx - 12) + ' ' + (b - 6) + 'q12 -3 24 0', 'none', 'stroke="#A8844A" stroke-width="1.2"');
+      else s += pth('M' + (bx - 16) + ' ' + b + 'q-3 -16 4 -20h24q7 4 4 20z', '#C9A262', ink(1.6)) + pth('M' + (bx - 13) + ' ' + (b - 20) + 'q13 -16 26 0z', j ? '#E2B84E' : '#B7412E', ink(1.3)) + l28('M' + (bx - 14) + ' ' + (b - 10) + 'h28', '#8E6A3A', 1);
+    });
+    if (lvl >= 0.5 && !grainOut) s += sack27(x1 + 22, b, 0) + jar27(x0 - 10, b, 0);
+    return s;
+  }
+
+  /* ---------- the caravan (desert towns): donkeys from art27, tied nose to tail, with their drivers ---------- */
+  function caravan28(x, y, sc0, n, P) {
+    n = Math.max(2, Math.min(4, n || 4));
+    const loads = ['skin', 'basket', 'sack', 'skin'], gap = 44, w = (n - 1) * gap, rear = n <= 3;
+    const L = -w / 2 - (rear ? 64 : 42), Rr = w / 2 + 68, sc = Math.min(sc0, 250 / (Rr - L)), cx = x - (L + Rr) / 2 * sc;
+    let s = '<g class="shipG"><g transform="translate(' + f28(cx) + ' ' + f28(y) + ') scale(' + f28(sc) + ')">';
+    s += e28((L + Rr) / 2, 3, (Rr - L) / 2 - 8, 8, INK, 'opacity=".12"');
+    if (rear) s += personSVG(-w / 2 - 54, -2, '#E6CB95', 'none', false) + l28('M' + (-w / 2 - 43) + ' -18L' + (-w / 2 - 36) + ' -50', '#6B4226', 2.4);
+    for (let j = 0; j < n; j++) s += donkey27(-w / 2 + j * gap - 12, j % 2 ? -4 : 0, loads[j], j % 2 === 1, j);
+    for (let j = 0; j < n - 1; j++) { const ax = -w / 2 + j * gap - 12 + 34, bx = -w / 2 + (j + 1) * gap - 12 - 13; s += l28('M' + ax + ' -33Q' + ((ax + bx) / 2) + ' -18 ' + bx + ' -30', '#C9A36A', 1.6); }
+    s += personSVG(w / 2 + 54, 0, '#FBF3DF', 'none', true) + l28('M' + (w / 2 + 60) + ' 0L' + (w / 2 + 66) + ' -44', '#6B4226', 2.6);
+    if (P && P.stars) s += c28(w / 2 + 66, -46, 16, 'url(#' + P.kk + 'gl)', 'class="a27-fl"') + pth('M' + (w / 2 + 62) + ' -48q4 -12 8 0z', '#FFB347', ink(1.2));
+    return s + '</g></g>';
+  }
+
+  /* ---------- Sethi's green-and-gold boat ---------- */
+  function sethiBoat28(x, y, sc, id) {
+    const sh = shipSVG2({ boat:'feluka', up:{ govde:2, yelken:1, kurek:1, ambar:0 } }, 0, id).replace(/#CFA266/g, '#3E8E5A').replace(/#9E6E40/g, '#2E6E46').replace(/#6B4425/g, '#1E4E32').replace(/#2BA59A/g, '#D9A43A').replace(/#B7412E/g, '#D9A43A').replace(/#1F5FA8/g, '#2E7D4F');
+    return '<g transform="translate(' + x + ' ' + y + ') scale(' + sc + ')"><g class="bob2">' + sh + '</g></g>';
+  }
+
+  /* ---------- the boats with visible damage: 0 pristine, 1 scuffed, 2 damaged, 3 critical ---------- */
+  const SAIL28 = {
+    nehir(up) { const W = [150, 186, 222][up.yelken] || 150; return { k:'sq', mx:6, x0:6 - W / 2, x1:6 + W / 2, t:-198, b:-80, yd:-200, mt:-214 }; },
+    mavna(up) { const W = [72, 90, 108][up.yelken] || 72; return { k:'sq', mx:92, x0:92 - W / 2, x1:92 + W / 2, t:-152, b:-94, yd:-154, mt:-166 }; },
+    kadirga(up) { const W = [206, 236, 266][up.yelken] || 206; return { k:'sq', mx:12, x0:12 - W / 2, x1:12 + W / 2, t:-204, b:-86, yd:-205, mt:-226 }; },
+    feluka(up) { const Y = up.yelken || 0, pk = [[-116, -192], [-132, -205], [-146, -217]][Y], tk = [[128, -60], [140, -58], [150, -56]][Y]; return { k:'lat', pk, tk, cl:[pk[0] + 20, -64], mx:37, mt:-126 }; }
+  };
+  const HULL28 = { nehir:{ x0:-150, x1:146, d:-17, bot:6, bail:-112 }, feluka:{ x0:-140, x1:156, d:-21, bot:6, bail:-104 }, mavna:{ x0:-176, x1:178, d:-24, bot:4, bail:-130 }, kadirga:{ x0:-160, x1:176, d:-24, bot:8, bail:-128 } };
+  function jag28(cx, cy, rx, ry, n, seed) {
+    const R = rnd28(seed); let d = '';
+    for (let j = 0; j < n; j++) { const a = j / n * Math.PI * 2, q = j % 2 ? 0.55 + R() * 0.25 : 0.9 + R() * 0.25; d += (j ? 'L' : 'M') + f28(cx + Math.cos(a) * rx * q) + ' ' + f28(cy + Math.sin(a) * ry * q); }
+    return d + 'Z';
+  }
+  function shipSVG3(spec, loadN, id) {
+    spec = spec || {};
+    const dmg = Math.max(0, Math.min(3, spec.dmg | 0)), bt = SHIPS27[spec.boat] ? spec.boat : 'nehir';
+    let base = shipSVG2(spec, loadN, id);
+    if (!dmg) return base;
+    const up = Object.assign({ govde:0, yelken:0, kurek:0, ambar:0 }, spec.up || {}), S2 = SAIL28[bt](up), H = HULL28[bt], g = 'sh' + id;
+    /* oars lost overboard: one at stage 2, two at stage 3 */
+    if (dmg >= 2) { let k = 0; base = base.replace(/<g class="row"[^>]*>(?:(?!<\/g>)[\s\S])*<\/g>/g, m => { k++; return (k === 2 || (dmg >= 3 && k === 4)) ? '' : m; }); }
+    let over = '', defs = '', mask = '';
+    const sailC = '#F3E9D2';
+    /* stage 1+: scuffs on the planks, a stained sail and a loose rope swinging from the yard */
+    let sc = '', sd = '';
+    for (let j = 0; j < 6; j++) { const x = H.x0 + 40 + j * (H.x1 - H.x0 - 80) / 5, y = H.d + 6 + (j % 3) * 4; const seg = 'M' + f28(x) + ' ' + y + 'l' + (j % 2 ? 9 : -8) + ' ' + (3 + j % 2) + 'm-3 4l6 2'; if (j % 2) sd += seg; else sc += seg; }
+    over += l28(sc, '#F2DCB8', 2.6, 'opacity=".9"') + l28(sd, '#2B1A0E', 2.2, 'opacity=".75"');
+    over += pth(dots28([[H.x0 + 96, H.d + 9, 4], [H.x1 - 70, H.d + 8, 3.4]]), '#3E2614', 'opacity=".55"');
+    if (S2.k === 'sq') {
+      const W = S2.x1 - S2.x0, hh = S2.b - S2.t;
+      over += pth(dots28([[S2.x0 + W * 0.3, S2.t + hh * 0.7, 9], [S2.x0 + W * 0.72, S2.t + hh * 0.3, 7], [S2.x0 + W * 0.18, S2.t + hh * 0.35, 6]]), '#8C6E44', 'opacity=".22"');
+      over += '<g class="t28-rope">' + l28('M' + f28(S2.x1 + 8) + ' ' + S2.yd + 'Q' + f28(S2.x1 + 26) + ' ' + f28(S2.yd + hh * 0.7) + ' ' + f28(S2.x1 + 12) + ' ' + f28(S2.b + 30), INK, 3.6) + l28('M' + f28(S2.x1 + 8) + ' ' + S2.yd + 'Q' + f28(S2.x1 + 26) + ' ' + f28(S2.yd + hh * 0.7) + ' ' + f28(S2.x1 + 12) + ' ' + f28(S2.b + 30), '#D8B47A', 2) + '</g>';
+    } else {
+      const G = [(S2.tk[0] + S2.pk[0] + S2.cl[0]) / 3, (S2.tk[1] + S2.pk[1] + S2.cl[1]) / 3];
+      over += pth(dots28([[G[0] - 10, G[1] + 20, 8], [G[0] + 34, G[1] + 18, 6]]), '#8C6E44', 'opacity=".22"');
+      if (dmg < 3) over += '<g class="t28-rope">' + l28('M' + S2.pk[0] + ' ' + S2.pk[1] + 'Q' + (S2.pk[0] - 30) + ' ' + (S2.pk[1] + 90) + ' ' + (S2.pk[0] + 2) + ' ' + (S2.cl[1] + 10), INK, 3.6) + l28('M' + S2.pk[0] + ' ' + S2.pk[1] + 'Q' + (S2.pk[0] - 30) + ' ' + (S2.pk[1] + 90) + ' ' + (S2.pk[0] + 2) + ' ' + (S2.cl[1] + 10), '#D8B47A', 2) + '</g>';
+    }
+    /* stage 2+: patched sail, cracked planks, a man bailing water, an oar adrift */
+    if (dmg >= 2) {
+      const patch = (x, y, w, h, r) => '<g transform="rotate(' + r + ' ' + f28(x + w / 2) + ' ' + f28(y + h / 2) + ')">' + r28(x, y, w, h, '#C9A877', 'stroke="' + INK + '" stroke-width="1.8"') + r28(x + 3, y + 3, w - 6, h - 6, 'none', 'stroke="#5A4632" stroke-width="1.4" stroke-dasharray="3 3"') + '</g>';
+      if (S2.k === 'sq') { const W = S2.x1 - S2.x0, hh = S2.b - S2.t; over += patch(S2.x0 + W * 0.1, S2.t + hh * 0.16, W * 0.26, hh * 0.28, -6) + patch(S2.mx + W * 0.1, S2.t + hh * 0.5, W * 0.22, hh * 0.24, 5) + (dmg < 3 ? patch(S2.x0 + W * 0.56, S2.t + hh * 0.12, W * 0.14, hh * 0.18, 8) : ''); }
+      else { const G = [(S2.tk[0] + S2.pk[0] + S2.cl[0]) / 3, (S2.tk[1] + S2.pk[1] + S2.cl[1]) / 3]; over += patch(G[0] - 44, G[1] - 18, 40, 30, -6) + patch(G[0] + 14, G[1] + 12, 34, 24, 6); }
+      const crack = (x, y) => { const d = 'M' + x + ' ' + (y - 1) + 'l6 5 -4 4 7 5 -3 4'; return l28(d, '#F0D8B0', 4.4, 'opacity=".6"') + l28(d, '#1E120A', 2.6); };
+      over += crack(H.x0 + 70, H.d + 2) + crack(H.x1 - 96, H.d + 1) + crack(-6, H.d + 3);
+      /* the bailer: a crewman over the side with a bucket, water pouring back to the river */
+      const bx = H.bail, by = H.d - 2;
+      over += pth('M' + (bx - 5) + ' ' + by + 'v-14q5 -5 10 0v14z', '#E6CB95', ink(1.3)) + c28(bx - 2, by - 19, 4.6, '#B57A50', 'stroke="' + INK + '" stroke-width="1.3"') + pth('M' + (bx - 6.8) + ' ' + (by - 20) + 'a4.8 4.8 0 0 1 9.6 0z', '#2B2340');
+      over += '<g class="t28-bail">' + l28('M' + bx + ' ' + (by - 10) + 'l-16 -10', '#B57A50', 2.6) + pth('M' + (bx - 26) + ' ' + (by - 28) + 'l12 2 -2 12 -10 -2z', '#8E5A33', ink(1.3)) + l28('M' + (bx - 26) + ' ' + (by - 24) + 'q-16 4 -22 30', '#CFEFF5', 3, 'stroke-dasharray="5 4"') + '</g>';
+      over += '<g class="splash">' + l28('M' + (bx - 58) + ' ' + (H.bot + 2) + 'q6 -8 12 0M' + (bx - 52) + ' ' + (H.bot + 8) + 'q5 -6 10 0', '#E8FAFC', 2.2) + '</g>';
+      over += '<g transform="translate(' + (H.x0 + 120) + ' ' + (H.bot + 18) + ') rotate(-6)">' + pole28('M-30 0h52', '#A8743F', 2.4) + e28(26, 0, 9, 4.5, '#A8743F', 'stroke="' + INK + '" stroke-width="1.4"') + '</g>';
+    }
+    /* stage 3: a torn sail, a broken yard, planks stove in, smoke, the hull listing and low in the water */
+    if (dmg >= 3) {
+      let hole = '', hang = '';
+      if (S2.k === 'sq') {
+        const W = S2.x1 - S2.x0, hh = S2.b - S2.t, cx = S2.mx + W * 0.27, cy = S2.t + hh * 0.42;
+        hole += pth(jag28(cx, cy, W * 0.14, hh * 0.2, 14, 3), '#000');
+        const brk = [S2.x0 - 18, S2.yd + hh * 0.66];
+        hole += pth('M' + f28(S2.x0 - 30) + ' ' + f28(S2.yd - 16) + 'H' + f28(S2.mx - 7) + 'V' + f28(S2.yd + 8) + 'L' + f28(brk[0]) + ' ' + f28(brk[1]) + 'H' + f28(S2.x0 - 30) + 'Z', '#000');
+        hang += pth('M' + f28(cx - W * 0.12) + ' ' + f28(cy - hh * 0.08) + 'l' + f28(W * 0.06) + ' ' + f28(hh * 0.36) + 'l' + f28(W * 0.05) + ' ' + f28(-hh * 0.12) + 'l' + f28(W * 0.04) + ' ' + f28(hh * 0.2) + 'l' + f28(W * 0.05) + ' ' + f28(-hh * 0.42) + 'z', sailC, ink(1.6));
+        hang += pth('M' + f28(S2.mx - 7) + ' ' + f28(S2.yd + 8) + 'L' + f28(brk[0] + 8) + ' ' + f28(brk[1] + 2) + 'q' + f28(W * 0.04) + ' ' + f28(hh * 0.25) + ' ' + f28(W * 0.12) + ' ' + f28(hh * 0.3) + 'q' + f28(W * 0.12) + ' -6 ' + f28(W * 0.22) + ' ' + f28(-hh * 0.4) + 'z', mix(sailC, '#C9B48C', 0.4), ink(1.6));
+        hang += pole28('M' + f28(S2.mx - 4) + ' ' + f28(S2.yd + 2) + 'L' + f28(brk[0]) + ' ' + f28(brk[1]), '#A8743F', 3.6) + l28('M' + f28(S2.mx - 6) + ' ' + f28(S2.yd - 2) + 'l-8 -6M' + f28(S2.mx - 6) + ' ' + f28(S2.yd + 4) + 'l-9 2', INK, 1.6);
+      } else {
+        const T = S2.tk, Pk = S2.pk, Cl = S2.cl, B = [T[0] + (Pk[0] - T[0]) * 0.5, T[1] + (Pk[1] - T[1]) * 0.5], Q = [Pk[0] + (Cl[0] - Pk[0]) * 0.7 - 10, Pk[1] + (Cl[1] - Pk[1]) * 0.7];
+        hole += pth('M' + f28(B[0]) + ' ' + f28(B[1] - 4) + 'L' + f28(Pk[0] - 70) + ' ' + f28(Pk[1] - 60) + 'L' + f28(Q[0] - 40) + ' ' + f28(Q[1]) + 'L' + f28(Q[0]) + ' ' + f28(Q[1]) + 'Z', '#000');
+        const G = [(T[0] + B[0] + Cl[0]) / 3, (T[1] + B[1] + Cl[1]) / 3];
+        hole += pth(jag28(G[0] + 10, G[1] + 4, 20, 14, 12, 5), '#000');
+        hang += pth('M' + f28(B[0]) + ' ' + f28(B[1]) + 'L' + f28(Q[0] + 6) + ' ' + f28(Q[1]) + 'q20 10 36 4q10 -16 6 -38z', mix(sailC, '#C9B48C', 0.4), ink(1.6));
+        hang += pole28('M' + f28(B[0]) + ' ' + f28(B[1]) + 'L' + f28(Q[0]) + ' ' + f28(Q[1]), '#A8743F', 3.4);
+      }
+      mask = '<mask id="' + g + 'tm" maskUnits="userSpaceOnUse" x="-320" y="-320" width="640" height="420">' + r28(-320, -320, 640, 420, '#fff') + hole.replace(/fill="#000"/g, 'fill="#000"') + '</mask>';
+      defs += mask;
+      /* planks stove in: dark gaps with splinters */
+      const gap = (x, w) => pth(jag28(x, H.d + 11, w, 8, 10, x), '#1E140E', ink(1.4)) + l28('M' + (x - w * 0.5) + ' ' + (H.d + 6) + 'v9M' + x + ' ' + (H.d + 5) + 'v10M' + (x + w * 0.5) + ' ' + (H.d + 6) + 'v9', '#8E6A44', 1.4);
+      over += gap(H.x0 + 110, 26) + gap(H.x1 - 70, 20) + gap(H.x0 + 200, 14);
+      over += hang;
+      over += c28(-40, H.d - 8, 26, '#FF9A3A', 'opacity=".35" class="a27-fl"') + pth('M-56 ' + (H.d - 2) + 'q2 -18 10 -14q2 -14 10 -4q6 -10 8 8q2 8 -6 10h-18q-6 -2 -4 0z', '#F28C2A', ink(1.4) + ' class="a27-fl"') + pth('M-48 ' + (H.d - 3) + 'q3 -9 7 -4q4 -6 5 4z', '#FFE08A');
+      over += smoke28(-44, H.d - 30, 2.4, '#5E564C') + smoke28(-34, H.d - 64, 3, '#7A7268') + smoke28(-24, H.d - 104, 3.4, '#948C80');
+    }
+    let s = '';
+    if (defs) s += '<defs>' + defs + '</defs>';
+    const inner = (dmg >= 3 ? '<g mask="url(#' + g + 'tm)">' + base + '</g>' : base) + over;
+    if (dmg >= 3) {
+      s += '<g transform="translate(0 8) rotate(4.5)">' + inner + '</g>';
+      /* the river laps over the low side */
+      const wx0 = H.x0 - 10, wx1 = H.x1 + 14;
+      s += pth('M' + wx0 + ' 4' + Array.from({ length:8 }, (_, j) => 'q' + f28((wx1 - wx0) / 16) + ' -5 ' + f28((wx1 - wx0) / 8) + ' 0').join('') + 'V16H' + wx0 + 'Z', '#3D7E96', 'opacity=".55"') + l28('M' + wx0 + ' 4' + Array.from({ length:8 }, (_, j) => 'q' + f28((wx1 - wx0) / 16) + ' -5 ' + f28((wx1 - wx0) / 8) + ' 0').join(''), '#E8FAFC', 1.8, 'opacity=".8"');
+    } else s += inner;
+    return s;
+  }
+
+  /* ---------- crisis moods ---------- */
+  function crisisSky28(o, P) {
+    if (o.crisis !== 'cekirge') return '';
+    /* the locust cloud: a dark swarm drifting over the town */
+    const R = rnd28(11), pts = [], pts2 = [];
+    for (let j = 0; j < 150; j++) { const a = R() * Math.PI * 2, q = Math.sqrt(R()); pts.push([600 + Math.cos(a) * q * 300, 150 + Math.sin(a) * q * 70, 1.4 + R() * 1.4]); }
+    for (let j = 0; j < 60; j++) { const a = R() * Math.PI * 2, q = Math.sqrt(R()); pts2.push([600 + Math.cos(a) * q * 330, 150 + Math.sin(a) * q * 90, 1.2 + R()]); }
+    return '<g pointer-events="none">' + r28(0, 0, 1000, 330, '#5A5A2A', 'opacity=".16"') + '<g class="t28-swarm">' + e28(600, 150, 320, 70, '#3A3420', 'opacity=".22"') + pth(dots28(pts2), '#2B2618', 'opacity=".45"') + pth(dots28(pts), '#2B2618', 'opacity=".8"') + '</g></g>';
+  }
+  function crisisNear28(o, P, river) {
+    let s = '';
+    if (o.crisis === 'bayram') {
+      /* festival: strings of pennants across the town, garlands on the quay */
+      const str = (x0, y0, x1, y1, sag) => { let d = l28('M' + x0 + ' ' + y0 + 'Q' + ((x0 + x1) / 2) + ' ' + (Math.max(y0, y1) + sag) + ' ' + x1 + ' ' + y1, INK, 1.4); const cols = ['#B7412E', '#D9A43A', '#1F5FA8', '#2BA59A', '#FBF3DF']; for (let j = 1; j < 12; j++) { const t = j / 12, x = (1 - t) * (1 - t) * x0 + 2 * t * (1 - t) * (x0 + x1) / 2 + t * t * x1, y = (1 - t) * (1 - t) * y0 + 2 * t * (1 - t) * (Math.max(y0, y1) + sag) + t * t * y1; d += pth('M' + f28(x - 6) + ' ' + f28(y) + 'h12l-6 14z', cols[j % 5], ink(1)); } return '<g class="t28-bunt">' + d + '</g>'; };
+      s += str(130, 214, 470, 240, 40) + str(110, 318, 600, 330, 36);
+      if (river) s += pole28('M606 ' + TS28.QY + 'V300', '#7A5A3A', 2.4) + '<g class="flag">' + pth('M606 300l40 10 -40 12z', '#D9A43A', ink(1.2)) + '</g>';
+    } else if (o.crisis === 'maden') {
+      /* a heap of oxhide copper ingots on the quay */
+      const ing = (x, y) => pth('M' + (x - 16) + ' ' + y + 'l4 -5 -4 -5h32l-4 5 4 5z', '#C97B4A', ink(1.4)) + l28('M' + (x - 10) + ' ' + (y - 7) + 'h18', '#F0B488', 1.4);
+      [[300, 300], [334, 300], [368, 300], [317, 290], [351, 290], [334, 280]].forEach(([x, y]) => { s += ing(x, y); });
+      s += pth('M330 276l2 -5 2 5 5 2 -5 2 -2 5 -2 -5 -5 -2z', '#FFF6D2', 'class="t28-spark"');
+    } else if (o.crisis === 'kitlik' || o.crisis === 'cekirge') {
+      /* hungry townsfolk with empty baskets */
+      const Q = TS28.QY + 4; s += pp28(150, Q, 1.3, '#E6CB95', 'none', false) + pth('M160 ' + (Q - 18) + 'q2 -6 10 -6t10 6z', '#C9A262', ink(1.2)) + pp28(306, Q, 1.25, '#FBF3DF', 'none', true) + pth('M286 ' + (Q - 18) + 'q2 -6 10 -6t10 6z', '#C9A262', ink(1.2));
+      if (o.crisis === 'cekirge') { let d = ''; [[210, 300], [262, 330], [452, 360], [520, 290], [600, 410]].forEach(([x, y]) => { d += 'M' + x + ' ' + y + 'l10 -3M' + (x + 3) + ' ' + y + 'l-2 4M' + (x + 7) + ' ' + (y - 1) + 'l3 4'; }); s += l28(d, '#4A4A20', 2.6); }
+    } else if (o.crisis === 'liman' && river) {
+      /* the harbour chained shut: a boom of logs across the water and a guard boat */
+      let c = ''; for (let x = 560; x < 1010; x += 16) c += e28(x, 528 + Math.sin(x / 40) * 2, 8, 4, 'none', 'stroke="#4A4038" stroke-width="2.6"');
+      s += '<g pointer-events="none">' + c + [600, 720, 840, 960].map(x => r28(x - 12, 522, 24, 12, '#8E5A33', 'rx="5" stroke="' + INK + '" stroke-width="1.4"')).join('') + '</g>';
+      s += pole28('M624 540V486', '#6B4226', 3) + r28(604, 470, 40, 26, '#B7412E', 'rx="3" stroke="' + INK + '" stroke-width="1.8"') + l28('M612 476l24 14M636 476l-24 14', '#FBF3DF', 3);
+    }
+    return s;
+  }
+
+  /* ---------- the whole town ---------- */
+  function townScene(ci, o) {
+    o = o || {};
+    const c = CITIES[ci] || CITIES[0], cid = TOWN28[ci] || c.id, river = !!c.river, sea = cid === 'saww', desert = !river && !sea;
+    const P = tsPal28(o), u = ++uid, k = 't' + u, Y0 = TS28.Y0, QY = TS28.QY;
+    P.kk = k;
+    const spots = o.spots || {};
+    if (sea) { const q = P.k * 0.5, E = P.tt < 0.5 ? TOD.dawn : TOD.dusk; P.water = ['#8EDCCF', '#2BA59A', '#14636F'].map((x, i) => mix(x, E.water[i], q)); }
+    if (river || sea) lastPortPal = Object.assign({}, P, { sunX:P.sx * 0.9 });
+    const hasW = river || sea;
+    let s = '<svg class="ts ps" viewBox="0 0 1000 560" preserveAspectRatio="xMidYMax slice" data-vb="1000 560"' + (hasW ? ' data-water="' + Y0 + ' 560"' : '') + ' role="group" aria-label="' + esc(c.name) + '">';
+    s += '<defs>' + grad(k + 'sky', [[0, P.top], [0.55, P.mid], [1, P.low]], true) + grad(k + 'w', [[0, P.water[0]], [0.3, P.water[1]], [1, P.water[2]]], true) +
+      grad(k + 'hz', [[0, P.low, 0], [1, P.low, 0.55]], true) + grad(k + 'gr', [[0, P.G], [1, P.G2]], true) + grad(k + 'qf', [[0, mix('#D9BE88', P.G, 0.4)], [1, mix('#A8875A', P.G2, 0.3)]], true) +
+      grad(k + 'lk', [[0, mix('#CFEDEA', P.low, 0.3)], [1, mix('#8FCFD0', P.mid, 0.2)]], true) + grad(k + 'ray', [[0, P.sun, 0.55], [1, P.sun, 0]], true) +
+      '<radialGradient id="' + k + 'sun"><stop offset="0" stop-color="' + P.sun + '" stop-opacity=".95"/><stop offset=".22" stop-color="' + P.sun + '" stop-opacity=".45"/><stop offset="1" stop-color="' + P.sun + '" stop-opacity="0"/></radialGradient>' +
+      '<radialGradient id="' + k + 'gl"><stop offset="0" stop-color="#FFE29A" stop-opacity=".95"/><stop offset=".45" stop-color="#FFC864" stop-opacity=".45"/><stop offset="1" stop-color="#FFC864" stop-opacity="0"/></radialGradient>' +
+      '<radialGradient id="' + k + 'vg" cx=".5" cy=".5" r=".72"><stop offset=".6" stop-color="#2B1D14" stop-opacity="0"/><stop offset="1" stop-color="#2B1D14" stop-opacity=".3"/></radialGradient>' +
+      '<pattern id="' + k + 'fz" width="128" height="10" patternUnits="userSpaceOnUse">' + r28(0, 0, 128, 10, INK) + ['#1F5FA8', '#D9A43A', '#B7412E', '#2BA59A'].map((cc, j) => r28(j * 32 + 2, 2, 28, 6, cc)).join('') + '</pattern></defs>';
+    /* ----- sky and the far layer (this part is mirrored by the WebGL water) ----- */
+    s += sky28(P, k, o);
+    s += crisisSky28(o, P);
+    s += '<g class="px1">' + (FAR28[cid] ? FAR28[cid](P) : '') + r28(0, Y0 - 120, 1000, 122, 'url(#' + k + 'hz)', 'opacity=".42"') + '</g>';
+    s += birds28(P);
+    if (P.tint) s += r28(0, 0, 1000, Y0 + 2, P.tint, 'pointer-events="none"');
+    if (P.stars > 0.3) s += r28(0, 0, 1000, Y0 + 2, '#1C2048', 'opacity="' + f28(0.16 * P.stars) + '" pointer-events="none"');
+    /* ----- the water band ----- */
+    if (hasW) {
+      s += '<!--r-->';
+      s += r28(0, Y0, 1000, 560 - Y0, 'url(#' + k + 'w)', 'class="wat"') + l28('M0 ' + (Y0 + 0.5) + 'H1000', '#FFF6E0', 1.5, 'class="wat" opacity=".55"');
+      let gd = '<g class="wglint" opacity=".85">';
+      for (let j = 0; j < 10; j++) gd += r28(P.sx - 34 + ((j * 37) % 68), Y0 + 6 + j * j * 2.2, 30 - j * 1.6, 2.4, '#FFF8DC', 'rx="1.2" class="glint" style="animation-delay:' + (j * 0.31).toFixed(2) + 's"');
+      s += gd + '</g>';
+      let fl = ''; for (let j = 0; j < 26; j++) { const x = (j * 97) % 1040 - 20, y = Y0 + 14 + ((j * 53) % (560 - Y0 - 20)); fl += 'M' + x + ' ' + y + 'h' + (16 + (j % 4) * 7); }
+      s += '<g class="flow" opacity=".45">' + l28(fl, '#E8FAFC', 2) + '</g>';
+      if (P.tt < 0.18) s += '<g class="t28-mist" pointer-events="none" opacity="' + f28((0.18 - P.tt) * 4) + '">' + e28(760, Y0 + 14, 260, 12, '#FFFFFF', 'opacity=".5"') + e28(560, Y0 + 30, 180, 9, '#FFFFFF', 'opacity=".4"') + '</g>';
+      /* far river life: a felucca crossing and Saww's moored Punt ship */
+      s += '<g class="px1" pointer-events="none"><g class="t28-cross" style="animation-duration:110s;animation-delay:-40s"><g transform="translate(560 ' + (Y0 + 18) + ') scale(.24)">' + skiff28() + '</g></g></g>';
+      if (sea) s += '<g class="px1"><g transform="translate(840 ' + (Y0 + 70) + ') scale(.36)"><g class="bob2">' + SHIPS27.kadirga({ govde:2, yelken:1, kurek:0, ambar:0 }, 0, u + 'p', true) + '</g></g></g>';
+      if (o.sethiHere && river) s += '<g class="px1">' + sethiBoat28(604, Y0 + 50, 0.34, u + 's') + '</g>';
+      if (cid === 'abu') s += '<g class="px1">' + [[700, Y0 + 26, 50, 16], [760, Y0 + 20, 26, 12], [930, Y0 + 30, 60, 20]].map(([x, y, rx, ry]) => pth('M' + (x - rx) + ' ' + y + 'Q' + (x - rx * 0.8) + ' ' + (y - ry * 1.6) + ' ' + x + ' ' + (y - ry * 1.4) + 'Q' + (x + rx * 0.9) + ' ' + (y - ry * 1.3) + ' ' + (x + rx) + ' ' + y + 'Z', mix(P.granite, P.D, 0.2), ink(1.4)) + l28('M' + (x - rx * 0.4) + ' ' + (y - ry * 0.9) + 'q' + (rx * 0.3) + ' -' + (ry * 0.4) + ' ' + (rx * 0.6) + ' 0', '#C9A58F', 2.4)).join('') + '</g>';
+    } else {
+      /* the desert floor and a trodden road to the horizon */
+      s += pth('M-10 ' + (Y0 - 2) + 'H1010V560H-10Z', 'url(#' + k + 'gr)');
+      s += pth('M1010 ' + (Y0 + 6) + 'Q860 ' + (Y0 + 30) + ' 720 ' + (Y0 + 70) + 'Q620 ' + (Y0 + 104) + ' 600 ' + (QY + 10) + 'H760Q800 ' + (Y0 + 90) + ' 1010 ' + (Y0 + 22) + 'Z', mix('#F2E0B6', P.low, 0.12), 'opacity=".85"');
+      let hp = ''; for (let j = 0; j < 12; j++) { const t = j / 12, x = 980 - t * 320 + (j % 2) * 10, y = Y0 + 12 + t * 120; hp += 'M' + f28(x) + ' ' + f28(y) + 'h3'; } s += l28(hp, '#B8945E', 2.4, 'opacity=".6"');
+      if (cid === 'kharga') { const G = [mix('#7DB35A', P.mid, 0.15), mix('#5E9A44', P.mid, 0.15)]; for (let j = 0; j < 4; j++) s += pth('M' + (700 + j * 76) + ' ' + (Y0 + 18) + 'h70l-6 14h-70z', G[j % 2], 'stroke="#A9884E" stroke-width="1.6"'); s += l28('M690 ' + (Y0 + 34) + 'H1010', '#6FB6C8', 1.6); }
+      if (cid === 'siwa') s += pth('M640 ' + (Y0 + 30) + 'q60 -8 120 0l20 8q-70 6 -130 2z', '#F6F2E8', 'stroke="#B9C6CC" stroke-width="1.2"');
+    }
+    /* ----- the mid layer: the town on its bank ----- */
+    const wr = (art, cx, b0, sc, b1, cx1) => '<g transform="translate(' + (cx1 == null ? cx : cx1) + ' ' + b1 + ') scale(' + sc + ') translate(' + (-cx) + ' ' + (-b0) + ')">' + art + '</g>';
+    let m = '';
+    /* the land: the town's ground sloping to the river */
+    if (hasW) {
+      m += pth('M-20 ' + (Y0 - 34) + 'H470Q540 ' + (Y0 - 30) + ' 556 ' + (Y0 + 14) + 'Q572 ' + (Y0 + 100) + ' 606 ' + (QY - 2) + 'L618 ' + (QY + 42) + 'H-20Z', 'url(#' + k + 'gr)', ink(1.6));
+      m += l28('M470 ' + (Y0 - 32) + 'Q540 ' + (Y0 - 28) + ' 554 ' + (Y0 + 14), '#FFF4DC', 2.4, 'opacity=".5"');
+    } else m += pth('M-20 ' + (Y0 - 30) + 'H500Q560 ' + (Y0 - 30) + ' 590 ' + (Y0 + 2) + 'Q640 ' + (Y0 + 40) + ' 660 ' + (QY + 40) + 'H-20Z', 'url(#' + k + 'gr)');
+    /* the town behind: a jumble of houses climbing the bank */
+    [[-6, Y0 - 6, 58, 96], [44, Y0 - 16, 50, 120], [330, Y0 - 52, 44, 70], [470, Y0 - 24, 50, 84], [512, Y0 - 6, 44, 64], [-10, Y0 + 70, 70, 60]].filter(h => cid !== 'siwa' || h[0] < 300).forEach(([x, b, w, h], j) => { m += house28(x, b, w, h, P, { F:mix(j % 2 ? P.WW : P.L, P.low, 0.2), D:mix(P.WD, P.low, 0.18), wins:[[8, 10, 5, 7], [w - 16, 10, 5, 7]], wc:j % 3 === 0 ? w - 18 : 0, iw:1.2 }); });
+    m += palm28(334, Y0 - 6, 132, 10, true) + palm28(574, Y0 + 56, 120, -10);
+    /* slot 1, back left: the temple raised on its terrace (or the town's own landmark there) */
+    const TB = 300;
+    m += pth('M86 ' + TB + 'H356L364 ' + (TB + 10) + 'V' + (TB + 90) + 'H78V' + (TB + 10) + 'Z', mix(P.L, P.G2, 0.35), ink(2)) + pth('M86 ' + TB + 'H356L364 ' + (TB + 10) + 'H78Z', mix(P.L, '#FFFFFF', 0.25), ink(1.6));
+    m += l28('M78 ' + (TB + 34) + 'H364M78 ' + (TB + 58) + 'H364', mix(P.D, '#5A4632', 0.2), 1.2, 'opacity=".6"');
+    let sd = ''; for (let j = 0; j < 6; j++) sd += 'M' + (198 - j * 4) + ' ' + (TB + 10 + j * 12) + 'h' + (48 + j * 8);
+    m += pth('M198 ' + (TB + 10) + 'h48l24 72h-96z', mix(P.L, '#FFFFFF', 0.12), ink(1.4)) + l28(sd, mix(P.D, '#5A4632', 0.3), 1.4);
+    if (spots.temple) m += spot28('temple', 'Tapınak', wr(temple28(cid, P, o), 222, 382, 1.18, TB, 232), [122, 96, 222, 210], [232, 40], 'Tapınak', 'i-temple');
+    else if (cid === 'abu') m += wr(abuRock28(P), 222, 384, 1.18, TB, 232);
+    else if (cid === 'saww') m += wr(sawwCaves28(P), 222, 384, 1.18, TB, 232);
+    else m += house28(130, TB, 96, 120, P, { wins:[[14, 16], [66, 16]], wc:66 }) + house28(232, TB, 84, 92, P, { F:P.L, D:P.D });
+    /* slot 2, back middle: Hapu's house, or the tavern */
+    const MB = 374, tav5 = spots.tavern && spots.hapu;
+    if (spots.hapu) m += spot28('hapu', 'Hapu\'nun evi: borç', wr(hapu28(P, o), 396, 398, 1.08, MB, 398), [328, 168, 144, 206], [400, 122], 'Hapu\'nun evi', 'i-coin');
+    else if (spots.tavern) m += spot28('tavern', 'Meyhane: Senet', wr(tavern28(cid, P, o, 346, 398, 108), 400, 398, 1.15, MB), [330, 190, 140, 184], [400, 146], 'Meyhane', 'i-senet');
+    else if (cid !== 'siwa') m += house28(348, MB, 96, 118, P, { wins:[[14, 16], [64, 16]], wc:66, band:'#B7412E' });
+    /* slot 5, middle right: the workshop, or Mennefer's tavern */
+    const WB = 412;
+    if (spots.work) m += spot28('work', 'Atölye', wr(work28(cid, P, o), 505, 440, 1.05, WB, 536), [472, 286, 130, 128], [536, 246], 'Atölye', 'i-workshop');
+    else if (tav5) m += spot28('tavern', 'Meyhane: Senet', wr(tavern28(cid, P, o, 452, 444, 96), 500, 444, 1.05, WB, 534), [474, 262, 128, 152], [536, 222], 'Meyhane', 'i-senet');
+    else if (cid === 'abu') {
+      /* the granite works of Abu: a rose-granite obelisk on its sledge, a stone-pounder at work */
+      const G = mix('#C98E7E', P.L, 0.15), GD = mix('#9A6A60', P.D, 0.2);
+      m += house28(520, WB - 30, 60, 70, P, { F:P.L, D:P.D, wins:[[12, 14], [38, 14]] });
+      m += l28('M470 ' + (WB + 6) + 'H612', '#6B4226', 5) + pth('M474 ' + WB + 'L600 ' + (WB - 10) + 'L606 ' + (WB - 2) + 'L478 ' + (WB + 8) + 'Z', G, ink(1.8)) + pth('M600 ' + (WB - 10) + 'l14 2 -8 6z', mix(G, '#FFFFFF', 0.2), ink(1.4)) + l28('M484 ' + (WB + 2) + 'L596 ' + (WB - 7), GD, 1.6);
+      m += pp28(560, WB - 8, 1.25, '#FBF3DF', 'none', true) + c28(546, WB - 34, 6, '#4A4A52', 'stroke="' + INK + '" stroke-width="1.2"');
+    } else if (cid === 'saww') {
+      /* Punt's riches on the quay: myrrh trees in baskets, ebony logs and a baboon on the bales */
+      m += house28(520, WB - 20, 64, 76, P, { F:mix('#EFE4CC', P.WW, 0.4), D:mix('#CDBB98', P.WD, 0.4), wins:[[12, 14], [40, 14]] });
+      m += r28(470, WB - 18, 60, 9, '#3A2A24', 'rx="4" stroke="' + INK + '" stroke-width="1.4"') + r28(474, WB - 27, 52, 9, '#2B201C', 'rx="4" stroke="' + INK + '" stroke-width="1.4"');
+      m += myrrh27(500, WB, 1.1) + myrrh27(560, WB + 4, 1.2) + baboon27(486, WB - 27, 1.1, false, 'a27-bab');
+    } else if (hasW) m += house28(486, WB, 72, 84, P, { F:P.L, D:P.D, wins:[[12, 14], [46, 14]] });
+    /* the quay wall (river) or the trodden square (oases) */
+    if (hasW) {
+      m += pth('M-20 ' + QY + 'H600L612 ' + (QY + 8) + 'V' + (QY + 42) + 'H-20Z', 'url(#' + k + 'qf)', ink(2.2)) + pth('M-20 ' + QY + 'H600L612 ' + (QY + 8) + 'H-20Z', mix('#EFD9A8', P.G, 0.4), ink(1.8));
+      let bk = ''; for (let r = 0; r < 2; r++) for (let j = 0; j < 17; j++) { const x = -20 + j * 38 + (r % 2 ? 19 : 0); if (x < 610) bk += 'M' + x + ' ' + (QY + 8 + r * 17) + 'v17'; }
+      m += l28(bk + 'M-20 ' + (QY + 25) + 'H612', '#8C6E44', 1.2, 'opacity=".55"') + r28(-20, QY + 36, 632, 6, '#2B4E5E', 'opacity=".35"');
+    } else m += pth('M-20 ' + (QY - 6) + 'Q300 ' + (QY - 12) + ' 620 ' + (QY - 4) + 'V' + (QY + 40) + 'H-20Z', mix(P.G2, P.G, 0.5), 'opacity=".5"');
+    /* lamp posts on the quay: lit at dusk */
+    m += lamp28(108, QY, P, 56) + lamp28(444, QY - 2, P, 56);
+    /* front row on the quay: the order board, the shipyard or well, the market */
+    if (spots.board) m += spot28('board', 'Sipariş panosu', wr(board28(P, o), 380, 470, 1.15, QY, 398), [344, 362, 102, 126], [380, QY + 6], 'Sipariş panosu', 'i-board', null, o.notes && o.notes.board ? [442, 368, o.notes.board] : null);
+    if (spots.well) m += spot28('well', 'Kuyu', well28(cid, P, o), [446, 366, 156, 124], [530, QY + 6], 'Kuyu', 'i-water');
+    if (spots.yard) { const big = cid === 'mennefer'; m += spot28('yard', 'Tersane: onarım ve yükseltme', yard28(P, o, big), big ? [446, 396, 158, 92] : [446, 400, 158, 88], [536, QY + 6], 'Tersane', 'i-hammer'); }
+    if (spots.market) m += spot28('market', 'Pazar: ' + (MERCHANTS[ci] ? MERCHANTS[ci].name : ''), wr(market28(ci, cid, P, o), 228, QY, 1.13, QY, 230), [120, 310, 222, 178], [230, QY + 6], 'Pazar', 'i-stall');
+    m += crisisNear28(o, P, hasW);
+    /* walkers on the quay */
+    m += pp28(132, QY + 4, 1.3, '#FBF3DF', 'jar', false, 'walk', -3) + pp28(560, QY + 2, 1.25, '#E6CB95', 'sack', true, 'walk2', -9);
+    if (cid === 'perbastet') m += cat28(60, QY, 1.1) + cat28(352, MB, 0.8, '#C98E5A');
+    s += '<g class="px2">' + m + '</g>';
+    /* ----- our ship (river) / caravan (desert, Saww) ----- */
+    if (river) {
+      const bt = SHIPS27[(o.boat || {}).boat] ? o.boat.boat : 'nehir', spec = Object.assign({ boat:bt, up:{}, dev:{}, dmg:0 }, o.boat || {});
+      /* fit the whole boat (steering oar to bow or ram) into x 610–880 so it stays on a phone screen */
+      const EX = { nehir:[196, 186], feluka:[184, 193], mavna:[236, 197], kadirga:[223, 223] }[bt], RX = ((spec.dev || {}).burun ? Math.max(EX[1], DEV27[bt].ram[0] + 48) : EX[1]) + ((spec.dmg | 0) >= 3 ? 14 : 0);
+      const sc = Math.min(0.8, 284 / (EX[0] + RX)), sx = f28(594 + EX[0] * sc + (284 - (EX[0] + RX) * sc) / 2), sy = TS28.SY;
+      const ship = shipSVG3(spec, o.cargo || [], u);
+      /* the reflection is a <use> of the ship, squashed and flipped about the waterline: no extra DOM */
+      const refl = '<g class="shipG"><use href="#' + k + 'shp" opacity=".2" transform="translate(0 ' + f28(1.5 * sy + 3) + ') scale(1 -.5)" pointer-events="none"/></g>';
+      let a = '<g class="shipG">';
+      a += '<g id="' + k + 'shp" transform="translate(' + sx + ' ' + sy + ') scale(' + sc + ')"><g class="bob">' + ship + '</g></g>';
+      const rl = f28(sx - EX[0] * sc * 0.8), rr = f28(sx + RX * sc * 0.55);
+      a += '<g class="ripple" opacity=".7">' + l28('M' + rl + ' ' + (sy + 8) + 'q20 -5 40 0M' + rr + ' ' + (sy + 7) + 'q22 -5 44 0M' + f28(sx - 30) + ' ' + (sy + 12) + 'q26 -5 52 0', '#E8FAFC', 2.2) + '</g></g>';
+      a += '<g class="rope">' + l28('M604 ' + (QY - 8) + 'Q624 ' + (QY + 18) + ' ' + f28(sx - 120 * sc / 0.62) + ' ' + (sy - 34), '#C9A36A', 2.2) + '</g>';
+      const dm = spec.dmg | 0;
+      s += '<g class="px2">' + refl + spot28('ship', 'Tekne: yola çık' + (dm ? ', hasarlı' : ''), a, [604, 330, 274, 186], [756, 520], 'Tekne', 'i-anchor', '· yola çık') + pth('M598 ' + QY + 'v-16h12v16z', '#8E5A33', ink(1.6)) + l28('M596 ' + (QY - 16) + 'h16', INK, 3) + '</g>';
+    } else {
+      const n = (o.caravan && o.caravan.donkeys) || 4, cx = 742, cy = sea ? 486 : 492;
+      let pier = '';
+      if (sea) {
+        /* the coral-stone pier the caravan waits on */
+        pier += pth('M596 ' + (cy - 8) + 'H1020V' + (cy + 44) + 'H608Z', mix('#E4D6B6', P.G, 0.3), ink(2.2)) + pth('M596 ' + (cy - 8) + 'H1020V' + (cy + 1) + 'H598Z', mix('#F1E6CC', P.G, 0.2), ink(1.6));
+        let bk = ''; for (let r = 0; r < 2; r++) for (let j = 0; j < 12; j++) bk += 'M' + (612 + j * 36 + (r ? 18 : 0)) + ' ' + (cy + 1 + r * 16) + 'v16';
+        pier += l28(bk + 'M604 ' + (cy + 17) + 'H1020', '#A89A7A', 1.2, 'opacity=".6"') + r28(608, cy + 36, 412, 8, '#3E6A6A', 'opacity=".4"');
+        pier += pth(dots28([[640, cy + 10, 1.6], [700, cy + 26, 1.2], [790, cy + 12, 1.6], [860, cy + 30, 1.3], [940, cy + 14, 1.5]]), 'none', 'stroke="#9C8A6A" stroke-width="1"');
+        [880, 990].forEach(x => { pier += pth('M' + (x - 5) + ' ' + (cy - 6) + 'v-14h10v14z', '#8E5A33', ink(1.4)) + l28('M' + (x - 7) + ' ' + (cy - 20) + 'h14', INK, 3); });
+      }
+      const a = caravan28(cx, cy, 1.25, n, P);
+      s += '<g class="px2">' + pier + spot28('ship', 'Kervan: yola çık', a, [606, 372, 272, 136], [cx, cy + 12], 'Kervan', 'i-donkey', '· yola çık') + '</g>';
+    }
+    /* ----- the near layer: water's edge, reeds, lotus, a passing fisherman ----- */
+    let n3 = '';
+    if (hasW) {
+      n3 += '<g class="t28-cross" style="animation-duration:70s;animation-delay:-12s"><g transform="translate(420 548) scale(.62)">' + skiff28('fish') + '</g></g>';
+      n3 += lotus28(470, 540, 1) + lotus28(920, 538, 1);
+      /* a heron fishing in the shallows by the slipway */
+      n3 += '<g transform="translate(624 552)">' + l28('M-2 0l2 -16M4 0l-1 -16', '#3A3020', 1.6) + pth('M-12 -20q4 -10 18 -8q8 2 6 8q-8 6 -24 0z', '#E8E4DA', ink(1.3)) + pth('M10 -22q4 -12 -2 -18q-2 -6 4 -8', 'none', 'stroke="' + INK + '" stroke-width="4.4" stroke-linecap="round"') + pth('M10 -22q4 -12 -2 -18q-2 -6 4 -8', 'none', 'stroke="#E8E4DA" stroke-width="2.4" stroke-linecap="round"') + l28('M14 -48l12 2', '#D9A43A', 2) + c28(13, -48, 1, INK) + '</g>';
+      n3 += reeds28(30, 568, 8, 1.3, P) + reeds28(976, 568, 7, 1.2, P);
+      if (cid === 'perbastet' || cid === 'mennefer') n3 += palm28(40, QY + 4, 190, 14);
+    } else {
+      n3 += pth('M-10 562V552Q120 540 260 548T520 544T760 550T1010 542V562Z', mix('#DDBD86', P.low, 0.08), ink(1.4));
+      [[60, 552, 1.3], [880, 548, 1.3], [960, 552, 1.1]].forEach(([x, y, q]) => { n3 += tuft27(x, y, q, cid === 'kharga' ? '#5E8A3E' : '#9A8E4E'); });
+      n3 += palm28(950, 560, 220, -24, cid === 'kharga') + palm28(40, 556, 200, 18);
+    }
+    s += '<g class="px3" pointer-events="none">' + n3 + '</g>';
+    /* ----- light and air: sun shafts, drifting dust motes, dusk tint, vignette, frieze ----- */
+    let ov = '';
+    if (P.stars < 0.7) {
+      const sx = P.sx, sy = P.sy, op = f28(0.16 * (1 - P.stars));
+      ov += '<g class="t28-ray" opacity="' + op + '">' + [[-0.55, 70], [-0.15, 50], [0.3, 64], [0.7, 44]].map(([a, w]) => { const ex = sx + Math.sin(a) * 560, ey = sy + Math.cos(a) * 560, px = Math.cos(a) * w, py = -Math.sin(a) * w; return pth('M' + f28(sx) + ' ' + f28(sy) + 'L' + f28(ex - px) + ' ' + f28(ey - py) + 'L' + f28(ex + px) + ' ' + f28(ey + py) + 'Z', 'url(#' + k + 'ray)'); }).join('') + '</g>';
+      const R = rnd28(ci + 3); let md = '';
+      for (let j = 0; j < 14; j++) md += c28(Math.max(20, Math.min(980, sx - 260 + R() * 520)), 180 + R() * 320, 1.2 + R() * 1.6, '#FFF4D6', 'class="t28-mote" style="animation-delay:' + (-R() * 9).toFixed(1) + 's"');
+      ov += '<g opacity=".8">' + md + '</g>';
+    }
+    if (P.tint) ov += r28(0, 0, 1000, 560, P.tint.replace(/[\d.]+\)$/, m2 => f28(parseFloat(m2) * 0.6) + ')'));
+    if (P.stars > 0.3) ov += r28(0, 0, 1000, 560, '#2A2050', 'opacity="' + f28(0.12 * P.stars) + '"');
+    ov += r28(0, 0, 1000, 560, 'url(#' + k + 'vg)') + r28(0, 0, 1000, 10, 'url(#' + k + 'fz)');
+    s += '<g pointer-events="none">' + ov + '</g>';
+    return s + '</svg>';
+  }
+  /* Abu without a temple: the granite boulders of Elephantine, one shaped like an elephant, and the Nilometer stair */
+  function abuRock28(P) {
+    const G = mix(P.granite, P.L, 0.1), G2 = mix(P.granite2, P.D, 0.2);
+    let s = pth('M100 384Q104 330 150 312Q190 286 240 300Q290 296 320 330Q340 356 336 384Z', G, ink(2.2)) + pth('M240 300Q290 296 320 330Q340 356 336 384H280Q290 340 240 300Z', G2);
+    s += l28('M140 330q30 -16 60 -6M210 350q30 -10 60 4', '#C9A58F', 3);
+    /* the elephant boulder: trunk, ear, a carved eye */
+    s += pth('M160 300q-10 -40 30 -52q40 -6 52 30q8 22 -6 34l-8 2q4 -16 -6 -22q2 26 -6 34h-12q4 -18 -2 -28q-14 2 -22 -2q-2 14 -8 20h-10z', mix(P.granite, '#8E7A70', 0.3), ink(2)) + pth('M234 274q14 6 10 30q-2 12 -10 16', 'none', ink(2)) + c28(222, 268, 2.4, INK) + pth('M206 262q-4 16 8 22q8 -6 6 -20z', G2, ink(1.4));
+    let st = ''; for (let j = 0; j < 6; j++) st += 'M' + (296 + j * 6) + ' ' + (384 - j * 9) + 'h14v9';
+    s += l28(st, INK, 1.4) + pth('M296 384l36 -54h14v54z', mix(G, '#FFFFFF', 0.1), 'opacity=".5"');
+    return s;
+  }
+  /* Saww without a temple: the coral terrace with its ship-store caves */
+  function sawwCaves28(P) {
+    const L = mix('#E9DAB8', P.low, 0.15), D = mix('#C7B08A', P.low, 0.1);
+    let s = pth('M108 384L112 314Q116 300 132 298L186 296Q200 288 216 294L292 292Q326 292 332 306L340 384Z', L, ink(2)) + pth('M110 340Q220 330 338 340L340 384H108Z', D) + l28('M114 318Q220 310 334 318', D, 1.6);
+    [[148, 330], [210, 326], [272, 326]].forEach(([x, y]) => { s += pth('M' + (x - 18) + ' ' + (y + 36) + 'Q' + (x - 20) + ' ' + (y + 6) + ' ' + (x - 6) + ' ' + y + 'Q' + (x + 8) + ' ' + (y - 3) + ' ' + (x + 18) + ' ' + (y + 8) + 'Q' + (x + 22) + ' ' + (y + 20) + ' ' + (x + 18) + ' ' + (y + 36) + 'Z', '#4A3A30') + l28('M' + (x - 15) + ' ' + (y + 36) + 'V' + (y + 8) + 'M' + (x + 15) + ' ' + (y + 36) + 'V' + (y + 9) + 'M' + (x - 18) + ' ' + (y + 7) + 'h36', '#8E5A33', 2.6); });
+    s += pth(dots28([[130, 302, 1.5], [180, 300, 1.2], [240, 298, 1.6], [300, 300, 1.2], [320, 350, 1.4], [120, 360, 1.2]]), 'none', 'stroke="#9C8A6A" stroke-width="1"');
+    const anc = x => pth('M' + (x - 10) + ' 384l3 -24h14l3 24z', '#B9AB8A', ink(1.4)) + c28(x, 368, 3, '#5A4A3A');
+    return s + anc(150) + anc(176) + myrrh27(308, 384, 0.9);
+  }
+
+  /* ---------- the city emblem for map cards (120×80) ---------- */
+  function townMini(ci) {
+    const cid = TOWN28[ci] || 'perbastet', u = ++uid, k = 'tm' + u, N = SKY[1], river = ci <= 4, sea = cid === 'saww';
+    const L = N.lit, D = N.shade;
+    let s = '<svg class="tmini" viewBox="0 0 120 80" width="120" height="80" role="img" aria-label="' + esc((CITIES[ci] || {}).name || '') + '"><defs>' + grad(k + 's', [[0, '#7FC2D0'], [1, '#F6E6C0']], true) + grad(k + 'w', [[0, sea ? '#8EDCCF' : '#7DB5D2'], [1, sea ? '#14636F' : '#2B5E8E']], true) + '</defs>';
+    s += r28(0, 0, 120, 80, 'url(#' + k + 's)') + c28(96, 18, 8, '#FFE7A8');
+    const pal = { L, D, P:{ lit:L, shade:D } };
+    if (cid === 'mennefer') s += pth('M34 56L64 16L94 56Z', L) + pth('M64 16L94 56H66Z', D) + pth('M60 21l4 -5 4 5z', '#F2D27A') + pth('M84 56L100 34L116 56Z', L) + pth('M100 34L116 56H101Z', D);
+    else if (cid === 'perbastet') s += pth('M20 52l4 -24h14l4 24zM46 52l4 -24h14l4 24z', '#D99A80', ink(1)) + r28(42, 36, 8, 16, '#6E5236') + cat28(76, 54, 0.7);
+    else if (cid === 'abidos') s += pth('M0 44Q40 26 80 30T120 36V56H0Z', N.cliff) + r28(24, 34, 70, 18, L, ink(1)) + pth([30, 42, 54, 66, 78, 88].map(x => 'M' + x + ' 52v-14').join(''), 'none', 'stroke="' + D + '" stroke-width="3"');
+    else if (cid === 'vaset') s += pth('M30 54l4 -26h18l4 26zM62 54l4 -26h18l4 26z', L, ink(1)) + r28(52, 38, 14, 16, '#6E5236') + pth('M14 54l2 -36 3 -6 3 6 2 36z', L, ink(1)) + pth('M16 18l3 -6 3 6z', '#E9C46A') + pth('M98 54l2 -30 3 -5 3 5 2 30z', L, ink(1));
+    else if (cid === 'abu') s += pth('M8 56Q14 30 40 32Q60 18 80 34Q100 30 112 56Z', N.granite, ink(1)) + pth('M30 40q-2 -14 12 -16q14 0 14 12l-4 6q0 -6 -4 -6v8h-4v-8h-6v8h-4z', '#8E7A70', ink(1)) + c28(48, 30, 1, INK);
+    else if (cid === 'siwa') { s += r28(0, 52, 120, 6, '#BFE6E6'); [[30, 44, 18, 14], [46, 36, 20, 22], [64, 28, 18, 30], [80, 40, 18, 18], [40, 50, 50, 8], [56, 20, 12, 10]].forEach(([x, y, w, h], j) => { s += r28(x, y, w, h, j % 2 ? '#D8BC94' : '#CDB088', 'rx="2" stroke="#7A5E40" stroke-width=".8"') + r28(x + w * 0.4, y + h * 0.35, 2.4, 3.4, '#4A3626'); }); s += mpalm27(12, 60, 20, '#2F6E44') + mpalm27(108, 60, 18, '#2F6E44'); }
+    else if (cid === 'kharga') s += r28(30, 30, 56, 26, L, ink(1)) + pth([38, 50, 62, 74].map(x => 'M' + x + ' 56v-20').join(''), 'none', 'stroke="' + D + '" stroke-width="4"') + mpalm27(12, 60, 26, '#2F6E44') + mpalm27(104, 60, 28, '#2F6E44') + mpalm27(94, 60, 20, '#2A5236');
+    else s += pth('M0 50L16 26L30 38L46 18L62 40L80 30L96 46V54H0Z', '#A68FA8') + r28(0, 50, 120, 30, 'url(#' + k + 'w)') + '<g transform="translate(76 62) scale(.16)">' + SHIPS27.kadirga({ govde:1, yelken:0, kurek:0, ambar:0 }, 0, u + 'mk', true).replace(/<g class="(row|pennant)"[^>]*>/g, '<g>') + '</g>';
+    if (river) s += r28(0, 54, 120, 26, 'url(#' + k + 'w)') + l28('M8 62h14M50 70h18M90 64h12', '#E8FAFC', 1.6) + '<g transform="translate(' + (cid === 'mennefer' ? 22 : 98) + ' 66) scale(.1)">' + shipSVG({ govde:0, yelken:0, kurek:0 }, 0, u + 'mb').replace(/<g class="(row|pennant)"[^>]*>/g, '<g>') + '</g>';
+    else if (!sea) s += r28(0, 56, 120, 24, '#E6CC98') + '<g transform="translate(92 76) scale(.42)">' + donkey27(0, 0, 'basket', false, 0).replace(/class="a27-[a-z]+"/g, '') + '</g>';
+    s += r28(0.5, 0.5, 119, 79, 'none', 'rx="6" stroke="' + INK + '" stroke-width="2"');
+    return s + '</svg>';
+  }

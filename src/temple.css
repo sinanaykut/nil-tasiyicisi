@@ -1,0 +1,48 @@
+
+/* ---- temple room (bulmaca) ---- */
+.tmhow{margin:0;display:flex;align-items:center;gap:7px;font-weight:700;font-size:14.5px;line-height:1.25}
+.tmhow .ico{flex:none;color:#D9A43A}
+.tmroom{position:relative;width:100%;max-width:min(440px,calc(min(92vh,760px) - 290px));margin:0 auto;aspect-ratio:1/1}
+.tmroom .tmsvg,.tmroom .tmov{position:absolute;inset:0;width:100%;height:100%;display:block}
+.tmroom .tmov{pointer-events:none;will-change:transform}
+.tmb{position:absolute;border:0;padding:0;margin:0;background:transparent;border-radius:50%;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.tmb.fx{cursor:not-allowed;border-radius:12%}
+.tmb:focus-visible{outline:3px solid #1F5FA8;outline-offset:-3px}
+@media (hover:hover){ .tmb:not(.fx):not(:disabled):hover{background:rgba(255,236,170,.35);box-shadow:inset 0 0 0 2px rgba(43,29,20,.35)} }
+.tmb:disabled{cursor:default}
+.tmrot{transition:transform .26s cubic-bezier(.3,1.5,.55,1)}
+.tmdash{animation:tmFlow .7s linear infinite}
+@keyframes tmFlow{to{stroke-dashoffset:-16}}
+.tmsun{transform-box:fill-box;transform-origin:center;animation:tmSpin 9s linear infinite}
+@keyframes tmSpin{to{transform:rotate(360deg)}}
+.tmtgt .tmhalo,.tmtgt .tmrays{opacity:0;transition:opacity .5s}
+.tmtgt .tmrays{transform-box:fill-box;transform-origin:center}
+.tmflood{opacity:0;pointer-events:none}
+.tmroom.win .tmflood{animation:tmFlood 1.1s ease-out forwards}
+.tmroom.win .tmhalo,.tmroom.win .tmrays{opacity:1}
+.tmroom.win .tmrays{animation:tmSpin 6s linear infinite}
+.tmroom.win .tmank{stroke:#FFE07A;filter:drop-shadow(0 0 4px #FFF1B8)}
+.tmroom.win .tmg{stroke:#FFF3C4;filter:drop-shadow(0 0 2px #F29A00) drop-shadow(0 0 5px #FFC93C)}
+.tmbar.won .btn{display:none}
+@keyframes tmFlood{0%{opacity:0}35%{opacity:.85}100%{opacity:.5}}
+.tmm.tmhint{animation:tmPulse .7s ease-out 2}
+@keyframes tmPulse{50%{filter:drop-shadow(0 0 7px #2BA59A) brightness(1.15)}}
+.tmm.tmno{animation:tmNo .35s ease}
+@keyframes tmNo{25%{translate:-3px 0}75%{translate:3px 0}}
+.tmleg{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 14px;font-size:12.5px;font-weight:800;color:var(--ink2);margin-top:-4px}
+.tmleg span{display:inline-flex;align-items:center;gap:5px}
+.tmbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tmbar .tmst{flex:1;min-width:140px;font-weight:700;font-size:15px}
+.tmbar .btn.sm{min-height:46px;padding:6px 12px;font-size:14px}
+.tmok{color:var(--good)}
+@media (max-width:480px){
+  .veil:has(.tmroom){padding:8px}
+  .sh-in:has(.tmroom){padding:12px 10px 14px;gap:10px}
+}
+@media (prefers-reduced-motion: reduce){ .tmrot,.tmtgt .tmhalo,.tmtgt .tmrays{transition:none} .tmdash,.tmsun,.tmroom.win .tmrays,.tmm.tmhint,.tmm.tmno{animation:none} .tmroom.win .tmflood{animation:none;opacity:.5} }
+/* v32: landscape phones: the room on the left, the words and buttons on the right */
+@media (max-height:520px) and (min-width:700px){
+  :has(> .tmroom){display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:16px;align-content:start;align-items:start}
+  :has(> .tmroom) > *{grid-column:2}
+  :has(> .tmroom) > .tmroom{grid-column:1;grid-row:1 / span 6;width:calc(100dvh - 96px);max-width:none}
+}

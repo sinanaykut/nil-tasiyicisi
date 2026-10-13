@@ -1,0 +1,58 @@
+/* ---------- v28 art (sahne): the town picture (townScene), tappable places, life and light ---------- */
+.ts{display:block;width:100%;height:100%;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+.ts .spot{cursor:pointer;outline:none}
+.ts .spot .hit{transition:fill .18s,stroke .18s;stroke:transparent;stroke-width:3}
+.ts .spot:hover .hit,.ts .spot:focus-visible .hit{fill:rgba(255,236,180,.2);stroke:#D9A43A;stroke-dasharray:9 6}
+.ts .spot:active .hit,.ts .spot.on .hit{fill:rgba(255,226,150,.32);stroke:#D9A43A}
+.ts .spot-lab{pointer-events:auto}
+.ts .t28-labi{transform-box:fill-box;transform-origin:50% 100%;transition:transform .18s;animation:t28lab 4.2s ease-in-out infinite}
+.ts .spot:nth-of-type(2n) .t28-labi{animation-delay:-1.4s}.ts .spot:nth-of-type(3n) .t28-labi{animation-delay:-2.6s}
+.ts .spot:hover .t28-labi,.ts .spot:focus-visible .t28-labi{transform:scale(1.08);animation:none}
+@keyframes t28lab{0%,100%{transform:none}50%{transform:translateY(-3px)}}
+.ts .spot-badge{animation:t28badge 1.8s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes t28badge{50%{transform:scale(1.14)}}
+/* life */
+.ts .t28-bird{animation:t28bird 40s linear infinite}
+.ts .t28-bird2{animation-duration:56s;animation-delay:-22s}
+@keyframes t28bird{from{transform:translateX(-640px)}to{transform:translateX(640px)}}
+.ts .t28-flap path{animation:t28flap .7s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 100%}
+@keyframes t28flap{50%{transform:scaleY(.35)}}
+.ts .t28-cross{animation:t28cross 90s linear infinite}
+@keyframes t28cross{from{transform:translateX(-720px)}to{transform:translateX(720px)}}
+.ts .t28-puff{animation:t28puff 3.9s ease-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes t28puff{0%{transform:translate(0,4px) scale(.5);opacity:0}15%{opacity:.8}100%{transform:translate(8px,-50px) scale(2.1);opacity:0}}
+.ts .t28-glow{animation:t28glow 2.4s ease-in-out infinite}
+@keyframes t28glow{50%{opacity:.45}}
+.ts .t28-spark path,.ts path.t28-spark{animation:t28spark 1.9s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes t28spark{0%,100%{transform:scale(.3);opacity:.2}50%{transform:scale(1.15);opacity:1}}
+.ts .t28-mote{animation:t28mote 9s ease-in-out infinite;opacity:0}
+@keyframes t28mote{0%{transform:translate(0,0);opacity:0}25%{opacity:.9}75%{opacity:.7}100%{transform:translate(16px,-34px);opacity:0}}
+.ts .t28-ray{animation:t28ray 8s ease-in-out infinite}
+@keyframes t28ray{50%{opacity:.06}}
+.ts .t28-swarm{animation:t28swarm 9s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:center}
+@keyframes t28swarm{from{transform:translateX(-26px) scale(.97)}to{transform:translateX(30px) scale(1.04)}}
+.ts .t28-mist{animation:t28mist 14s ease-in-out infinite alternate}
+@keyframes t28mist{to{transform:translateX(-40px)}}
+.ts .t28-rope{animation:t28rope 3.2s ease-in-out infinite;transform-box:fill-box;transform-origin:0 0}
+@keyframes t28rope{50%{transform:rotate(5deg)}}
+.ts .t28-bail{animation:t28bail 1.6s ease-in-out infinite;transform-box:fill-box;transform-origin:100% 20%}
+@keyframes t28bail{0%,100%{transform:none;opacity:1}50%{transform:rotate(-14deg)}}
+.ts .t28-ham{animation:t28ham .9s ease-in-out infinite;transform-box:fill-box;transform-origin:100% 100%}
+@keyframes t28ham{0%,100%{transform:none}40%{transform:rotate(26deg)}55%{transform:rotate(-4deg)}}
+.ts .t28-sign{animation:t28sign 4s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 0}
+@keyframes t28sign{50%{transform:rotate(2.5deg)}}
+.ts .t28-twist{animation:t28twist 2.4s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes t28twist{50%{transform:scaleY(.72)}}
+.ts .t28-drip{animation:t28drip 1.2s linear infinite;stroke-dasharray:3 7}
+@keyframes t28drip{to{stroke-dashoffset:-10}}
+.ts .t28-bunt{animation:t28bunt 3s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 0}
+@keyframes t28bunt{50%{transform:rotate(.6deg) translateY(2px)}}
+/* depth layers: the UI moves these with the pointer / tilt */
+.ts .px1,.ts .px2,.ts .px3{transition:transform .5s cubic-bezier(.2,.7,.3,1)}
+@media (prefers-reduced-motion: reduce){
+  .ts .t28-labi,.ts .spot-badge,.ts .t28-bird,.ts .t28-flap path,.ts .t28-cross,.ts .t28-puff,.ts .t28-glow,.ts .t28-spark path,.ts path.t28-spark,.ts .t28-mote,.ts .t28-ray,.ts .t28-swarm,.ts .t28-mist,.ts .t28-rope,.ts .t28-bail,.ts .t28-ham,.ts .t28-sign,.ts .t28-twist,.ts .t28-drip,.ts .t28-bunt{animation:none}
+  .ts .t28-mote{opacity:.6}.ts .t28-puff{opacity:.6}
+  .ts .px1,.ts .px2,.ts .px3{transition:none}
+}
+/* the map-card emblem */
+.tmini{display:block;border-radius:6px}

@@ -1,0 +1,21 @@
+  /* ================= start ================= */
+  function start(data) {
+    let saved = null;
+    if (data && valid(data.S)) saved = data.S;
+    if (!saved) { try { const raw = lsGet(KEY); if (raw) { const p = JSON.parse(raw); if (valid(p)) saved = p; } } catch (e) {} }
+    if (saved) {
+      const hadQ = 'quest' in saved;
+      S = migrate(saved); RS = S.rs == null ? null : S.rs;
+      /* saves from before the story arcs get one offered, if the run is young enough */
+      if (!hadQ && !S.over && S.day <= 6 && has(S, 'quest')) S.quest = { id:ARCS[meta.runs % ARCS.length], step:0, st:'offer', by:0, cargo:0, f:{}, log:[] };
+      sel = data && data.sel != null ? data.sel : null; qty = data && data.qty ? data.qty : 1;
+      line = pickLine(); renderAll();
+      if (data && data.S) { if (S.voyage) resumeVoyage(); else if (S.pendingEvent && eventDef(S, S.pendingEvent)) showEvent(); return; }
+      if (S.over) { showEnd(); return; }
+      showTitle();
+    } else {
+      S = newGame({ perks:Object.assign({}, meta.lv), feat:featFor(meta.runs), arc:featFor(meta.runs).quest ? ARCS[meta.runs % ARCS.length] : null }); line = pickLine(); save(); renderAll(); showTitle();
+    }
+  }
+  try { window.claude && window.claude.hot && window.claude.hot.snapshot && window.claude.hot.snapshot(() => ({ S, sel, qty })); } catch (e) {}
+  setTimeout(() => { if (Snd.pref.music) Snd.prefetch(); }, 60);

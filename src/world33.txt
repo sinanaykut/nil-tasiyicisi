@@ -1,0 +1,543 @@
+
+  /* ================= world33: the asset library of the towns and the river (procedural Kit models) =================
+     Every model is built once at the origin into a "proto" (plain vertex arrays) and then stamped (rotated, scaled,
+     moved) into the big merged town / river-chunk Kit: zero extra draw calls, no per-part matrix work when a town is built.
+     Units: town units (10 = one paving tile, an adult is ~20 tall). Models face +z unless noted. Needs v3.txt (V3._x). */
+  const W33 = (() => {
+    const X = (typeof V3 !== 'undefined' && V3 && V3._x) || null;
+    if (!X) return null;
+    let T = null, G = null;
+    const INK = '#2B1D14';
+    /* extra templates (added to the shared template set the first time a model is built) */
+    function ensure() {
+      T = X.T(); G = X.tpl();
+      if (G.tap8) return G;
+      const C = (rt, rb, s, a0, al) => new T.CylinderGeometry(rt, rb, 1, s, 1, false, a0 || 0, al == null ? Math.PI * 2 : al);
+      G.tap8 = C(0.8, 1, 8); G.tapS = C(0.9, 1, 4); G.cone8 = new T.ConeGeometry(1, 1, 8);
+      G.vault = C(1, 1, 10, -Math.PI / 2, Math.PI).rotateZ(Math.PI / 2);   /* half cylinder along x, curved side up */
+      G.tor8 = new T.TorusGeometry(1, 0.16, 4, 10);
+      const ring = (n, r, y, a0) => Array.from({ length:n }, (_, i) => [r * Math.sin(a0 + i / n * Math.PI * 2), y, r * Math.cos(a0 + i / n * Math.PI * 2)]);
+      const ed = [], E = (a, b) => ed.push(a[0], a[1], a[2], b[0], b[1], b[2]), poly = p => p.forEach((q, i) => E(q, p[(i + 1) % p.length]));
+      const set = (g, f) => { ed.length = 0; f(); g.userData.ed = new Float32Array(ed); };
+      set(G.tapS, () => { const t = ring(4, 0.9, 0.5, 0), b = ring(4, 1, -0.5, 0); poly(t); poly(b); t.forEach((p, i) => E(p, b[i])); }); G.tapS.userData.edS = true;
+      set(G.tap8, () => { poly(ring(8, 0.8, 0.5, 0)); poly(ring(8, 1, -0.5, 0)); });
+      set(G.vault, () => { [-0.5, 0.5].forEach(x => { for (let i = 0; i < 10; i++) { const a = Math.PI * i / 10, b = Math.PI * (i + 1) / 10; E([x, Math.sin(a), Math.cos(a)], [x, Math.sin(b), Math.cos(b)]); } }); E([-0.5, 1, 0], [0.5, 1, 0]); });
+      return G;
+    }
+
+    /* ---------- protos: build once, stamp many times ---------- */
+    const PRO = new Map();
+    function proto(key, build) {
+      let P = PRO.get(key); if (P) return P;
+      ensure(); const k = new X.Kit(); k.ed = false; build(k);
+      P = { p:new Float32Array(k.p), n:new Float32Array(k.n), c:new Float32Array(k.c), m:new Float32Array(k.m), no:new Uint8Array(k.no), w:new Float32Array(k.w), e:new Float32Array(k.e), nv:k.p.length / 3 };
+      /* the outline directions, once per model (stamps copy them turned; the big bake then skips its position hash for them) */
+      const O = new Float32Array(P.p.length), map = new Map(), pk = i => Math.round(P.p[i] * 6) + ',' + Math.round(P.p[i + 1] * 6) + ',' + Math.round(P.p[i + 2] * 6);
+      for (let i = 0; i < P.p.length; i += 3) { if (P.no[i / 3]) continue; const q = pk(i); let a = map.get(q); if (!a) { a = [0, 0, 0]; map.set(q, a); } a[0] += P.n[i]; a[1] += P.n[i + 1]; a[2] += P.n[i + 2]; }
+      for (let i = 0; i < P.p.length; i += 3) { if (P.no[i / 3]) continue; const a = map.get(pk(i)), l = Math.hypot(a[0], a[1], a[2]); if (l > 0.2) { O[i] = a[0] / l; O[i + 1] = a[1] / l; O[i + 2] = a[2] / l; } }
+      P.o = O;
+      let r = 0, top = 0; for (let i = 0; i < P.p.length; i += 3) { r = Math.max(r, Math.hypot(P.p[i], P.p[i + 2])); top = Math.max(top, P.p[i + 1]); } P.r = r; P.top = top;
+      PRO.set(key, P); return P;
+    }
+    /* stamp a proto into kit k at (x, y, z), turned ry about y, scaled s; o.bob: the whole thing bobs on the water (town shader),
+       o.noLines: drop its ink lines, o.sy: separate vertical scale */
+    function stamp(k, P, x, y, z, ry, s, o) {
+      if (typeof P === 'string') P = PRO.get(P);
+      if (!P) return;
+      s = s || 1; const sy = (o && o.sy) || s, cs = Math.cos(ry || 0), sn = Math.sin(ry || 0), bob = o && o.bob, em = o && o.em;
+      const p = P.p, n = P.n, c = P.c, o3 = P.o, pw = P.w, pm = P.m, pno = P.no, kp = k.p, kn = k.n, kc = k.c, ka = k.a, kno = k.no, kpo = k.po, km = k.m, kw = k.w, sw = !k.noSwing;
+      for (let i = 0, j = 0; i < P.nv; i++, j += 3) {
+        const px = p[j] * s, py = p[j + 1] * sy, pz = p[j + 2] * s, nx = n[j], ny = n[j + 1], nz = n[j + 2];
+        kp.push(x + px * cs + pz * sn, y + py, z - px * sn + pz * cs);
+        kn.push(nx * cs + nz * sn, ny, -nx * sn + nz * cs);
+        kc.push(c[j], c[j + 1], c[j + 2]);
+        const ox = o3[j], oy = o3[j + 1], oz = o3[j + 2];
+        ka.push(1); kno.push(pno[i] ? 1 : 2); kpo.push(ox * cs + oz * sn, oy, -ox * sn + oz * cs); km.push(em != null ? em : pm[i]); kw.push(bob ? -bob : pw[i] * s); if (sw) { k.v.push(0, 0, 0); k.s.push(0, 0, 0); }
+      }
+      if (!(o && o.noLines) && !k.noLines) { const e = P.e; for (let i = 0; i < e.length; i += 7) { for (let q = 0; q < 6; q += 3) { const px = e[i + q] * s, py = e[i + q + 1] * sy, pz = e[i + q + 2] * s; k.e.push(x + px * cs + pz * sn, y + py, z - px * sn + pz * cs); } k.e.push(e[i + 6]); } }
+    }
+    const L = (k, a, b, w) => k.line(a, b, w || 0.8);
+    /* a tapered block from quads (tp < 1 narrows upwards, > 1 widens): true rectangles at any w/d, unlike a scaled 4-sided cone */
+    function tb(k, col, x, y0, z, w, d, h, tp, edges) {
+      const a = w / 2, b = d / 2, ta = a * tp, tq = b * tp, y1 = y0 + h;
+      const b0 = [x - a, y0, z - b], b1 = [x + a, y0, z - b], b2 = [x + a, y0, z + b], b3 = [x - a, y0, z + b], t0 = [x - ta, y1, z - tq], t1 = [x + ta, y1, z - tq], t2 = [x + ta, y1, z + tq], t3 = [x - ta, y1, z + tq];
+      const no = k.noOut; k.noOut = !!edges;
+      k.quad(b3, b2, t2, t3, col).quad(b2, b1, t1, t2, col).quad(b1, b0, t0, t1, col).quad(b0, b3, t3, t0, col).quad(t3, t2, t1, t0, col).quad(b0, b1, b2, b3, col);
+      k.noOut = no;
+      if (edges) [[b2, t2], [b3, t3], [b1, t1], [b0, t0], [t0, t1], [t1, t2], [t2, t3], [t3, t0], [b3, b2], [b2, b1], [b1, b0], [b0, b3]].forEach(([p, q]) => k.line(p, q, 1));
+    }
+
+    /* ---------- leaves: a folded strip (a midrib ridge with drooping leaflets), both sides, inked edges that sway ---------- */
+    /* from base point b along azimuth a: len, rise, droop; width wd; n segments; teeth: zigzag edge */
+    function frond(k, b, a, len, rise, droop, wd, col, colU, n, teeth, ink) {
+      const ca = Math.cos(a), sa = Math.sin(a), px = -sa, pz = ca, S = [], Lf = [], R = [];
+      n = n || 5;
+      for (let i = 0; i <= n; i++) {
+        const t = i / n, d = len * t, h = rise * Math.sin(Math.PI * Math.min(1, t * 1.25) * 0.6) - droop * Math.pow(t, 2.1);
+        let w = wd * Math.pow(Math.sin(Math.PI * Math.min(1, t * 1.05 + 0.04)), 0.7); if (i === n) w = 0; if (teeth && i % 2 && i < n) w *= 1.28;
+        const c = [b[0] + ca * d, b[1] + h, b[2] + sa * d], f = w * 0.42;
+        S.push(c); Lf.push([c[0] + px * w, c[1] - f, c[2] + pz * w]); R.push([c[0] - px * w, c[1] - f, c[2] - pz * w]);
+      }
+      for (let i = 0; i < n; i++) {
+        k.quad(Lf[i], S[i], S[i + 1], Lf[i + 1], colU).quad(S[i], R[i], R[i + 1], S[i + 1], colU);
+        k.quad(Lf[i + 1], S[i + 1], S[i], Lf[i], col).quad(S[i + 1], R[i + 1], R[i], S[i], col);
+        if (ink !== false) { L(k, Lf[i], Lf[i + 1], -0.85); L(k, R[i], R[i + 1], -0.85); }
+      }
+      return S[n];
+    }
+    /* the sway weight of the last parts (vertex arrays) from start index i0 */
+    function swayFrom(k, i0, amp) { for (let i = i0; i < k.w.length; i++) { const y = k.p[i * 3 + 1]; k.w[i] = amp * Math.max(0, Math.min(1.5, y / 40)); } }
+
+    /* ---------- trees ---------- */
+    /* date palm: a curved ringed trunk, a full crown of folded, toothed fronds, date clusters */
+    function datePalm(k, o) {
+      const h = o.h || 48, lean = o.lean == null ? 6 : o.lean, nf = o.nf || 9, seg = 5, ph = o.ph || 0;
+      const P = f => [lean * Math.pow(f, 1.7), h * f, 0];
+      for (let i = 0; i < seg; i++) { const a = P(i / seg), b = P((i + 1) / seg), r = 2.5 - 0.9 * i / seg; k.stick(a, b, r, i % 2 ? '#8E5A33' : '#7A4A2A', 'c6'); if (i % 2 === 0) k.add('c6', '#5E3A22', b[0], b[1] - 0.4, b[2], r * 1.16, 1.2, r * 1.16); }
+      k.add('c8', '#6B4226', 0, 0.6, 0, 3.4, 1.2, 3.4);
+      const t = P(1), i0 = k.w.length, G1 = o.g1 || '#4E9A5A', G2 = o.g2 || '#3C8450', U1 = '#2F6A40';
+      for (let j = 0; j < nf; j++) {
+        const a = ph + j / nf * Math.PI * 2 + (j % 2) * 0.18, low = j % 2;
+        frond(k, [t[0], t[1] + 1.2, t[2]], a, (o.len || 22) * (low ? 0.92 : 1), low ? 3 : 5.5, low ? 13 : 9, o.wd || 3.4, low ? G2 : G1, U1, o.lite ? 3 : 4, true);
+      }
+      for (let j = 0; j < (o.lite ? 0 : 2); j++) frond(k, [t[0], t[1] + 1.4, t[2]], ph + j * 3.1 + 0.5, 9, 7, 1, 1.8, '#68B070', U1, 2, false, false);
+      swayFrom(k, i0, 1.8);
+      if (o.dates !== false) [[2.2, -2.6, 1.2], [-1.4, -3.2, -1.4]].slice(0, o.lite ? 1 : 2).forEach(([dx, dy, dz], j) => { k.add('sph5', j % 2 ? '#B8682A' : '#D08436', t[0] + dx, t[1] + dy, t[2] + dz, 2, 2.8, 2); });
+      k.add('sph5', '#5E3A22', t[0], t[1] + 0.2, t[2], 2.4, 1.8, 2.4);
+    }
+    /* doum palm: the forked palm of Upper Egypt, fan-leaf crowns */
+    function doumPalm(k, o) {
+      const c1 = '#7E5A3A', i0 = k.w.length;
+      const br = (a, b, r) => k.stick(a, b, r, c1, 'c6');
+      const fan = (p, sc) => {
+        for (let j = 0; j < 8; j++) { const a = j / 8 * Math.PI * 2, up = j % 2 ? 0.45 : 0.05; k.add('sph5', j % 3 ? '#86A443' : '#6F9038', p[0] + Math.cos(a) * 6.4 * sc, p[1] + 1.5 * sc - up * 4, p[2] + Math.sin(a) * 6.4 * sc, 7.4 * sc, 0.8 * sc, 5 * sc, 0, -a, -up); }
+        k.add('sph5', '#9AB85A', p[0], p[1] + 2.6 * sc, p[2], 4 * sc, 1.6 * sc, 4 * sc);
+        k.add('sph5', '#9C7A3A', p[0] + 1.2, p[1] - 2.2 * sc, p[2], 1.8 * sc, 2.4 * sc, 1.8 * sc);
+      };
+      const f0 = [0, 18, 0], a1 = [-9, 30, 2], a2 = [9, 28, -3], a3 = [-3, 41, 5], a4 = [-17, 38, -2];
+      br([0, 0, 0], f0, 2.6); br(f0, a1, 1.9); br(f0, a2, 1.8); br(a1, a3, 1.4); br(a1, a4, 1.4);
+      const k0 = k.w.length; fan(a2, 1); fan(a3, 1.05); fan(a4, 0.9); swayFrom(k, k0, 1.2);
+      void i0;
+    }
+    /* sycamore fig: a short thick trunk, a broad lumpy crown */
+    function sycamore(k, o) {
+      const s = o.s || 1, cs = o.cols || ['#4E8A3E', '#5E9A4A', '#3F7A38', '#6AA652'];
+      k.stick([0, 0, 0], [0.5, 11 * s, 0], 2.8 * s, '#8A7460', 'c8');
+      k.stick([0.5, 9 * s, 0], [-6 * s, 16 * s, 2 * s], 1.3 * s, '#7A6450'); k.stick([0.5, 9 * s, 0], [6 * s, 17 * s, -1 * s], 1.3 * s, '#7A6450');
+      const i0 = k.w.length;
+      [[0, 22, 0, 11, 8], [-9, 18, 3, 8, 6], [8, 19, -3, 8.5, 6.5], [2, 18, 8, 8, 6], [-3, 19, -8, 8, 6], [4, 26, -1, 7, 5]].forEach(([x, y, z, r, ry], j) => k.add(j % 2 ? 'dod' : 'ico', cs[j % cs.length], x * s, y * s, z * s, r * s, ry * s, r * s, j * 0.7, j, 0.2));
+      swayFrom(k, i0, 0.5);
+      if (o.figs) for (let j = 0; j < 5; j++) k.add('sph5', '#C9763A', Math.cos(j * 1.3) * 9 * s, 15 * s, Math.sin(j * 1.3) * 9 * s, 0.9 * s);
+    }
+    /* acacia: the flat umbrella of the desert edge */
+    function acacia(k, o) {
+      const s = o.s || 1;
+      k.stick([0, 0, 0], [3 * s, 14 * s, 0], 1.6 * s, '#6B4A30', 'c6'); k.stick([3 * s, 14 * s, 0], [-8 * s, 23 * s, 2 * s], 1.1 * s, '#6B4A30'); k.stick([3 * s, 14 * s, 0], [10 * s, 22 * s, -2 * s], 1, '#6B4A30');
+      const i0 = k.w.length;
+      k.add('sph5', '#7C9A44', 0, 26 * s, 0, 17 * s, 3.4 * s, 13 * s, 0, 0.3); k.add('sph5', '#6A8A3A', -9 * s, 24 * s, 3 * s, 9 * s, 2.6 * s, 8 * s); k.add('sph5', '#8AAA4E', 9 * s, 24.5 * s, -2 * s, 9 * s, 2.6 * s, 7 * s, 0, 0.8);
+      swayFrom(k, i0, 0.7);
+    }
+    /* tamarisk: feathery grey-green plumes (the tree of Osiris) */
+    function tamarisk(k, o) {
+      const s = o.s || 1;
+      k.stick([0, 0, 0], [0, 6 * s, 0], 1.4 * s, '#6E5644');
+      const i0 = k.w.length;
+      [[0, 0, 0, 0], [-4, -1, 2, 0.35], [4, -1, -2, -0.35], [1, -2, 4, 0.25], [-2, -2, -4, -0.25]].forEach(([x, dy, z, t], j) => k.add('cone6', j % 2 ? '#8FA88A' : '#7E9A7A', x * s, (17 + dy) * s, z * s, 4.6 * s, 18 * s, 4.6 * s, t * 0.5, j, t));
+      k.add('ico', '#93AE8C', 0, 8 * s, 0, 5 * s, 3 * s, 5 * s);
+      swayFrom(k, i0, 0.9);
+    }
+    /* olive (Siwa): a twisted trunk, silvery round crown */
+    function olive(k, o) {
+      const s = o.s || 1;
+      k.stick([0, 0, 0], [2 * s, 6 * s, 1], 1.5 * s, '#6E5A48'); k.stick([2 * s, 6 * s, 1], [-1 * s, 11 * s, 0], 1.3 * s, '#6E5A48');
+      const i0 = k.w.length;
+      [[0, 14, 0, 6.5], [-5, 12, 2, 4.5], [5, 12.5, -2, 4.8], [1, 17, 1, 4]].forEach(([x, y, z, r], j) => k.add('ico', j % 2 ? '#A3B07E' : '#8C9C68', x * s, y * s, z * s, r * s, r * 0.8 * s, r * s, j, j * 2, 0));
+      swayFrom(k, i0, 0.5);
+    }
+    function bush(k, o) { const s = o.s || 1, c = o.col || '#5E9A4A'; k.add('ico', c, 0, 3 * s, 0, 4 * s, 3.4 * s, 4 * s, 0.3, 0.4, 0); k.add('ico', '#4C8A3E', 2 * s, 2.4 * s, 1.5 * s, 2.6 * s, 2.4 * s, 2.6 * s); if (o.flower) for (let j = 0; j < 4; j++) k.add('sph5', o.flower, Math.cos(j * 1.7) * 3 * s, 5.2 * s, Math.sin(j * 1.7) * 3 * s, 0.9 * s); }
+    function papyrusClump(k, o) {
+      const s = o.s || 1, i0 = k.w.length;
+      for (let j = 0; j < (o.n || 7); j++) { const a = j * 2.4, r = (j % 3) * 2 * s, tx = Math.cos(a) * (r + 3 * s), tz = Math.sin(a) * (r + 3 * s), ty = (26 - (j % 3) * 4) * s; k.stick([Math.cos(a) * r * 0.3, 0, Math.sin(a) * r * 0.3], [tx, ty, tz], 0.55 * s, j % 2 ? '#3F8A50' : '#2F7346', 'c4'); k.add('cone6', '#A9C95A', tx, ty + 3 * s, tz, 4.4 * s, 6 * s, 4.4 * s, Math.PI); }
+      for (let j = 0; j < 4; j++) k.add('cone3', '#4C9A62', Math.cos(j * 1.6) * 3 * s, 5 * s, Math.sin(j * 1.6) * 3 * s, 1.2 * s, 10 * s, 1.2 * s, 0, 0, (j % 2 ? 1 : -1) * 0.3);
+      swayFrom(k, i0, 1.4);
+    }
+    function reedTuft(k, o) { const s = o.s || 1, i0 = k.w.length; for (let j = 0; j < 5; j++) k.add('cone3', j % 2 ? '#5E9A4A' : '#3F7A3E', (j - 2) * 1.6 * s, 7 * s, (j % 2) * 1.5 * s, 1.1 * s, 14 * s * (0.8 + (j % 3) * 0.15), 1.1 * s, (j - 2) * 0.12, j, (j - 2) * 0.16); swayFrom(k, i0, 1.6); }
+    function lotus(k, o) {
+      const s = o.s || 1;
+      [[0, 0, 4], [7, 4, 3], [-6, 5, 2.6], [3, -7, 3.2]].forEach(([x, z, r], j) => k.add('c12', j % 2 ? '#4F8E4C' : '#5FA05A', x * s, 0.2, z * s, r * s, 0.4, r * s));
+      if (o.flower !== false) [[7, 4], [-2, -3]].forEach(([x, z], j) => { k.add('cone6', j ? '#FBF3DF' : '#F2A7B8', x * s, 1.8 * s, z * s, 2.2 * s, 3 * s, 2.2 * s, Math.PI); k.add('sph5', '#F2C65A', x * s, 1.4 * s, z * s, 0.8 * s); });
+    }
+
+    /* ---------- animals (face +z; low poly, no lines) ---------- */
+    const legs4 = (k, xs, z0, z1, y, r, col, hoof) => [[-xs, z0], [xs, z0], [-xs, z1], [xs, z1]].forEach(([x, z]) => { k.stick([x, y, z], [x, 0.4, z], r, col); if (hoof) k.add('box', hoof, x, 0.4, z, r * 2, 0.8, r * 2.2); });
+    function camel(k, o) {
+      const c = o.col || '#C9A06A', c2 = '#B48A56';
+      k.add('sph', c, 0, 20, 0, 4.8, 4.6, 10);
+      k.add('sph5', c, 0, 25, -1.5, 3.8, 4.6, 5); k.add('sph5', c2, 0, 16.6, 0, 3.6, 2.4, 8);
+      k.stick([0, 21, 8], [0, 26, 13], 1.8, c, 'c6'); k.stick([0, 26, 13], [0, 31, 14], 1.5, c, 'c6');
+      k.add('sph5', c, 0, 32.4, 16, 2.4, 2.2, 4.2); k.add('sph5', '#D9B888', 0, 31.6, 19.4, 1.8, 1.6, 1.8);
+      [-1, 1].forEach(sd => { k.add('cone4', c2, sd * 1.4, 34.6, 14.4, 0.6, 1.6, 0.5); k.add('sph5', INK, sd * 2, 33.2, 17, 0.5); });
+      [[-2.6, -7], [2.6, -7], [-2.6, 7], [2.6, 7]].forEach(([x, z]) => { k.stick([x, 17, z], [x, 8.5, z + 0.8], 0.95, c, 'c6'); k.add('sph5', c2, x, 8.5, z + 0.8, 1); k.stick([x, 8.5, z + 0.8], [x, 0.6, z], 0.75, c, 'c6'); k.add('box', c2, x, 0.4, z + 0.4, 2, 0.8, 2.6); });
+      k.stick([0, 21, -10.5], [0, 13, -12], 0.6, c2);
+      if (o.load) { k.add('box', o.blanket || '#B7412E', 0, 29.4, -1.5, 8, 1.2, 8); k.add('box', '#F2C65A', 0, 29.2, -1.5, 8.4, 0.6, 2); [-1, 1].forEach(sd => k.add('box', sd < 0 ? '#E9CFA0' : '#8E5A33', sd * 5.4, 24, -1.5, 3, 6.6, 6.6)); }
+      if (o.sit) { /* couched: drop it (the caller passes sy) */ }
+    }
+    function cow(k, o) {
+      const c = o.col || '#F2E8D6', p = o.patch || '#7A4A2A';
+      k.add('sph', c, 0, 12, 0, 5.4, 5.4, 10.5);
+      [[2.6, 14, 2, 3.2, 2.6, 3.6], [-3, 12.6, -4, 2.8, 2.6, 3.6], [1, 15.6, -6, 2.6, 1.6, 2.6]].forEach(([x, y, z, a, b, d]) => k.add('sph5', p, x, y, z, a, b, d));
+      legs4(k, 3, -6.5, 6.5, 9, 1.3, c, '#3A2A1E');
+      k.stick([0, 14, 8.5], [0, 15, 12], 2.4, c, 'c6'); k.add('sph5', c, 0, 14.6, 14, 2.6, 2.8, 3.8); k.add('sph5', '#D9B8A0', 0, 13.2, 17, 1.8, 1.6, 1.4);
+      [-1, 1].forEach(sd => { k.stick([sd * 1.2, 17, 13.5], [sd * 4.2, 20.5, 13], 0.55, '#E9DCC0'); k.stick([sd * 4.2, 20.5, 13], [sd * 3.2, 24.5, 12.4], 0.45, '#E9DCC0'); k.add('sph5', INK, sd * 1.8, 15.6, 16, 0.5); k.add('sph5', c, sd * 3, 16, 13, 1.6, 0.7, 1); });
+      k.stick([0, 14, -10], [0.6, 6, -11.5], 0.5, c); k.add('sph5', p, 0.6, 5.6, -11.6, 0.9, 1.6, 0.9);
+    }
+    function goat(k, o) {
+      const c = o.col || '#5A4636', c2 = o.col2 || '#3A2E26';
+      k.add('sph5', c, 0, 6.4, 0, 3.2, 3.2, 5.4); legs4(k, 1.8, -3.4, 3.4, 4.6, 0.7, c, c2);
+      k.stick([0, 7.3, 4.5], [0, 9.6, 6], 1.2, c); k.add('sph5', c, 0, 10, 7.2, 1.5, 1.6, 2.4); k.stick([0, 8.6, 8.6], [0, 7, 8.8], 0.35, c2);
+      [-1, 1].forEach(sd => { k.stick([sd * 0.8, 11.2, 6.6], [sd * 1.4, 13.4, 4.6], 0.35, '#B8A68A'); k.add('box', c2, sd * 1.7, 10.3, 6.6, 1.4, 0.4, 0.8); });
+      k.stick([0, 7.8, -4.8], [0, 9.4, -5.8], 0.4, c);
+    }
+    function sheep(k, o) {
+      const c = o.col || '#EDE2CC';
+      k.add('ico', c, 0, 6.2, 0, 3.8, 3.4, 5.2); legs4(k, 1.8, -3, 3, 3.6, 0.7, '#5A4636');
+      k.add('sph5', '#5A4636', 0, 7.4, 5.4, 1.4, 1.7, 2.2); [-1, 1].forEach(sd => k.add('tor8', '#B8A68A', sd * 1.5, 8.2, 4.8, 1, 1, 1, 0, Math.PI / 2, 0));
+    }
+    function cat(k, o) {
+      const c = o.col || '#4A4048', c2 = o.col2 || c;
+      if (o.walk) {
+        k.add('sph5', c, 0, 3.6, 0, 1.6, 1.6, 3.6); legs4(k, 0.9, -2.4, 2.4, 3, 0.4, c);
+        k.add('sph5', c, 0, 5, 3.8, 1.5, 1.4, 1.5); [-1, 1].forEach(sd => k.add('cone4', c2, sd * 0.8, 6.4, 3.9, 0.5, 1.3, 0.4));
+        k.stick([0, 4.4, -3.4], [0, 7.4, -5], 0.35, c); k.stick([0, 7.4, -5], [0, 8.6, -4], 0.3, c);
+      } else {
+        k.add('sph5', c, 0, 2.4, 0, 1.9, 2.6, 2.4); k.add('sph5', c2, 0, 4.4, 1, 1.4, 2, 1.4);
+        k.add('sph5', c, 0, 6.6, 1.3, 1.5, 1.4, 1.4); [-1, 1].forEach(sd => { k.add('cone4', c, sd * 0.8, 8.2, 1.2, 0.5, 1.4, 0.4); k.add('sph5', '#E8C43A', sd * 0.55, 6.9, 2.5, 0.32); });
+        k.stick([1.2, 0.5, -1.6], [2.6, 0.5, 1.6], 0.4, c);
+      }
+    }
+    function ibis(k, o) {
+      const W2 = '#F4EEE0';
+      k.add('sph5', W2, 0, 8, 0, 2.2, 2.1, 3.6); k.add('sph5', INK, 0, 8.4, -3.4, 1.4, 1.2, 1.6);
+      const pk = o.peck; const nb = pk ? [0, 7, 4.4] : [0, 13, 3.2], hd = pk ? [0, 4.6, 6] : [0, 13.6, 3.8];
+      k.stick([0, 9, 2.6], nb, 0.55, INK); k.add('sph5', INK, hd[0], hd[1], hd[2], 0.95);
+      const b1 = pk ? [0, 2.4, 7.4] : [0, 12.8, 6.2], b2 = pk ? [0, 0.4, 7.2] : [0, 10.8, 7.6];
+      k.stick(hd, b1, 0.32, INK); k.stick(b1, b2, 0.26, INK);
+      [-1, 1].forEach(sd => k.stick([sd * 0.8, 6.4, 0], [sd * 0.9, 0.2, 0.4], 0.28, '#3A3030'));
+    }
+    function heron(k, o) {
+      const c = '#9AA4B4';
+      k.add('sph5', c, 0, 10, 0, 2, 2.4, 3.6); k.stick([0, 11, 2.4], [0, 15, 3.6], 0.6, c); k.stick([0, 15, 3.6], [0, 17, 3], 0.5, c); k.add('sph5', c, 0, 17.4, 3.4, 1); k.stick([0, 17.4, 4.2], [0, 17, 7.4], 0.3, '#E2A23A');
+      [-1, 1].forEach(sd => k.stick([sd * 0.8, 8, 0], [sd * 0.9, 0, 0.4], 0.3, '#C9A06A'));
+    }
+    function duck(k, o) {
+      const c = o.col || '#B98A5E', c2 = o.col2 || '#7A5A3E';
+      k.add('sph5', c, 0, 1.8, 0, 2.4, 1.8, 3.8); k.add('sph5', '#FBF3DF', 0, 2.2, -0.8, 2.5, 1, 2.6); k.add('cone4', c2, 0, 2.4, -3.8, 1.2, 2.6, 0.8, -1.2);
+      k.stick([0, 2.6, 2.6], [0, 5.4, 3.2], 0.6, c); k.add('sph5', c2, 0, 5.8, 3.4, 1.1, 1.1, 1.3); k.add('box', '#E8932E', 0, 5.6, 4.9, 0.8, 0.5, 1.4); k.add('sph5', '#E8932E', 0, 5.9, 3.8, 1.2, 0.4, 0.6);
+    }
+    function dog(k, o) {
+      const c = o.col || '#C99A5E';
+      k.add('sph5', c, 0, 6, 0, 2, 2.2, 4.4); legs4(k, 1.1, -2.8, 2.8, 5, 0.5, c);
+      k.stick([0, 7, 3.4], [0, 8.6, 4.8], 0.9, c); k.add('sph5', c, 0, 9.2, 5.6, 1.4, 1.4, 1.8); k.add('sph5', '#5A3A22', 0, 8.6, 7.4, 0.5);
+      [-1, 1].forEach(sd => k.add('cone4', c, sd * 0.8, 11.1, 5.2, 0.5, 1.8, 0.4));
+      k.add('tor8', c, 0, 8.4, -4.6, 1, 1, 1, 0, Math.PI / 2, 0);
+    }
+    function baboon(k, o) {
+      const c = '#9A8C6E';
+      k.add('sph5', c, 0, 4, 0, 2.6, 3.4, 2.4); k.add('sph5', '#B4A684', 0, 7.6, 1, 2.6, 1.8, 2.2); k.add('sph5', c, 0, 8.4, 1.2, 1.7, 1.7, 1.6); k.add('sph5', '#D8A08A', 0, 8, 2.6, 0.9, 0.8, 1.1);
+      [-1, 1].forEach(sd => { k.stick([sd * 1.8, 5.4, 0.6], [sd * 1.4, 1, 2.2], 0.5, c); k.add('sph5', c, sd * 1.6, 1.2, 1.2, 1.2, 1, 2); });
+    }
+    function crocBask(k, o) {
+      const c = '#5E7A4A', c2 = '#465E38';
+      k.add('sph', c, 0, 1.6, 0, 4.6, 2.4, 16); k.add('cone4', c, 0, 1.6, 19, 3.6, 10, 1.6, Math.PI / 2, Math.PI / 4); k.add('cone4', c2, 0, 1.4, -21, 3, 16, 1.6, -Math.PI / 2, Math.PI / 4);
+      for (let z = -12; z < 12; z += 5) k.add('cone4', c2, 0, 3.8, z, 1, 1.6, 1);
+      [-1, 1].forEach(sd => { k.add('sph5', '#E2C24A', sd * 2.4, 3.4, 13.6, 1.1); [-8, 8].forEach(z => k.add('box', c2, sd * 5, 0.5, z, 3.2, 1, 2, 0, sd * 0.5)); });
+    }
+    function hippoHead(k, o) {
+      const c = '#8E7C9A';
+      k.add('sph', c, 0, 1, 0, 7, 3, 9); k.add('sph5', c, 0, 1.4, 8, 5.6, 3.2, 4.6);
+      [-1, 1].forEach(sd => { k.add('sph5', c, sd * 3.4, 4, 2, 1.6); k.add('sph5', INK, sd * 3.4, 4.8, 2.6, 0.7); k.add('sph5', '#6B5A78', sd * 3.6, 4.6, -1.6, 1, 1.4, 0.8); k.add('sph5', '#6B5A78', sd * 2, 3.4, 11, 1); });
+    }
+
+    /* ---------- boats (length along z; the waterline is y = 0) ---------- */
+    /* an open hull: stations along z, a U section, inside darker; sheer: how much the ends rise; band: the top strake colour */
+    function hull(k, o) {
+      const Ln = o.L, B = o.B, H = o.H, sh = o.sheer || 0, N = o.N || 9, col = o.col, cin = o.cin || '#5E3A1F', band = o.band || col, keel = o.keel == null ? H * 0.55 : o.keel;
+      const prof = [[-1, 1], [-0.97, 0.62], [-0.82, 0.12], [-0.45, -0.5], [0, -0.62], [0.45, -0.5], [0.82, 0.12], [0.97, 0.62], [1, 1]];
+      const st = [];
+      for (let i = 0; i <= N; i++) {
+        const t = i / N, z = -Ln / 2 + Ln * t, sn = Math.sin(Math.PI * t), w = Math.max(0.35, B / 2 * Math.pow(sn, o.pf || 0.65)), top = H + sh * Math.pow(2 * t - 1, 2), kd = -keel * Math.pow(sn, 0.5);
+        st.push(prof.map(([u, v]) => [u * w, kd + (top - kd) * (v + 0.62) / 1.62, z]));
+      }
+      for (let i = 0; i < N; i++) for (let j = 0; j < prof.length - 1; j++) {
+        const a = st[i][j], b = st[i][j + 1], c = st[i + 1][j + 1], d = st[i + 1][j], cc = (j === 0 || j === prof.length - 2) ? band : col;
+        k.quad(a, b, c, d, cc);
+        const sc = 0.9, inn = q => [q[0] * sc, q[1] + 0.25, q[2]];
+        k.quad(inn(a), inn(d), inn(c), inn(b), cin);
+      }
+      /* end caps where the hull narrows to a point: small posts */
+      for (let i = 0; i < N; i++) { L(k, st[i][0], st[i + 1][0], 0.7); L(k, st[i][prof.length - 1], st[i + 1][prof.length - 1], 0.7); }
+      return st;
+    }
+    function skiff(k, o) {
+      hull(k, { L:26, B:7.5, H:2.4, sheer:2.4, col:o.col || '#9A6A3E', band:o.band || '#B7412E', N:8 });
+      k.add('box', '#7A4E2C', 0, 1.8, 2, 6, 0.6, 1.4); k.add('box', '#7A4E2C', 0, 1.8, -5, 5.6, 0.6, 1.4);
+      if (o.net) { k.add('sph5', '#8C8070', 0, 2.2, -1.4, 2.6, 1.2, 3.4); k.add('sph5', '#A0947E', 1, 2.8, -0.6, 1.6, 0.8, 2); }
+      k.stick([2.6, 2.2, 6], [-4, 2.6, -10], 0.32, '#6B4226'); k.add('box', '#8E5A33', -4.6, 2.6, -11.6, 1.6, 0.3, 3.6, 0, 0.4);
+      if (o.pole) k.stick([-1.5, 1.8, 7], [3.5, 12, 18], 0.3, '#6B4226');
+    }
+    function papyrusRaft(k, o) {
+      const st = hull(k, { L:30, B:7, H:3, sheer:7, col:'#C9B060', band:'#B39A4C', cin:'#A88E48', N:10, keel:1.2, pf:0.5 });
+      for (let i = 1; i < 10; i += 2) { const a = st[i][0], b = st[i][8]; L(k, [a[0], a[1], a[2]], [b[0], b[1], b[2]], 0.9); k.add('box', '#8E6A30', 0, Math.max(a[1], b[1]) - 0.1, a[2], Math.abs(a[0] - b[0]) + 0.4, 0.4, 0.7); }
+      [-1, 1].forEach(sd => { const z = sd * 15; k.add('cone6', '#A9C95A', 0, 10.6, z + sd * 0.6, 2.2, 3, 2.2, Math.PI); });
+      if (o.mat) k.add('box', '#E9CFA0', 0, 2.6, 0, 4.6, 0.4, 8);
+    }
+    function barge(k, o) {
+      hull(k, { L:56, B:20, H:5, sheer:5, col:o.col || '#7A5636', band:'#B7412E', N:10, pf:0.4 });
+      k.add('box', '#C9A36A', 0, 3.6, 0, 15, 0.8, 38);
+      const cg = o.cargo || 'jars';
+      if (cg === 'stone') { [[-4, -8], [4, -8], [0, -8.2], [-4, 2], [4, 2]].forEach(([x, z], j) => k.add('box', j === 2 ? '#C9B48A' : '#DCC9A0', x, j === 2 ? 9.4 : 6.2, z, 6.6, 5, 7.4)); }
+      else if (cg === 'cedar') { for (let j = 0; j < 5; j++) k.add('c8', j % 2 ? '#A0643A' : '#8E5A33', (j % 3 - 1) * 4, 5.6 + Math.floor(j / 3) * 3.2, -2, 1.8, 30, 1.8, Math.PI / 2); }
+      else { for (let j = 0; j < 8; j++) { const x = (j % 3 - 1) * 4.4, z = -10 + Math.floor(j / 3) * 6; k.add('tap8', '#C0703E', x, 7, z, 2, 6, 2, Math.PI); k.add('c8', '#8E4A26', x, 10.4, z, 1, 1, 1); } [[-4, 9], [3, 10]].forEach(([x, z]) => k.add('sph5', '#E9CFA0', x, 5.8, z, 3, 2.2, 3)); }
+      k.add('box', '#E6CB95', 0, 7, 19, 10, 6, 8); k.add('box', '#B7412E', 0, 10.4, 19, 11, 1, 9);
+      [-1, 1].forEach(sd => { k.stick([sd * 5, 9, 26], [sd * 8, -1, 34], 0.5, '#6B4226'); k.add('box', '#8E5A33', sd * 8.2, -0.4, 34.6, 0.6, 3.6, 4, 0.5, 0, 0); });
+      k.stick([0, 4, -16], [0, 34, -16], 0.8, '#6B4226'); k.stick([-11, 30, -16], [11, 30, -16], 0.5, '#6B4226'); k.add('c8', '#F4E7C6', 0, 29, -16, 1.6, 21, 1.6, 0, 0, Math.PI / 2);
+    }
+    /* a royal / sacred barque: gilded papyriform hull, a cabin shrine, a canopy, steering oars */
+    function royalBarque(k, o) {
+      const gold = '#D9A43A', lap = '#1F5FA8';
+      hull(k, { L:72, B:15, H:5, sheer:15, col:gold, band:lap, cin:'#9C4A2E', N:12, pf:0.55 });
+      [-1, 1].forEach(sd => { const z = sd * 36; k.add('cone6', gold, 0, 22.6, z + sd * 1.2, 3.6, 4.6, 3.6, Math.PI); k.add('c6', lap, 0, 19.6, z + sd * 0.6, 1.6, 2.2, 1.6); });
+      k.add('box', '#C9A36A', 0, 4.2, 0, 11, 0.8, 48);
+      k.add('box', '#F4E7C6', 0, 9.6, 2, 9, 10, 14); k.add('box', gold, 0, 15, 2, 10.4, 1.2, 15.4); k.add('box', lap, 0, 13.4, 2, 9.4, 1.2, 14.4); k.add('box', '#B7412E', 0, 6.4, 9.1, 4, 6, 0.4);
+      for (let j = 0; j < 4; j++) k.add('box', j % 2 ? lap : '#B7412E', -4.6, 10.6, -3 + j * 3, 0.3, 4, 1.4);
+      [[-4, -10], [4, -10], [-4, -20], [4, -20]].forEach(([x, z]) => k.stick([x, 4.6, z], [x, 15, z], 0.35, gold)); k.add('box', '#FBF3DF', 0, 15.2, -15, 9.6, 0.5, 12); k.add('box', '#B7412E', 0, 15.6, -15, 9.8, 0.3, 1.6);
+      [-1, 1].forEach(sd => { k.stick([sd * 4, 12, 30], [sd * 8, -1, 40], 0.6, '#8E5A33'); k.add('box', '#B7412E', sd * 8.3, -0.2, 40.8, 0.6, 4, 5, 0.5); k.stick([sd * 4, 4, 30], [sd * 4, 14, 30], 0.6, '#8E5A33'); });
+      k.stick([0, 4.6, -27], [0, 20, -27], 0.5, '#6B4226'); k.add('box', '#B7412E', 0, 18, -24, 0.3, 4, 6);
+      if (o.oars) for (let j = 0; j < 5; j++) [-1, 1].forEach(sd => k.stick([sd * 6.6, 5.6, -14 + j * 6], [sd * 16, -0.6, -12 + j * 6], 0.3, '#8E5A33'));
+    }
+    /* a seagoing Punt ship hull, short (for Saww): use boatKit for the big one */
+
+    /* ---------- statues, shrines, small monuments ---------- */
+    function sphinx(k, o) {
+      const c = o.col || '#E8D9B8', c2 = o.col2 || '#D2C198', hd = o.ram ? 'ram' : 'man';
+      k.add('box', o.plinth || '#CDB07A', 0, 2, 0, 12, 4, 30);
+      k.add('sph', c, 0, 8.6, -2, 4.6, 4.4, 11); k.add('box', c, 0, 6.2, 9, 6.6, 3.6, 6);
+      [-1, 1].forEach(sd => k.add('box', c2, sd * 2.2, 4.8, 13, 2, 1.4, 6));
+      k.stick([0, 7, -12], [2, 5, -14], 0.6, c);
+      if (hd === 'ram') { k.add('sph5', c, 0, 12.8, 9.4, 2.8, 3.2, 4.4); k.add('sph5', c2, 0, 11.6, 13, 1.8, 2, 2); [-1, 1].forEach(sd => k.add('tor8', c2, sd * 2.6, 13.4, 8.6, 2, 2, 1.4, 0, Math.PI / 2, 0)); k.add('box', '#B48A4A', 0, 9.6, 8.6, 5.4, 2.6, 1); }
+      else { tb(k, o.nemes || '#3E6FA8', 0, 8.6, 8.4, 8, 4, 7.4, 0.55); k.add('box', c, 0, 13.6, 10, 3.8, 4.6, 3.6); k.add('box', o.nemes || '#3E6FA8', 0, 16.4, 9.4, 4.4, 1.2, 4.4); [-1, 1].forEach(sd => k.add('sph5', INK, sd * 0.9, 14.4, 11.85, 0.32, 0.26, 0.2)); k.add('box', '#B48A4A', 0, 10.4, 11.6, 0.8, 2.4, 0.8); }
+    }
+    /* a seated colossus on its throne (scale with s) */
+    function colossus(k, o) {
+      const c = o.col || '#D9C49A', c2 = o.col2 || '#BFA578', nm = o.nemes || '#E6C688';
+      k.add('box', c2, 0, 6, -2, 16, 12, 18); k.add('box', c2, 0, 21, -9.6, 7, 42, 2.6);
+      [-1, 1].forEach(sd => {
+        k.add('box', c, sd * 3, 6, 9.6, 4.2, 12, 4.4); k.add('box', c2, sd * 3, 0.8, 11.6, 4.6, 1.6, 6.4);
+        k.add('box', c, sd * 3, 13.4, 2.6, 4.6, 3, 15);
+        k.stick([sd * 5.4, 25.4, -4], [sd * 5.8, 16.4, -1.4], 1.4, c, 'c6'); k.stick([sd * 5.8, 16.4, -1.4], [sd * 4.4, 15.6, 8], 1.25, c, 'c6'); k.add('sph5', c, sd * 4.2, 15.6, 9, 1.5, 1.4, 1.7);
+      });
+      tb(k, c, 0, 14.9, -4, 7.6, 4.6, 11.6, 1.38);
+      k.add('box', '#F4EEDE', 0, 15.6, 1.6, 7.2, 2.6, 7.2);
+      k.add('box', c, 0, 27.4, -3.6, 2.6, 2.4, 2.6);
+      tb(k, nm, 0, 25.4, -4.6, 9, 4.6, 7.8, 0.56);
+      k.add('box', c, 0, 31.2, -2.6, 4.2, 5.2, 3.8); k.add('box', nm, 0, 34.2, -3.4, 5, 1.6, 5);
+      [-1, 1].forEach(sd => { k.add('box', nm, sd * 3, 27.6, -1.6, 1.6, 6, 1.2); k.add('sph5', INK, sd * 1.05, 31.8, -0.6, 0.38, 0.3, 0.2); });
+      k.add('box', '#B48A4A', 0, 27.4, -0.8, 1.1, 3.4, 1.1);
+      if (o.crown !== false) { k.add('tap8', '#F4EEDE', 0, 38, -3.2, 2.4, 6, 2.4, Math.PI); k.add('sph5', '#F4EEDE', 0, 41.4, -3.2, 1.2); k.add('box', '#B7412E', 0, 36, -3.2, 5.4, 2.4, 5.4); }
+    }
+    function catStatue(k, o) {
+      const c = o.col || '#3A3346', g = '#D9A43A';
+      k.add('box', o.plinth || '#D9BC86', 0, 2.5, 0, 9, 5, 12); k.add('box', '#B7412E', 0, 4.8, 0, 9.4, 0.6, 12.4);
+      k.add('sph', c, 0, 10, -0.5, 3.4, 5.6, 4); k.add('sph5', c, 0, 13, 1, 2.4, 3.6, 2.4);
+      k.add('sph5', c, 0, 17.6, 1.6, 2.6, 2.4, 2.4); [-1, 1].forEach(sd => { k.add('cone4', c, sd * 1.4, 20.4, 1.4, 0.9, 2.6, 0.7); k.add('sph5', g, sd * 1.9, 17, 2.6, 0.5); k.add('box', c, sd * 1.1, 6.4, 3.2, 1.3, 2.6, 1.6); });
+      k.add('tor8', g, 0, 14.6, 1.4, 1.8, 1.8, 1.8, Math.PI / 2, 0, 0);
+      k.stick([2.6, 5.6, -3.4], [3.4, 5.6, 3.4], 0.6, c);
+    }
+    /* Osiris: mummiform, green face, white atef crown with plumes, crook and flail */
+    function osiris(k, o) {
+      const s = o.s || 1, wh = '#F4EEDE';
+      k.add('box', '#CDB07A', 0, 2 * s, 0, 9 * s, 4 * s, 9 * s);
+      k.add('tap8', wh, 0, 15 * s, 0, 3.6 * s, 22 * s, 3.4 * s, Math.PI); k.add('sph5', '#4E9A62', 0, 28 * s, 0.4 * s, 2.4 * s, 2.8 * s, 2.4 * s);
+      k.add('tap8', wh, 0, 34 * s, 0, 1.8 * s, 8 * s, 1.8 * s, Math.PI); k.add('sph5', wh, 0, 38.2 * s, 0, 1.2 * s); [-1, 1].forEach(sd => k.add('box', '#E6C688', sd * 2.4 * s, 34 * s, 0, 0.8 * s, 8 * s, 1 * s, 0, 0, sd * 0.15));
+      k.add('box', '#4E9A62', 0, 21 * s, 2.6 * s, 4.8 * s, 1.6 * s, 1.4 * s); k.stick([-1.4 * s, 23 * s, 3.4 * s], [-0.6 * s, 27 * s, 3.6 * s], 0.3 * s, '#D9A43A'); k.stick([1.4 * s, 23 * s, 3.4 * s], [2 * s, 27 * s, 3 * s], 0.3 * s, '#1F5FA8');
+      k.add('box', '#B48A4A', 0, 25.6 * s, 2.2 * s, 0.8 * s, 2.2 * s, 0.8 * s);
+    }
+    function stela(k, o) { const c = o.col || '#E6D8B4'; k.add('box', c, 0, 4.2, 0, 6, 8.4, 1.6); k.add('c12', c, 0, 8.4, 0, 3, 1.6, 3, Math.PI / 2); k.add('box', o.paint || '#B7412E', 0, 6.6, 0.85, 3.6, 0.8, 0.1); k.add('box', '#1F5FA8', 0, 4.4, 0.85, 3.6, 0.6, 0.1); }
+    function offering(k, o) { k.add('box', '#CDB07A', 0, 1.6, 0, 7, 3.2, 5); [[-2, -1, '#D08436'], [1.6, 0.6, '#E2B84E'], [0, 1.4, '#7FB25A'], [-0.4, -1.6, '#B7412E']].forEach(([x, z, c]) => k.add('sph5', c, x, 4, z, 1.4, 1.1, 1.4)); k.add('tap8', '#C0703E', 2.2, 4.6, -1.4, 0.9, 2.8, 0.9, Math.PI); }
+    function flagpole(k, o) { const h = o.h || 46; k.add('c8', '#CDB07A', 0, 1.5, 0, 2.6, 3, 2.6); k.stick([0, 0, 0], [0, h, 0], 0.7, '#8E5A33', 'c6'); const i0 = k.w.length; k.add('box', o.col || '#B7412E', 0, h - 5, 4.2, 0.4, 7, 8); k.add('cone3', o.col2 || '#F2C65A', 0, h - 4, 9, 0.3, 4, 2.4, Math.PI / 2, 0, 0); for (let i = i0; i < k.w.length; i++) k.w[i] = 1.6; }
+    function jarStack(k, o) { [[0, 0], [3.6, 1], [-3.2, 1.6], [1, -3.2], [-1.2, 3.4]].forEach(([x, z], j) => { const c = ['#C0703E', '#D9A43A', '#B86A3A', '#E2C796', '#A85A34'][(j + (o.v || 0)) % 5]; k.add('tap8', c, x, 2.6, z, 1.7, 5.2, 1.7, Math.PI); k.add('c8', '#8E4A26', x, 5.6, z, 0.9, 1, 0.9); }); }
+    function basket(k, o) { const c = o.fill || '#D08436'; k.add('tap8', '#B88E52', 0, 1.6, 0, 2.6, 3.2, 2.6, Math.PI); k.add('c8', '#8E6A3A', 0, 3.2, 0, 2.9, 0.4, 2.9); k.add('sph5', c, 0, 3.4, 0, 2.3, 1, 2.3); }
+    function heap(k, o) { const c = o.col || '#E2B84E'; k.add('cone8', c, 0, 2.2, 0, 4, 4.4, 4); k.add('c8', o.base || '#B88E52', 0, 0.3, 0, 4.4, 0.6, 4.4); }
+    /* goods by kind, for market mats and stalls: returns small parts laid on (x, y, z) */
+    function goods(k, kind, x, y, z) {
+      ensure();
+      if (kind === 'grain') { k.add('cone8', '#E2B84E', x, y + 1.6, z, 2.8, 3.2, 2.8); }
+      else if (kind === 'dates') { k.add('sph5', '#9C4A2E', x, y + 1, z, 2.4, 1.4, 2.4); k.add('sph5', '#B8682A', x + 0.6, y + 1.8, z, 1.4, 1, 1.4); }
+      else if (kind === 'fish') { for (let j = 0; j < 3; j++) { k.add('sph5', '#9AB4C8', x - 1.8 + j * 1.8, y + 0.6, z, 0.7, 0.5, 2.2); k.add('cone4', '#7A94A8', x - 1.8 + j * 1.8, y + 0.6, z - 2.6, 0.7, 1.2, 0.3, -Math.PI / 2); } }
+        else if (kind === 'jars') { k.add('tap8', '#C0703E', x, y + 2.2, z, 1.4, 4.4, 1.4, Math.PI); k.add('c8', '#8E4A26', x, y + 4.8, z, 0.7, 0.8, 0.7); }
+      else if (kind === 'wine') { k.add('tap8', '#B86A3A', x, y + 2.6, z, 1.3, 5.2, 1.3, Math.PI); k.add('c8', '#4A2E4C', x, y + 5.4, z, 0.9, 0.8, 0.9); }
+      else if (kind === 'papyrus') { for (let j = 0; j < 3; j++) k.add('c8', '#F2E6C2', x, y + 0.7 + (j === 2 ? 1.2 : 0), z - 1.2 + (j % 2) * 2.4 - (j === 2 ? 1.2 : 0), 0.7, 4.6, 0.7, 0, 0, Math.PI / 2); }
+      else if (kind === 'copper') { [0, 1].forEach(j => k.add('box', '#C8743A', x, y + 0.4 + j * 0.8, z, 4, 0.7, 2.6, 0, j * 0.6, 0)); }
+      else if (kind === 'lapis') { [[0, 0], [1.2, 0.8], [-1, 1]].forEach(([a, b]) => k.add('ico', '#2F5FB8', x + a, y + 0.8, z + b, 1, 0.8, 1)); }
+      else if (kind === 'salt') { k.add('box', '#F4F2EA', x, y + 1, z, 3, 2, 2.2); k.add('box', '#E4E2DA', x + 0.6, y + 2.6, z, 2.2, 1.2, 1.8); }
+      else if (kind === 'incense') { k.add('c8', '#D9C9A0', x, y + 0.5, z, 1.8, 1, 1.8); k.add('sph5', '#E8D27A', x, y + 1.2, z, 1.5, 0.8, 1.5); }
+      else if (kind === 'cloth') { ['#B7412E', '#F4E7C6', '#2F6EA6'].forEach((c, j) => k.add('box', c, x, y + 0.4 + j * 0.8, z, 4, 0.8, 2.6)); }
+      else if (kind === 'ivory') { [-1, 1].forEach(sd => { k.stick([x + sd * 0.8, y + 0.6, z - 2], [x + sd * 1.6, y + 1.6, z + 2.4], 0.5, '#F6EEDA'); }); }
+      else if (kind === 'ebony') { k.add('c8', '#3A2A26', x, y + 0.9, z, 0.9, 6, 0.9, Math.PI / 2); k.add('c8', '#4A3430', x + 0.8, y + 2, z, 0.8, 5, 0.8, Math.PI / 2); }
+      else if (kind === 'cedar') { k.add('c8', '#A0643A', x, y + 0.9, z, 0.9, 6, 0.9, Math.PI / 2); k.add('c8', '#C98E5A', x + 0.8, y + 2, z, 0.8, 5, 0.8, Math.PI / 2); }
+      else if (kind === 'amulet') { [[0, 0, '#2BA59A'], [1.2, 0.6, '#D9A43A'], [-1, 0.8, '#2F5FB8']].forEach(([a, b, c]) => k.add('sph5', c, x + a, y + 0.5, z + b, 0.6)); }
+      else if (kind === 'melon') { k.add('sph5', '#5E9A4A', x, y + 1.4, z, 1.8, 1.5, 1.8); k.add('sph5', '#7FB25A', x + 1.8, y + 1.1, z + 0.6, 1.3, 1.1, 1.3); }
+      else { k.add('sph5', '#D9A43A', x, y + 1, z, 1.6, 1.2, 1.6); }
+    }
+
+    /* a shaduf (well sweep) without its drawer: post, beam, counterweight, bucket */
+    function shaduf(k, o) {
+      k.stick([0, 0, 0], [0, 24, 0], 1.4, '#6B4226'); k.stick([-4, 0, 0], [-3, 20, 0], 1, '#6B4226');
+      k.stick([-20, 30, 0], [14, 20, 0], 1, '#8E5A33'); k.add('sph5', '#94776A', 14, 20, 0, 3.4);
+      k.stick([-20, 30, 0], [-20, 12, 0], 0.3, INK); k.add('hemi', '#B7412E', -20, 9, 0, 2.8, 3, 2.8, Math.PI);
+    }
+    function logs(k, o) { const c = o.col || '#A0643A'; for (let j = 0; j < 6; j++) { const r = j < 3 ? 0 : j < 5 ? 1 : 2, x = (j < 3 ? j - 1 : j < 5 ? j - 3.5 : 0) * 3.8; k.add('c8', j % 2 ? c : '#8E5A33', x, 1.9 + r * 3.3, 0, 1.9, 26, 1.9, Math.PI / 2); k.add('c8', '#D9A06A', x, 1.9 + r * 3.3, 13.05, 1.6, 0.2, 1.6, Math.PI / 2); } }
+    function rope(k, o) { for (let j = 0; j < 3; j++) k.add('tor8', '#B89A5A', 0, 0.8 + j * 0.9, 0, 3.4 - j * 0.3, 3.4 - j * 0.3, 2.2, Math.PI / 2, 0, 0); }
+    function anchor(k, o) { k.add('box', '#B8AE9A', 0, 6, 0, 8, 12, 2.6, 0, 0, 0); k.add('cone4', '#B8AE9A', 0, 13.6, 0, 4, 3.4, 1.8, 0, Math.PI / 4); k.add('c8', '#3A3030', 0, 10, 1.3, 1.2, 0.4, 1.2, Math.PI / 2); }
+    function boulder(k, o) { const a = o.col || '#A9827A', b = o.col2 || '#8E6A62'; k.add('dod', a, 0, 4.6, 0, 7, 5.6, 6.4, 0.3, 0.5, 0.1); k.add('ico', b, 4.4, 3, 3, 3.6, 3, 3.4, 0.8, 0.2, 0); k.add('dod', b, -4, 2, -2.4, 3.2, 2.6, 3, 0.2, 1, 0.4); [[1, 9, 2], [-2, 7, 4.6], [3.6, 6, -3]].forEach(([x, y, z]) => k.add('sph5', '#5E4A48', x, y, z, 0.6, 0.3, 0.6)); }
+    function incenseTree(k, o) { k.add('tap8', '#C0703E', 0, 3, 0, 3.4, 6, 3.4, Math.PI); k.add('c8', '#5A3A22', 0, 6.1, 0, 2.8, 0.3, 2.8); k.stick([0, 6, 0], [1, 12, 0], 0.6, '#8E7460'); k.stick([1, 11, 0], [-2, 15, 1], 0.4, '#8E7460'); const i0 = k.w.length; [[1, 15, 0, 3.4], [-2.4, 16, 1, 2.6], [2.6, 13, -1, 2.4]].forEach(([x, y, z, r], j) => k.add('ico', j % 2 ? '#7E9A5A' : '#6A8A4A', x, y, z, r, r * 0.7, r)); swayFrom(k, i0, 0.4); }
+    function cartGoods(k, o) { k.add('box', '#8E5A33', 0, 4, 0, 10, 1.2, 16); [-1, 1].forEach(sd => { k.add('c12', '#6B4226', sd * 5.6, 4, -3, 4, 0.8, 4, 0, 0, Math.PI / 2); }); k.stick([0, 4, 8], [0, 3, 18], 0.5, '#6B4226'); [[-2, -4], [2, -3], [0, 2]].forEach(([x, z], j) => k.add('sph5', j % 2 ? '#E9CFA0' : '#D8C49A', x, 7, z, 2.8, 2.2, 3)); }
+
+    /* a ridge tent of goat-hair cloth (desert camps) */
+    function tentP(k, o) {
+      const c1 = o.c1 || '#3A2E2A', c2 = o.c2 || '#7A5A3E', w = 26, d = 18, h = 10, e = 2.4, n = 4;
+      for (let i = 0; i < n; i++) {
+        const x0 = -w / 2 + i * w / n, x1 = x0 + w / n, c = i % 2 ? c2 : c1, A = [x0, h, 0], B = [x1, h, 0], C = [x1, e, d / 2], D = [x0, e, d / 2], E2 = [x1, e, -d / 2], F = [x0, e, -d / 2];
+        k.quad(D, C, B, A, c).quad(A, B, C, D, '#2A2018'); k.quad(A, B, E2, F, c).quad(F, E2, B, A, '#2A2018');
+      }
+      [-1, 0, 1].forEach(j => k.stick([j * w / 2.2, 0, 0], [j * w / 2.2, h, 0], 0.4, '#6B4226'));
+      k.add('box', '#B7412E', -4, 0.3, d / 2 + 4, 8, 0.4, 6); k.add('tap8', '#C0703E', 6, 2.4, d / 2 + 3, 1.6, 4.8, 1.6, Math.PI);
+    }
+    /* a river-bank house (no ink lines in the river view: the ink hull outlines it) */
+    function rvHouse(k, x, z, w, d, h, o) {
+      const wall = o.wall, roof = o.roof || '#F0DCB0', band = o.band;
+      k.add('box', wall, x, h / 2, z, w, h, d);
+      if (o.nub) { k.add('box', band, x, 1.2, z, w + 0.6, 2.4, d + 0.6); k.add('vault', wall, x, h, z, w * 0.8, d * 0.3, d * 0.3); k.add('box', band, x, 6, z + d / 2 + 0.3, 7, 12, 0.6); k.add('box', '#3A2418', x, 4.5, z + d / 2 + 0.6, 4.4, 9, 0.6); for (let i = -2; i <= 2; i++) k.add('box', i % 2 ? '#F2C65A' : band, x + i * 2.6, 14.5, z + d / 2 + 0.4, 1.5, 1.5, 0.4, 0, 0, Math.PI / 4); return; }
+      k.add('box', band, x, h - 2.4, z, w + 0.8, 2.4, d + 0.8); k.add('box', roof, x, h + 0.9, z, w + 2, 1.8, d + 2);
+      [[0, d / 2 + 0.6, w + 2, 1.4], [0, -d / 2 - 0.6, w + 2, 1.4]].forEach(([dx, dz, ww, dd]) => k.add('box', roof, x + dx, h + 2.6, z + dz, ww, 2, dd));
+      k.add('box', '#3A2418', x + (o.dx || 0), 4.6, z + d / 2 + 0.3, 5, 9.2, 0.8);
+      if (w > 20) k.add('box', '#3A2418', x - w / 2 + 5, h - 8, z + d / 2 + 0.3, 3.4, 3.8, 0.8);
+      if (o.dome) k.add('hemi', roof, x - w / 5, h + 1.8, z - d / 5, 5, 5, 5);
+      if (o.awn) { [[-1, 1], [1, 1]].forEach(([a]) => k.stick([x + a * (w / 2 - 2), h + 1.8, z + d / 2 - 2], [x + a * (w / 2 - 2), h + 9, z + d / 2 - 2], 0.4, '#6B4226')); k.add('box', o.awn, x, h + 9.4, z + d / 4, w - 2, 0.5, d / 2 + 2, 0.1); }
+      if (o.wc) { k.add('box', o.wall, x + w / 4, h + 5, z - d / 4, 4.6, 8, 4.6); k.add('box', roof, x + w / 4, h + 9.6, z - d / 4 - 0.5, 5.4, 1.2, 6.4, -0.45); }
+    }
+    function rvDove(k, x, z, col) { k.add('tap8', col, x, 16, z, 6, 32, 6); k.add('cone8', col, x, 35, z, 4.2, 6, 4.2); for (let r = 0; r < 3; r++) for (let j = 0; j < 3; j++) { const a = j * 0.9 + r * 0.4; k.add('sph5', '#5A3A22', x + Math.sin(a) * 5.6, 14 + r * 5, z + Math.cos(a) * 5.6, 0.9); } }
+    function rvGranary(k, x, z, col) { k.add('box', col, x, 3, z, 30, 6, 2); [-9, 0, 9].forEach(dx => { k.add('sph', col, x + dx, 0, z - 8, 5, 14, 5); k.add('box', '#3A2418', x + dx, 10, z - 3.6, 2, 2.4, 0.8); }); }
+    /* the scenery of one river chunk (replaces V3's own when present): villages of several house kinds, temples, shadufs,
+       beached boats, basking crocodiles, cattle and birds at the water, trees by region; the desert gets rocks, camps, oases, ruins */
+    function riverChunk(k, f, st, api, y0, y1, vis) {
+      ensure(); k.noLines = true;
+      const hw = api.halfW(), H = api.hash, sd0 = st.seedDeco || 0, cX = api.centerX, side = vis.side, pl = st.plan || {}, dest = pl.dest, from = pl.from;
+      const nub = dest === 4 || from === 4, south = nub || dest === 3 || from === 3 || dest === 2 || from === 2, delta = dest === 0 || from === 0, rap = st.kind === 'rapids';
+      const shadow = (x, z, r) => { f.alpha = 0.14; f.add('disc', '#000000', x + r * 0.6, 0.25, z + r * 0.2, r * 1.3, 1, r * 0.6); };
+      const RL = { palmA:'palmAR', palmB:'palmBR', palmC:'palmCR', papyrus:'papyrusR' }, put = (k2, key, x, y, z, ry, s, o) => putW(k2, RL[key] || key, x, y, z, ry, s, o);
+      const tr = (key, x, z, s, ry) => { put(k, key, x, 0, z, ry == null ? (x * 0.37 + z * 0.61) % 6.28 : ry, s); shadow(x, z, 14 * s); };
+      if (st.desert) {
+        const canyon = rap, storm = st.kind === 'sandstorm';
+        for (let y = Math.ceil(y0 / 70) * 70; y < y1; y += 70) [-1, 1].forEach(sd => {
+          const h = H(y * 0.131 + sd * 5 + sd0), h2 = H(y * 0.57 + sd * 9), h3 = H(y * 0.91 + sd * 2 + sd0), c = cX(y), x = c + sd * (hw + 18 + h2 * 46), z = -y;
+          if (canyon && h < 0.62) {
+            const cols = ['#C98A55', '#B87848', '#D9A066', '#A86A40'], n = 2 + Math.floor(h2 * 3);
+            for (let j = 0; j < n; j++) { const w = 26 + H(y + j * 7) * 30, d = 22 + H(y + j * 3) * 26, hh = 20 + H(y * 1.3 + j) * 46; tb(k, cols[(j + Math.floor(h * 9)) % 4], x + sd * (j * 18 + 8), 0, z - j * 14 + 10, w, d, hh, 0.86); if (hh > 40) tb(k, cols[(j + 1) % 4], x + sd * (j * 18 + 8), hh, z - j * 14 + 10, w * 0.6, d * 0.6, 10 + h3 * 14, 0.8); }
+            put(k, 'boulderS', c + sd * (hw + 6), 0, z + 20, h * 6, 0.9 + h2 * 0.6);
+          }
+          else if (h < 0.3) { const w = 70 + h2 * 70, hh = 16 + h * 36; k.add('hemi', '#E0BC78', x + sd * 30, -0.5, z, w, hh, 30 + h2 * 24, 0, h * 2); k.add('hemi', '#EBCB8C', x + sd * 40, -0.6, z + 8, w * 0.7, hh * 0.62, 20 + h2 * 14, 0, h * 3); }
+          else if (h < 0.38) { put(k, 'boulderS', x, 0, z, h * 9, 1 + h2); put(k, 'boulder', x + sd * 16, 0, z - 10, h2 * 7, 0.7); }
+          else if (h < 0.46) tr('acacia', x, z, 0.9 + h2 * 0.4);
+          else if (h < 0.52 && !storm) { put(k, 'camel', x, 0, z, sd * 1.3 + h2, 1, { sy:0.62 }); put(k, 'camelL', x + sd * 26, 0, z - 14, sd * 1.6, 1); shadow(x, z, 10); }
+          else if (h < 0.58) { tr('palmA', x + sd * 12, z, 0.9); tr('palmB', x + sd * 34, z - 16, 0.8); tr('palmC', x + sd * 4, z - 24, 0.7); k.add('c12', '#D9C49A', x + sd * 24, 0.3, z + 10, 13, 0.8, 9); k.add('c12', '#2A62A8', x + sd * 24, 0.5, z + 10, 11, 0.8, 7.5); put(k, 'bushY', x + sd * 40, 0, z + 12, h, 0.9); }
+          else if (h < 0.64) { [[0, 0, 22], [12, -10, 14], [-6, 14, 8]].forEach(([dx, dz, ch]) => { k.add('c8', '#E6D2A6', x + sd * dx, ch / 2, z + dz, 2.6, ch, 2.6); k.add('box', '#D9C08E', x + sd * dx, ch + 1, z + dz, 7, 2, 7); }); k.add('c8', '#E6D2A6', x + sd * 22, 2.6, z + 8, 2.6, 22, 2.6, Math.PI / 2, h * 3); k.add('box', '#C7A86E', x - sd * 10, 3, z + 6, 12, 6, 8, 0, 0.4, 0.3); }
+          else if (h < 0.7 && !storm) { put(k, 'tentP', x + sd * 10, 0, z, sd * 0.3 + h2, 1); put(k, 'camelL2', x + sd * 34, 0, z + 12, h2 * 6, 1); }
+          else if (h < 0.76) { for (let j = 0; j < 3; j++) k.add('dod', j % 2 ? '#B89A7A' : '#A08060', x, 2 + j * 3.4, z, 4 - j, 2.4, 4 - j, j, j * 2, 0); }
+          else if (h < 0.86) { put(k, 'bushY', x, 0, z, h * 9, 0.8 + h2 * 0.4); put(k, 'bushY', x + sd * 12, 0, z + 9, h2 * 9, 0.6); }
+          const fx2 = c + sd * (hw + 170 + h * 220);
+          if (fx2 > -side + api.W / 2 && fx2 < api.W / 2 + side) { if (canyon) tb(k, '#B87848', fx2, 0, z - 40, 70 + h * 60, 50, 50 + h2 * 50, 0.85); else k.add('hemi', '#DDB673', fx2, -0.5, z - 40, 120 + h * 100, 26 + h2 * 34, 60 + h * 30, 0, h); }
+        });
+        return;
+      }
+      for (let y = Math.ceil(y0 / 64) * 64; y < y1; y += 64) {
+        const c = cX(y), z = -y;
+        [-1, 1].forEach(sd => {
+          const h = H(y * 0.113 + sd * 7 + sd0), h2 = H(y * 0.71 + sd * 3), h3 = H(y * 1.37 + sd * 11 + sd0), bx = c + sd * (hw + 22 + h2 * 22);
+          if (rap && h3 < 0.5) { put(k, h3 < 0.25 ? 'boulder' : 'boulderS', c + sd * (hw + 10), -2, z + 16, h * 6, 0.9 + h2 * 0.7); }
+          if (h < (delta ? 0.3 : 0.2)) { put(k, 'papyrus', bx - sd * 10, 0, z, h2 * 6, 0.8 + h2 * 0.5); if (h2 < 0.5) put(k, 'papyrus', bx + sd * 6, 0, z - 18, h * 6, 0.7); if (delta && h3 < 0.4) put(k, h3 < 0.2 ? 'ibis' : 'heron', bx - sd * 4, 0, z + 14, h * 9, 1); }
+          else if (h < 0.36) { const k1 = south && h2 < 0.5 ? 'doum' : 'palmA'; tr(k1, bx + sd * 14, z, 0.9 + h2 * 0.4); if (h3 < 0.6) tr(h3 < 0.3 ? 'palmB' : 'palmC', bx + sd * 36, z - 20, 0.8); }
+          else if (h < 0.5) {
+            const egy = { wall:['#F4E7C6', '#EAD3A0', '#F1DDB0', '#E6CB95'][Math.floor(h3 * 4)], band:['#B7412E', '#1F5FA8', '#2BA59A', '#D9A43A'][Math.floor(h2 * 4)] };
+            const st2 = nub ? { wall:['#F4EEDF', '#CFE3EC', '#F2DCA2'][Math.floor(h3 * 3)], band:['#2F8FC8', '#2BA59A', '#D9A43A'][Math.floor(h2 * 3)], nub:true } : egy;
+            const xx = bx + sd * 40;
+            rvHouse(k, xx, z, 30, 22, 22, Object.assign({ awn:h3 < 0.4 ? '#F4E7C6' : null, wc:h3 > 0.7 }, st2));
+            rvHouse(k, xx + sd * 32, z - 12, 24, 18, 16, Object.assign({ dome:h2 > 0.5 }, st2));
+            if (h2 < 0.6) rvHouse(k, xx - sd * 4, z - 32, 20, 16, 13 + h3 * 10, st2);
+            if (h3 < 0.3) rvDove(k, xx + sd * 22, z + 14, egy.wall); else if (h3 > 0.75) rvGranary(k, xx + sd * 12, z - 52, '#E2C796');
+            tr(south ? 'doum' : 'palmB', xx - sd * 22, z + 6, 0.8); put(k, h2 < 0.5 ? 'goat' : 'goatW', xx + sd * 6, 0, z + 20, h * 9, 1);
+          }
+          else if (h < 0.55) {
+            if (south || h2 < 0.3) { X.pylon(k, bx + sd * 70, z); for (let j = 0; j < 4; j++) k.add('c8', '#F4E7C6', bx + sd * (52 + j * 12), 11, z - 26, 2.6, 22, 2.6); put(k, 'colossus', bx + sd * 46, 0, z + 14, sd < 0 ? Math.PI / 2 : -Math.PI / 2, 0.7); }
+            else { X.obelisk(k, bx + sd * 40, z); put(k, 'sphinx', bx + sd * 60, 0, z + 10, sd < 0 ? Math.PI / 2 : -Math.PI / 2, 0.8); }
+          }
+          else if (h < 0.6) { put(k, 'shaduf', bx - sd * 2, 0, z, sd < 0 ? 0 : Math.PI, 1); k.add('box', '#3F7CC4', bx + sd * 22, 0.2, z, 14, 0.5, 4); put(k, 'cow', bx + sd * 40, 0, z - 16, sd * 1.4, 1); }
+          else if (h < 0.65) { put(k, h2 < 0.5 ? 'cow' : 'cowR', bx - sd * 8, 0, z, sd * 1.5 + h3, 1); put(k, 'cow', bx + sd * 18, 0, z - 14, sd * 1.7, 1); if (h3 < 0.5) put(k, 'ibisP', bx - sd * 16, 0, z + 12, h, 1); }
+          else if (h < 0.7) { tr(south ? (h2 < 0.5 ? 'doum' : 'acacia') : (h2 < 0.5 ? 'syc' : 'tamarisk'), bx + sd * 20, z, 0.9 + h3 * 0.3); }
+          else if (h < 0.75) { put(k, h2 < 0.5 ? 'skiff' : 'raft2', c + sd * (hw + 2), -1, z, (h3 - 0.5) * 0.5, 0.9); if (h3 < 0.5) put(k, 'skiffP', c + sd * (hw + 12), -1, z - 30, 0.2, 0.85); }
+          else if (h < 0.79) { put(k, 'croc', c + sd * (hw + 14), 0.3, z, sd < 0 ? 0.4 : -0.4 + Math.PI, 1); if (h2 < 0.4) put(k, 'croc', c + sd * (hw + 26), 0.3, z - 24, sd < 0 ? 0.9 : 2.4, 0.8); }
+          else if (h < 0.83) { for (let j = 0; j < 3; j++) put(k, j === 1 ? 'heron' : 'ibis', bx - sd * (10 - j * 8), 0, z + j * 9, h2 * 6 + j, 1); }
+          else if (h < 0.86 && nub) { put(k, 'boulder', bx + sd * 10, 0, z, h2 * 6, 1.3); put(k, 'boulderS', bx + sd * 30, 0, z - 14, h3 * 6, 0.9); }
+          else if (h < 0.88) { k.at(bx + sd * 34, 0, z, sd < 0 ? -Math.PI / 2 : Math.PI / 2, 0.9); X.donkey(k, { pack:1 }); k.at(); }
+        });
+      }
+      for (let y = Math.ceil(y0 / 24) * 24; y < y1; y += 24) [-1, 1].forEach(sd => { const h = H(y * 0.37 + sd * 13 + sd0); if (h < 0.5) put(k, 'reeds', cX(y) + sd * (hw + 6 + h * 8), 0, -y, sd * 0.3 + h, 0.6 + h * 0.6); });
+      for (let y = Math.ceil(y0 / 120) * 120; y < y1; y += 120) { const h = H(y * 0.21 + sd0); if (h > 0.55) continue; const sd = h < 0.27 ? -1 : 1; put(k, h < 0.15 ? 'lotus' : 'lotusL', cX(y) + sd * (hw - 26 - h * 30), 0.2, -y, h * 9, 1.6); }
+      for (let y = Math.ceil(y0 / 190) * 190; y < y1; y += 190) [-1, 1].forEach(sd => {
+        const h = H(y * 0.37 + sd * 11 + sd0); if (h <= 0.62) return;
+        for (let j = 0; j < 3; j++) { const hj = H(y + j * 3.3 + sd), x = cX(y) + sd * (hw + 100 + hj * 160); tr(south && j === 1 ? 'doum' : j === 2 ? 'syc' : 'palmA', x, -y - j * 50 - hj * 20, 0.9 + hj * 0.3); }
+      });
+    }
+
+    /* the destination's own touches at the final quay of a voyage (V3 buildQuay) */
+    function quayDeco(k, st, c, z, hw, id) {
+      ensure(); k.noLines = true; const lz = z - 50;
+      if (st.desert) { [[-1, 1], [1, -1]].forEach(([sd, j]) => { put(k, 'camelL', c + sd * (hw + 40), 0, z - 4, sd < 0 ? 0.6 : -0.6, 1); put(k, j > 0 ? 'palmA' : 'palmB', c + sd * (hw + 140), 0, z - 70, 0, 1); put(k, 'tentP', c + sd * (hw + 90), 0, z + 30, 0, 1); }); return; }
+      if (id === 'perbastet') { put(k, 'catStatue', c - 70, 0, lz + 6, 0, 1.6); put(k, 'catStatueG', c + 40, 0, lz + 10, 0, 1.2); [[-1], [1]].forEach(([sd]) => put(k, 'papyrus', c + sd * (hw + 8), 0, z + 30, 0, 1)); put(k, 'catS', c + 20, 8, z - 24, 0, 1.2); }
+      else if (id === 'mennefer') { put(k, 'sphinxA', c - 80, 0, lz + 20, 0, 1.6); put(k, 'colossusR', c + 96, 0, lz + 10, 0, 1); put(k, 'barqueS', c + hw - 30, -1, z + 40, 0.1, 0.8); }
+      else if (id === 'abidos') { put(k, 'osiris', c - 46, 0, lz + 30, 0, 1); put(k, 'osiris', c + 46, 0, lz + 30, 0, 1); for (let i = 0; i < 6; i++) put(k, i % 2 ? 'stela' : 'stela2', c - 120 + i * 12, 0, lz - 10, 0, 1); put(k, 'tamarisk', c + 110, 0, lz, 0, 1); }
+      else if (id === 'vaset') { for (let i = 0; i < 3; i++) [-1, 1].forEach(sd => put(k, 'ram', c + sd * 22, 0, z - 40 - i * 22, sd < 0 ? Math.PI / 2 : -Math.PI / 2, 0.55)); put(k, 'barque', c + hw - 30, -1, z + 46, 0.1, 0.8); put(k, 'doum', c - 110, 0, lz, 0, 1); }
+      else if (id === 'abu') { [[-90, 1.8], [80, 1.4], [130, 2.2]].forEach(([dx, sc], i) => put(k, i % 2 ? 'boulder' : 'boulderS', c + dx, 0, lz + 16, i, sc)); put(k, 'ramK', c - 30, 0, lz + 24, 0, 0.7); put(k, 'doum', c + 40, 0, lz - 6, 0, 1); }
+    }
+    /* ---------- the proto registry ---------- */
+    const DEF = {
+      palmA:k => datePalm(k, { h:50, lean:7, ph:0.2 }), palmB:k => datePalm(k, { h:40, lean:-5, nf:8, ph:1.1, len:20, g1:'#56A060', g2:'#418A52' }), palmC:k => datePalm(k, { h:30, lean:3, nf:8, ph:2.3, len:18, wd:3.1, dates:false }),
+      palmAR:k => datePalm(k, { h:50, lean:7, ph:0.2, nf:7, lite:true }), palmBR:k => datePalm(k, { h:40, lean:-5, nf:7, ph:1.1, len:20, g1:'#56A060', g2:'#418A52', lite:true }), palmCR:k => datePalm(k, { h:30, lean:3, nf:7, ph:2.3, len:18, wd:3.1, dates:false, lite:true }), papyrusR:k => papyrusClump(k, { n:5 }),
+      palmY:k => datePalm(k, { h:8, lean:1, nf:7, ph:0.7, len:14, wd:2.8, dates:false, g1:'#62AA66' }),
+      doum:k => doumPalm(k, {}), syc:k => sycamore(k, { figs:true }), syc2:k => sycamore(k, { s:0.8, cols:['#5E9A4A', '#4E8A3E', '#6FAA52', '#3F7A38'] }),
+      acacia:k => acacia(k, {}), tamarisk:k => tamarisk(k, {}), olive:k => olive(k, {}), bush:k => bush(k, {}), bushF:k => bush(k, { flower:'#E86A7E', col:'#5A9446' }), bushY:k => bush(k, { col:'#8A9A4A' }),
+      papyrus:k => papyrusClump(k, {}), reeds:k => reedTuft(k, {}), lotus:k => lotus(k, {}), lotusL:k => lotus(k, { flower:false }),
+      camel:k => camel(k, {}), camelL:k => camel(k, { load:true }), camelL2:k => camel(k, { load:true, blanket:'#1F5FA8', col:'#B8925E' }),
+      cow:k => cow(k, {}), cowR:k => cow(k, { col:'#A8683A', patch:'#F2E8D6' }), goat:k => goat(k, {}), goatW:k => goat(k, { col:'#E8DCC4', col2:'#8A7A64' }), goatB:k => goat(k, { col:'#2E2A2A', col2:'#1A1616' }), sheep:k => sheep(k, {}),
+      catS:k => cat(k, {}), catT:k => cat(k, { col:'#C98E52', col2:'#B47A42' }), catW:k => cat(k, { walk:true, col:'#8A7A6A' }), catG:k => cat(k, { col:'#9A9AA4' }),
+      ibis:k => ibis(k, {}), ibisP:k => ibis(k, { peck:true }), heron:k => heron(k, {}), duck:k => duck(k, {}), goose:k => duck(k, { col:'#D9C4A0', col2:'#8A6A44' }), dog:k => dog(k, {}), baboon:k => baboon(k, {}),
+      croc:k => crocBask(k, {}), hippo:k => hippoHead(k, {}),
+      tentP:k => tentP(k, {}), tentS:k => tentP(k, { c1:'#E9CFA0', c2:'#B7412E' }),
+      apis:k => { cow(k, { col:'#2A2426', patch:'#F4EEDE' }); k.add('c12', '#D9A43A', 0, 24, 12.6, 2.4, 0.5, 2.4, Math.PI / 2); k.add('box', '#B7412E', 0, 17, 0, 9, 0.8, 10); },
+      shaduf:k => shaduf(k, {}), logs:k => logs(k, {}), logsE:k => logs(k, { col:'#3A2A26' }), rope:k => rope(k, {}), anchor:k => anchor(k, {}), boulder:k => boulder(k, {}), boulderS:k => boulder(k, { col:'#C9A68A', col2:'#B08A70' }), incenseT:k => incenseTree(k, {}), cart:k => cartGoods(k, {}),
+      donkey:k => X.donkey(k, { pack:1, saddle:'#B7412E', s:0.8 }), donkeyP:k => X.donkey(k, { pack:2, saddle:'#1F5FA8', s:0.8 }), donkeyN:k => X.donkey(k, { s:0.78, body:'#9A8A7A' }),
+      skiff:k => skiff(k, { net:true }), skiffP:k => skiff(k, { pole:true, col:'#8E6A44', band:'#2F6EA6' }), raft:k => papyrusRaft(k, { mat:true }), raft2:k => papyrusRaft(k, {}),
+      barge:k => barge(k, {}), bargeS:k => barge(k, { cargo:'stone' }), bargeC:k => barge(k, { cargo:'cedar', col:'#8E5A33' }), barque:k => royalBarque(k, { oars:true }), barqueS:k => royalBarque(k, {}),
+      sphinx:k => sphinx(k, {}), sphinxA:k => sphinx(k, { col:'#F2EAD6', col2:'#E0D4B8', nemes:'#E6C688', plinth:'#D2C198' }), ram:k => sphinx(k, { ram:true }), ramK:k => sphinx(k, { ram:true, col:'#C9A68A', col2:'#B48E74', plinth:'#A9856A' }),
+      colossus:k => colossus(k, {}), colossusR:k => colossus(k, { col:'#B8735A', col2:'#9C5E48', nemes:'#C98A6A' }), catStatue:k => catStatue(k, {}), catStatueG:k => catStatue(k, { col:'#C8A050' }),
+      osiris:k => osiris(k, {}), stela:k => stela(k, {}), stela2:k => stela(k, { col:'#D8C8A4', paint:'#2BA59A' }), offering:k => offering(k, {}),
+      flagR:k => flagpole(k, { col:'#B7412E' }), flagB:k => flagpole(k, { col:'#1F5FA8', col2:'#FBF3DF' }), jars:k => jarStack(k, {}), jars2:k => jarStack(k, { v:2 }),
+      basketD:k => basket(k, { fill:'#9C4A2E' }), basketG:k => basket(k, { fill:'#E2B84E' }), basketF:k => basket(k, { fill:'#7FB25A' }), heapG:k => heap(k, {}), heapS:k => heap(k, { col:'#F4F2EA', base:'#C9B48A' })
+    };
+    const get = key => DEF[key] ? proto(key, DEF[key]) : null;
+    /* stamp by key; returns the proto (or null) */
+    function put(k, key, x, y, z, ry, s, o) { const P = get(key); if (P) stamp(k, P, x, y, z, ry, s, o); return P; }
+    const putW = put;
+    return { ensure, proto, stamp, put, get, frond, tb, riverChunk, quayDeco, hull, goods, DEF, PRO, INK, models:{ datePalm, doumPalm, sycamore, acacia, tamarisk, olive, camel, cow, goat, cat, ibis, duck, skiff, papyrusRaft, barge, royalBarque, sphinx, colossus, catStatue, osiris, stela } };
+  })();
+  if (W33 && typeof V3 !== 'undefined' && V3 && V3._x) V3._x.W = W33;

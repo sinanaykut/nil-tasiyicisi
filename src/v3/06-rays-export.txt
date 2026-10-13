@@ -1,0 +1,170 @@
+    /* ================= optional: soft god rays + drifting dust over the city picture (one fullscreen shader) ================= */
+    const AMB_F = `precision mediump float;
+uniform vec2 uRes, uSun; uniform float uT, uA, uDust; uniform vec3 uCol;
+float h21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+void main() {
+  vec2 px = gl_FragCoord.xy, q = vec2(px.x, uRes.y - px.y), d = q - uSun;
+  float r = length(d), a = atan(d.y, d.x), s = uRes.y;
+  float rays = 0.55 * sin(a * 9.0 + uT * 0.21) + 0.35 * sin(a * 17.0 - uT * 0.13 + 1.7) + 0.25 * sin(a * 31.0 + uT * 0.3);
+  rays = smoothstep(0.15, 1.1, rays) * (1.0 - smoothstep(s * 0.08, s * 1.25, r)) * smoothstep(-0.25, 0.45, d.y / (r + 1.0));
+  float glow = (1.0 - smoothstep(0.0, s * 0.55, r)) * 0.35;
+  float lit = rays + glow, dust = 0.0;
+  for (int L = 0; L < 2; L++) {
+    float sc = L == 0 ? 46.0 : 27.0, sp = L == 0 ? 6.0 : 11.0;
+    vec2 g = q / sc + vec2(uT * sp / sc * 0.35, -uT * sp / sc * 0.12), id = floor(g), f = fract(g) - 0.5;
+    float rn = h21(id + float(L) * 17.0);
+    if (rn < 0.42) {
+      vec2 o = vec2(h21(id + 3.1) - 0.5, h21(id + 7.7) - 0.5) * 0.6 + 0.15 * vec2(sin(uT * 0.7 + rn * 40.0), cos(uT * 0.5 + rn * 30.0));
+      float m = (1.0 - smoothstep(0.0, L == 0 ? 0.07 : 0.1, length(f - o))) * (0.5 + 0.5 * sin(uT * (1.0 + rn * 2.0) + rn * 60.0));
+      dust += m * (L == 0 ? 0.55 : 0.85);
+    }
+  }
+  float k = clamp(lit * uA + dust * uDust * (0.25 + lit * 1.6), 0.0, 1.0);
+  gl_FragColor = vec4(uCol * k, k);
+}`;
+    function ambience(el, o) {
+      try { if (!el || !available() || !pref()) return null; } catch (e) { return null; }
+      let dead4 = false, kill4 = null, opt = o || {};
+      const api = { update(o2) { opt = o2 || opt; }, dispose() { dead4 = true; if (kill4) kill4(); kill4 = null; } };
+      load().then(ok => {
+        if (!ok || dead4) return;
+        try {
+          const c = document.createElement('canvas'); c.className = 'v3-amb'; c.setAttribute('aria-hidden', 'true'); el.appendChild(c);
+          const r = new T.WebGLRenderer({ canvas:c, alpha:true, antialias:false, premultipliedAlpha:true, powerPreference:'low-power' });
+          const pr = Math.min(1, (window.devicePixelRatio || 1) * 0.6); r.setPixelRatio(pr); r.setClearColor(0, 0);
+          const u = { uRes:{ value:new T.Vector2() }, uSun:{ value:new T.Vector2() }, uT:{ value:0 }, uA:{ value:0.2 }, uDust:{ value:0.8 }, uCol:{ value:new T.Color('#FFE7B0') } };
+          const g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(new Float32Array([-1, -1, 0, 3, -1, 0, -1, 3, 0]), 3));
+          const m = new T.ShaderMaterial({ uniforms:u, vertexShader:'void main() { gl_Position = vec4(position.xy, 0.0, 1.0); }', fragmentShader:AMB_F, transparent:true, premultipliedAlpha:true, depthTest:false, depthWrite:false });
+          const sc = new T.Scene(), cam = new T.Camera(), mesh = new T.Mesh(g, m); mesh.frustumCulled = false; sc.add(mesh);
+          let raf = 0, last = 0, W = 0, H = 0, vis = true, io = null, t0 = performance.now(), gone = 0;
+          try { io = new IntersectionObserver(es => { vis = es[es.length - 1].isIntersecting; }); io.observe(el); } catch (e) { io = null; }
+          const sun = () => {
+            /* the picture's sun (viewBox 1000 x 560, xMidYMax slice) mapped to pixels; colour from the day palette */
+            let sx = opt.sunX, sy = opt.sunY, col = opt.color;
+            if ((sx == null || !col) && typeof dayPal === 'function') { try { const P = dayPal(opt.si == null ? 1 : opt.si, opt.day || 1); if (sx == null) { sx = P.sunX; sy = P.sunY; } if (!col) col = P.sun; } catch (e) {} }
+            if (sx == null) { sx = 300; sy = 90; }
+            const k = Math.max(W / 1000, H / 560), ox = (W - 1000 * k) / 2, oy = H - 560 * k;
+            u.uSun.value.set((sx * k + ox) * pr, (sy * k + oy) * pr); u.uRes.value.set(W * pr, H * pr);
+            try { u.uCol.value.set(col || '#FFE7B0').lerp(col3('#FFF4D6'), 0.35); } catch (e) { u.uCol.value.set('#FFE7B0'); }
+            u.uA.value = opt.strength != null ? +opt.strength : 0.2;
+          };
+          const frame = now => {
+            raf = 0; if (dead4) return;
+            if (!el.isConnected) { if (!gone) gone = now; else if (now - gone > 900) { kill4(); return; } }
+            else gone = 0;
+            if (vis && !document.hidden && now - last > (RED ? 1e9 : 33)) {
+              const w = el.clientWidth, h = el.clientHeight;
+              if (w > 10 && h > 10) {
+                if (w !== W || h !== H) { W = w; H = h; r.setSize(W, H, false); }
+                sun(); u.uT.value = (now - t0) / 1000; r.render(sc, cam); last = now;
+                if (!c.classList.contains('on')) c.classList.add('on');
+              }
+            }
+            if (RED && last) return;
+            raf = requestAnimationFrame(frame);
+          };
+          kill4 = () => { if (raf) cancelAnimationFrame(raf); raf = 0; dead4 = true; try { if (io) io.disconnect(); } catch (e) {} try { g.dispose(); m.dispose(); r.dispose(); r.forceContextLoss(); } catch (e) {} c.remove(); };
+          c.addEventListener('webglcontextlost', e => { e.preventDefault(); if (kill4) kill4(); }, false);
+          raf = requestAnimationFrame(frame);
+          api.update = o2 => { opt = o2 || opt; last = 0; if (!raf && !dead4) raf = requestAnimationFrame(frame); };
+        } catch (e) { try { console.warn('ambience off:', e); } catch (e2) {} }
+      }, () => {});
+      return api;
+    }
+
+    /* render a scene once, off screen, with the shared renderer -> PNG dataURL (2x supersampled for smooth edges).
+       Leaves the renderer's target, size, pixel ratio and clear colour as they were. Returns null without 3D. */
+    function snap(scene, camera, w, h) {
+      try {
+        if (!T || !scene || !camera || GLS.dead) return null;
+        const r = glsGet(), S2 = 2, W2 = Math.max(1, Math.round(w * S2)), H2 = Math.max(1, Math.round(h * S2));
+        const rt = new T.WebGLRenderTarget(W2, H2, { depthBuffer:true }), prev = r.getRenderTarget(), cc = r.getClearColor(new T.Color()), ca = r.getClearAlpha(), ac = r.autoClear;
+        r.setRenderTarget(rt); r.setClearColor(0x000000, 0); r.autoClear = true; r.clear(); r.render(scene, camera);
+        const px = new Uint8Array(W2 * H2 * 4); r.readRenderTargetPixels(rt, 0, 0, W2, H2, px);
+        r.setRenderTarget(prev); r.setClearColor(cc, ca); r.autoClear = ac; rt.dispose();
+        const big = document.createElement('canvas'); big.width = W2; big.height = H2; const g = big.getContext('2d'), im = g.createImageData(W2, H2);
+        for (let y = 0; y < H2; y++) im.data.set(px.subarray((H2 - 1 - y) * W2 * 4, (H2 - y) * W2 * 4), y * W2 * 4);
+        /* un-premultiply is not needed: three renders straight alpha into the target */
+        g.putImageData(im, 0, 0);
+        const out = document.createElement('canvas'); out.width = Math.round(w); out.height = Math.round(h); const g2 = out.getContext('2d'); g2.imageSmoothingQuality = 'high'; g2.drawImage(big, 0, 0, out.width, out.height);
+        return out.toDataURL('image/png');
+      } catch (e) { try { console.warn('V3.snap:', e); } catch (e2) {} return null; }
+    }
+
+    /* ---------- zoom + pan for the town and the map: pinch / two-finger and one-finger drag on touch, wheel or
+       trackpad and drag with the mouse, double tap / double click toggles a close-up. State: z >= 1 (1 = the whole fit),
+       x, y = pan in screen pixels at z = 1 (+x shows more to the right, +y more to the bottom), clamped to the fit. Eased. ---------- */
+    function zoomPan(el, opt) {
+      opt = opt || {};
+      const MAX = opt.max || 3, P = new Map(), cur = { z:1, x:0, y:0 }, tgt = { z:1, x:0, y:0 };
+      let drag = null, pinch = null, moved = false, lastUp = 0, lastTap = null, quietUntil = 0, dead = false;
+      const box = () => { const b = el.getBoundingClientRect(); return { b, w:b.width || 1, h:b.height || 1 }; };
+      const clamp = s => { s.z = Math.max(1, Math.min(MAX, s.z)); const { w, h } = box(), mx = w / 2 * (1 - 1 / s.z), my = h / 2 * (1 - 1 / s.z); s.x = Math.max(-mx, Math.min(mx, s.x)); s.y = Math.max(-my, Math.min(my, s.y)); return s; };
+      /* zoom about a screen point (px from the box centre): the point under it stays put */
+      const zoomAt = (s, z1, px, py) => { const z0 = s.z; z1 = Math.max(1, Math.min(MAX, z1)); s.x += px * (1 / z0 - 1 / z1); s.y += py * (1 / z0 - 1 / z1); s.z = z1; clamp(s); };
+      const rel = e => { const { b, w, h } = box(); return [e.clientX - b.left - w / 2, e.clientY - b.top - h / 2]; };
+      const ta = () => { el.style.touchAction = tgt.z > 1.02 ? 'none' : 'pan-y'; };
+      const snapNow = () => { cur.z = tgt.z; cur.x = tgt.x; cur.y = tgt.y; };
+      const down = e => {
+        if (dead || (e.pointerType === 'mouse' && e.button !== 0)) return;
+        P.set(e.pointerId, [e.clientX, e.clientY]);
+        if (P.size === 1) { drag = { x:e.clientX, y:e.clientY, sx:tgt.x, sy:tgt.y }; moved = false; }
+        if (P.size === 2) { const [a, b] = [...P.values()], { b:bb, w, h } = box(); pinch = { d:Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, z:tgt.z, mx:(a[0] + b[0]) / 2 - bb.left - w / 2, my:(a[1] + b[1]) / 2 - bb.top - h / 2, sx:tgt.x, sy:tgt.y }; drag = null; moved = true; }
+      };
+      const move = e => {
+        if (dead || !P.has(e.pointerId)) return;
+        P.set(e.pointerId, [e.clientX, e.clientY]);
+        if (pinch && P.size >= 2) {
+          const [a, b] = [...P.values()], { b:bb, w, h } = box(), d = Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, mx = (a[0] + b[0]) / 2 - bb.left - w / 2, my = (a[1] + b[1]) / 2 - bb.top - h / 2;
+          tgt.z = pinch.z; tgt.x = pinch.sx; tgt.y = pinch.sy; zoomAt(tgt, pinch.z * d / pinch.d, pinch.mx, pinch.my);
+          tgt.x -= (mx - pinch.mx) / tgt.z; tgt.y -= (my - pinch.my) / tgt.z; clamp(tgt); snapNow(); ta(); if (opt.onChange) opt.onChange(); return;
+        }
+        if (drag) {
+          const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+          if (!moved && Math.hypot(dx, dy) < 7) return;
+          if (!moved && tgt.z <= 1.02) return;              /* nothing to pan at the whole view: let the page scroll */
+          moved = true; tgt.x = drag.sx - dx / tgt.z; tgt.y = drag.sy - dy / tgt.z; clamp(tgt); snapNow(); if (opt.onChange) opt.onChange();
+        }
+      };
+      const up = e => {
+        if (!P.has(e.pointerId)) return;
+        P.delete(e.pointerId);
+        if (P.size < 2) pinch = null;
+        if (P.size === 1) { const [a] = [...P.values()]; drag = { x:a[0], y:a[1], sx:tgt.x, sy:tgt.y }; }
+        if (!P.size) {
+          drag = null; lastUp = performance.now(); if (moved) { quietUntil = lastUp + 350; return; }
+          /* double tap (touch): toggle a close-up at the finger */
+                    if (e.pointerType !== 'mouse') { const now = lastUp, q = rel(e); if (lastTap && now - lastTap.t < 320 && Math.hypot(q[0] - lastTap.x, q[1] - lastTap.y) < 30) { if (!(opt.dbl && opt.dbl(q[0], q[1]))) toggle(q[0], q[1]); lastTap = null; quietUntil = now + 350; } else lastTap = { t:now, x:q[0], y:q[1] }; }
+        }
+      };
+      const toggle = (px, py) => { if (tgt.z > 1.3) { tgt.z = 1; tgt.x = 0; tgt.y = 0; } else zoomAt(tgt, Math.min(MAX, 2.2), px, py); ta(); if (opt.onChange) opt.onChange(); };
+      const dbl = e => { if (dead) return; e.preventDefault(); if (performance.now() < quietUntil) return;   /* the dblclick a touch double tap also fires: already handled */
+        const q = rel(e); if (!(opt.dbl && opt.dbl(q[0], q[1]))) toggle(q[0], q[1]); e.preventDefault(); };
+      const wheel = e => {
+        if (dead) return;
+        const q = rel(e), pan = !e.ctrlKey && (e.deltaX !== 0 || (e.deltaMode === 0 && Math.abs(e.deltaY) < 40 && e.deltaY % 1 !== 0));
+        if (pan) { if (tgt.z <= 1.02) return; tgt.x += e.deltaX / tgt.z; tgt.y += e.deltaY / tgt.z; clamp(tgt); }
+        else { const k = Math.exp(-(e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY) * (e.ctrlKey ? 0.01 : 0.0018)); if ((k > 1 && tgt.z >= MAX) || (k < 1 && tgt.z <= 1)) return; zoomAt(tgt, tgt.z * k, q[0], q[1]); }
+        e.preventDefault(); ta(); if (opt.onChange) opt.onChange();
+      };
+      /* a drag or a double tap must not also click a spot */
+      const clickCap = e => { if (performance.now() < quietUntil) { e.stopPropagation(); e.preventDefault(); } };
+      el.addEventListener('pointerdown', down); window.addEventListener('pointermove', move, { passive:true }); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+      el.addEventListener('wheel', wheel, { passive:false }); el.addEventListener('dblclick', dbl); el.addEventListener('click', clickCap, true); ta();
+      return {
+        cur, tgt,
+        /* ease the drawn state toward the target; true while still moving */
+        step(dt) { const k = Math.min(1, (dt || 0.016) * 14); let m = false; ['z', 'x', 'y'].forEach(q => { const d = tgt[q] - cur[q]; if (Math.abs(d) > (q === 'z' ? 0.002 : 0.2)) { cur[q] += d * k; m = true; } else cur[q] = tgt[q]; }); return m; },
+        busy() { return P.size > 0 || cur.z !== tgt.z || cur.x !== tgt.x || cur.y !== tgt.y; },
+        set(z, px, py) { zoomAt(tgt, z, px || 0, py || 0); ta(); if (opt.onChange) opt.onChange(); },
+        /* v33: ease to zoom z with the view centred on pan x, y (screen px at z = 1 from the fit centre) */
+        go(z, x, y) { tgt.z = z; tgt.x = x; tgt.y = y; clamp(tgt); ta(); if (opt.onChange) opt.onChange(); },
+        reset(now) { tgt.z = 1; tgt.x = 0; tgt.y = 0; if (now) snapNow(); ta(); if (opt.onChange) opt.onChange(); },
+        dragging() { return moved && P.size > 0; },
+        destroy() { dead = true; el.removeEventListener('pointerdown', down); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); el.removeEventListener('wheel', wheel); el.removeEventListener('dblclick', dbl); el.removeEventListener('click', clickCap, true); el.style.touchAction = ''; }
+      };
+    }
+    /* internals for town29.txt (same IIFE family): the kit, the shared renderer and the little model builders */
+    const _x = { riverInfo:() => ren ? { calls:ren.info.render.calls, tris:ren.info.render.triangles, geos:ren.info.memory.geometries } : null, snap, zoomPan, VIS, visOK, T:() => T, tpl, Kit, mtx, col3, mkU, mats, boatKit, BT, palm, papyrus, reeds, person, donkey, house, obelisk, pylon, elephant, rockKit, acacia, shaduf, CITYK, camel, available, pref, load, rng, radTex, RED, glsClaim, glsRelease, glsSnap, glsGet, GLS, lineMat, LINE_V, K };
+    return { available, pref, setPref, load, enable, disable, river, shipViewer, mapTable, ambience, snap, _x };
+  })();

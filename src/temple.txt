@@ -1,0 +1,311 @@
+
+  /* ================= temple room: guide the sunbeam to the golden statue with bronze mirrors (owner: bulmaca) ================= */
+  /* level table: grid size, path turns, rotatable decoys, fixed path mirrors, fixed decoys, pillars, prisms, minimum ideal taps */
+  const TM_LV = [
+    { n:5, k:[3, 3], dec:1, fixP:0, fixD:0, pil:0, pri:0, par:2 },
+    { n:5, k:[3, 4], dec:1, fixP:1, fixD:0, pil:1, pri:0, par:2 },
+    { n:6, k:[4, 5], dec:2, fixP:1, fixD:1, pil:2, pri:0, par:3 },
+    { n:6, k:[5, 6], dec:2, fixP:1, fixD:1, pil:2, pri:1, par:3 },
+    { n:7, k:[6, 7], dec:3, fixP:1, fixD:1, pil:3, pri:1, par:4 }
+  ];
+  const TM_C = 60, TM_W = 26;
+  function tmRng(seed) {
+    let a = 0;
+    if (typeof seed === 'number' && isFinite(seed)) a = Math.floor(seed * 9973) ^ 0x9E3779B9;
+    else if (seed != null) { const s = String(seed); a = 2166136261; for (let i = 0; i < s.length; i++) a = Math.imul(a ^ s.charCodeAt(i), 16777619); }
+    else a = Math.floor(Math.random() * 4294967296);
+    a >>>= 0;
+    return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  }
+  /* follow the light: returns the drawn segments and whether the statue is reached. o:0 = "\", o:1 = "/" */
+  function tmTrace(R) {
+    const n = R.n, segs = [], seen = new Set(), E = R.entry, touched = new Set();
+    const q = [[E.x - E.dx, E.y - E.dy, E.dx, E.dy, true]];
+    let hit = false;
+    while (q.length && segs.length < 80) {
+      const [sx, sy, dx, dy, first] = q.pop(); let x = sx, y = sy, end = 'wall';
+      for (;;) {
+        x += dx; y += dy;
+        if (x < 0 || y < 0 || x >= n || y >= n) { end = 'wall'; break; }
+        const key = (y * n + x) * 4 + (dx === 1 ? 0 : dx === -1 ? 1 : dy === 1 ? 2 : 3);
+        if (seen.has(key)) { end = 'loop'; break; }
+        seen.add(key);
+        if (x === R.target.x && y === R.target.y) { end = 'target'; hit = true; break; }
+        const it = R.g[y * n + x];
+        if (!it) continue;
+        if (it.t === 'p') { end = 'pillar'; break; }
+        touched.add(y * n + x);
+        if (it.t === 'm') { end = 'turn'; if (it.o === 0) q.push([x, y, dy, dx]); else q.push([x, y, -dy, -dx]); break; }
+        if (it.t === 'x') { end = 'turn'; q.push([x, y, -dy, dx], [x, y, dy, -dx]); break; }
+      }
+      segs.push({ sx, sy, x, y, dx, dy, end, first:!!first });
+    }
+    return { segs, hit, touched };
+  }
+  /* brute force every orientation of the rotatable mirrors: the solution nearest to the current state */
+  function tmNearest(R) {
+    const M = R.rot, cur = M.map(m => m.o);
+    let best = null, bd = 99;
+    for (let mask = 0; mask < (1 << M.length); mask++) {
+      let d = 0; for (let i = 0; i < M.length; i++) { M[i].o = (mask >> i) & 1; if (M[i].o !== cur[i]) d++; }
+      if (d >= bd) continue;
+      if (tmTrace(R).hit) { bd = d; best = M.map(m => m.o); }
+    }
+    M.forEach((m, i) => { m.o = cur[i]; });
+    return best ? { d:bd, sol:best } : null;
+  }
+  /* build the solution path first (entry gap → mirrors → statue), then add decoys and scramble */
+  function tmBuild(level, seed) {
+    const L = TM_LV[Math.max(0, Math.min(4, level | 0))], rnd = tmRng(seed), ri = k => Math.floor(rnd() * k);
+    for (let tries = 0; tries < 2000; tries++) {
+      const n = L.n, side = ri(4), k = 1 + ri(n - 2);
+      const E = [{ x:k, y:0, dx:0, dy:1 }, { x:n - 1, y:k, dx:-1, dy:0 }, { x:k, y:n - 1, dx:0, dy:-1 }, { x:0, y:k, dx:1, dy:0 }][side];
+      E.side = side; E.k = k;
+      const K = L.k[0] + ri(L.k[1] - L.k[0] + 1), used = new Set(), path = [];
+      let x = E.x - E.dx, y = E.y - E.dy, dx = E.dx, dy = E.dy, ok = true;
+      const free = (a, b) => a >= 0 && b >= 0 && a < n && b < n && !used.has(b * n + a);
+      for (let m = 0; m <= K; m++) {
+        let max = 0; while (free(x + dx * (max + 1), y + dy * (max + 1))) max++;
+        if (max < 1) { ok = false; break; }
+        const len = 1 + ri(Math.min(max, m === 0 ? 3 : 4));
+        for (let i = 1; i <= len; i++) used.add((y + dy * i) * n + x + dx * i);
+        x += dx * len; y += dy * len;
+        if (m < K) {
+          const t = rnd() < 0.5, ndx = t ? -dy : dy, ndy = t ? dx : -dx;
+          path.push({ x, y, sol:(ndx === dy && ndy === dx) ? 0 : 1 });
+          dx = ndx; dy = ndy;
+        }
+      }
+      if (!ok) continue;
+      if (x === E.x && y === E.y) continue;
+      /* the statue should not sit against the entry wall right beside the gap */
+      if (Math.abs(x - E.x) + Math.abs(y - E.y) < 2) continue;
+      const R = { n, level, entry:E, target:{ x, y }, g:Array(n * n).fill(null), rot:[], items:[] };
+      const put = (cx, cy, it) => { it.x = cx; it.y = cy; R.g[cy * n + cx] = it; R.items.push(it); return it; };
+      const pm = path.map(p => put(p.x, p.y, { t:'m', o:p.sol, sol:p.sol, fix:false, path:true }));
+      /* a prism on the path splits the light both ways; one branch carries on */
+      const mid = pm.slice(1, -1);
+      for (let i = 0; i < L.pri && mid.length; i++) { const it = mid.splice(ri(mid.length), 1)[0]; it.t = 'x'; delete it.o; }
+      const cand = pm.filter(p => p.t === 'm');
+      for (let i = 0; i < L.fixP && cand.length > 3; i++) cand.splice(ri(cand.length), 1)[0].fix = true;
+      const empty = []; for (let cy = 0; cy < n; cy++) for (let cx = 0; cx < n; cx++) if (!used.has(cy * n + cx)) empty.push([cx, cy]);
+      const take = () => empty.length ? empty.splice(ri(empty.length), 1)[0] : null;
+      let c;
+      for (let i = 0; i < L.dec; i++) if ((c = take())) put(c[0], c[1], { t:'m', o:ri(2), sol:-1, fix:false, path:false });
+      for (let i = 0; i < L.fixD; i++) if ((c = take())) put(c[0], c[1], { t:'m', o:ri(2), sol:-1, fix:true, path:false });
+      for (let i = 0; i < L.pil; i++) if ((c = take())) put(c[0], c[1], { t:'p' });
+      R.rot = R.items.filter(it => it.t === 'm' && !it.fix);
+      const need = Math.min(L.par, cand.filter(p => !p.fix).length);
+      for (let s = 0; s < 40; s++) {
+        R.rot.forEach(m => { m.o = ri(2); });
+        if (tmTrace(R).hit) continue;
+        const nb = tmNearest(R);
+        if (nb && nb.d >= need) { R.par = nb.d; R.rot.forEach((m, i) => { m.i = i; }); return R; }
+      }
+    }
+    return null;
+  }
+
+  /* ---------- drawing ---------- */
+  const tmCX = v => TM_W + v * TM_C + TM_C / 2;
+  const TM_GLYPH = [
+    'M0 -1c-5 0 -5 -8 0 -8s5 8 0 8zM-6 0h12M0 -1v10',
+    'M-8 0q8 -7 16 0q-8 6 -16 0zM-1.5 0a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0 -3 0M-2 3l-3 6M3 3q3 5 6 2',
+    'M-8 -3l2.7 -3 2.7 3 2.7 -3 2.7 3 2.7 -3M-8 4l2.7 -3 2.7 3 2.7 -3 2.7 3 2.7 -3',
+    'M0 9V-5M0 -5q5 -3 1 -7q-5 2 -1 7M-3 2h6',
+    'M-6 0a6 6 0 1 0 12 0a6 6 0 1 0 -12 0M-9 7h18',
+    'M-5 9h10M-3 9V-8h6V9M-5 -2h10M-5 -5h10'
+  ];
+  function tmMirrorSVG(it, id) {
+    const a = it.o === 0 ? 45 : 135, cx = tmCX(it.x), cy = tmCX(it.y);
+    it.ang = a;
+    let s = '<g transform="translate(' + cx + ' ' + cy + ')" id="' + id + '" class="tmm' + (it.fix ? ' fix' : '') + '">';
+    if (it.fix) s += '<rect x="-23" y="-23" width="46" height="46" rx="6" fill="#A79A82" stroke="' + INK + '" stroke-width="2"/><rect x="-17" y="-17" width="34" height="34" rx="3" fill="#BDB096" stroke="#7E725E" stroke-width="1.2"/>' + [[-17, -17], [17, -17], [-17, 17], [17, 17]].map(([u, v]) => '<circle cx="' + u + '" cy="' + v + '" r="2.4" fill="#5A4E3E"/>').join('');
+    else s += '<circle r="25" fill="#F3E3B8" opacity=".55"/><circle r="25" class="tmring" fill="none" stroke="#2BA59A" stroke-width="2.6" stroke-dasharray="6 5"/><path d="M15 -22a26 26 0 0 1 9 9" fill="none" stroke="#1E7D74" stroke-width="2.6" stroke-linecap="round"/><path d="M26 -16l-1 6-5 -3z" fill="#1E7D74"/><circle r="9" fill="#8E5A33" stroke="' + INK + '" stroke-width="2"/>';
+    s += '<g class="tmrot" style="transform:rotate(' + a + 'deg)"><rect x="-26" y="-5.5" width="52" height="11" rx="5.5" fill="' + (it.fix ? '#8F7B5A' : 'url(#tmBz' + PZ.uid + ')') + '" stroke="' + INK + '" stroke-width="2.2"/><path d="M-21 -1.6H21" stroke="' + (it.fix ? '#D9CBA8' : '#FFF4C4') + '" stroke-width="2.2" stroke-linecap="round"/></g>';
+    return s + '</g>';
+  }
+  function tmRoomSVG(R) {
+    const n = R.n, T = n * TM_C + TM_W * 2, u = PZ.uid, E = R.entry, inner = TM_W, iw = n * TM_C;
+    let s = '<svg viewBox="0 0 ' + T + ' ' + T + '" class="tmsvg" role="img" aria-label="Tapınak odası: güneş ışığı, aynalar ve altın heykel"><defs>';
+    s += grad('tmBz' + u, [[0, '#F7D57A'], [0.5, '#D9A43A'], [1, '#9C6A2A']], true);
+    s += '<radialGradient id="tmGl' + u + '"><stop offset="0" stop-color="#FFF8D8" stop-opacity="1"/><stop offset=".35" stop-color="#FFE08A" stop-opacity=".8"/><stop offset="1" stop-color="#FFD24A" stop-opacity="0"/></radialGradient>';
+    s += '<radialGradient id="tmFl' + u + '" cx="' + (tmCX(R.target.x) / T) + '" cy="' + (tmCX(R.target.y) / T) + '" r=".9"><stop offset="0" stop-color="#FFF6CF" stop-opacity=".95"/><stop offset=".5" stop-color="#FFE08A" stop-opacity=".55"/><stop offset="1" stop-color="#F2B640" stop-opacity=".25"/></radialGradient>';
+    s += '</defs>';
+    /* walls with a painted frieze of hieroglyphs */
+    s += '<rect x="1.5" y="1.5" width="' + (T - 3) + '" height="' + (T - 3) + '" rx="10" fill="#B98E55" stroke="' + INK + '" stroke-width="3"/>';
+    s += '<rect x="6" y="6" width="' + (T - 12) + '" height="' + (T - 12) + '" rx="6" fill="#D9B97E" stroke="#8E6A3C" stroke-width="1.4"/>';
+    let gl = '', gi = 0;
+    for (let i = 0; i < n; i++) {
+      const p = tmCX(i);
+      [[p, TM_W / 2 + 1, 0, i], [T - TM_W / 2 - 1, p, 1, i], [p, T - TM_W / 2 - 1, 2, i], [TM_W / 2 + 1, p, 3, i]].forEach(([gx, gy, sd, k]) => {
+        if (sd === E.side && k === E.k) return;
+        gl += '<path transform="translate(' + gx + ' ' + gy + ') scale(.95)" d="' + TM_GLYPH[(gi++ * 7 + sd * 3) % TM_GLYPH.length] + '"/>';
+      });
+    }
+    s += '<g class="tmg" fill="none" stroke="#7A5530" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' + gl + '</g>';
+    /* the floor */
+    s += '<rect x="' + inner + '" y="' + inner + '" width="' + iw + '" height="' + iw + '" fill="#EBD8A9" stroke="' + INK + '" stroke-width="2.5"/>';
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if ((x + y) % 2) s += '<rect x="' + (inner + x * TM_C) + '" y="' + (inner + y * TM_C) + '" width="' + TM_C + '" height="' + TM_C + '" fill="#E2CB94"/>';
+    let gr = ''; for (let i = 1; i < n; i++) gr += 'M' + (inner + i * TM_C) + ' ' + inner + 'v' + iw + 'M' + inner + ' ' + (inner + i * TM_C) + 'h' + iw;
+    s += pth(gr, 'none', 'stroke="#B99A62" stroke-width="1.2" opacity=".7"');
+    /* the gap where the sun comes in */
+    const gx = E.side === 1 ? T - TM_W - 2 : E.side === 3 ? 0 : tmCX(E.k) - TM_C * 0.34, gy = E.side === 0 ? 0 : E.side === 2 ? T - TM_W - 2 : tmCX(E.k) - TM_C * 0.34;
+    const gw = E.side % 2 ? TM_W + 2 : TM_C * 0.68, gh = E.side % 2 ? TM_C * 0.68 : TM_W + 2;
+    s += '<rect x="' + gx + '" y="' + gy + '" width="' + gw + '" height="' + gh + '" fill="#FFE9A6" stroke="' + INK + '" stroke-width="2"/>';
+    const sx = E.side === 1 ? T - TM_W / 2 : E.side === 3 ? TM_W / 2 : tmCX(E.k), sy = E.side === 0 ? TM_W / 2 : E.side === 2 ? T - TM_W / 2 : tmCX(E.k);
+    s += '<circle cx="' + sx + '" cy="' + sy + '" r="17" fill="none" stroke="#F2A81E" stroke-width="2.2" stroke-dasharray="3 4" class="tmsun"/><circle cx="' + sx + '" cy="' + sy + '" r="10" fill="#FFD24A" stroke="' + INK + '" stroke-width="2"/>';
+    /* the statue: a golden ankh on an altar */
+    const tx = tmCX(R.target.x), ty = tmCX(R.target.y);
+    s += '<g class="tmtgt" transform="translate(' + tx + ' ' + ty + ')"><circle r="46" fill="url(#tmGl' + u + ')" class="tmhalo"/>';
+    s += '<g class="tmrays" stroke="#FFD24A" stroke-width="3" stroke-linecap="round">' + Array.from({ length:12 }, (_, i) => { const a = i * Math.PI / 6; return '<path d="M' + (Math.cos(a) * 30).toFixed(1) + ' ' + (Math.sin(a) * 30).toFixed(1) + 'L' + (Math.cos(a) * 44).toFixed(1) + ' ' + (Math.sin(a) * 44).toFixed(1) + '"/>'; }).join('') + '</g>';
+    s += '<rect x="-22" y="-20" width="44" height="42" rx="5" fill="#1F5FA8" stroke="' + INK + '" stroke-width="2.2"/><rect x="-17" y="-15" width="34" height="32" rx="3" fill="#E9D7A8" stroke="' + INK + '" stroke-width="1.6"/>';
+    s += pth('M0 -2c-7 0 -7 -12 0 -12s7 12 0 12zM-9 -1h18M0 -2v15', 'none', 'stroke="' + INK + '" stroke-width="7" stroke-linecap="round"') + pth('M0 -2c-7 0 -7 -12 0 -12s7 12 0 12zM-9 -1h18M0 -2v15', 'none', 'class="tmank" stroke="#D9A43A" stroke-width="3.6" stroke-linecap="round"') + '</g>';
+    /* pillars, prisms and mirrors */
+    R.items.forEach((it, k) => {
+      const cx = tmCX(it.x), cy = tmCX(it.y);
+      if (it.t === 'p') s += '<g transform="translate(' + cx + ' ' + cy + ')"><circle cx="3" cy="4" r="23" fill="#2B1D14" opacity=".18"/><circle r="23" fill="#D6B676" stroke="' + INK + '" stroke-width="2.2"/><circle r="15" fill="#B7412E" stroke="' + INK + '" stroke-width="1.6"/>' + pth('M0 -15v30M-15 0h30M-10.6 -10.6l21.2 21.2M10.6 -10.6l-21.2 21.2', 'none', 'stroke="#E9C46A" stroke-width="1.6"') + '<circle r="5" fill="#2BA59A" stroke="' + INK + '" stroke-width="1.4"/></g>';
+      else if (it.t === 'x') s += '<g transform="translate(' + cx + ' ' + cy + ')" id="tmI' + k + '" class="tmm fix"><rect x="-21" y="-21" width="42" height="42" rx="6" fill="#A79A82" stroke="' + INK + '" stroke-width="2"/>' + pth('M0 -17L17 0 0 17 -17 0Z', '#7FD6CF', ink(2.2)) + pth('M0 -17V17M-17 0H17', 'none', 'stroke="#E9FBF8" stroke-width="1.6"') + pth('M-6 -7l3 -3', 'none', 'stroke="#fff" stroke-width="2.4" stroke-linecap="round"') + '</g>';
+      else s += tmMirrorSVG(it, 'tmI' + k);
+    });
+    s += '<rect class="tmflood" x="' + inner + '" y="' + inner + '" width="' + iw + '" height="' + iw + '" fill="url(#tmFl' + u + ')"/>';
+    return s + '</svg>';
+  }
+  function tmBeamSVG(R, tr) {
+    const pt = (x, y) => [tmCX(x), tmCX(y)], T = R.n * TM_C + TM_W * 2;
+    let d = '', ends = '';
+    tr.segs.forEach(g => {
+      let [ax, ay] = pt(g.sx, g.sy), [bx, by] = pt(g.x, g.y);
+      if (g.first) { ax = Math.max(0, Math.min(T, ax + g.dx * TM_C * 0.25)); ay = Math.max(0, Math.min(T, ay + g.dy * TM_C * 0.25)); }
+      if (g.end === 'wall') { bx -= g.dx * (TM_C / 2 - 1); by -= g.dy * (TM_C / 2 - 1); }
+      else if (g.end === 'pillar') { bx -= g.dx * 22; by -= g.dy * 22; }
+      else if (g.end === 'target') { bx -= g.dx * 20; by -= g.dy * 20; }
+      d += 'M' + ax.toFixed(1) + ' ' + ay.toFixed(1) + 'L' + bx.toFixed(1) + ' ' + by.toFixed(1);
+      if (g.end === 'wall' || g.end === 'pillar') ends += '<circle cx="' + bx + '" cy="' + by + '" r="12" fill="#FFC93C" opacity=".5"/><circle cx="' + bx + '" cy="' + by + '" r="5.5" fill="#FFFCEB" stroke="#F29A1E" stroke-width="1.5"/>';
+    });
+    return '<path d="' + d + '" fill="none" stroke="#F29A1E" stroke-width="17" stroke-linecap="round" opacity=".28"/><path d="' + d + '" fill="none" stroke="#FFC93C" stroke-width="8" stroke-linecap="round" opacity=".85"/><path d="' + d + '" fill="none" stroke="#FFFCEB" stroke-width="3.4" stroke-linecap="round"/><path class="tmdash" d="' + d + '" fill="none" stroke="#E07B00" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="3 13"/>' + ends;
+  }
+  function tmLegend(R) {
+    const has = t => R.items.some(t), sw = (inner, lab) => '<span><svg viewBox="-26 -26 52 52" width="26" height="26" aria-hidden="true">' + inner + '</svg>' + lab + '</span>';
+    let s = sw('<circle r="23" fill="none" stroke="#2BA59A" stroke-width="3" stroke-dasharray="6 5"/><rect x="-22" y="-5" width="44" height="10" rx="5" fill="#D9A43A" stroke="#2B1D14" stroke-width="2.2" transform="rotate(45)"/>', 'döner');
+    if (has(it => it.t === 'm' && it.fix)) s += sw('<rect x="-22" y="-22" width="44" height="44" rx="6" fill="#A79A82" stroke="#2B1D14" stroke-width="2.4"/><rect x="-22" y="-5" width="44" height="10" rx="5" fill="#8F7B5A" stroke="#2B1D14" stroke-width="2.2" transform="rotate(45)"/>', 'sabit');
+    if (has(it => it.t === 'x')) s += sw('<path d="M0 -20L20 0 0 20 -20 0Z" fill="#7FD6CF" stroke="#2B1D14" stroke-width="2.4"/>', 'ikiye böler');
+    if (has(it => it.t === 'p')) s += sw('<circle r="21" fill="#D6B676" stroke="#2B1D14" stroke-width="2.4"/><circle r="13" fill="#B7412E" stroke="#2B1D14" stroke-width="2"/>', 'sütun');
+    return '<div class="tmleg">' + s + '</div>';
+  }
+
+  /* ---------- the game ---------- */
+  function pzTemple(o) {
+    o = o || {};
+    pzClear();
+    const level = Math.max(0, Math.min(4, (o.level | 0)));
+    PZ = { kind:'temple', tok:Math.random(), timers:[], cb:o.cb, uid:++uid, moves:0, hint:false, done:false, fin:false };
+    let R = tmBuild(level, o.seed == null ? undefined : o.seed);
+    if (!R) R = tmBuild(level, Math.random());
+    PZ.R = R;
+    tmBind();
+    if (window.__nil && window.__nil.fn) window.__nil.fn.templeAutoSolve = templeAutoSolve;
+    const T = R.n * TM_C + TM_W * 2, pc = v => (v / T * 100).toFixed(3) + '%';
+    let s = '<div class="sh-h"><h2 id="shTitle">' + esc(o.title || 'Tapınak odası') + '<small>' + esc(o.sub || 'Işık ve ayna bulmacası') + '</small></h2></div>';
+    s += '<p class="tmhow">' + ico('i-sun', 18) + '<span>Aynalara dokun: ışık <b>altın heykele</b> varsın.</span></p>';
+    s += '<div class="tmroom" id="tmRoom">' + tmRoomSVG(R) + '<svg viewBox="0 0 ' + T + ' ' + T + '" class="tmov" aria-hidden="true"><g id="tmBeam"></g></svg>';
+    R.items.forEach((it, k) => {
+      if (it.t === 'p') return;
+      const st = 'left:' + pc(TM_W + it.x * TM_C) + ';top:' + pc(TM_W + it.y * TM_C) + ';width:' + pc(TM_C) + ';height:' + pc(TM_C);
+      if (it.t === 'm' && !it.fix) s += '<button type="button" class="tmb" data-tm="' + it.i + '" data-x="' + it.x + '" data-y="' + it.y + '" style="' + st + '" aria-label="Ayna ' + (it.i + 1) + ': döndür"' + (it.i ? '' : ' data-first') + '></button>';
+      else s += '<button type="button" class="tmb fx" data-tmf="' + k + '" data-x="' + it.x + '" data-y="' + it.y + '" style="' + st + '" aria-label="' + (it.t === 'x' ? 'Kristal: sabit' : 'Sabit ayna') + '"></button>';
+    });
+    s += '</div>' + tmLegend(R);
+    s += '<div class="tmbar"><span class="tmst" id="tmSt" aria-live="polite"></span><button class="btn sm" type="button" data-tmh>' + ico('i-bolt', 14) + 'İpucu</button><button class="btn sm" type="button" data-tmq>Vazgeç</button></div>';
+    openSheet(s, true, 'pz');
+    tmDraw(true);
+  }
+  function tmDraw(now) {
+    if (!PZ || PZ.kind !== 'temple') return;
+    const R = PZ.R, tr = tmTrace(R), tok = PZ.tok;
+    const paint = () => { if (!PZ || PZ.tok !== tok) return; const b = $('#tmBeam'); if (b) b.innerHTML = tmBeamSVG(R, tmTrace(R)); };
+    if (now || reduce) paint(); else PZ.timers.push(setTimeout(paint, 140));
+    const st = $('#tmSt'); if (st) st.innerHTML = 'Hamle: <b>' + PZ.moves + '</b> · ideal: <b>' + R.par + '</b>';
+    return tr;
+  }
+  /* one tap on a rotatable mirror: the same path for players, hints and the auto solver */
+  function tmTap(i, viaHint) {
+    if (!PZ || PZ.kind !== 'temple' || PZ.done) return false;
+    const R = PZ.R, m = R.rot[i]; if (!m) return false;
+    m.o ^= 1; m.ang += 90;
+    if (viaHint) PZ.hint = true; else PZ.moves++;
+    const g = document.querySelector('#tmI' + R.items.indexOf(m) + ' .tmrot'); if (g) g.style.transform = 'rotate(' + m.ang + 'deg)';
+    play('tick');
+    const tr = tmDraw(false);
+    if (tr.hit) tmWin();
+    return true;
+  }
+  function tmWin() {
+    const R = PZ.R, tok = PZ.tok; PZ.done = true;
+    const q = !PZ.hint && PZ.moves <= R.par + 2 ? 'perfect' : 'good';
+    PZ.q = q;
+    document.querySelectorAll('#sheet [data-tm],#sheet [data-tmf],#sheet [data-tmh],#sheet [data-tmq]').forEach(b => { b.disabled = true; });
+    PZ.timers.push(setTimeout(() => {
+      if (!PZ || PZ.tok !== tok) return;
+      const room = $('#tmRoom'); if (room) room.classList.add('win');
+      const bar = document.querySelector('#sheet .tmbar'); if (bar) bar.classList.add('won');
+      const st = $('#tmSt'); if (st) st.innerHTML = '<b class="tmok">' + (q === 'perfect' ? 'Kusursuz! ' : '') + 'Işık heykele ulaştı!</b>';
+      play('fanfare'); buzz('big');
+    }, reduce ? 0 : 200));
+    PZ.timers.push(setTimeout(() => tmFin(q), 1400));
+  }
+  function tmFin(q) {
+    if (!PZ || PZ.kind !== 'temple' || PZ.fin) return;
+    PZ.fin = true; const cb = PZ.cb; pzClear();
+    try { if (typeof cb === 'function') cb(q); }
+    finally { if (document.querySelector('#sheet .tmroom')) closeSheet(); }
+  }
+  function tmHint() {
+    if (!PZ || PZ.kind !== 'temple' || PZ.done) return;
+    const R = PZ.R, nb = tmNearest(R); if (!nb) return;
+    const wrong = R.rot.filter((m, i) => m.o !== nb.sol[i]); if (!wrong.length) return;
+    const lit = tmTrace(R).touched, m = wrong.find(w => lit.has(w.y * R.n + w.x)) || wrong[0];
+    const el = document.querySelector('#tmI' + R.items.indexOf(m));
+    if (el && !reduce) { el.classList.remove('tmhint'); void el.getBoundingClientRect(); el.classList.add('tmhint'); }
+    toast('Bu ayna yanlış duruyordu; düzelttim.');
+    tmTap(m.i, true);
+  }
+  /* test helper: solve the current room by tapping the nearest solution's mirrors (the real tap path) */
+  function templeAutoSolve(gap) {
+    if (!PZ || PZ.kind !== 'temple' || PZ.done) return 0;
+    const R = PZ.R, nb = tmNearest(R); if (!nb) return 0;
+    const todo = R.rot.filter((m, i) => m.o !== nb.sol[i]).map(m => m.i), tok = PZ.tok, ms = gap == null ? 260 : gap;
+    todo.forEach((i, n) => {
+      if (!ms) { tmTap(i); return; }
+      PZ.timers.push(setTimeout(() => { if (!PZ || PZ.tok !== tok) return; const b = document.querySelector('#sheet [data-tm="' + i + '"]'); if (b && !b.disabled) b.click(); else tmTap(i); }, (n + 1) * ms));
+    });
+    return todo.length;
+  }
+  function tmBind() {
+    const sh = $('#sheet');
+    if (sh && !sh._tmBound) {
+      sh._tmBound = true;
+      sh.addEventListener('click', e => {
+        if (!PZ || PZ.kind !== 'temple') return;
+        const t = e.target.closest && e.target.closest('button'); if (!t || t.disabled) return;
+        if (t.dataset.tm != null) tmTap(+t.dataset.tm);
+        else if (t.dataset.tmf != null) { play('no'); const el = document.querySelector('#tmI' + t.dataset.tmf); if (el && !reduce) { el.classList.remove('tmno'); void el.getBoundingClientRect(); el.classList.add('tmno'); } }
+        else if (t.hasAttribute('data-tmh')) tmHint();
+        else if (t.hasAttribute('data-tmq')) { if (!PZ.done) { PZ.done = true; play('bad'); tmFin('miss'); } }
+      });
+    }
+    if (!document._tmKey) {
+      document._tmKey = true;
+      document.addEventListener('keydown', e => {
+        if (!PZ || PZ.kind !== 'temple' || !/^Arrow/.test(e.key)) return;
+        const cur = document.activeElement && document.activeElement.closest && document.activeElement.closest('.tmb');
+        const all = Array.from(document.querySelectorAll('#tmRoom .tmb')); if (!all.length) return;
+        e.preventDefault();
+        if (!cur) { all[0].focus(); return; }
+        const cx = +cur.dataset.x, cy = +cur.dataset.y, [dx, dy] = { ArrowLeft:[-1, 0], ArrowRight:[1, 0], ArrowUp:[0, -1], ArrowDown:[0, 1] }[e.key];
+        let best = null, bd = 1e9;
+        all.forEach(b => { const ox = +b.dataset.x - cx, oy = +b.dataset.y - cy, fw = ox * dx + oy * dy, side = Math.abs(ox * dy) + Math.abs(oy * dx); if (fw <= 0) return; const sc = fw + side * 2.5; if (sc < bd) { bd = sc; best = b; } });
+        if (best) best.focus();
+      });
+    }
+  }

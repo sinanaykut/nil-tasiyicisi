@@ -1,0 +1,186 @@
+  /* ================= a result worth sharing ================= */
+  function shareText() {
+    const r = S.result, st = r.stats, V = { p:'🟩', h:'🟨', c:'🟧', x:'🟥' };
+    const lines = ['Nil Kervancısı · ' + (S.mode === 'daily' && S.dateKey ? 'Günün seferi ' + S.dateKey.split('-').reverse().join('.') : 'Serbest sefer'),
+      '🏺 ' + fmt(r.score) + ' deben · ' + r.rank,
+      '⛵ ' + ((st.vlog || '').split('').map(c => V[c] || '').join('') || '–') + ' (' + st.trips + ' yolculuk)',
+      (r.beat ? '🏆 Sethi\'yi geçtim' : '🐊 Sethi önde') + ' · ' + fmt(r.rival)];
+    if (S.quest && S.quest.st === 'done') lines.push('📜 ' + QUESTS[S.quest.id].name + ' ✓');
+    if (/^https?:$/.test(location.protocol) && !/claude/.test(location.host)) lines.push(location.origin + location.pathname);
+    return lines.join('\n');
+  }
+  async function shareResult(btn) {
+    const t = shareText();
+    try { if (navigator.share) { await navigator.share({ text:t }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+    try { await navigator.clipboard.writeText(t); toast('Sonuç panoya kopyalandı. İstediğin yere yapıştır.'); return; } catch (e) {}
+    if (!document.querySelector('.sharebox') && btn) btn.insertAdjacentHTML('afterend', '<textarea class="sharebox" readonly rows="6"></textarea><p class="muted" style="margin:0">Metni seçip kopyala.</p>');
+    const ta = document.querySelector('.sharebox'); if (ta) { ta.value = t; ta.focus(); ta.select(); }
+  }
+
+  /* ================= the device: haptics, wake lock, install, transitions ================= */
+  const HAPK = 'nil-kervanci-haptic';
+  const haptic = { on: lsGet(HAPK) !== '0', can: !!(navigator.vibrate && matchMedia('(pointer:coarse)').matches) };
+  const HAP = { hit:[40], near:[12], boost:[8], caught:[60, 40, 80], escape:[20, 30, 20], wreck:[90, 50, 120], big:[15, 20, 30], pick:[10], weigh:[25], splash:[14], lash:[18], thunder:[30] };
+  function buzz(k) { if (!haptic.on || !haptic.can) return; const p = Array.isArray(k) ? k : HAP[k]; if (!p) return; try { navigator.vibrate(p); } catch (e) {} }
+  function setHaptic(on) { haptic.on = on; lsSet(HAPK, on ? '1' : '0'); if (on) buzz([20]); }
+  /* keep the screen awake while a river scene is running */
+  let wake = null, wakeWant = false;
+  async function wakeSet(on) {
+    wakeWant = on;
+    try {
+      if (on && !wake && navigator.wakeLock && document.visibilityState === 'visible') { wake = await navigator.wakeLock.request('screen'); wake.addEventListener('release', () => { wake = null; }); }
+      else if (!on && wake) { const w = wake; wake = null; await w.release(); }
+    } catch (e) { wake = null; }
+  }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && wakeWant && !wake) wakeSet(true); });
+  /* install: Chrome hands us the prompt, iOS needs the Share-sheet route */
+  let installEv = null;
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEv = e; paintInstall(); });
+  window.addEventListener('appinstalled', () => { installEv = null; paintInstall(); toast('Nil Kervancısı ana ekrana eklendi.'); });
+  const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  function installHtml() {
+    if (standalone()) return '';
+    if (installEv) return '<button class="btn gold wide" type="button" data-act="install">' + ico('i-house', 18) + ' Telefona kur: ana ekrana ekle</button>';
+    if (isIOS()) return '<p class="muted" style="margin:0">Telefona kurmak için Safari\'de Paylaş → "Ana Ekrana Ekle".</p>';
+    return '';
+  }
+  function paintInstall() { const el = document.querySelector('#installSlot'); if (el) el.innerHTML = installHtml(); }
+  async function doInstall() { if (!installEv) return; const ev = installEv; installEv = null; try { ev.prompt(); await ev.userChoice; } catch (e) {} paintInstall(); }
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && !/claude\.(ai|com)$/.test(location.hostname)) {
+    window.addEventListener('load', () => { fetch('sw.js', { method:'HEAD' }).then(r => { if (r.ok && /javascript/.test(r.headers.get('content-type') || '')) navigator.serviceWorker.register('sw.js').catch(() => {}); }).catch(() => {}); });
+  }
+  /* a view transition when the browser has them, a plain call otherwise */
+  const vt = fn => { if (document.startViewTransition && !reduce) { try { document.startViewTransition(fn); return; } catch (e) {} } fn(); };
+
+  /* ---------- the result as a picture: a painted card you can send ---------- */
+  function sceneToImage(svgStr, w, h) {
+    return new Promise((res, rej) => {
+      const ids = new Set(); svgStr.replace(/href="#([\w-]+)"/g, (m, id) => { ids.add(id); return m; });
+      let defs = '';
+      ids.forEach(id => { const el = document.getElementById(id); if (el && !svgStr.includes('id="' + id + '"')) defs += el.outerHTML; });
+      const full = svgStr.replace(/<svg([^>]*)>/, '<svg$1 xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="' + w + '" height="' + h + '"><defs>' + defs + '</defs>');
+      const img = new Image(); img.onload = () => res(img); img.onerror = rej;
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(full);
+    });
+  }
+  async function resultCard() {
+    const r = S.result, st = r.stats, W2 = 720, H2 = 900, c = document.createElement('canvas'); c.width = W2; c.height = H2;
+    const x = c.getContext('2d');
+    const g = x.createLinearGradient(0, 0, 0, H2); g.addColorStop(0, '#F6E6C0'); g.addColorStop(1, '#E9CFA0'); x.fillStyle = g; x.fillRect(0, 0, W2, H2);
+    for (let k = 0; k < 24; k++) { x.fillStyle = ['#1F5FA8', '#D9A43A', '#B7412E', '#2BA59A'][k % 4]; x.fillRect(12 + k * 29, 12, 25, 10); x.fillRect(12 + k * 29, H2 - 22, 25, 10); }
+    x.strokeStyle = '#2B1D14'; x.lineWidth = 6; x.strokeRect(6, 6, W2 - 12, H2 - 12);
+    try {
+      const sc = shipSVG({ govde:S.up.govde, yelken:S.up.yelken, kurek:S.up.kurek, ambar:S.up.ambar }, crateList(), ++uid);
+      const svg = '<svg viewBox="-250 -236 500 290"><rect x="-250" y="-236" width="500" height="290" fill="#8FC6D6"/><rect x="-250" y="2" width="500" height="60" fill="#2F7090"/>' + sc + '</svg>';
+      const img = await sceneToImage(svg, 500, 290); x.drawImage(img, 60, 110, 600, 348);
+    } catch (e) {}
+    x.fillStyle = '#2B1D14'; x.textAlign = 'center';
+    x.font = '700 44px "Cinzel Decorative", Cinzel, serif'; x.fillText('Nil Kervancısı', W2 / 2, 84);
+    x.font = '700 20px Nunito, sans-serif'; x.fillStyle = '#5A4632'; x.fillText(S.mode === 'daily' && S.dateKey ? 'Günün seferi · ' + S.dateKey.split('-').reverse().join('.') : 'Serbest sefer · ' + new Date().toLocaleDateString('tr-TR'), W2 / 2, 480);
+    x.fillStyle = '#2B1D14'; x.font = '700 64px Cinzel, serif'; x.fillText(fmt(r.score) + ' deben', W2 / 2, 560);
+    x.font = '800 26px Nunito, sans-serif'; x.fillStyle = '#8F2F21'; x.fillText(r.rank, W2 / 2, 600);
+    const V = { p:'#3E8E5A', h:'#D9A43A', c:'#E9A866', x:'#B7412E' }, log = (st.vlog || '').split('').filter(Boolean), bw = Math.min(44, (W2 - 120) / Math.max(1, log.length));
+    log.forEach((ch, i) => { const bx = W2 / 2 - log.length * bw / 2 + i * bw; x.fillStyle = V[ch] || '#999'; x.beginPath(); x.roundRect ? x.roundRect(bx + 3, 630, bw - 6, 36, 8) : x.rect(bx + 3, 630, bw - 6, 36); x.fill(); x.strokeStyle = '#2B1D14'; x.lineWidth = 2.5; x.stroke(); });
+    x.fillStyle = '#5A4632'; x.font = '700 18px Nunito, sans-serif'; x.fillText(st.trips + ' yolculuk · ' + (st.perfect || 0) + ' kusursuz · ' + (st.escapes || 0) + ' kaçış', W2 / 2, 700);
+    x.font = '800 24px Nunito, sans-serif'; x.fillStyle = r.beat ? '#2F7346' : '#8F2F21'; x.fillText((r.beat ? 'Sethi\'yi geçtim' : 'Sethi önde') + ' · ' + fmt(r.rival) + ' deben', W2 / 2, 748);
+    if (S.quest && S.quest.st === 'done') { x.fillStyle = '#2B1D14'; x.font = '700 20px Nunito, sans-serif'; x.fillText('Hikâye: ' + QUESTS[S.quest.id].name + ' ✓', W2 / 2, 790); }
+    x.fillStyle = '#8C6E44'; x.font = '700 15px Nunito, sans-serif'; x.fillText(/^https?:$/.test(location.protocol) && !/claude/.test(location.host) ? location.host + location.pathname : 'Nil Kervancısı', W2 / 2, 850);
+    return c;
+  }
+  async function shareImage(btn) {
+    let c; try { c = await resultCard(); } catch (e) { return shareResult(btn); }
+    const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+    const file = blob && typeof File !== 'undefined' ? new File([blob], 'nil-kervancisi.png', { type:'image/png' }) : null;
+    try { if (file && navigator.canShare && navigator.canShare({ files:[file] })) { await navigator.share({ files:[file], text:shareText() }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+    const url = c.toDataURL('image/png'), box = document.querySelector('.sharebox') || (btn && btn.insertAdjacentElement('afterend', Object.assign(document.createElement('div'), { className:'sharebox img' })));
+    const canDl = !/claude\.(ai|com)$/.test(location.hostname);
+    if (box) box.innerHTML = '<img src="' + url + '" alt="Sefer sonucu kartı">' + (canDl ? '<a class="btn sm gold" download="nil-kervancisi.png" href="' + url + '">Resmi indir</a>' : '<p class="muted" style="margin:0">Resme uzun basıp kaydedebilirsin.</p>') + '<button class="btn sm" type="button" data-act="shareTxt">Metin olarak kopyala</button>';
+  }
+
+  /* ================= water with real light: a WebGL band under the harbour painting ================= */
+  const GLW = (() => {
+    let cv = null, gl = null, prog = null, tex = null, raf = 0, on = false, t0 = performance.now(), U = {}, cur = null, pal = null, host = null, ready = false;
+    const VS = 'attribute vec2 p;varying vec2 v;void main(){v=p*0.5+0.5;gl_Position=vec4(p,0.0,1.0);}';
+    const FS = 'precision mediump float;varying vec2 v;uniform sampler2D s;uniform float t;uniform vec3 c0;uniform vec3 c1;uniform vec3 c2;uniform float sx;uniform float nt;uniform float wt;uniform float wh;' +
+      'void main(){float d=1.0-v.y;' +
+      'float wave=sin(v.x*38.0+t*1.5+d*11.0)*0.0055+sin(v.x*15.0-t*1.05)*0.0035;' +
+      'float wy=sin(d*28.0+t*1.9+v.x*6.0)*0.009*(1.0-d);' +
+      'vec2 src=vec2(v.x+wave,wt-d*wh+wy);' +
+      'vec3 refl=texture2D(s,src).rgb;' +
+      'vec3 water=mix(c0,mix(c1,c2,smoothstep(0.15,1.0,d)),smoothstep(0.0,0.22,d));' +
+      'float fres=pow(1.0-d,2.0);' +
+      'vec3 col=mix(water,refl,0.42*fres+0.10);' +
+      'float gx=exp(-pow((v.x-sx)*6.5,2.0));' +
+      'float sp=pow(max(0.0,sin(v.x*110.0+t*2.8+d*36.0)*sin(d*80.0-t*2.1+v.x*9.0)),7.0);' +
+      'col+=vec3(1.0,0.95,0.78)*gx*sp*(0.95-d*0.75)*(0.5+0.5*(1.0-nt));' +
+      'col+=vec3(pow(max(0.0,sin(d*70.0+v.x*10.0+t*1.2)),16.0)*0.07*(1.0-d));' +
+      'col=mix(col,col*vec3(0.75,0.72,0.9),nt*0.35);' +
+      'gl_FragColor=vec4(col,1.0);}';
+    const hex3 = h => { const a = hex2(h); return [a[0] / 255, a[1] / 255, a[2] / 255]; };
+    function init(container) {
+      host = container;
+      if (cv) return true;
+      try {
+        cv = document.createElement('canvas'); cv.className = 'glw'; cv.setAttribute('aria-hidden', 'true');
+        gl = cv.getContext('webgl', { antialias:false, alpha:false, premultipliedAlpha:false, powerPreference:'low-power' });
+        if (!gl) { cv = null; return false; }
+        const sh = (ty, src) => { const o = gl.createShader(ty); gl.shaderSource(o, src); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
+        prog = gl.createProgram(); gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(prog);
+        if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('link');
+        gl.useProgram(prog);
+        const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+        const loc = gl.getAttribLocation(prog, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+        ['s', 't', 'c0', 'c1', 'c2', 'sx', 'nt', 'wt', 'wh'].forEach(n => { U[n] = gl.getUniformLocation(prog, n); });
+        tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        return true;
+      } catch (e) { cv = null; gl = null; return false; }
+    }
+    /* the painting is rasterised once per scene and used as the mirror */
+    /* the painting's frame and its water band, in its own units (old paintings: 900x400, water 250-400) */
+    let VB = [0, 0, 900, 400], WB = [250, 400];
+    async function set(svgStr, P) {
+      if (!init(host || $('#port')) || !svgStr) return;
+      const key = svgStr.length + ':' + svgStr.slice(0, 200);
+      pal = P; cur = key; if (!ready) host.classList.remove('gl');
+      const vm = svgStr.match(/viewBox="([-\d. ]+)"/), wm = svgStr.match(/data-water="([-\d.]+)[ ,]+([-\d.]+)"/);
+      VB = vm ? vm[1].trim().split(/\s+/).map(Number) : [0, 0, 900, 400]; WB = wm ? [+wm[1], +wm[2]] : [250, 400];
+      const ri = svgStr.indexOf('<!--r-->'); if (ri > 0) svgStr = svgStr.slice(0, ri) + '</svg>';
+      let img; try { img = await sceneToImage(svgStr.replace(/ class="(bob|walk|walk2|sway|sway2|row|pennant|cloud|glint|flow|felucca|bird|sunr|ripple|bob2|smoke|flag|splash)"/g, '').replace(/ class="(bob|bob spot)" data-spot="ship"/g, ''), 1200, Math.round(1200 * VB[3] / VB[2])); } catch (e) { return; }
+      if (cur !== key || !gl) return;
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      try { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, img); } catch (e) { return; }
+      if (!cv.parentNode) host.insertBefore(cv, host.firstChild);
+      ready = true; host.classList.add('gl'); layout(); start();
+    }
+    function layout() {
+      if (!cv || !host) return;
+      const W = host.clientWidth, H = host.clientHeight; if (!W || !H) return;
+      const sv = host.querySelector('.pscene svg') || host.querySelector('svg'), hr = host.getBoundingClientRect(), dpr = Math.min(1.5, window.devicePixelRatio || 1);
+      let a = null, b = null; if (sv) { a = vbPt(sv, VB[0], WB[0]); b = vbPt(sv, VB[0] + VB[2], WB[1]); }
+      if (!a || !b) { const sc = Math.max(W / VB[2], H / VB[3]); a = [hr.left + (W - VB[2] * sc) / 2, hr.top + H - (VB[3] - WB[0]) * sc]; b = [a[0] + VB[2] * sc, a[1] + (WB[1] - WB[0]) * sc]; }
+      cv.style.left = (a[0] - hr.left) + 'px'; cv.style.top = (a[1] - hr.top) + 'px'; cv.style.width = (b[0] - a[0]) + 'px'; cv.style.height = (b[1] - a[1]) + 'px';
+      const w = Math.round((b[0] - a[0]) * dpr), h = Math.round((b[1] - a[1]) * dpr);
+      if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+    }
+    function frame() {
+      raf = 0;
+      if (!on || !gl || !ready || host.hidden || document.hidden) return;
+      if (!cv.parentNode) return;
+      gl.viewport(0, 0, cv.width, cv.height);
+      gl.uniform1f(U.t, (performance.now() - t0) / 1000);
+      const c = pal.water.map(hex3); gl.uniform3fv(U.c0, c[0]); gl.uniform3fv(U.c1, c[1]); gl.uniform3fv(U.c2, c[2]);
+      gl.uniform1f(U.sx, ((pal.sunX || 450) - VB[0]) / VB[2]); gl.uniform1f(U.nt, pal.stars || 0);
+      gl.uniform1f(U.wt, (WB[0] - VB[1]) / VB[3]); gl.uniform1f(U.wh, (WB[1] - WB[0]) / VB[3] * 0.9);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      if (!reduce) raf = requestAnimationFrame(frame);
+    }
+    function start() { on = true; if (!raf) raf = requestAnimationFrame(frame); }
+    function stop() { on = false; }
+    function hide() { on = false; ready = false; cur = null; if (host) host.classList.remove('gl'); if (cv && cv.parentNode) cv.parentNode.removeChild(cv); }
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && on) start(); });
+    return { set, layout, start, stop, hide, active:() => ready && on };
+  })();
+

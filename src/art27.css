@@ -1,0 +1,15 @@
+/* ---------- v27 art (sanat): donkeys, shaduf, baboons, lantern ---------- */
+.ps .a27-tail{animation:a27tail 2.8s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 0}
+@keyframes a27tail{50%{transform:rotate(16deg)}}
+.ps .a27-nod{animation:a27nod 5s ease-in-out infinite;transform-box:fill-box;transform-origin:0 100%}
+@keyframes a27nod{0%,62%,100%{transform:none}74%{transform:rotate(9deg)}86%{transform:rotate(2deg)}}
+.ps .a27-shaduf{animation:a27sh 6s ease-in-out infinite;transform-box:view-box}
+@keyframes a27sh{50%{transform:rotate(-9deg)}}
+.ps .a27-bab{animation:a27bab 3.6s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 100%}
+@keyframes a27bab{0%,70%,100%{transform:none}78%{transform:translateY(-3px) rotate(-4deg)}88%{transform:rotate(3deg)}}
+.ps .a27-fl{animation:a27fl 1.3s ease-in-out infinite alternate}
+@keyframes a27fl{to{opacity:.16}}
+.port.depart .ps .a27-dk{animation:a27trot .3s ease-in-out infinite alternate}
+.port.arriveA .ps .a27-dk{animation:a27trot .3s ease-in-out 4 alternate}
+@keyframes a27trot{to{transform:translateY(-2.5px) rotate(-1.5deg)}}
+@media (prefers-reduced-motion: reduce){ .ps .a27-tail,.ps .a27-nod,.ps .a27-shaduf,.ps .a27-bab,.ps .a27-fl,.port.depart .ps .a27-dk,.port.arriveA .ps .a27-dk{animation:none} }

@@ -1,0 +1,48 @@
+  /* ================= v27 desert merchants (Siwa, Harga, Saww): pushed right after the five river merchants ================= */
+  const DESERT_M0 = MERCHANTS.length; /* 5: Siwa = 5, Harga = 6, Saww = 7 */
+  MERCHANTS.push(
+    { name:'Tefnakht', title:'kâhine danışan tuz tüccarı', fav:'bugday', favQty:8, reward:{ g:'tuz', q:12 },
+      look:{ skin:'#C08A5E', hair:'#E3DCCD', wig:'long', band:'#B7412E', bg:'#C6DCE8', c1:'#B7412E', c2:'#F1ECE0', beard:true, old:true, ear:true },
+      lines:[
+        ['Fiyatı ben koymam, Amun\'un kâhini koyar. Kâhin bugün biraz huysuz.', 'Tuz çölün gözyaşıdır. Gözyaşı da ucuz değildir.'],
+        ['Kâhine seni sordum. "Belki" dedi. Bu çok iyi bir cevap.', 'Sekiz çuval buğday getirirsen kâhin bile gülümser.'],
+        ['Kâhin adını duyunca başını salladı. Ya da uyukluyordu. İkisi de iyi.', 'Burada ekmek tuzdan pahalı. Sen ikisini de getiriyorsun.'],
+        ['Kâhin fiyatı artık bana bıraktı. Ben de sana bıraktım. Kimse bir şey anlamadı.', 'Siwa\'da dostluk tuz gibidir: az olur ama hiç bozulmaz.']
+      ],
+      thanks:'Buğday! Bu akşam kalede ekmek kokusu var. Kâhin bile sıraya girdi.' },
+    { name:'Hatnefer', title:'hurma bahçelerinin hanımı', fav:'bakir', favQty:1, reward:{ g:'hurma', q:30 },
+      look:{ skin:'#A8754D', hair:'#1F1A2E', wig:'bob', band:'#3E8E5A', bg:'#F3DCC0', c1:'#3E8E5A', c2:'#B5622F', ear:'hoop', jolly:true },
+      lines:[
+        ['Önce bir hurma ye. Sonra konuşuruz. Sonra bir hurma daha ye.', 'Harga\'da her şey hurmayla ölçülür. Senin fiyatın: çok hurma.'],
+        ['Yine geldin! Zayıflamışsın. Al, hurma.', 'Bir parça bakır getir, kuyunun kovası çatladı. Seni hurmaya boğarım.'],
+        ['Sana en tatlı salkımı ayırdım. Ötekiler kıskandı.', 'Eşeklerin beni tanıdı. Onlara da hurma verdim, tabii.'],
+        ['Torunlarım seni soruyor: "Hurmacı teyzenin en sevdiği tüccar mı?" Evet, o.', 'Bahçemde bir ağaca adını verdim. Gölgesi geniş, tıpkı kalbin gibi.']
+      ],
+      thanks:'Bakır! Kuyunun kovası artık sızdırmaz. Al şu hurmaları, itiraz istemem.' },
+    { name:'Parahu', title:'Punt\'lu tütsü tüccarı', fav:'sedir', favQty:1, reward:{ g:'tutsu', q:2 },
+      look:{ skin:'#8E5236', hair:'#1B1420', wig:'cap', band:'#2BA59A', bg:'#D3ECEA', c1:'#D9A43A', c2:'#2BA59A', beard:true, ear:'hoop', jolly:true },
+      lines:[
+        ['Punt\'tan geldim. Yolda bir balina gördüm. Balina da beni gördü, korktu.', 'Tütsüm öyle güzel kokar ki tanrılar bile pazarlık eder.'],
+        ['Yine sen! Babunum seni tanıdı, bu sefer çantanı karıştırmadı.', 'Bir kütük sedir getir; gemim su alıyor, ben de sabır alıyorum.'],
+        ['Sana Punt\'un sırrını söyleyeyim: deniz tuzlu. Başka sır yok.', 'Babunum seni sevdi. Normalde sadece incir sever.'],
+        ['Gelecek sefer adını gemiye yazdıracağım. Babun okuyamıyor ama gururlanacak.', 'Seninle denize açılsak dalgalar bile indirim yapar.']
+      ],
+      thanks:'Sedir! Gemim artık su almaz, yalnızca tütsü kokusu alır.' }
+  );
+  MERCHANT_NAMES.push('Tefnakht', 'Hatnefer', 'Parahu');
+  FAVS.push({ g:'bugday', q:8, rg:'tuz', rq:12 }, { g:'bakir', q:1, rg:'hurma', rq:30 }, { g:'sedir', q:1, rg:'tutsu', rq:2 });
+  /* haggling flavour for the three, same shapes as FACE_LINES / MTELL / FAV_STYLE / DUEL_M (index 0 = Siwa, 1 = Harga, 2 = Saww) */
+  const DESERT_UI = {
+    faceLines:[
+      { open:'Kâhin %{o} dedi. Ben karışmam, ben sadece tuz satarım.', push:['Kâhin hapşırdı… hayra yoruyorum: %{o}.', 'Amun sabırlıdır, ben değilim. %{o}.', 'Son fal: %{o}. Bir daha sorarsam kâhin küser.'], walk:'Kâhin "git" dedi. Ben de diyorum: git.', ok:'Kâhin onayladı. Tuzla mühürledik.' },
+      { open:'Hurmalar adına %{o} inerim. Bir hurma da üstüne.', push:['Peki, %{o}. Ama bir hurma daha yiyeceksin.', 'Kuyunun hatırına: %{o}.', 'Son salkım, son söz: %{o}.'], walk:'Hurmamı yedin, sabrımı da. Hadi bakalım!', ok:'Anlaştık! Tatlı bir pazarlık oldu.' },
+      { open:'Punt usulü: %{o}, babun şahit.', push:['Babun kaşını kaldırdı… %{o}.', 'Dalgalar sakin, ben de: %{o}.', 'Denizin tuzu üstüne: %{o}, son!'], walk:'Babunum esnedi. Pazarlık bitti demek.', ok:'Anlaştık! Babun alkışlıyor.' }
+    ],
+    mtell:[{ give:'frown', walk:'arms' }, { give:'smile', walk:'tap' }, { give:'arms', walk:'sweat' }],
+    favStyle:['scale', 'needle', 'duel'],
+    duel:[
+      [['Kâhin bu fiyatı rüyasında gördü!', 'Rüyasında indirimi de görmüş, sana söylememiş.'], ['Tuzum çölün en beyazı!', 'Fiyatın da çölün en kızgını.'], ['Siwa\'ya kadar boşuna mı geldin?', 'Boşuna değil, fiyatını kâhine şikâyet etmeye geldim.'], ['Amun benim tarafımda!', 'Amun herkesin tarafında, o yüzden kimseye pahalı satmaz.'], ['Kalemiz kırk odalı, hepsi tuz dolu!', 'Kırk odada bir müşteri yok, ondan.'], ['Benim tuzum yemeğe tat katar!', 'Senin fiyatın da yemeği boğazımda bırakır.']],
+      [['Hurmalarım baldan tatlı!', 'Fiyatın da arı gibi sokuyor.'], ['Bahçemde bin ağaç var!', 'Bin ağacın gölgesinde bir indirim yok mu?'], ['Benim hurmamı yiyen bir daha gitmez!', 'Gidemez tabii, kesesi boşalır.'], ['Kuyumun suyu tertemiz!', 'Pazarlığın da öyle olsun, bulandırma.'], ['Torunlarım bile benden ucuza alamaz!', 'Torunların akıllı, başka tezgâhtan alıyorlar.'], ['Hibis tapınağı bile benim hurmamı sunar!', 'Tanrılar bedava alıyor, ben de onlardan biriyim.']],
+      [['Bu tütsü tanrıların burnuna layık!', 'Benim burnum da layık, ama kesem değil.'], ['Denizde kırk gün dalgayla boğuştum!', 'Bu fiyatla şimdi benimle boğuşuyorsun.'], ['Babunum bile senden iyi pazarlık eder!', 'Babunun bir incir istiyor, sen bir servet.'], ['Punt\'ta bunu altınla tartarlar!', 'Burası Saww, burada akılla tartarız.'], ['Gemim fırtınaları yendi!', 'Fiyatın da müşterileri yenmiş, tezgâh bomboş.'], ['Kokusu yedi köyü sarar!', 'Fiyatı da yedi köyü kaçırır.']]
+    ]
+  };

@@ -1,0 +1,421 @@
+    /* ================= the travel map table: a painted relief model of Egypt on a papyrus table (contract C) ================= */
+    /* map coords x,y in 0..1 (north up) -> world X = (x - .5) * 100, Z = (y - .47) * 100; north is -Z and the camera looks north */
+    const MB = { x0:-0.035, y0:-0.065, s:1.07 }, MGN = 256;
+    const mX = x => (x - 0.5) * 100, mZ = y => (y - 0.47) * 100;
+    const MPOS = { perbastet:[0.55, 0.07], mennefer:[0.52, 0.21], abidos:[0.56, 0.50], vaset:[0.62, 0.65], abu:[0.58, 0.90], siwa:[0.12, 0.16], kharga:[0.30, 0.60], saww:[0.90, 0.55] };
+    const MSIDE = { perbastet:'r', mennefer:'r', abidos:'l', vaset:'r', abu:'r', siwa:'b', kharga:'b', saww:'b' };
+    /* the Nile from the first cataract to the sea (through every river city), and two delta branches */
+    const NILE = [[0.565, 1.06], [0.572, 0.96], [0.58, 0.90], [0.594, 0.83], [0.615, 0.765], [0.638, 0.705], [0.62, 0.65], [0.643, 0.60], [0.632, 0.555], [0.597, 0.523], [0.56, 0.50], [0.533, 0.455], [0.516, 0.40], [0.519, 0.33], [0.53, 0.27], [0.52, 0.21], [0.522, 0.172], [0.538, 0.125], [0.55, 0.07], [0.566, 0.03], [0.585, -0.01], [0.60, -0.08]];
+    const NILEW = [[0.522, 0.172], [0.503, 0.135], [0.478, 0.085], [0.452, 0.035], [0.437, -0.01], [0.43, -0.08]];
+    const NILEM = [[0.53, 0.15], [0.517, 0.1], [0.508, 0.04], [0.505, -0.08]];
+    const DELTA = [[0.522, 0.165], [0.498, 0.13], [0.462, 0.085], [0.428, 0.04], [0.40, 0.005], [0.395, -0.04], [0.665, -0.04], [0.66, 0.0], [0.628, 0.045], [0.592, 0.09], [0.553, 0.13], [0.522, 0.165]];
+    const REDSEA = [[0.70, 0.168], [0.742, 0.232], [0.79, 0.305], [0.832, 0.37], [0.87, 0.45], [0.905, 0.52], [0.922, 0.565], [0.95, 0.655], [0.985, 0.77], [1.02, 0.88], [1.06, 1.05], [1.1, 1.05], [1.1, 0.27], [1.02, 0.29], [0.965, 0.33], [0.915, 0.375], [0.885, 0.405], [0.862, 0.36], [0.822, 0.297], [0.776, 0.228], [0.736, 0.172]];
+    const OASES = [[0.13, 0.165, 0.052, 0.026, 0], [0.30, 0.60, 0.02, 0.07, 0], [0.195, 0.572, 0.034, 0.012, 0.2], [0.455, 0.262, 0.024, 0.021, 0]];
+    const LAKES = [[0.072, 0.156, 0.026, 0.008, 1], [0.178, 0.172, 0.02, 0.007, 1], [0.44, 0.252, 0.02, 0.0075, 0]];
+    const PEAKS = [[0.73, 0.27, 3.2, 0.03], [0.77, 0.34, 4.6, 0.035], [0.715, 0.42, 3.2, 0.028], [0.80, 0.455, 5.2, 0.035], [0.75, 0.53, 3.6, 0.03], [0.825, 0.62, 4.4, 0.03], [0.765, 0.70, 5.0, 0.035], [0.845, 0.76, 4.2, 0.03], [0.74, 0.82, 3.4, 0.03], [0.82, 0.88, 4.8, 0.035], [0.90, 0.96, 3.5, 0.03],
+      [0.90, 0.21, 4.2, 0.035], [0.955, 0.235, 5.4, 0.03], [0.875, 0.30, 3.0, 0.025], [0.24, 0.47, 1.4, 0.04], [0.37, 0.71, 1.3, 0.04], [0.15, 0.085, 1.3, 0.04], [0.06, 0.40, 1.1, 0.05]];
+    const coastY = x => 0.008 + 0.01 * Math.sin(x * 11 + 1) - 0.032 * Math.exp(-Math.pow((x - 0.51) / 0.085, 2));
+    function crSpline(p, n) {
+      const out = [];
+      for (let i = 0; i < p.length - 1; i++) {
+        const a = p[Math.max(0, i - 1)], b = p[i], c = p[i + 1], d = p[Math.min(p.length - 1, i + 2)];
+        for (let j = 0; j < n; j++) {
+          const t = j / n, t2 = t * t, t3 = t2 * t, f = (q, k) => 0.5 * ((2 * b[k]) + (-a[k] + c[k]) * t + (2 * a[k] - 5 * b[k] + 4 * c[k] - d[k]) * t2 + (-a[k] + 3 * b[k] - 3 * c[k] + d[k]) * t3);
+          out.push([f(0, 0), f(0, 1)]);
+        }
+      }
+      out.push(p[p.length - 1].slice());
+      return out;
+    }
+    const NS = crSpline(NILE, 12), NSW = crSpline(NILEW, 10), NSM = crSpline(NILEM, 10);
+    function nileIdx(x, y) { let b = 0, bd = 1e9; for (let i = 0; i < NS.length; i++) { const d = (NS[i][0] - x) * (NS[i][0] - x) + (NS[i][1] - y) * (NS[i][1] - y); if (d < bd) { bd = d; b = i; } } return { i:b, d:Math.sqrt(bd) }; }
+    function nileXAt(y) { let b = NS[0], bd = 9; for (let i = 0; i < NS.length; i++) { const d = Math.abs(NS[i][1] - y); if (d < bd) { bd = d; b = NS[i]; } } return b[0]; }
+    function rng(seed) { let s = seed | 0; return () => { s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+    /* ---------- v33: cooperative jobs. Building the map is a generator stepped in short slices (~7 ms), so opening the
+       sheet, warming at boot and changing season never block input with a long task ---------- */
+    const JOB_MS = 7;
+    const nextTask = (() => { try { const ch = new MessageChannel(), q = []; ch.port1.onmessage = () => { const f = q.shift(); if (f) f(); }; return f => { q.push(f); ch.port2.postMessage(0); }; } catch (e) { return f => setTimeout(f, 0); } })();
+    function runJob(gen) {
+      let dead = false, res, rej, slices = 0, maxMs = 0, top = [], prev = 'start';
+      const p = new Promise((a, b) => { res = a; rej = b; });
+      const step = () => {
+        if (dead) return;
+        const t = performance.now(); slices++;
+        try { for (;;) { const t1 = performance.now(), r = gen.next(), d = performance.now() - t1; if (d > 12) { top.push([Math.round(d), prev + '>' + (r.done ? 'end' : r.value)]); top.sort((a, b) => b[0] - a[0]); top.length = Math.min(top.length, 6); } if (!r.done && r.value) prev = r.value; if (r.done) { maxMs = Math.max(maxMs, performance.now() - t); res(r.value); return; } if (performance.now() - t > JOB_MS) break; } }
+        catch (e) { dead = true; rej(e); return; }
+        maxMs = Math.max(maxMs, performance.now() - t);
+        nextTask(step);
+      };
+      nextTask(step);
+      return { p, cancel() { if (dead) return; dead = true; try { gen.return(); } catch (e) {} rej(new Error('cancelled')); }, info:() => ({ slices, maxMs:Math.round(maxMs), top }) };
+    }
+    const runSync = gen => { for (;;) { const r = gen.next(); if (r.done) return r.value; } };
+
+    /* ---------- the painted top (2x resolution) over a smooth terraced relief (plates with bevels, inked lips) ---------- */
+    const mapArts = new Map(); let RELIEF = null;
+    const paintMap = si => mapArts.get(si) || runSync(paintGen(si));
+    function* paintGen(si) {
+      let A = mapArts.get(si); if (A) return A;
+      const N = 1024, S = N / MB.s, X = x => (x - MB.x0) * S, Y = y => (y - MB.y0) * S, R = rng(11 + si);
+      const mk = n => { const c = document.createElement('canvas'); c.width = c.height = n; return c; }, mk2 = () => { const c = mk(N * 2); c.getContext('2d').scale(2, 2); return c; };
+      const line = (g, pts, sc, cont) => { if (!cont) g.beginPath(); pts.forEach((p, i) => { const x = (p[0] - MB.x0) * sc, y = (p[1] - MB.y0) * sc; if (i) g.lineTo(x, y); else g.moveTo(x, y); }); };
+      const medPts = () => { const p = [[MB.x0 - 0.05, MB.y0 - 0.05]]; for (let x = MB.x0 - 0.05; x <= MB.x0 + MB.s + 0.06; x += 0.01) p.push([x, coastY(x)]); p.push([MB.x0 + MB.s + 0.06, MB.y0 - 0.05]); return p; };
+      const MED = medPts(), DEL = crSpline(DELTA, 6), RS = REDSEA;
+      const ell = (g, e, sc, grow) => { g.beginPath(); g.ellipse((e[0] - MB.x0) * sc, (e[1] - MB.y0) * sc, e[2] * sc * (grow || 1), e[3] * sc * (grow || 1), e[4] || 0, 0, Math.PI * 2); };
+      /* Akhet (the flood) paints a wide brown-blue river and drowned fields; Peret and Shemu narrow it */
+      const rw = [0.0185, 0.0124, 0.0108][si] || 0.0122, vw = [0.054, 0.046, 0.044][si] || 0.046;
+      const c = mk2(), g = c.getContext('2d');
+      /* sand, warmer east of the river, soft mottling */
+      g.fillStyle = '#E8CB8F'; g.fillRect(0, 0, N, N);
+      const eg = g.createLinearGradient(X(0.5), 0, X(0.9), 0); eg.addColorStop(0, 'rgba(201,128,74,0)'); eg.addColorStop(1, 'rgba(201,128,74,.22)'); g.fillStyle = eg; g.fillRect(X(0.5), 0, N, N);
+      yield 'p0';
+      for (let i = 0; i < 260; i++) { if (i % 20 === 19) yield; const x = R() * N, y = R() * N, r = 18 + R() * 50, gg = g.createRadialGradient(x, y, 0, x, y, r); gg.addColorStop(0, R() < 0.5 ? 'rgba(196,146,82,.08)' : 'rgba(252,236,196,.14)'); gg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gg; g.fillRect(x - r, y - r, r * 2, r * 2); }
+      yield;
+      /* dunes (little crescents) in the western desert, long ridges in the sand sea, pebbles and wadis in the east */
+      const skip = (x, y) => y < coastY(x) + 0.03 || Math.abs(x - nileXAt(y)) < 0.055 || OASES.concat(LAKES).some(e => Math.hypot((x - e[0]) / (e[2] + 0.03), (y - e[1]) / (e[3] + 0.03)) < 1);
+      g.lineCap = 'round';
+      for (let y = 0.02; y < 1.0; y += 0.026) {
+        for (let x = 0.0; x < 0.48; x += 0.034) {
+          const jx = x + (R() - 0.5) * 0.022, jy = y + (R() - 0.5) * 0.014; if (skip(jx, jy) || R() < 0.18) continue;
+          const r = 6 + R() * 6, px = X(jx), py = Y(jy);
+          g.strokeStyle = 'rgba(168,116,58,.55)'; g.lineWidth = 2; g.beginPath(); g.arc(px, py, r, Math.PI * 1.08, Math.PI * 1.92); g.stroke();
+          g.strokeStyle = 'rgba(255,244,214,.7)'; g.lineWidth = 1.4; g.beginPath(); g.arc(px - 1, py + 2.2, r * 0.8, Math.PI * 1.15, Math.PI * 1.6); g.stroke();
+        }
+        if ((y * 1000 | 0) % 5 === 0) yield;
+      }
+      g.strokeStyle = 'rgba(176,124,64,.28)'; g.lineWidth = 2.2;
+      for (let x = 0.03; x < 0.4; x += 0.024) { g.beginPath(); for (let y = 0.24; y < 0.47; y += 0.01) { const xx = x + Math.sin(y * 40 + x * 30) * 0.006; if (y < 0.245) g.moveTo(X(xx), Y(y)); else g.lineTo(X(xx), Y(y)); } g.stroke(); }
+      for (let i = 0; i < 520; i++) { const x = 0.6 + R() * 0.38, y = 0.15 + R() * 0.85; if (x > nileXAt(y) + 0.04) { g.fillStyle = R() < 0.5 ? 'rgba(122,78,44,.35)' : 'rgba(255,240,210,.45)'; g.fillRect(X(x), Y(y), 2.2, 2.2); } }
+      g.strokeStyle = 'rgba(150,98,52,.42)'; g.lineWidth = 2.2;
+      PEAKS.slice(0, 11).forEach((p, i) => { if (i % 2) return; const nx = nileXAt(p[1] + 0.02); g.beginPath(); g.moveTo(X(p[0] - 0.01), Y(p[1])); g.quadraticCurveTo(X((p[0] + nx) / 2), Y(p[1] + 0.035), X(nx + 0.03), Y(p[1] + 0.03)); g.stroke(); });
+      yield;
+      /* the green valley, the delta fan and the oases, filled with little fields */
+      const low = mk2(), lg = low.getContext('2d'); lg.lineCap = lg.lineJoin = 'round';
+      const lowShapes = (q, sc, grow) => {
+        q.lineWidth = vw * sc + grow; line(q, NS, sc); q.stroke(); line(q, NSW, sc); q.lineWidth = vw * sc * 0.7 + grow; q.stroke();
+        line(q, DEL, sc); q.fill(); if (grow) { q.lineWidth = grow; q.stroke(); }
+        OASES.forEach(e => { ell(q, e, sc); q.fill(); if (grow) q.stroke(); });
+      };
+      g.lineCap = g.lineJoin = 'round'; g.strokeStyle = g.fillStyle = '#2B1D14'; lowShapes(g, S, 5);
+      g.strokeStyle = g.fillStyle = '#3F6F2E'; lowShapes(g, S, 2);
+      lg.strokeStyle = lg.fillStyle = '#fff'; lowShapes(lg, S, 0);
+      yield;
+      const fld = mk2(), fg = fld.getContext('2d'), PAL3 = [['#3E7C70', '#5FA3A8', '#6FB0A8', '#4E9498', '#79B88A', '#5C9C72'], ['#46762F', '#6DAA4E', '#7DB858', '#5E9A44', '#8FC060', '#58963F'], ['#5E6A26', '#C9B04A', '#A9A43C', '#8FAE48', '#D8BE5A', '#77A040']][si] || [];
+      fg.fillStyle = PAL3[0]; fg.fillRect(0, 0, N, N);
+      for (let y = 0; y < N; y += 9) { let x = -R() * 10; while (x < N) { const w = 7 + R() * 9; fg.fillStyle = PAL3[1 + (R() * 5 | 0)]; fg.fillRect(x + 1, y + 1, w - 1.4, 7.4); x += w; } if (y % 144 === 0) yield; }
+      for (let i = 0; i < 900; i++) { if (i % 300 === 299) yield; const x = R() * N, y = R() * N; fg.fillStyle = R() < 0.5 ? 'rgba(47,115,70,.85)' : 'rgba(76,154,98,.85)'; fg.beginPath(); fg.arc(x, y, 2.2 + R() * 1.6, 0, 6.29); fg.fill(); }
+      fg.setTransform(1, 0, 0, 1, 0, 0); fg.globalCompositeOperation = 'destination-in'; fg.drawImage(low, 0, 0);
+      yield;
+      g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(fld, 0, 0); g.restore();
+      fld.width = low.width = 1;
+      yield;
+      /* palms and villages along the valley edges */
+      for (let i = 4; i < NS.length - 4; i += 2) {
+        const a = NS[i - 1], b = NS[i + 1], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l;
+        [-1, 1].forEach(sd => { if (R() < 0.45) return; const o = vw * 0.5 + 0.004 + R() * 0.004, x = X(NS[i][0] + nx * o * sd), y = Y(NS[i][1] + ny * o * sd);
+          if (R() < 0.25) { g.fillStyle = '#F4E3B8'; g.strokeStyle = '#2B1D14'; g.lineWidth = 1; g.fillRect(x - 3, y - 3, 6, 5); g.strokeRect(x - 3, y - 3, 6, 5); }
+          else { g.fillStyle = '#2F7346'; g.strokeStyle = '#2B1D14'; g.lineWidth = 1; g.beginPath(); g.arc(x, y, 3.2, 0, 6.29); g.fill(); g.stroke(); } });
+      }
+      /* lakes */
+      LAKES.forEach(e => { ell(g, e, S); g.fillStyle = e[4] ? '#D7ECEE' : '#3F7CC4'; g.fill(); g.strokeStyle = '#2B1D14'; g.lineWidth = 2; g.stroke(); if (e[4]) { ell(g, [e[0], e[1], e[2] * 0.7, e[3] * 0.5], S); g.fillStyle = '#B6DBE4'; g.fill(); } });
+      /* the Nile and its delta branches (the flood is muddier) */
+      const river = (q, sc, wpx, col) => { q.strokeStyle = col; q.lineWidth = wpx; line(q, NS, sc); q.stroke(); q.lineWidth = wpx * 0.72; line(q, NSW, sc); q.stroke(); q.lineWidth = wpx * 0.55; line(q, NSM, sc); q.stroke(); };
+      river(g, S, rw * S + 4, '#2B1D14'); river(g, S, rw * S, si === 0 ? '#3A6E9E' : '#2A62A8'); river(g, S, rw * S * 0.4, si === 0 ? '#6A93B8' : '#4D8DD2');
+      g.setLineDash([3, 9]); river(g, S, 1.6, 'rgba(232,250,252,.75)'); g.setLineDash([]);
+      /* the first cataract south of Abu: white water over granite */
+      for (let i = 0; i < NS.length; i++) { const q = NS[i]; if (q[1] < 0.925 || q[1] > 1.03) continue; for (let j = 0; j < 3; j++) { const x = X(q[0] + (R() - 0.5) * rw * 1.2), y = Y(q[1] + (R() - 0.5) * 0.01); g.fillStyle = 'rgba(240,252,252,.85)'; g.beginPath(); g.ellipse(x, y, 3.5 + R() * 3, 1.6, R(), 0, 6.29); g.fill(); } }
+      yield;
+      /* the seas: lapis with tomb-painting zigzag waves, ink coast */
+      const sea = (q, sc) => { line(q, MED, sc); q.closePath(); line(q, RS, sc, true); q.closePath(); };
+      g.save(); sea(g, S); g.fillStyle = '#2A62A8'; g.fill();
+      g.clip(); g.strokeStyle = '#3F7CC4'; g.lineWidth = 26; line(g, MED, S); g.stroke(); line(g, RS, S); g.stroke();
+      g.strokeStyle = 'rgba(143,211,224,.6)'; g.lineWidth = 1.7;
+      for (let y = 4, row = 0; y < N; y += 15, row++) { const o = row % 2 ? 3 : 0; g.beginPath(); for (let x = -12, k = 0; x < N + 12; x += 6, k++) { const yy = y + (k % 2 ? 3.5 : -3.5); if (k) g.lineTo(x + o, yy); else g.moveTo(x + o, yy); } g.stroke(); if (row % 16 === 15) yield; }
+      g.restore();
+      g.strokeStyle = '#E8FAFC'; g.lineWidth = 4; sea(g, S); g.stroke(); g.strokeStyle = '#2B1D14'; g.lineWidth = 2.4; sea(g, S); g.stroke();
+      /* names of the seas and the deserts */
+      const word = (t, x, y, rot, sz, col) => { g.save(); g.translate(X(x), Y(y)); g.rotate(rot); g.font = 'italic 700 ' + sz + 'px Cinzel, Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = col; g.fillText(t, 0, 0); g.restore(); };
+      word('A K D E N İ Z', 0.25, -0.03, 0, 30, 'rgba(232,250,252,.85)');
+      word('K I Z I L D E N İ Z', 1.0, 0.70, 1.24, 26, 'rgba(232,250,252,.85)');
+      word('B A T I   Ç Ö L Ü', 0.2, 0.36, 0, 24, 'rgba(150,98,52,.5)');
+      word('D O Ğ U   Ç Ö L Ü', 0.79, 0.6, 1.2, 20, 'rgba(150,98,52,.45)');
+      yield;
+      /* the relief is the same in every season (fixed widths): R = low land, G = water, blurred into a smooth level field */
+      if (!RELIEF) {
+        const MN = 512, MS = MN / MB.s, mask = mk(MN), mg = mask.getContext('2d'), rw0 = 0.0128, vw0 = 0.046;
+        const lowF = (q, sc) => { q.lineWidth = vw0 * sc; line(q, NS, sc); q.stroke(); line(q, NSW, sc); q.lineWidth = vw0 * sc * 0.7; q.stroke(); line(q, DEL, sc); q.fill(); OASES.forEach(e => { ell(q, e, sc); q.fill(); }); };
+        mg.fillStyle = '#000'; mg.fillRect(0, 0, MN, MN); mg.lineCap = mg.lineJoin = 'round';
+        mg.strokeStyle = mg.fillStyle = '#f00'; lowF(mg, MS); sea(mg, MS); mg.fill(); LAKES.forEach(e => { ell(mg, e, MS); mg.fill(); });
+        mg.globalCompositeOperation = 'lighter'; mg.fillStyle = '#0f0'; mg.beginPath(); line(mg, MED, MS); mg.closePath(); mg.fill(); mg.beginPath(); line(mg, RS, MS); mg.closePath(); mg.fill(); LAKES.forEach(e => { if (!e[4]) { ell(mg, e, MS); mg.fill(); } });
+        river(mg, MS, rw0 * MS + 1, '#0f0');
+        const GN = MGN + 1, hc = mk(GN), hx = hc.getContext('2d');
+        try { hx.filter = 'blur(1.1px)'; } catch (e) {}
+        hx.drawImage(mask, 0.5, 0.5, MGN, MGN);
+        const px = hx.getImageData(0, 0, GN, GN).data, hv = new Float32Array(GN * GN), hg = new Float32Array(GN * GN);
+        yield;
+        for (let j = 0; j < GN; j++) {
+          for (let i = 0; i < GN; i++) {
+            const x = MB.x0 + i / MGN * MB.s, y = MB.y0 + j / MGN * MB.s, o = (j * GN + i) * 4, lo = px[o] / 255, wa = px[o + 1] / 255;
+            let p = 0; for (let k = 0; k < PEAKS.length; k++) { const q = PEAKS[k], d2 = ((x - q[0]) * (x - q[0]) + (y - q[1]) * (y - q[1])) / (2 * q[3] * q[3]); if (d2 < 9) p += q[2] * Math.exp(-d2); }
+            const ms = x < 0.46 ? Math.sin(x * 17 + Math.sin(y * 9) * 1.5) * Math.sin(y * 13 + x * 5) : -1;
+            let v = 1.35 + p * 0.34 + Math.max(0, Math.min(1, (ms - 0.52) / 0.16)) * 0.9;
+            v = v * (1 - lo) + 0.35 * lo; v = v * (1 - wa) - 0.65 * wa;
+            hv[j * GN + i] = v; hg[j * GN + i] = terr(v);
+          }
+          if (j % 24 === 23) yield;
+        }
+        if (!RELIEF) RELIEF = { hv, hg, GN };
+      }
+      A = mapArts.get(si) || { si, tex:c, hg:RELIEF.hg, hv:RELIEF.hv, GN:RELIEF.GN };
+      /* keep one season's 2048px painting (they are big); the others are repainted when the season comes */
+      mapArts.forEach((v, k) => { if (k !== si) mapArts.delete(k); }); mapArts.set(si, A);
+      return A;
+    }
+
+    /* a level value -> height: flat plates (x 1.25) joined by short bevelled ramps */
+    function terr(v) { const f = Math.floor(v), t = Math.max(0, Math.min(1, (v - f - 0.55) / 0.45)); return (f + t * t * (3 - 2 * t)) * 1.25; }
+    /* ---------- a coarse land-kind grid (water / field / desert / salt / rock) for placing the scenery ---------- */
+    const GRID = 76, GC = MB.s / GRID;
+    const gridCache = new Map();
+    function inPoly(P, x, y) { let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const a = P[i], b = P[j]; if (((a[1] > y) !== (b[1] > y)) && x < (b[0] - a[0]) * (y - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; }
+    function segD(P, x, y) { let b = 9; for (let i = 0; i < P.length - 1; i++) { const a = P[i], c = P[i + 1], dx = c[0] - a[0], dy = c[1] - a[1], l2 = dx * dx + dy * dy || 1e-9, t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / l2)), qx = a[0] + dx * t - x, qy = a[1] + dy * t - y, d = qx * qx + qy * qy; if (d < b) b = d; } return Math.sqrt(b); }
+    const gridMap = si => gridCache.get(si) || runSync(gridGen(si));
+    function* gridGen(si) {
+      let g = gridCache.get(si); if (g) return g;
+      const N = GRID, cell = new Int8Array(N * N), kind = new Uint8Array(N * N), R = rng(17 + si);   /* kind 0 sea 1 field 2 desert 3 salt 4 rock 5 river */
+      const DEL = crSpline(DELTA, 6);
+      for (let j = 0; j < N; j++) {
+        for (let i = 0; i < N; i++) {
+          const x = MB.x0 + (i + 0.5) * GC, y = MB.y0 + (j + 0.5) * GC, o = j * N + i;
+          let L = 1, kd = 2;
+          if (y < coastY(x) || inPoly(REDSEA, x, y)) { L = -1; kd = 0; }
+          else {
+            const dN = segD(NS, x, y), dB = Math.min(segD(NSW, x, y), segD(NSM, x, y));
+            if (dN < 0.0115 || dB < 0.0085 || LAKES.some(e => !e[4] && Math.hypot((x - e[0]) / e[2], (y - e[1]) / e[3]) < 1)) { L = -1; kd = 5; }
+            else if (LAKES.some(e => e[4] && Math.hypot((x - e[0]) / e[2], (y - e[1]) / e[3]) < 1)) { L = 0; kd = 3; }
+            else if (dN < 0.042 || dB < 0.026 || inPoly(DEL, x, y) || OASES.some(e => Math.hypot((x - e[0]) / (e[2] * 1.1), (y - e[1]) / (e[3] * 1.1)) < 1)) { L = 0; kd = 1; }
+            else {
+              let p = 0; for (let k = 0; k < PEAKS.length; k++) { const q = PEAKS[k], d2 = ((x - q[0]) * (x - q[0]) + (y - q[1]) * (y - q[1])) / (2 * q[3] * q[3]); if (d2 < 9) p += q[2] * Math.exp(-d2); }
+              const mesa = x < 0.45 && Math.sin(x * 17 + Math.sin(y * 9) * 1.5) * Math.sin(y * 13 + x * 5) > 0.62 && dN > 0.08;
+              L = 1 + Math.min(4, Math.floor(p * 0.62)) + (mesa ? 1 : 0); kd = L >= 3 ? 4 : 2;
+            }
+          }
+          cell[o] = L; kind[o] = kd;
+        }
+        if (j % 6 === 5) yield;
+      }
+      g = gridCache.get(si) || { si, cell, kind, N, R };
+      gridCache.set(si, g);
+      return g;
+    }
+    function miniHouse(k, x, z, w, d, h, wall, band, u) {
+      u = u || 1;
+      k.add('box', wall, x, h / 2, z, w, h, d); k.add('box', band, x, h - 2 * u, z, w + 0.6 * u, 1.4 * u, d + 0.6 * u); k.add('box', '#F0DCB0', x, h + 0.6 * u, z, w + 1.2 * u, 1.2 * u, d + 1.2 * u);
+      k.add('box', '#3A2418', x, 3 * u, z + d / 2 + 0.3 * u, 3 * u, 6 * u, 0.6 * u);
+    }
+    function miniPalm(k, x, z, s, y0) {
+      const e0 = k.ed; k.ed = false; y0 = y0 || 0;
+      k.stick([x, y0, z], [x + 2 * s, y0 + 20 * s, z], 1.2 * s, '#7A4A2A', 'c6');
+      for (let j = 0; j < 6; j++) { const a = j / 6 * Math.PI * 2 + x; k.add('sph5', j % 2 ? '#3E8E5A' : '#2F7346', x + 2 * s + Math.cos(a) * 6 * s, y0 + 19 * s, z + Math.sin(a) * 6 * s, 7 * s, 0.9 * s, 2.4 * s, 0, -a, -0.45); }
+      k.ed = e0;
+    }
+    /* the relief mesh (one for all seasons): positions from the terraced height, aV = the level value for the ink;
+       normals from central differences (cheap, sliced); a skirt along the south edge (the side the camera sees) */
+    let RGEO = null;
+    const mapReliefGeo = art => RGEO || runSync(reliefGen(art));
+    function* reliefGen(art) {
+      if (RGEO) return RGEO;
+      /* the plane is written by hand (row by row, sliced) instead of PlaneGeometry + rotate: north row first, like the height field */
+      const W = 100 * MB.s, GN = art.GN, g = new T.BufferGeometry(), h = art.hg, cs = W / MGN, n = GN * GN;
+      const p = new Float32Array(n * 3), nr = new Float32Array(n * 3), uv = new Float32Array(n * 2), av = new Float32Array(n), ix = new Uint32Array(MGN * MGN * 6);
+      for (let j = 0; j < GN; j++) {
+        for (let i = 0; i < GN; i++) {
+          const k = j * GN + i; p[k * 3] = -W / 2 + i * cs; p[k * 3 + 1] = h[k]; p[k * 3 + 2] = -W / 2 + j * cs; uv[k * 2] = i / MGN; uv[k * 2 + 1] = 1 - j / MGN; av[k] = art.hv[k];
+          const hl = h[j * GN + Math.max(0, i - 1)], hr = h[j * GN + Math.min(GN - 1, i + 1)], hu = h[Math.max(0, j - 1) * GN + i], hd = h[Math.min(GN - 1, j + 1) * GN + i];
+          const nx = -(hr - hl) / (2 * cs), nz = -(hd - hu) / (2 * cs), l = Math.hypot(nx, 1, nz);
+          nr[k * 3] = nx / l; nr[k * 3 + 1] = 1 / l; nr[k * 3 + 2] = nz / l;
+          if (i < MGN && j < MGN) { const a = k, b = k + GN, c = k + GN + 1, d = k + 1, o = (j * MGN + i) * 6; ix[o] = a; ix[o + 1] = b; ix[o + 2] = d; ix[o + 3] = b; ix[o + 4] = c; ix[o + 5] = d; }
+        }
+        if (j % 8 === 7) yield;
+      }
+      g.setAttribute('position', new T.BufferAttribute(p, 3)); g.setAttribute('normal', new T.BufferAttribute(nr, 3)); g.setAttribute('uv', new T.BufferAttribute(uv, 2)); g.setIndex(new T.BufferAttribute(ix, 1));
+      g.setAttribute('aV', new T.BufferAttribute(av, 1)); g.computeBoundingSphere();
+      const k = new Kit(), j = GN - 1, z = W / 2, yb = -3.4;
+      for (let i = 0; i < GN - 1; i++) {
+        const x0 = -W / 2 + i / MGN * W, x1 = -W / 2 + (i + 1) / MGN * W, h0 = art.hg[j * GN + i], h1 = art.hg[j * GN + i + 1], wet = art.hv[j * GN + i] < 0;
+        k.quad([x0, yb, z], [x1, yb, z], [x1, h1, z], [x0, h0, z], wet ? '#1F4F8A' : '#B88A56');
+        k.line([x0, h0, z], [x1, h1, z], 1);
+      }
+      k.line([-W / 2, yb, z], [W / 2, yb, z], 1); k.w = k.w.map(() => 0);
+      RGEO = { geo:g, skirt:k.bake(), skirtL:k.bakeLines() };
+      return RGEO;
+    }
+    function mapTex(art) { const t = new T.CanvasTexture(art.tex); t.anisotropy = 4; t.generateMipmaps = true; t.minFilter = T.LinearMipmapLinearFilter; return t; }
+    const MAPT_V = `attribute float aV; varying vec2 vUv; varying vec3 vN; varying float vV;
+void main() { vUv = uv; vV = aV; vN = normal; gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0); }`;
+    const MAPT_F = `uniform sampler2D uMap; uniform vec3 uSun, uSunCol, uShade, uTint; uniform float uTintA, uLW;
+varying vec2 vUv; varying vec3 vN; varying float vV;
+void main() {
+  vec3 c = texture2D(uMap, vUv).rgb, n = normalize(vN);
+  float top = smoothstep(0.82, 0.94, n.y), dd = dot(normalize(n.xz + vec2(1e-4)), normalize(uSun.xz));
+  float wt = dd > 0.3 ? 0.84 : dd > -0.3 ? 0.68 : 0.52;
+  c = mix(c * vec3(0.86, 0.76, 0.66), c, top);
+  c *= mix(uShade, uSunCol, mix(wt, 1.0, top));
+  float e = abs(fract(vV + 0.5) - 0.5), fw = fwidth(vV) + 1e-5;
+  float ink = 1.0 - smoothstep(fw * (uLW - 0.5), fw * (uLW + 0.5), e);
+  float ft = abs(vV - floor(vV) - 0.56), foot = (1.0 - smoothstep(fw * 0.4, fw * 1.2, ft)) * 0.35 * (1.0 - top);
+  c = mix(c, vec3(0.169, 0.114, 0.078), max(ink, foot));
+  gl_FragColor = vec4(mix(c, uTint, uTintA), 1.0);
+}`;
+    function mapH(art, x, y) {
+      const GN = art.GN, fx = Math.max(0, Math.min(MGN - 0.001, (x - MB.x0) / MB.s * MGN)), fy = Math.max(0, Math.min(MGN - 0.001, (y - MB.y0) / MB.s * MGN)), i = fx | 0, j = fy | 0, u = fx - i, v = fy - j, h = art.hg;
+      return (h[j * GN + i] * (1 - u) + h[j * GN + i + 1] * u) * (1 - v) + (h[(j + 1) * GN + i] * (1 - u) + h[(j + 1) * GN + i + 1] * u) * v;
+    }
+    /* dashed routes: on the water (gold) and over the sand (brown); the chosen path flows toward the target */
+    const RT_V = `attribute float aU; attribute float aS; attribute float aHi; attribute vec3 aCol; varying float vU; varying float vS; varying float vHi; varying vec3 vC;
+void main() { vU = aU; vS = aS; vHi = aHi; vC = aCol; gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0); }`;
+    const RT_F = `uniform float uTime; varying float vU; varying float vS; varying float vHi; varying vec3 vC;
+void main() {
+  float p = vHi > 0.5 ? fract(vU * 0.45 - uTime * 0.9) : fract(vU * 0.6);
+  if (p > (vHi > 0.5 ? 0.62 : 0.5)) discard;
+  vec3 c = abs(vS) > 0.62 ? vec3(0.169, 0.114, 0.078) : vC;
+  gl_FragColor = vec4(c, 1.0);
+}`;
+    /* the Nile's moving water: a thin ribbon in the channel with streaks drifting north (white water at the cataract) */
+    const WV_V = `attribute float aU; attribute float aS; attribute float aR; varying float vU; varying float vS; varying float vR;
+void main() { vU = aU; vS = aS; vR = aR; gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0); }`;
+    const WV_F = `uniform float uTime; varying float vU; varying float vS; varying float vR;
+float h11(float x) { return fract(sin(x * 91.17) * 43758.5); }
+void main() {
+  float lane = floor((vS * 0.5 + 0.5) * 3.0), sp = 0.7 + 0.5 * vR, ph = h11(lane + 1.0) * 7.0;
+  float f = fract(vU * (0.16 + 0.1 * vR) - uTime * sp * 0.22 + ph), dash = smoothstep(0.0, 0.08, f) * (1.0 - smoothstep(0.22 + 0.25 * vR, 0.34 + 0.3 * vR, f));
+  float edge = 1.0 - smoothstep(0.55, 1.0, abs(vS));
+  float a = dash * edge * (0.38 + 0.5 * vR);
+  if (a < 0.02) discard;
+  gl_FragColor = vec4(vec3(0.91, 0.98, 0.99) * a, a);
+}`;
+    /* birds: little ink chevrons flapping along slow loops (all motion in the shader: no per-frame work) */
+    const BD_V = `attribute vec4 aB; attribute vec2 aW; uniform float uTime; varying float vA;
+void main() {
+  float t = uTime * aB.w + aB.z, s = sin(t), c = cos(t);
+  vec3 ctr = vec3(aB.x + cos(t) * 9.0, 16.0 + sin(t * 0.7) * 1.5, aB.y + sin(t) * 6.0);
+  vec2 dir = normalize(vec2(-s * 9.0, c * 6.0) + 1e-4);
+  float fl = sin(uTime * 9.0 + aB.z * 5.0) * 0.55;
+  vec2 side = vec2(-dir.y, dir.x);
+  vec3 p = ctr + vec3(side.x, 0.0, side.y) * aW.x * 1.1 + vec3(dir.x, 0.0, dir.y) * aW.y * 0.35 + vec3(0.0, abs(aW.x) * fl, 0.0);
+  vA = 1.0; gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0);
+}`;
+    const BD_F = `void main() { gl_FragColor = vec4(0.169, 0.114, 0.078, 0.9); }`;
+    /* soft cloud shadows drifting over the land */
+    const CL_V = `attribute vec3 aC; uniform float uTime; varying vec2 vQ;
+void main() { vQ = position.xz; float x = mod(aC.x + uTime * 0.9 + 70.0, 140.0) - 70.0; vec3 p = vec3(x + position.x * aC.z, 0.4, aC.y + position.z * aC.z * 0.7); gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0); }`;
+    const CL_F = `varying vec2 vQ;
+void main() { float d = min(length(vQ - vec2(-0.25, 0.05)) * 1.5, min(length(vQ - vec2(0.2, -0.05)) * 1.4, length(vQ - vec2(0.0, 0.18)) * 1.9)); float a = (1.0 - smoothstep(0.35, 0.75, d)) * 0.13; if (a < 0.003) discard; gl_FragColor = vec4(vec3(0.17, 0.11, 0.08) * a, a); }`;
+
+    /* ---------- the city landmarks (kit units: 10 = one map unit; the token top is y = 0, radius 44).
+       v33: one bold, readable landmark per city, a couple of houses behind it, nothing that shimmers at phone size ---------- */
+    function elephant(k, x, z, ry) { const e0 = k.ed; k.ed = false; elephant0(k, x, z, ry); k.ed = e0; }
+    function elephant0(k, x, z, ry) {
+      const E = '#8E8A98', E2 = '#77738A';
+      k.at(x, 0, z, ry, 1);
+      k.add('sph', E, 0, 13, 0, 9, 7.5, 12);
+      [[-5, -6], [5, -6], [-5, 6], [5, 6]].forEach(([a, b]) => k.add('c6', E2, a, 4.5, b, 2.6, 9, 2.6));
+      k.add('sph5', E, 0, 17, 12, 6.5, 6.5, 6);
+      [-1, 1].forEach(sd => { k.add('sph5', E2, sd * 6.5, 17.5, 9.5, 1.4, 6, 5); k.add('cone4', '#FBF3DF', sd * 2.6, 11, 16, 0.9, 5, 0.9, 1.9); k.add('sph5', K.ink, sd * 3, 19, 16.5, 0.9); });
+      k.stick([0, 14, 16.5], [0, 7, 20], 2, E); k.stick([0, 7, 20], [0, 1.5, 19], 1.6, E);
+      k.stick([0, 14, -11], [0, 7, -13.5], 0.6, E2);
+      k.at();
+    }
+    function camel(k, x, z, ry, s, load) {
+      const e0 = k.ed; k.ed = false; const C = '#C89A62', C2 = '#A97C48';
+      k.at(x, 0, z, ry, s || 1);
+      k.add('sph', C, 0, 14, 0, 5.2, 4.6, 10); k.add('sph5', C2, 0, 19, -1, 3.6, 4, 4.4);
+      [[-2.6, -6], [2.6, -6], [-2.6, 6], [2.6, 6]].forEach(([a, b]) => k.stick([a, 11, b], [a, 0, b], 1.1, C2));
+      k.stick([0, 14, 9], [0, 22, 14], 1.9, C, 'c6'); k.add('sph5', C, 0, 22.5, 16.5, 2.2, 2.2, 3.8);
+      if (load) { k.add('box', load, 0, 15, -5, 9, 4, 6); k.add('box', K.red, 0, 18.2, -1, 8, 1.2, 6); }
+      k.at(); k.ed = e0;
+    }
+    const CITYK = {
+      perbastet(k) {
+        /* Bastet: a big seated black cat on a temple podium, papyrus at the sides */
+        k.add('box', K.stone2, 0, 4, -2, 44, 8, 32); k.add('box', K.stone, 0, 8.6, -2, 46, 1.4, 34); k.add('box', K.red, 0, 5, 14.3, 44, 2.4, 0.6);
+        for (let j = -2; j <= 2; j++) k.add('box', K.stone, j * 4.5, 1, 17, 4, 2, 6);
+        const B = '#33303F', y0 = 9.3, S2 = 1.25;
+        k.at(0, y0, -4, 0, S2);
+        k.add('sph', B, 0, 9, -5, 9.5, 10, 10); k.add('sph', B, 0, 17, 1, 6.6, 11, 6.6, -0.18);
+        [-1, 1].forEach(sd => { k.stick([sd * 2.8, 15, 4], [sd * 2.8, 0.5, 6.5], 1.9, B); k.add('sph5', B, sd * 2.8, 0.8, 7.2, 2.3, 1.4, 2.8); });
+        k.add('sph5', B, 0, 30, 2.5, 6.4, 6, 6); k.add('sph5', B, 0, 27.6, 6.6, 3, 2.4, 2.4);
+        [-1, 1].forEach(sd => { k.add('cone4', B, sd * 3.5, 36.4, 2, 2.4, 6, 1.6, 0, Math.PI / 4, -sd * 0.22); k.add('sph5', K.gold, sd * 2.4, 31, 7.4, 1.2, 1.2, 0.8); });
+        k.add('sph5', K.gold, 4.8, 27.5, 3.5, 1.3); k.geo(G.tor, K.gold, mtx(0, 23.4, 2.4, 6.2, 6.2, 4, Math.PI / 2 - 0.3));
+        k.stick([5, 2, -12], [11, 1, 2], 1.5, B); k.stick([11, 1, 2], [9, 1.5, 9], 1.3, B);
+        k.at();
+        miniHouse(k, -30, -26, 13, 11, 13, '#F1DDB0', K.lapis); miniHouse(k, 30, -24, 12, 10, 10, '#EAD3A0', '#2BA59A');
+        papyrus(k, -32, 16, 0.42); papyrus(k, 31, 18, 0.38);
+      },
+      mennefer(k) {
+        /* the pyramids of Giza with gold caps, and the Sphinx in front */
+        [[-12, -12, 22, 40], [16, -6, 17, 30], [30, 16, 10, 18]].forEach(([x, z, r, h]) => {
+          k.add('cone4', '#EBD6A2', x, h / 2, z, r, h, r, 0, Math.PI / 4);
+          k.add('cone4', K.gold, x, h - h * 0.12, z, r * 0.24, h * 0.24, r * 0.24, 0, Math.PI / 4);
+        });
+        const SP = '#D9BF86';
+        k.add('box', SP, -20, 4, 22, 9, 8, 20); k.add('box', SP, -20, 2, 33, 8, 4, 6);
+        k.add('box', SP, -20, 11, 15.5, 7.5, 9, 7); k.add('box', K.lapis, -20, 12, 15.5, 9, 7, 6); k.add('box', K.gold, -20, 15.8, 15.5, 7.6, 1.4, 6.4); k.add('box', SP, -20, 11.5, 19.3, 5.4, 6.4, 1.4);
+        k.add('box', '#3A2418', -22, 13, 20.1, 1.1, 1.1, 0.4); k.add('box', '#3A2418', -18, 13, 20.1, 1.1, 1.1, 0.4);
+        miniHouse(k, 4, 28, 11, 9, 9, '#F4E7C6', K.red);
+      },
+      abidos(k) {
+        /* the Osiris temple: an open colonnade (papyrus capitals) in front of the roofed hall, a gold shrine on top */
+        k.add('box', K.stone2, 0, 2.5, 0, 70, 5, 50); k.add('box', K.stone, 0, 6, 0, 72, 2, 52);
+        k.add('box', K.stone, 0, 17, -12, 60, 22, 22); k.add('box', K.red, 0, 26.4, -0.9, 60, 1.6, 0.6); k.add('box', K.lapis, 0, 24.6, -0.9, 60, 1.2, 0.6); k.add('box', '#F4E3B8', 0, 28.6, -12, 62, 2.4, 24);
+        k.add('box', K.mud, 0, 13, -0.8, 9, 14, 0.8);
+        for (let j = 0; j < 7; j++) { const x = -27 + j * 9; k.add('c8', '#F4E3B8', x, 15, 12, 3, 18, 3); k.add('cone6', '#4C9A62', x, 25.4, 12, 4.4, 3.6, 4.4, Math.PI); }
+        k.add('box', '#F4E3B8', 0, 28.2, 12, 62, 2.4, 5); k.add('box', K.red, 0, 27.2, 14.6, 62, 1.2, 0.4);
+        k.add('box', K.stone2, 0, 32, -14, 14, 6, 10); k.add('cone4', K.gold, 0, 38, -14, 6, 7, 5, 0, Math.PI / 4);
+        [-1, 1].forEach(sd => { k.stick([sd * 34, 7, 20], [sd * 34, 34, 20], 0.9, K.wood2); k.add('box', sd < 0 ? K.red : K.lapis, sd * 34 + 4, 31, 20, 7, 4, 0.6); });
+        papyrus(k, -36, 24, 0.3);
+      },
+      vaset(k) {
+        /* Karnak: the great pylon with flag masts, two obelisks, the ram avenue */
+        k.add('box', K.stone2, 0, 11, -26, 46, 22, 16); k.add('box', K.red, 0, 20.5, -17.9, 46, 1.4, 0.4);
+        pylon(k, 0, -4);
+        obelisk(k, -34, 14, 0.62); obelisk(k, 34, 14, 0.62);
+        [-1, 1].forEach(sd => { for (let j = 0; j < 3; j++) { k.add('box', K.stone2, sd * 9, 2, 10 + j * 9, 4, 4, 7); k.add('sph5', K.stone, sd * 9, 5.5, 12.5 + j * 9, 2.4); } });
+      },
+      abu(k) {
+        /* Elephantine: granite boulders, the elephant rock, a little Khnum kiosk */
+        [[-16, -10, 17, 13, 15, '#A9725F', 'dod'], [12, -16, 13, 11, 12, '#8E5A4A', 'dod'], [24, 8, 9, 8, 9, '#B98472', 'ico'], [-26, 14, 9, 7, 9, '#9C6555', 'dod']].forEach(([x, z, a, b, c, col, t], j) => k.add(t, col, x, b * 0.45, z, a, b, c, j * 0.7, j * 1.3, 0.2));
+        elephant(k, 4, 18, -0.5);
+        k.add('box', K.stone2, -4, 14, -24, 18, 2, 14); [[-11, -29], [3, -29], [-11, -19], [3, -19]].forEach(([x, z]) => k.add('c8', '#F4E3B8', x, 20, z, 1.8, 10, 1.8)); k.add('box', K.stone, -4, 25.6, -24, 20, 1.8, 15);
+      },
+      siwa(k) {
+        /* the mud-brick citadel of Shali on its hill, palms all round */
+        const M1 = '#B58A5A', M2 = '#C79D68', DK = '#4A3523';
+        k.add('box', M1, 0, 7, -2, 58, 14, 42); k.add('box', M2, -5, 20, -6, 42, 13, 30); k.add('box', M1, 2, 31.5, -10, 24, 11, 18); k.add('c8', M2, 21, 13, 12, 8, 26, 8);
+        for (let x = -27; x <= 27; x += 6) k.add('box', M2, x, 15, 19.2, 3.4, 3, 3.4);
+        for (let x = -24; x <= 14; x += 6) k.add('box', M1, x, 28, 9.2, 3, 3, 3);
+        [[-18, 8, 19.4], [-6, 8, 19.4], [6, 8, 19.4], [-14, 21, 9.4], [-2, 21, 9.4], [2, 32, -0.6]].forEach(([x, y, z]) => k.add('box', DK, x, y, z, 3.4, 4.4, 0.8));
+        k.add('cone6', M1, 21, 28, 12, 9, 6, 9);
+        palm(k, -33, 24, 0.42); palm(k, 35, -16, 0.38); palm(k, 30, 28, 0.34);
+      },
+      kharga(k) {
+        /* Hibis: the oasis temple by a spring pool among palms */
+        k.add('c12', '#2A62A8', -14, 0.6, 22, 13, 1.2, 9); k.add('c12', '#4D8DD2', -14, 0.9, 22, 9, 1.2, 6);
+        k.add('box', K.stone2, 12, 2, 6, 34, 4, 30); k.add('box', K.stone, 12, 12, 0, 26, 17, 16); [-8, 0, 8].forEach(x => k.add('c8', '#F4E3B8', 12 + x, 11, 10.5, 2.4, 15, 2.4)); k.add('box', K.stone, 12, 20.6, 4, 28, 2.2, 22); k.add('box', K.red, 12, 19, 15.1, 28, 1.3, 0.5);
+        [[-26, -18, 0.62], [-6, -26, 0.56], [-32, 4, 0.5], [34, -14, 0.46], [33, 22, 0.42]].forEach(([x, z, s]) => palm(k, x, z, s));
+      },
+      saww(k) {
+        /* the Red Sea harbour: a jetty, a sea-going ship, incense jars */
+        k.add('c12', '#2A62A8', 6, 0.6, 4, 36, 1.2, 32); k.add('c12', '#4D8DD2', 6, 0.9, 4, 28, 1.2, 24);
+        k.add('box', K.wood, -26, 2, 2, 12, 4, 44); [-14, -2, 10].forEach(z => k.add('c6', K.wood2, -20, 1, z, 1.2, 6, 1.2));
+        k.at(8, 1, 4, Math.PI * 0.5, 0.62); boatKit(k, { boat:'kadirga', up:{ yelken:1 }, col:{ hull:'#7A4426', sail:'#FBF3DF', sailBand:K.red, tip:K.gold }, flagCol:K.lapis }); k.at();
+        acacia(k, -32, -24, 0.5); [[-28, 18], [-23, 23], [-30, 26]].forEach(([x, z], j) => k.add('sph5', j % 2 ? '#C98E62' : '#E9CFA0', x, 3.4, z, 3.6, 3.8, 3.6));
+      },
+      def(k) { house(k, -8, -4, 26, 18, '#E6CB95'); house(k, 14, 8, 20, 14, '#DCBB82'); }
+    };
+
+    /* ---------- one live map table ---------- */
+    const MAPS = new Set(), CS = 1.3, TOK = 44;              /* the city token radius in kit units (x 0.1 * CS = world) */
+    let mapSlow = false;
+    const RED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;

@@ -1,0 +1,71 @@
+    /* ================= special scenes: storm, wreck dive, race ================= */
+    /* a papyrus boat seen from the side, used by the side-view scenes */
+    /* the same Egyptian freighter as in the harbour, drawn on canvas from the shared outline */
+    const HULL = 'M-176 -86C-174 -54 -160 -12 -122 2C-60 11 40 11 112 2C142 -4 160 -30 172 -64L164 -62C154 -38 140 -24 118 -20C40 -15 -60 -15 -126 -22C-150 -28 -162 -54 -166 -86Z';
+    let hullP = null;
+    function sideBoat(x, y, s, o) {
+      o = o || {};
+      if (!hullP && typeof Path2D !== 'undefined') hullP = new Path2D(HULL);
+      cx.save(); cx.translate(x, y); cx.rotate(o.rot || 0); cx.scale(s * 0.42, s * 0.42); cx.translate(0, 14);
+      cx.lineJoin = 'round'; cx.lineCap = 'round';
+      const line = (pts, col, w) => { cx.beginPath(); pts.forEach((p, i) => i ? cx.lineTo(p[0], p[1]) : cx.moveTo(p[0], p[1])); cx.strokeStyle = col; cx.lineWidth = w; cx.stroke(); };
+      line([[-136, -52], [-176, 20]], C.wood2, 7);
+      /* hull */
+      /* v30: flat cel tones like the 3D hull: lit planks, a shaded belly */
+      if (hullP) { cx.fillStyle = o.hull || '#9A6236'; cx.fill(hullP); cx.save(); cx.clip(hullP); cx.fillStyle = 'rgba(40,20,8,.32)'; cx.fillRect(-200, -10, 400, 40); cx.fillStyle = 'rgba(255,230,190,.16)'; cx.fillRect(-200, -90, 400, 52); cx.restore(); cx.lineWidth = 5; cx.strokeStyle = C.ink; cx.stroke(hullP); }
+      cx.beginPath(); cx.moveTo(-150, -24); cx.bezierCurveTo(-100, -12, 60, -11, 146, -24); cx.strokeStyle = o.band || '#B7412E'; cx.lineWidth = 6; cx.stroke();
+      cx.beginPath(); cx.moveTo(-150, -16); cx.bezierCurveTo(-100, -4, 60, -3, 146, -16); cx.strokeStyle = C.gold; cx.lineWidth = 5; cx.stroke();
+      /* oars */
+      const n = o.oars || 3;
+      for (let k = 0; k < n; k++) { const ox = 60 + k * 30 - n * 6, sw = Math.sin((o.oar || 0) + k * 0.4) * 14; line([[ox, -24], [ox - 34 + sw, 24]], C.ink, 9); line([[ox, -24], [ox - 34 + sw, 24]], '#A8743F', 5); }
+      /* finials and the eye */
+      cx.beginPath(); cx.moveTo(-171, -86); cx.lineTo(-191, -106); cx.quadraticCurveTo(-173, -118, -157, -100); cx.closePath(); outline('#3E8E5A', 4);
+      cx.beginPath(); cx.moveTo(168, -63); cx.lineTo(178, -83); cx.quadraticCurveTo(162, -85, 156, -71); cx.closePath(); outline('#E86A7E', 4);
+      cx.beginPath(); cx.moveTo(128, -38); cx.quadraticCurveTo(136, -44, 144, -38); cx.quadraticCurveTo(136, -32, 128, -38); outline('#FBF3DF', 3); cx.beginPath(); cx.arc(136, -38, 3, 0, Math.PI * 2); cx.fillStyle = C.ink; cx.fill();
+      /* truss and cabin */
+      line([[-70, -20], [-70, -62]], C.ink, 7); line([[60, -18], [60, -60]], C.ink, 7);
+      cx.beginPath(); cx.moveTo(-162, -74); cx.quadraticCurveTo(-110, -64, -70, -62); cx.quadraticCurveTo(0, -55, 60, -60); cx.quadraticCurveTo(118, -62, 162, -58); cx.strokeStyle = '#C9A36A'; cx.lineWidth = 4; cx.stroke();
+      cx.fillStyle = 'rgba(58,42,30,.6)'; cx.fillRect(-134, -62, 58, 42);
+      for (let k = 0; k < 5; k++) { cx.fillStyle = k % 2 ? '#FBF3DF' : C.red; cx.fillRect(-132 + k * 11.5, -60, 6, 38); }
+      cx.beginPath(); cx.moveTo(-140, -62); cx.lineTo(-70, -62); cx.lineTo(-74, -71); cx.lineTo(-136, -71); cx.closePath(); outline(C.gold, 3.5);
+      /* mast and sail; skew leans the sail into the wind */
+      const W2 = 90, sk = (o.skew || 0) * 60, x0 = 6 - W2, x1 = 6 + W2;
+      line([[6, -18], [6, -214]], C.ink, 12); line([[6, -18], [6, -214]], C.wood, 7);
+      line([[6, -212], [162, -60]], 'rgba(90,70,50,.7)', 2.4); line([[6, -212], [-160, -74]], 'rgba(90,70,50,.7)', 2.4);
+      cx.beginPath(); cx.moveTo(x0 + sk, -198); cx.quadraticCurveTo(6 + sk, -206, x1 + sk, -198); cx.lineTo(x1 - 6 - sk * 0.4, -80); cx.quadraticCurveTo(6 - sk * 0.4, -72, x0 + 6 - sk * 0.4, -80); cx.closePath(); outline(o.sail || '#FFF9EC', 4.5);
+      cx.save(); cx.clip();
+      cx.strokeStyle = o.sailBand || C.lapis; cx.lineWidth = 10; cx.beginPath(); cx.moveTo(x0 - 20, -186); cx.quadraticCurveTo(6 + sk, -194, x1 + 20, -186); cx.stroke();
+      cx.strokeStyle = o.sailBand ? 'rgba(0,0,0,.25)' : C.red; cx.lineWidth = 6; cx.beginPath(); cx.moveTo(x0 - 20, -174); cx.quadraticCurveTo(6 + sk, -182, x1 + 20, -174); cx.stroke();
+      cx.restore();
+      cx.beginPath(); cx.arc(6 + sk * 0.3, -134, 16, 0, Math.PI * 2); outline(C.gold, 3.5);
+      line([[x0 - 10 + sk, -200], [x1 + 10 + sk, -200]], C.ink, 12); line([[x0 - 10 + sk, -200], [x1 + 10 + sk, -200]], '#A8743F', 6);
+      line([[x0 - 2 - sk * 0.4, -79], [x1 + 2 - sk * 0.4, -79]], C.ink, 10); line([[x0 - 2 - sk * 0.4, -79], [x1 + 2 - sk * 0.4, -79]], '#A8743F', 5);
+      if (o.crew) [[34, 0], [104, 2], [-40, 1]].slice(0, o.crew).forEach(([x, k]) => SC.storm.sailor(x, -18, 2.3, 0, performance.now() / 300 + k, k === 1 ? '#E9D3A6' : '#FBF3DF'));
+      if (o.flag) { cx.beginPath(); cx.moveTo(6, -214); cx.lineTo(-24, -219 + Math.sin(performance.now() / 180) * 3); cx.lineTo(-20, -213); cx.lineTo(-24, -207 + Math.sin(performance.now() / 180) * 3); cx.closePath(); outline(o.flag, 3); }
+      cx.restore();
+    }
+    /* v30: soft glows as cached sprites, drawn with drawImage (no per-frame gradient objects) */
+    const SPR = {};
+    function spr(key, rgb) {
+      let c = SPR[key]; if (c) return c;
+      c = SPR[key] = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+      g.addColorStop(0, 'rgba(' + rgb + ',1)'); g.addColorStop(0.45, 'rgba(' + rgb + ',.55)'); g.addColorStop(1, 'rgba(' + rgb + ',0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); return c;
+    }
+    function blot(c, x, y, r, a, ctx) { const k = ctx || cx; k.globalAlpha = a; k.drawImage(c, x - r, y - r, r * 2, r * 2); k.globalAlpha = 1; }
+    /* v30: static backdrops cached per canvas size (no per-frame gradients) */
+    const BG = {};
+    function bgCanvas(key, paint) {
+      let c = BG[key]; const w = Math.round(W * dpr), h = Math.round(H * dpr);
+      if (c && c.width === w && c.height === h) return c;
+      c = BG[key] = BG[key] || document.createElement('canvas'); c.width = w; c.height = h;
+      const o = cx; cx = c.getContext('2d'); cx.setTransform(dpr, 0, 0, dpr, 0, 0); try { paint(); } finally { cx = o; }
+      return c;
+    }
+    function stormBg() {
+      return bgCanvas('storm', () => {
+        const hor = H * 0.3, sk = cx.createLinearGradient(0, 0, 0, hor); sk.addColorStop(0, '#1E2540'); sk.addColorStop(1, '#4A5878'); cx.fillStyle = sk; cx.fillRect(0, 0, W, hor);
+        cx.fillStyle = '#5E6B6A'; cx.fillRect(0, hor - 14, W, 16); cx.fillStyle = '#3F4A44'; cx.beginPath(); cx.moveTo(0, hor - 14); for (let x = 0; x <= W; x += 30) cx.lineTo(x, hor - 16 - (x * 7 % 9)); cx.lineTo(W, hor + 2); cx.lineTo(0, hor + 2); cx.closePath(); cx.fill();
+        cx.fillStyle = '#7B6A4E'; cx.fillRect(0, hor - 2, W, 5); cx.strokeStyle = C.ink; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(0, hor + 3); cx.lineTo(W, hor + 3); cx.stroke();
+        const wg = cx.createLinearGradient(0, hor, 0, H); wg.addColorStop(0, '#2B527C'); wg.addColorStop(1, '#1C3C62'); cx.fillStyle = wg; cx.fillRect(0, hor + 3, W, H - hor);
+      });
+    }

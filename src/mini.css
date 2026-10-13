@@ -1,0 +1,36 @@
+
+/* ---- baboon raid (bulmaca) ---- */
+.bbhow{margin:0;font-weight:700;font-size:15px;text-align:center}
+.bbhud{display:flex;justify-content:space-between;align-items:baseline;font-weight:800;font-size:14px;margin-bottom:-6px}
+.bbhud b{font-size:21px;color:var(--good)}
+.bbsc.lost b{color:var(--ochre)}
+.bbwrap{position:relative;width:100%;aspect-ratio:400/250;border:3px solid var(--ink);border-radius:14px;overflow:hidden;background:#F6E3B0;user-select:none;-webkit-user-select:none}
+.bbsvg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.bbb{position:absolute;border:0;background:transparent;padding:0;border-radius:12px;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.bbb kbd{display:none}
+@media (hover:hover) and (pointer:fine){ .bbb kbd{display:block;position:absolute;right:3px;bottom:3px;font:800 10px Nunito,sans-serif;opacity:.45;color:var(--ink)} }
+.bbb:focus-visible{outline:3px solid var(--lapis);outline-offset:-3px}
+.bbape{transform:translateY(72px);visibility:hidden;transition:transform .15s ease-out,visibility 0s linear .15s}
+.bbslot.up .bbape,.bbslot.hit .bbape,.bbslot.steal .bbape{visibility:visible}
+.bbslot.up .bbape{transform:translateY(0);transition:transform .15s ease-out,visibility 0s}
+.bbslot.hit .bbape{transform:translateY(72px);transition:transform .3s cubic-bezier(.4,-1.2,.7,1),visibility 0s}
+.bbjar,.bbpoof{opacity:0}
+.bbslot.steal .bbjar{opacity:1}
+.bbslot.steal.left .bbape{transform:translate(-250px,-4px);transition:transform .7s cubic-bezier(.5,0,.9,.6),visibility 0s}
+.bbslot.steal.right .bbape{transform:translate(250px,-4px);transition:transform .7s cubic-bezier(.5,0,.9,.6),visibility 0s}
+.bbslot.hit .bbpoof{animation:bbPoof .45s ease-out}
+@keyframes bbPoof{0%{opacity:1;transform:scale(.6)}100%{opacity:0;transform:translateY(-10px) scale(1.25)}}
+.bbslot.demo .bbape{animation:bbPeek 1.6s ease-in-out infinite}
+@keyframes bbPeek{0%,100%{transform:translateY(4px)}50%{transform:translateY(-3px)}}
+.bbhand{display:none}
+.bbwrap.ready .bbhand{display:inline;animation:bbTapHint 1.2s ease-in-out infinite}
+@keyframes bbTapHint{0%,100%{translate:6px 8px}50%{translate:0 0}}
+.bbend{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);border:3px solid var(--ink);border-radius:14px;padding:8px 18px;text-align:center;box-shadow:0 4px 0 var(--ink);animation:snPop2 .4s cubic-bezier(.2,1.4,.4,1);white-space:nowrap}
+.bbend b{display:block;font:700 28px Cinzel,serif}
+.bbend span{font-weight:800}
+.bbend.good{background:var(--gold)}
+.bbend.bad{background:#E9B5A6}
+@keyframes snPop2{from{transform:translate(-50%,-50%) scale(.5);opacity:0}}
+.bbgo{min-width:180px;min-height:52px}
+.bbbar{margin-top:-2px}
+@media (prefers-reduced-motion: reduce){ .bbape,.bbslot.hit .bbape,.bbslot.steal.left .bbape,.bbslot.steal.right .bbape{transition:none} .bbslot.steal .bbape{opacity:0} .bbslot.hit .bbpoof,.bbslot.demo .bbape,.bbwrap.ready .bbhand,.bbend{animation:none} }

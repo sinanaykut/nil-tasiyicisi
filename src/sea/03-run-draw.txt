@@ -1,0 +1,460 @@
+    function boat(x, y, opts) {
+      const t = HULLS[opts.type] ? opts.type : 'nehir', dev = opts.dev || {}, [bow, stern, hw] = HULLS[t];
+      cx.save(); cx.translate(x, y); if ((opts.dmg | 0) >= 3) cx.rotate(0.07 + Math.sin(performance.now() / 600) * 0.025);
+      cx.beginPath(); cx.ellipse(4, 8, hw + 5, (stern - bow) / 2 - 3, 0, 0, Math.PI * 2); cx.fillStyle = 'rgba(0,0,0,.2)'; cx.fill();
+      if (t === 'kadirga') { const fl = Math.sin(performance.now() / 260) * 1.5, wide = (opts.wide || 22) + 10; cx.beginPath(); cx.moveTo(-wide + 12, 6); cx.quadraticCurveTo(10, -4 - fl, wide + 12, 6); cx.lineTo(wide + 10, 16); cx.quadraticCurveTo(10, 6 - fl, -wide + 14, 16); cx.closePath(); cx.fillStyle = 'rgba(0,0,0,.13)'; cx.fill(); }
+      const n = t === 'kadirga' ? Math.max(5, (opts.oars || 0) + 3) : opts.oars || 0, ph = opts.row || 0;
+      const o0 = t === 'kadirga' ? -28 : t === 'feluka' ? -8 : -6, o1 = t === 'kadirga' ? 52 : 18, px = t === 'mavna' ? 18 : t === 'feluka' ? 8 : t === 'kadirga' ? 12 : 10, ol = t === 'kadirga' ? 20 : 17;
+      const dm = opts.dmg | 0;
+      if (n) { cx.strokeStyle = C.wood2; cx.lineWidth = 2.4; for (let k = 0; k < n; k++) { const ky = o0 + k * (o1 / Math.max(1, n - 1)) - (n === 1 ? -3 : 0), sw = Math.sin(ph + k * 0.3) * 7; [-1, 1].forEach(sd => { if (dm >= 2 && sd > 0 && k === n - 1) return; cx.beginPath(); cx.moveTo(sd * px, ky); cx.lineTo(sd * (px + ol), ky + sw); cx.stroke(); cx.beginPath(); cx.ellipse(sd * (px + ol + 1), ky + sw, 2, 4, 0, 0, Math.PI * 2); cx.fillStyle = C.wood; cx.fill(); }); } }
+      if (dev.burun) {
+        /* copper ram: a bright wedge ahead of the bow */
+        cx.beginPath(); cx.moveTo(-6, bow + 7); cx.lineTo(0, bow - 13); cx.lineTo(6, bow + 7); cx.closePath(); outline(CU.cop, 1.8);
+        cx.beginPath(); cx.moveTo(-1.5, bow + 3); cx.lineTo(0, bow - 9); cx.lineWidth = 1.6; cx.strokeStyle = CU.copHi; cx.stroke();
+        cx.fillStyle = CU.cop2; cx.beginPath(); cx.arc(-3, bow + 4, 1, 0, Math.PI * 2); cx.arc(3, bow + 4, 1, 0, Math.PI * 2); cx.fill();
+      }
+      if (t === 'mavna') {
+        cx.beginPath(); cx.moveTo(-15, bow + 2); cx.quadraticCurveTo(0, bow - 4, 15, bow + 2); cx.quadraticCurveTo(20, bow + 6, 20, bow + 14); cx.lineTo(20, stern - 10); cx.quadraticCurveTo(19, stern, 0, stern); cx.quadraticCurveTo(-19, stern, -20, stern - 10); cx.lineTo(-20, bow + 14); cx.quadraticCurveTo(-20, bow + 6, -15, bow + 2); cx.closePath();
+      } else { const k = hw / 13, ys = (stern - bow) / 66; cx.beginPath(); cx.moveTo(0, bow); cx.quadraticCurveTo(15 * k, bow + 18 * ys, 13 * k, bow + 48 * ys); cx.quadraticCurveTo(10 * k, bow + 62 * ys, 0, stern); cx.quadraticCurveTo(-10 * k, bow + 62 * ys, -13 * k, bow + 48 * ys); cx.quadraticCurveTo(-15 * k, bow + 18 * ys, 0, bow); cx.closePath(); }
+      outline(opts.hull || (t === 'kadirga' ? '#9C5B3A' : t === 'mavna' ? '#9A6A40' : C.wood), 2.2);
+      if (t === 'mavna') {
+        cx.beginPath(); cx.rect(-15, bow + 6, 30, stern - bow - 14); cx.fillStyle = 'rgba(255,255,255,.12)'; cx.fill();
+        cx.strokeStyle = 'rgba(43,29,20,.35)'; cx.lineWidth = 1.2; cx.beginPath(); for (let yy = bow + 10; yy < stern - 6; yy += 7) { cx.moveTo(-15, yy); cx.lineTo(15, yy); } cx.stroke();
+      } else { const k = hw / 13, ys = (stern - bow) / 66; cx.beginPath(); cx.moveTo(0, bow + 6 * ys); cx.quadraticCurveTo(9 * k, bow + 22 * ys, 8 * k, bow + 46 * ys); cx.quadraticCurveTo(6 * k, bow + 56 * ys, 0, bow + 60 * ys); cx.quadraticCurveTo(-6 * k, bow + 56 * ys, -8 * k, bow + 46 * ys); cx.quadraticCurveTo(-9 * k, bow + 22 * ys, 0, bow + 6 * ys); cx.fillStyle = 'rgba(255,255,255,.12)'; cx.fill(); }
+      if (t === 'kadirga') {
+        /* hogging truss down the middle, a lotus finial at the stern, a striped deck cabin */
+        cx.strokeStyle = C.ink; cx.lineWidth = 1.4; cx.beginPath(); cx.moveTo(0, bow + 8); cx.lineTo(0, stern - 6); cx.stroke();
+        cx.fillStyle = C.wood2; [-30, -14, 14, 28].forEach(yy => { cx.beginPath(); cx.arc(0, yy, 2, 0, Math.PI * 2); cx.fill(); });
+        cx.beginPath(); cx.rect(-7, 18, 14, 12); outline(C.gold, 1.4); for (let k = 0; k < 3; k++) { cx.fillStyle = k % 2 ? '#FBF3DF' : C.red; cx.fillRect(-5 + k * 4, 20, 2.5, 8); }
+        cx.beginPath(); cx.moveTo(0, stern - 2); cx.lineTo(-7, stern + 9); cx.quadraticCurveTo(0, stern + 5, 7, stern + 9); cx.closePath(); outline(C.papyrus, 1.4);
+      }
+      const bw = t === 'mavna' ? 18 : hw - 2, b1 = t === 'kadirga' ? 6 : 2;
+      cx.beginPath(); cx.moveTo(-bw, b1); cx.lineTo(bw, b1); cx.lineWidth = 3; cx.strokeStyle = opts.band || C.gold; cx.stroke();
+      cx.beginPath(); cx.moveTo(-bw + 1, b1 + 6); cx.lineTo(bw - 1, b1 + 6); cx.lineWidth = 2.5; cx.strokeStyle = C.lapis; cx.stroke();
+      if (dm) hullDamage(dm, bow, stern, t === 'mavna' ? 19 : hw);
+      if (t === 'mavna') {
+        /* the big crate pile, lashed down */
+        const cols = ['#C98E62', '#E9CFA0', '#B7412E', '#D9A43A'], nc = Math.max(4, Math.min(9, 4 + (opts.cargo || 0) * 2));
+        for (let k = 0; k < nc; k++) { const cxk = -13 + (k % 3) * 9, cyk = -20 + Math.floor(k / 3) * 10 + (Math.floor(k / 3) >= 1 ? 6 : 0); cx.beginPath(); cx.rect(cxk, cyk, 8.5, 8.5); outline(cols[k % 4], 1.2); cx.strokeStyle = 'rgba(43,29,20,.5)'; cx.lineWidth = 1; cx.beginPath(); cx.moveTo(cxk, cyk + 4.2); cx.lineTo(cxk + 8.5, cyk + 4.2); cx.stroke(); }
+        cx.strokeStyle = C.wood2; cx.lineWidth = 1.4; cx.beginPath(); cx.moveTo(-15, -22); cx.lineTo(15, 18); cx.moveTo(15, -22); cx.lineTo(-15, 18); cx.stroke();
+        cx.strokeStyle = C.wood2; cx.lineWidth = 3; cx.beginPath(); cx.moveTo(6, stern - 2); cx.lineTo(12, stern + 14); cx.stroke(); cx.beginPath(); cx.ellipse(12, stern + 15, 2.4, 4.5, -0.3, 0, Math.PI * 2); cx.fillStyle = C.wood; cx.fill();
+      } else if (opts.cargo) { const cols = ['#B7412E', '#D9A43A', '#C98E62'], cy0 = t === 'kadirga' ? 0 : stern - 16; for (let k = 0; k < Math.min(4, opts.cargo); k++) { cx.beginPath(); cx.arc(-5 + (k % 2) * 10, cy0 + Math.floor(k / 2) * 6, 3.2, 0, Math.PI * 2); outline(cols[k % 3], 1); } }
+      cx.beginPath(); cx.arc(0, bow, 4, 0, Math.PI * 2); outline(opts.tip || C.papyrus, 1.2);
+      /* v30: the crew seen from above (shoulders, wig, red headband) at the oars, a helmsman at the stern */
+      if (opts.crewTop !== false) {
+        const rows = Math.min(n, t === 'kadirga' ? 4 : 2), cw = t === 'mavna' ? 14 : t === 'feluka' ? 4 : hw * 0.42;
+        const man = (mx, my) => { cx.beginPath(); cx.ellipse(mx, my, 3.6, 2.4, 0, 0, Math.PI * 2); outline('#B57A50', 1); cx.beginPath(); cx.arc(mx, my - 0.6, 2.2, 0, Math.PI * 2); cx.fillStyle = '#22202A'; cx.fill(); cx.fillStyle = C.red; cx.fillRect(mx - 2.2, my - 1.2, 4.4, 1); };
+        for (let k = 0; k < rows; k++) { const ky = o0 + k * (o1 / Math.max(1, n - 1)) * (n - 1) / Math.max(1, rows - 1) - (n === 1 ? -3 : 0); if (t === 'feluka') man(0, ky); else { man(-cw, ky); man(cw, ky); } }
+        if (t === 'nehir') { cx.beginPath(); cx.rect(-5, stern - 20, 10, 8); outline(C.gold, 1.1); cx.fillStyle = C.red; cx.fillRect(-3.5, stern - 19, 2, 6); cx.fillRect(1.5, stern - 19, 2, 6); }
+        man(0, stern - 6);
+      }
+      if (dev.goz) {
+        /* Horus eyes painted on both sides of the bow */
+        [-1, 1].forEach(s => { const ex = s * hw * 0.55, ey = bow + 12; cx.save(); cx.translate(ex, ey); cx.rotate(s * 0.25); cx.beginPath(); cx.moveTo(-4, 0); cx.quadraticCurveTo(0, -4, 4, 0); cx.quadraticCurveTo(0, 3, -4, 0); outline('#FBF3DF', 1); cx.fillStyle = C.ink; cx.beginPath(); cx.arc(0, -0.4, 1.5, 0, Math.PI * 2); cx.fill(); cx.strokeStyle = C.ink; cx.lineWidth = 1; cx.beginPath(); cx.moveTo(0, 2); cx.lineTo(-1, 6); cx.moveTo(1.5, 1.5); cx.quadraticCurveTo(4, 5, 2, 6); cx.stroke(); cx.restore(); });
+      }
+      if (dev.fener) {
+        /* bronze lantern on the stern post */
+        const ly = stern + (t === 'kadirga' ? 10 : 2), gl = 0.35 + 0.15 * Math.sin(performance.now() / 170);
+        blot(spr('lamp', '255,214,120'), 0, ly, 16, gl);
+        cx.beginPath(); cx.rect(-3.5, ly - 4, 7, 8); outline(CU.bronze, 1.4); cx.fillStyle = '#FFE08A'; cx.fillRect(-1.6, ly - 2, 3.2, 4);
+      }
+      const fl = Math.sin(performance.now() / 260) * 1.5, wide = opts.wide || 22;
+      if (t === 'feluka') {
+        /* lateen rig: a long slanted yard and a big triangular sail bellied out to one side */
+        const s = wide / 22, ya = [-6, -46 * s], yb = [8, 28], cl = [24 * s + fl, -2];
+        cx.beginPath(); cx.moveTo(ya[0], ya[1]); cx.quadraticCurveTo(26 * s + fl * 2, -34 * s, cl[0], cl[1]); cx.quadraticCurveTo(14 * s, 14, yb[0], yb[1]); cx.closePath(); outline(opts.sail || C.sail, 1.8);
+        cx.save(); cx.clip(); cx.strokeStyle = opts.sailBand || C.lapis; cx.lineWidth = 2.2; cx.beginPath(); cx.moveTo(ya[0] + 7, ya[1] + 6); cx.lineTo(yb[0] + 7, yb[1] - 4); cx.stroke(); cx.strokeStyle = C.red; cx.lineWidth = 1.6; cx.beginPath(); cx.moveTo(ya[0] + 13, ya[1] + 14); cx.lineTo(yb[0] + 12, yb[1] - 10); cx.stroke(); cx.restore();
+        cx.strokeStyle = C.ink; cx.lineWidth = 3.4; cx.beginPath(); cx.moveTo(ya[0], ya[1]); cx.lineTo(yb[0], yb[1]); cx.stroke(); cx.strokeStyle = '#A8743F'; cx.lineWidth = 1.8; cx.stroke();
+        cx.strokeStyle = 'rgba(43,29,20,.6)'; cx.lineWidth = 1; cx.beginPath(); cx.moveTo(cl[0], cl[1]); cx.lineTo(4, stern - 4); cx.stroke();
+        if (opts.torn) sailTear(13 * s, -14 * s, 9 * s, opts.sail); else if (dm >= 2) sailPatch(9 * s, -24 * s);
+        cx.beginPath(); cx.arc(0, -8, 2.6, 0, Math.PI * 2); cx.fillStyle = C.ink; cx.fill();
+      } else {
+        const sy0 = t === 'kadirga' ? -2 : t === 'mavna' ? 22 : -6, wd = t === 'kadirga' ? wide + 10 : t === 'mavna' ? wide - 2 : wide, dp = t === 'kadirga' ? 4 : 0;
+        cx.beginPath(); cx.moveTo(-wd, sy0); cx.quadraticCurveTo(0, sy0 - 10 - dp - fl, wd, sy0); cx.lineTo(wd - 2, sy0 + 8 + dp); cx.quadraticCurveTo(0, sy0 - fl, -wd + 2, sy0 + 8 + dp); cx.closePath();
+        outline(opts.sail || C.sail, 1.8);
+        cx.beginPath(); cx.moveTo(-wd + 4, sy0 - 1); cx.quadraticCurveTo(0, sy0 - 9 - dp - fl, wd - 4, sy0 - 1); cx.lineWidth = 2.2; cx.strokeStyle = opts.sailBand || C.lapis; cx.stroke();
+        if (t === 'kadirga') { cx.beginPath(); cx.moveTo(-wd + 5, sy0 + 4); cx.quadraticCurveTo(0, sy0 - 4 - dp - fl, wd - 5, sy0 + 4); cx.lineWidth = 1.8; cx.strokeStyle = C.red; cx.stroke(); }
+        if (opts.torn) sailTear(wd * 0.42, sy0 - 3 - fl * 0.5, wd * 0.5, opts.sail);
+        else if (dm >= 2) sailPatch(-wd * 0.45, sy0 - 6 - fl * 0.5);
+        cx.beginPath(); cx.arc(0, sy0 + 4, t === 'kadirga' ? 3.4 : 2.6, 0, Math.PI * 2); cx.fillStyle = C.ink; cx.fill();
+      }
+      cx.restore();
+    }
+    /* v28 damage marks on the top-down hull: 1 scratches + a loose rope, 2 cracked plank + repair plank + bailing, 3 scorched, a plank gone */
+    function hullDamage(dm, bow, stern, hw) {
+      const L = stern - bow, now = performance.now();
+      const gouge = () => { cx.beginPath(); [[-0.6, 0.3, 5], [0.5, 0.56, 4.5], [-0.3, 0.8, 4], [0.35, 0.22, 3.5]].forEach(([fx, fy, l]) => { const x = fx * hw, y = bow + L * fy; cx.moveTo(x - l, y - 2.5); cx.lineTo(x + l, y + 2); }); cx.stroke(); };
+      cx.lineCap = 'round'; cx.strokeStyle = C.ink; cx.lineWidth = 3; gouge(); cx.strokeStyle = '#F0D2A8'; cx.lineWidth = 1.5; gouge(); cx.lineCap = 'butt';
+      cx.strokeStyle = '#E9D9B4'; cx.lineWidth = 1.6; cx.beginPath(); const rx = hw * 0.78, ry = stern - 9; cx.moveTo(rx, ry); cx.quadraticCurveTo(rx + 9, ry + 9 + Math.sin(now / 210) * 3, rx + 5 + Math.sin(now / 260) * 2, ry + 21); cx.stroke();
+      if (dm >= 2) {
+        const y0 = bow + L * 0.42; cx.strokeStyle = C.ink; cx.lineWidth = 2.2; cx.beginPath(); cx.moveTo(-hw * 0.82, y0); cx.lineTo(-hw * 0.6, y0 + 3.5); cx.lineTo(-hw * 0.42, y0 - 1); cx.lineTo(-hw * 0.2, y0 + 4); cx.stroke();
+        cx.beginPath(); cx.rect(hw * 0.05, bow + L * 0.66, hw * 0.62, 5); outline('#C79A5E', 1.1); cx.fillStyle = C.ink; cx.fillRect(hw * 0.1, bow + L * 0.66 + 2, 1.4, 1.4); cx.fillRect(hw * 0.6, bow + L * 0.66 + 2, 1.4, 1.4);
+        /* a sailor bailing: spray off the side now and then */
+        const b = (now / 700) % 1; if (b < 0.35) { cx.fillStyle = 'rgba(232,250,252,.9)'; for (let k = 0; k < 4; k++) { cx.beginPath(); cx.arc(-hw - 3 - b * 26 - k * 3, bow + L * 0.55 - k * 3 + b * 8, 1.8, 0, Math.PI * 2); cx.fill(); } }
+      }
+      if (dm >= 3) {
+        cx.beginPath(); cx.ellipse(-hw * 0.25, bow + L * 0.3, hw * 0.55, 7.5, 0.4, 0, Math.PI * 2); cx.fillStyle = 'rgba(28,16,8,.6)'; cx.fill();
+        cx.beginPath(); cx.rect(hw * 0.1, bow + L * 0.2, hw * 0.66, 4); cx.fillStyle = '#16283A'; cx.fill(); cx.lineWidth = 1; cx.strokeStyle = C.ink; cx.stroke();
+        /* a small fire on deck */
+        const fx = -hw * 0.25, fy = bow + L * 0.3, f1 = Math.sin(now / 70) * 1.5, f2 = Math.sin(now / 53 + 1) * 1.5;
+        cx.beginPath(); cx.moveTo(fx - 5, fy + 2); cx.quadraticCurveTo(fx - 6 + f1, fy - 7, fx + f2, fy - 11); cx.quadraticCurveTo(fx + 6 + f1, fy - 6, fx + 5, fy + 2); cx.closePath(); outline('#F08A2C', 1.2);
+        cx.beginPath(); cx.moveTo(fx - 2.5, fy + 1); cx.quadraticCurveTo(fx - 2 + f2, fy - 4, fx + f1 * 0.5, fy - 6); cx.quadraticCurveTo(fx + 3, fy - 3, fx + 2.5, fy + 1); cx.closePath(); cx.fillStyle = '#FFE08A'; cx.fill();
+      }
+    }
+    function sailPatch(x, y) {
+      cx.beginPath(); cx.rect(x - 6.5, y - 4, 13, 9); outline('#E2B45A', 1.4);
+      cx.strokeStyle = C.ink; cx.lineWidth = 1.1; cx.beginPath(); for (let k = 0; k < 4; k++) { cx.moveTo(x - 6 + k * 4, y - 6); cx.lineTo(x - 4.5 + k * 4, y - 2); cx.moveTo(x - 6 + k * 4, y + 7); cx.lineTo(x - 4.5 + k * 4, y + 3); } cx.stroke();
+    }
+    /* a ragged hole through the sail and a strip of cloth whipping behind it */
+    function sailTear(x, y, w, col) {
+      const now = performance.now(), fl = Math.sin(now / 90) * 3;
+      cx.beginPath(); cx.moveTo(x - w * 0.45, y - 1); cx.lineTo(x - w * 0.15, y - 4); cx.lineTo(x, y); cx.lineTo(x + w * 0.2, y - 4); cx.lineTo(x + w * 0.45, y + 1); cx.lineTo(x + w * 0.2, y + 5); cx.lineTo(x - w * 0.05, y + 3); cx.lineTo(x - w * 0.3, y + 6); cx.closePath(); outline('#16324E', 1.3);
+      cx.beginPath(); cx.moveTo(x + w * 0.2, y + 4); cx.quadraticCurveTo(x + w * 0.35 + fl, y + 14, x + w * 0.2 + fl * 1.6, y + 22); cx.lineTo(x + w * 0.05 + fl, y + 18); cx.quadraticCurveTo(x + fl * 0.5, y + 11, x - w * 0.02, y + 4); cx.closePath(); outline(col || C.sail, 1.1);
+    }
+    function wake() {
+      const tr = st.trail; if (tr.length < 4) return;
+      if (st.desert) {
+        /* hoof prints behind the last donkey fade into the sand */
+        cx.fillStyle = st.dp.rut;
+        for (let i = 0; i < tr.length; i += 2) { const a = i / tr.length, yy = sy(tr[i].y) + 10; if (yy > H + 10) continue; cx.globalAlpha = Math.min(1, a * 1.6) * 0.75; cx.beginPath(); cx.ellipse(tr[i].x + (i % 4 ? -4 : 4), yy, 2.2, 3, 0, 0, Math.PI * 2); cx.fill(); }
+        cx.globalAlpha = 1; return;
+      }
+      const ww = st.boatType === 'mavna' ? 18 : st.boatType === 'feluka' ? 10 : 12, wy = st.boatType === 'kadirga' ? 32 : 22;
+      cx.lineWidth = 2.4;
+      [-1, 1].forEach(side => {
+        for (let i = 1; i < tr.length; i++) {
+          const a0 = tr.length - i + 1, a1 = tr.length - i, p0 = tr[i - 1], p1 = tr[i];
+          cx.strokeStyle = 'rgba(232,250,252,' + (0.6 * (1 - a1 / tr.length)).toFixed(3) + ')';
+          cx.beginPath(); cx.moveTo(p0.x + side * (ww + a0 * 1.3), sy(p0.y) + wy); cx.lineTo(p1.x + side * (ww + a1 * 1.3), sy(p1.y) + wy); cx.stroke();
+        }
+      });
+    }
+    function drawObs(o) {
+      const x = sx(o.u, o.y), y = sy(o.y);
+      if (y < -80 || y > H + 80) return;
+      if (st.desert) { drawDObs(o, x, y); return; }
+      if (o.k === 'rock') {
+        cx.strokeStyle = C.foam; cx.lineWidth = 2.2; cx.beginPath(); cx.ellipse(x, y + 3, o.r * 1.15 + Math.sin(st.t * 5 + o.y) * 1.5, o.r * 0.62, 0, 0.1, Math.PI - 0.1); cx.stroke();
+        isoRock(x, y + o.r * 0.2, o.r, '#D9C6B4', '#A99285', '#86716A', o.y * 0.01);
+      } else if (o.k === 'croc') {
+        cx.save(); cx.translate(x, y); cx.rotate(Math.sin(o.ph) * 0.15 + Math.PI / 2);
+        cx.strokeStyle = 'rgba(232,250,252,.5)'; cx.lineWidth = 1.6; cx.beginPath(); cx.moveTo(-40, -12); cx.lineTo(-60, -20); cx.moveTo(-40, 12); cx.lineTo(-60, 20); cx.stroke();
+        cx.beginPath(); cx.ellipse(0, 0, 34, 9, 0, 0, Math.PI * 2); outline(C.croc, 2);
+        cx.beginPath(); cx.moveTo(30, 0); cx.lineTo(46, -4); cx.lineTo(46, 4); cx.closePath(); outline(C.croc, 1.6);
+        cx.beginPath(); cx.moveTo(-30, 0); cx.lineTo(-52, Math.sin(o.ph * 2) * 5); cx.lineWidth = 6; cx.strokeStyle = C.croc2; cx.stroke();
+        cx.fillStyle = C.croc2; for (let k = -20; k < 24; k += 8) { cx.beginPath(); cx.arc(k, 0, 2.2, 0, Math.PI * 2); cx.fill(); }
+        cx.fillStyle = '#F2C65A'; cx.beginPath(); cx.arc(24, -6, 2.6, 0, Math.PI * 2); cx.arc(24, 6, 2.6, 0, Math.PI * 2); cx.fill();
+        if (st.plan.bless === 'sobek') { cx.beginPath(); cx.ellipse(18, 0, 3, 9, 0, 0, Math.PI * 2); outline(C.gold, 1.4); }
+        cx.restore();
+      } else if (o.k === 'log') {
+        cx.save(); cx.translate(x, y); cx.beginPath(); cx.roundRect ? cx.roundRect(-o.len / 2, -9, o.len, 18, 9) : cx.rect(-o.len / 2, -9, o.len, 18); outline(C.log, 2);
+        cx.strokeStyle = C.wood2; cx.lineWidth = 1.4; cx.beginPath(); cx.moveTo(-o.len / 2 + 8, -3); cx.lineTo(o.len / 2 - 10, -3); cx.moveTo(-o.len / 2 + 14, 4); cx.lineTo(o.len / 2 - 6, 4); cx.stroke();
+        cx.beginPath(); cx.ellipse(o.len / 2 - 3, 0, 4, 8, 0, 0, Math.PI * 2); outline('#C9955A', 1.2); cx.restore();
+      } else if (o.k === 'sand') {
+        cx.beginPath(); cx.ellipse(x, y, o.w / 2 + 6, o.r + 5, 0, 0, Math.PI * 2); cx.fillStyle = 'rgba(232,250,252,.35)'; cx.fill();
+        cx.beginPath(); cx.ellipse(x, y, o.w / 2, o.r, 0, 0, Math.PI * 2); outline('#D8B064', 2);
+        cx.fillStyle = C.papyrus; for (let k = -2; k <= 2; k++) { cx.beginPath(); cx.arc(x + k * o.w * 0.15, y - 3 + (k % 2) * 4, 3, 0, Math.PI * 2); cx.fill(); }
+      } else if (o.k === 'hippo') {
+        const up = Math.sin(o.ph * 2.2) > -0.1;
+        cx.strokeStyle = C.foam; cx.lineWidth = 2; cx.beginPath(); cx.ellipse(x, y + 4, 24, 9, 0, 0, Math.PI * 2); cx.stroke();
+        if (up) {
+          cx.beginPath(); cx.ellipse(x, y, 20, 15, 0, 0, Math.PI * 2); outline(C.hippo, 2);
+          cx.beginPath(); cx.arc(x - 11, y - 12, 5, 0, Math.PI * 2); outline(C.hippo, 1.6); cx.beginPath(); cx.arc(x + 11, y - 12, 5, 0, Math.PI * 2); outline(C.hippo, 1.6);
+          cx.fillStyle = C.ink; cx.beginPath(); cx.arc(x - 7, y - 4, 2.4, 0, Math.PI * 2); cx.arc(x + 7, y - 4, 2.4, 0, Math.PI * 2); cx.fill();
+          cx.fillStyle = '#6B5A78'; cx.beginPath(); cx.arc(x - 5, y + 7, 2, 0, Math.PI * 2); cx.arc(x + 5, y + 7, 2, 0, Math.PI * 2); cx.fill();
+        } else { cx.fillStyle = C.hippo; cx.beginPath(); cx.arc(x - 6, y, 3, 0, Math.PI * 2); cx.arc(x + 6, y, 3, 0, Math.PI * 2); cx.fill(); }
+      } else if (o.k === 'whirl') {
+        cx.beginPath(); cx.arc(x, y, o.r, 0, Math.PI * 2); cx.fillStyle = 'rgba(0,20,60,.18)'; cx.fill();
+        cx.strokeStyle = C.foam; cx.lineWidth = 2.4; cx.globalAlpha = .85;
+        for (let k = 0; k < 3; k++) { cx.beginPath(); cx.arc(x, y, o.r - k * 9, o.ph + k, o.ph + k + Math.PI * 1.3); cx.stroke(); }
+        cx.globalAlpha = 1;
+      }
+    }
+    function drawStream(sm) {
+      const y0 = sy(sm.y), y1 = sy(sm.y + sm.len); if (y0 < -40 || y1 > H + 40) return;
+      const w = halfW() * 0.16, dz = st.desert;
+      cx.beginPath();
+      for (let y = sm.y; y <= sm.y + sm.len; y += 20) cx.lineTo(sx(sm.u, y) - w, sy(y));
+      for (let y = sm.y + sm.len; y >= sm.y; y -= 20) cx.lineTo(sx(sm.u, y) + w, sy(y));
+      /* in the desert the fast lane is hard-packed ground */
+      cx.closePath(); cx.fillStyle = dz ? 'rgba(120,80,40,.16)' : 'rgba(143,211,224,.22)'; cx.fill(); cx.setLineDash([8, 8]); cx.lineDashOffset = dz ? 0 : -st.t * 40; cx.strokeStyle = dz ? 'rgba(43,29,20,.35)' : 'rgba(232,250,252,.6)'; cx.lineWidth = 2; cx.stroke(); cx.setLineDash([]);
+      cx.strokeStyle = dz ? 'rgba(255,240,205,.8)' : 'rgba(232,250,252,.85)'; cx.lineWidth = 3;
+      for (let y = sm.y + ((st.t * 120) % 50); y < sm.y + sm.len; y += 50) { const x = sx(sm.u, y), yy = sy(y); cx.beginPath(); cx.moveTo(x - 9, yy + 6); cx.lineTo(x, yy - 4); cx.lineTo(x + 9, yy + 6); cx.stroke(); }
+    }
+    function drawRapids() {
+      cx.strokeStyle = 'rgba(255,255,255,.35)'; cx.lineWidth = 3;
+      const row = 46, bot = st.dist + boatY() - H - 40, top = st.dist + boatY() + 40, y0 = Math.floor(bot / row) * row;
+      for (let y = y0; y <= top; y += row) {
+        const c = centerX(y), hw = halfW(), yy = sy(y);
+        for (let k = 0; k < 4; k++) { const x = c - hw + 30 + hash(y * 0.3 + k) * (hw * 2 - 60), l = 14 + hash(y + k * 7) * 22; cx.beginPath(); cx.moveTo(x, yy); cx.quadraticCurveTo(x + l / 2, yy - 5 - Math.sin(st.t * 6 + k + y) * 2, x + l, yy); cx.stroke(); }
+      }
+    }
+    function drawPick(p) {
+      const x = sx(p.u, p.y), y = sy(p.y) + Math.sin(st.t * 4 + p.y) * 2;
+      if (y < -40 || y > H + 40) return;
+      const glow = 0.25 + 0.15 * Math.sin(st.t * 6 + p.y);
+      cx.beginPath(); cx.arc(x, y, 20, 0, Math.PI * 2); cx.fillStyle = 'rgba(255,236,170,' + glow + ')'; cx.fill();
+      if (st.desert) { cx.beginPath(); cx.ellipse(x + 3, y + 11, 15, 5, 0, 0, Math.PI * 2); cx.fillStyle = 'rgba(60,30,10,.2)'; cx.fill(); }
+      else { cx.strokeStyle = C.foam; cx.lineWidth = 1.6; cx.beginPath(); cx.ellipse(x, y + 8, 16, 5, 0, 0, Math.PI * 2); cx.stroke(); }
+      if (p.k === 'water') {
+        cx.beginPath(); cx.moveTo(x - 4, y - 9); cx.quadraticCurveTo(x - 14, y - 6, x - 13, y + 3); cx.quadraticCurveTo(x - 12, y + 12, x, y + 12); cx.quadraticCurveTo(x + 12, y + 12, x + 13, y + 3); cx.quadraticCurveTo(x + 14, y - 6, x + 4, y - 9); cx.closePath(); outline('#9C6B3E', 2);
+        cx.beginPath(); cx.ellipse(x - 5, y + 1, 4, 6, 0.3, 0, Math.PI * 2); cx.fillStyle = 'rgba(255,240,210,.3)'; cx.fill();
+        cx.beginPath(); cx.rect(x - 4, y - 14, 8, 6); outline('#7A4E2C', 1.4); cx.strokeStyle = C.red; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(x - 5, y - 9); cx.lineTo(x + 5, y - 9); cx.stroke();
+        cx.beginPath(); cx.moveTo(x + 13, y - 19); cx.quadraticCurveTo(x + 19, y - 10, x + 13, y - 8); cx.quadraticCurveTo(x + 7, y - 10, x + 13, y - 19); outline('#5FB6D6', 1.4);
+      }
+      if (p.k === 'date') {
+        cx.strokeStyle = '#D9A43A'; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(x, y - 14); cx.lineTo(x, y + 2); cx.moveTo(x, y - 6); cx.lineTo(x - 8, y + 2); cx.moveTo(x, y - 6); cx.lineTo(x + 8, y + 2); cx.stroke();
+        [[-8, 5], [0, 6], [8, 5], [-4, 11], [4, 11], [0, 0]].forEach(([dx, dy]) => { cx.beginPath(); cx.ellipse(x + dx, y + dy, 3.6, 5, 0, 0, Math.PI * 2); outline('#8A3E1E', 1.2); cx.fillStyle = 'rgba(255,220,180,.4)'; cx.beginPath(); cx.arc(x + dx - 1, y + dy - 2, 1.2, 0, Math.PI * 2); cx.fill(); });
+      }
+      if (p.k === 'crate' || p.k === 'cache') { cx.beginPath(); cx.rect(x - 11, y - 11, 22, 20); outline(C.wood, 2); cx.strokeStyle = C.ink; cx.lineWidth = 1.4; cx.beginPath(); cx.moveTo(x - 11, y - 1); cx.lineTo(x + 11, y - 1); cx.moveTo(x, y - 11); cx.lineTo(x, y + 9); cx.stroke(); }
+      if (p.k === 'coin') { cx.beginPath(); cx.arc(x, y, 11, 0, Math.PI * 2); outline(C.gold, 2); cx.fillStyle = C.ink; cx.font = '800 11px Nunito, sans-serif'; cx.textAlign = 'center'; cx.fillText('D', x, y + 4); }
+      if (p.k === 'lotus') { for (let k = -1; k <= 1; k++) { cx.beginPath(); cx.ellipse(x + k * 6, y - 3, 4, 10, k * 0.5, 0, Math.PI * 2); outline(k ? '#F2A7B8' : '#E86A7E', 1.4); } }
+      if (p.k === 'ankh') { cx.strokeStyle = C.ink; cx.lineWidth = 5; cx.beginPath(); cx.ellipse(x, y - 7, 5, 6, 0, 0, Math.PI * 2); cx.moveTo(x, y - 1); cx.lineTo(x, y + 12); cx.moveTo(x - 8, y + 2); cx.lineTo(x + 8, y + 2); cx.stroke(); cx.strokeStyle = C.gold; cx.lineWidth = 3; cx.stroke(); }
+    }
+    /* ---------- desert skin: a caravan track between dunes ---------- */
+    function drawDesert() {
+      const D = st.dp, hw = halfW(), top = st.dist + boatY() + 60, bot = st.dist + boatY() - H - 60;
+      cx.fillStyle = D.sand; cx.fillRect(0, 0, W, H);
+      /* wind ripples, fixed to the ground */
+      const rs = 38, r0 = Math.floor(bot / rs) * rs;
+      cx.strokeStyle = D.ripple; cx.lineWidth = 1.5; cx.globalAlpha = 0.32;
+      cx.beginPath();
+      for (let y = r0; y <= top + rs; y += rs) {
+        const yy = sy(y);
+        for (let k = 0; k < 6; k++) {
+          const h = hash(y * 0.31 + k * 7.7 + st.seedDeco), x = h * W, l = 20 + hash(y + k * 3) * 34, oy = yy + k * 6;
+          cx.moveTo(x - l / 2, oy); cx.quadraticCurveTo(x, oy - 5, x + l / 2, oy); cx.moveTo(x - l / 2 + 6, oy + 5); cx.quadraticCurveTo(x + 2, oy, x + l / 2 - 2, oy + 5);
+        }
+      }
+      cx.stroke(); cx.globalAlpha = 1;
+      /* long dune ridges frame the track (sun from the east at dawn, from the west at dusk); barchans lie further out */
+      const sun = st.tod < 0.5 ? 1 : -1, low = Math.abs(st.tod - 0.5) * 2, kw = Math.min(1, W / 800), step = 14;
+      [-1, 1].forEach(side => {
+        const crest = y => centerX(y) + side * (hw + 38 + 34 * kw + 20 * Math.sin(y * 0.0042 + side * 2 + st.seedDeco) + 10 * Math.sin(y * 0.013 + side));
+        const foot = y => crest(y) - side * (30 + 12 * Math.sin(y * 0.007 + side * 3));
+        const shw = y => 22 + 34 * low + 8 * Math.sin(y * 0.009 + side), edge = side < 0 ? -20 : W + 20;
+        cx.beginPath(); for (let y = bot; y <= top; y += step) cx.lineTo(foot(y), sy(y)); cx.lineTo(edge, sy(top)); cx.lineTo(edge, sy(bot));
+        cx.closePath(); cx.fillStyle = D.dune; cx.fill();
+        cx.lineWidth = 1.4; cx.strokeStyle = 'rgba(43,29,20,.25)'; cx.beginPath(); for (let y = bot; y <= top; y += step) cx.lineTo(foot(y), sy(y)); cx.stroke();
+        /* the side of the crest turned away from the sun lies in shade */
+        cx.beginPath(); for (let y = bot; y <= top; y += step) cx.lineTo(crest(y), sy(y)); for (let y = top; y >= bot; y -= step) cx.lineTo(crest(y) - sun * shw(y), sy(y));
+        cx.closePath(); cx.fillStyle = D.duneSh; cx.globalAlpha = 0.7 + low * 0.25; cx.fill(); cx.globalAlpha = 1;
+        cx.beginPath(); for (let y = bot; y <= top; y += step) cx.lineTo(crest(y), sy(y)); cx.lineWidth = 2.4; cx.strokeStyle = C.ink; cx.stroke();
+        /* wind ripples on the lit slope */
+        cx.strokeStyle = D.duneHi; cx.lineWidth = 2; cx.beginPath();
+        const rs2 = 30, r2 = Math.floor(bot / rs2) * rs2;
+        for (let y = r2; y <= top; y += rs2) { const a = crest(y), b = foot(y), m = (a + b) / 2, yy = sy(y), l = Math.abs(a - b) * 0.35; cx.moveTo(m - l, yy + 3); cx.quadraticCurveTo(m, yy - 3, m + l, yy + 3); }
+        cx.stroke();
+      });
+      const seg = 170, s0 = Math.floor((bot - 220) / seg) * seg;
+      for (let y = s0; y <= top + 220; y += seg) {
+        [-1, 1].forEach(side => {
+          const h = hash(y * 0.37 + side * 11 + st.seedDeco), h2 = hash(y * 0.53 + side * 5);
+          const w = 60 + h2 * 70, x = centerX(y) + side * (hw + 70 + 40 * kw + w + h * 60);
+          if (h < 0.75) dune(x, sy(y) + h * 40, w, 26 + h * 22, side);
+        });
+      }
+      /* distant oasis, far out on one side */
+      const os = 760, o0 = Math.floor(bot / os) * os;
+      for (let y = o0; y <= top + os; y += os) { const h = hash(y * 0.19 + st.seedDeco); if (h > 0.62) continue; const side = h < 0.31 ? -1 : 1; oasis(centerX(y) + side * (hw + 70 + 90 * kw + h * 50), sy(y), side); }
+      /* the trodden track */
+      riverPath(30); cx.fillStyle = 'rgba(110,70,30,.10)'; cx.fill();
+      riverPath(12); cx.fillStyle = D.berm; cx.fill(); cx.lineWidth = 2.2; cx.strokeStyle = 'rgba(43,29,20,.6)'; cx.stroke();
+      riverPath(0); cx.fillStyle = mixC(D.track, D.berm, 0.45); cx.fill();
+      riverPath(-12); cx.fillStyle = D.track; cx.fill();
+      /* the old painters dotted the desert: a stippled sand pattern on the track */
+      cx.save(); cx.clip(); cx.fillStyle = mixC(D.rut, '#A0482A', 0.45); cx.globalAlpha = 0.5; cx.beginPath();
+      const ds = 20, d0 = Math.floor(bot / ds) * ds;
+      for (let y = d0; y <= top; y += ds) { const c = centerX(y), yy = sy(y), off = (y / ds) % 2 ? 12 : 0; for (let x = c - hw + off; x < c + hw; x += 24) { const h = hash(x * 0.37 + y * 0.11); cx.moveTo(x + h * 6 + 2, yy + h * 4); cx.arc(x + h * 6, yy + h * 4, 2, 0, Math.PI * 2); } }
+      cx.fill(); cx.globalAlpha = 1;
+      /* wind-blown sand tongues lying across the track */
+      const ts = 110, t0 = Math.floor((bot - 60) / ts) * ts;
+      for (let y = t0; y <= top + 60; y += ts) {
+        const h = hash(y * 0.29 + st.seedDeco + 3); if (h > 0.6) continue;
+        const c = centerX(y), x = c + (hash(y * 0.83) * 2 - 1) * hw * 0.7, yy = sy(y), l = 40 + h * 80, th = 16 + h * 16;
+        cx.beginPath(); cx.moveTo(x - l, yy + 2); cx.quadraticCurveTo(x - l * 0.2, yy - th, x + l, yy - 2); cx.quadraticCurveTo(x, yy + th * 0.6, x - l, yy + 2); cx.closePath(); cx.fillStyle = D.dune; cx.fill(); cx.lineWidth = 1.4; cx.strokeStyle = 'rgba(43,29,20,.3)'; cx.stroke();
+        cx.beginPath(); cx.moveTo(x - l * 0.8, yy + 2); cx.quadraticCurveTo(x, yy + th * 0.45, x + l * 0.9, yy - 1); cx.lineWidth = 2; cx.strokeStyle = D.duneSh; cx.stroke();
+        cx.beginPath(); cx.moveTo(x - l * 0.5, yy - th * 0.3); cx.quadraticCurveTo(x - l * 0.1, yy - th * 0.7, x + l * 0.4, yy - th * 0.3); cx.strokeStyle = D.duneHi; cx.lineWidth = 1.6; cx.stroke();
+      }
+      cx.restore();
+      cx.strokeStyle = D.rut; cx.lineWidth = 8; cx.globalAlpha = 0.6;
+      [-0.34, 0.3].forEach(f => { cx.beginPath(); for (let y = bot; y <= top; y += 16) cx.lineTo(centerX(y) + hw * f + Math.sin(y * 0.013 + f * 9) * 8, sy(y)); cx.stroke(); });
+      cx.globalAlpha = 1;
+      /* hoof prints and pebbles on the track */
+      const ps = 26, p0 = Math.floor(bot / ps) * ps;
+      for (let y = p0; y <= top; y += ps) {
+        const c = centerX(y), yy = sy(y);
+        cx.fillStyle = mixC(D.rut, '#5A3A20', 0.3); cx.globalAlpha = 0.5;
+        for (let k = 0; k < 2; k++) { const h = hash(y * 0.71 + k * 3.3); const lane = hw * (k ? 0.3 : -0.34) + Math.sin(y * 0.013 + (k ? 0.3 : -0.34) * 9) * 8 + (h - 0.5) * 6; cx.beginPath(); cx.ellipse(c + lane - 3, yy + h * 10, 1.8, 2.6, 0, 0, Math.PI * 2); cx.ellipse(c + lane + 3, yy + h * 10 + 8, 1.8, 2.6, 0, 0, Math.PI * 2); cx.fill(); }
+        cx.globalAlpha = 1;
+        const h3 = hash(y * 1.37 + st.seedDeco); if (h3 < 0.35) { cx.beginPath(); cx.ellipse(c + (h3 * 2.8 - 0.5) * hw, yy + 9, 4, 3, 0, 0, Math.PI * 2); outline(D.rock, 1.2); }
+      }
+      /* side life: rocks, thorn bushes, bones, a ruined obelisk, cairns, acacias */
+      const ss = 64, q0 = Math.floor(bot / ss) * ss;
+      for (let y = q0; y <= top + ss; y += ss) {
+        const c = centerX(y), yy = sy(y);
+        [-1, 1].forEach(side => {
+          const h = hash(y * 0.113 + side * 7 + st.seedDeco), h2 = hash(y * 0.71 + side * 3);
+          const bx = c + side * (hw + 24 + h2 * 22);
+          if (h < 0.2) rocks(bx + side * 6, yy, 0.8 + h2 * 0.5);
+          else if (h < 0.34) shrub(bx, yy, 0.8 + h2 * 0.5);
+          else if (h < 0.4) { if (h > 0.37) bones(bx + side * 18, yy, side); else grass(bx, yy); }
+          else if (h < 0.43) ruin(bx + side * 34, yy, side);
+          else if (h < 0.47) cairn(bx + side * 4, yy);
+          else if (h < 0.52) acacia(bx + side * 30, yy, 0.9 + h2 * 0.3);
+          else if (h < 0.55) palm(bx + side * 20, yy, 0.8 + h2 * 0.3);
+        });
+      }
+    }
+    /* a barchan dune seen from above: sunlit back slope, shaded slip face, ink crest */
+    function dune(x, y, w, h, side) {
+      const D = st.dp, low = Math.abs(st.tod - 0.5) * 2, Lx = x - w, Rx = x + w, hy = y + h * 0.7;
+      cx.beginPath(); cx.ellipse(x, y + h * 0.75, w * 0.7, h * (0.25 + low * 0.25), 0, 0, Math.PI); cx.fillStyle = 'rgba(90,50,30,.14)'; cx.fill();
+      cx.beginPath(); cx.moveTo(Lx, hy); cx.bezierCurveTo(x - w * 0.9, y - h * 0.95, x + w * 0.9, y - h * 0.95, Rx, hy); cx.bezierCurveTo(x + w * 0.5, y + h * 0.1, x - w * 0.5, y + h * 0.1, Lx, hy); cx.closePath();
+      cx.fillStyle = D.dune; cx.fill(); cx.lineWidth = 1.6; cx.strokeStyle = 'rgba(43,29,20,.4)'; cx.stroke();
+      cx.beginPath(); cx.moveTo(Lx, hy); cx.bezierCurveTo(x - w * 0.45, y - h * 0.4, x + w * 0.45, y - h * 0.4, Rx, hy); cx.bezierCurveTo(x + w * 0.5, y + h * 0.1, x - w * 0.5, y + h * 0.1, Lx, hy); cx.closePath();
+      cx.fillStyle = D.duneSh; cx.globalAlpha = 0.65 + low * 0.3; cx.fill(); cx.globalAlpha = 1;
+      cx.beginPath(); cx.moveTo(Lx, hy); cx.bezierCurveTo(x - w * 0.45, y - h * 0.4, x + w * 0.45, y - h * 0.4, Rx, hy); cx.lineWidth = 2.2; cx.strokeStyle = C.ink; cx.stroke();
+      cx.strokeStyle = D.duneHi; cx.lineWidth = 2; cx.beginPath();
+      for (let k = 1; k <= 2; k++) { const yy = y - h * (0.28 + k * 0.17), ww = w * (0.62 - k * 0.14); cx.moveTo(x - ww, yy + 4); cx.quadraticCurveTo(x, yy - 4, x + ww, yy + 4); }
+      cx.stroke();
+    }
+    function grass(x, y) {
+      cx.strokeStyle = C.ink; cx.lineWidth = 1.2; cx.beginPath();
+      for (let k = -3; k <= 3; k++) { const sw = Math.sin(st.t * 2 + x * 0.1 + k) * 1.5 + st.wind * 4; cx.moveTo(x + k * 2, y); cx.quadraticCurveTo(x + k * 3, y - 8, x + k * 4.5 + sw, y - 13 + Math.abs(k)); }
+      cx.stroke(); cx.strokeStyle = '#C9B06A'; cx.lineWidth = 0.8; cx.stroke();
+    }
+    /* v30: a blocky faceted rock (lit top, two shaded faces, ink) like the town's cut stone */
+    function isoRock(x, y, r, top, side, side2, seed) {
+      const n = 6, base = [], tp = [], hgt = r * 0.75;
+      for (let k = 0; k < n; k++) { const a = (k + 0.5) / n * Math.PI * 2, rr = r * (0.85 + hash(k * 3.7 + seed) * 0.25); base.push([x + Math.cos(a) * rr, y + Math.sin(a) * rr * 0.55]); tp.push([x + Math.cos(a) * rr * 0.72, y + Math.sin(a) * rr * 0.4 - hgt * (0.85 + hash(k + seed) * 0.3)]); }
+      cx.beginPath(); cx.ellipse(x + r * 0.35, y + r * 0.2, r * 1.1, r * 0.45, 0, 0, Math.PI * 2); cx.fillStyle = 'rgba(40,24,10,.2)'; cx.fill();
+      for (let k = 0; k < n; k++) { const k2 = (k + 1) % n; if (base[k][1] + base[k2][1] < y * 2 - r * 0.2) continue; cx.beginPath(); cx.moveTo(base[k][0], base[k][1]); cx.lineTo(base[k2][0], base[k2][1]); cx.lineTo(tp[k2][0], tp[k2][1]); cx.lineTo(tp[k][0], tp[k][1]); cx.closePath(); outline(base[k][0] + base[k2][0] > x * 2 ? side2 : side, 1.6); }
+      cx.beginPath(); tp.forEach((p, k) => k ? cx.lineTo(p[0], p[1]) : cx.moveTo(p[0], p[1])); cx.closePath(); outline(top, 1.8);
+    }
+    function rocks(x, y, s) {
+      const D = st.dp;
+      isoRock(x, y, 9 * s, D.duneHi, D.rock, D.rock2, x * 0.1); isoRock(x + 12 * s, y + 6, 6 * s, D.duneHi, D.rock, D.rock2, x * 0.3); isoRock(x - 9 * s, y + 7, 5 * s, D.duneHi, D.rock, D.rock2, x * 0.7);
+    }
+    function shrub(x, y, s) {
+      const D = st.dp;
+      cx.beginPath(); cx.ellipse(x + 3, y + 2, 13 * s, 4 * s, 0, 0, Math.PI * 2); cx.fillStyle = 'rgba(60,30,10,.14)'; cx.fill();
+      cx.strokeStyle = C.ink; cx.lineWidth = 1.3; cx.beginPath();
+      for (let k = 0; k < 9; k++) { const a = -Math.PI * (0.1 + k * 0.1) + Math.sin(st.t * 1.5 + x + k) * 0.04; cx.moveTo(x, y); cx.lineTo(x + Math.cos(a) * 15 * s, y + Math.sin(a) * 13 * s); }
+      cx.stroke();
+      for (let k = 0; k < 9; k++) { const a = -Math.PI * (0.1 + k * 0.1); cx.beginPath(); cx.arc(x + Math.cos(a) * 13 * s, y + Math.sin(a) * 11 * s, 3 * s, 0, Math.PI * 2); outline(k % 3 ? D.shrub : '#A9B46E', 1); }
+      if (s > 1.05) { cx.fillStyle = C.red; cx.beginPath(); cx.arc(x - 4, y - 7 * s, 1.6, 0, Math.PI * 2); cx.arc(x + 5, y - 9 * s, 1.6, 0, Math.PI * 2); cx.fill(); }
+    }
+    /* a bleached skeleton half sunk in the sand */
+    function bones(x, y, side) {
+      const bone = '#F7EEDA';
+      cx.beginPath(); cx.ellipse(x, y + 3, 22, 6, 0, 0, Math.PI * 2); cx.fillStyle = 'rgba(60,30,10,.12)'; cx.fill();
+      cx.strokeStyle = C.ink; cx.lineWidth = 4.4; cx.lineCap = 'round';
+      const ribs = () => { cx.beginPath(); cx.moveTo(x - 18 * side, y); cx.lineTo(x + 12 * side, y - 1); for (let k = 0; k < 5; k++) { const rx = x - 10 * side + k * 5 * side; cx.moveTo(rx, y); cx.quadraticCurveTo(rx - 5 * side, y - 9, rx + 1 * side, y - 12); cx.moveTo(rx, y); cx.quadraticCurveTo(rx - 4 * side, y + 6, rx + 1 * side, y + 8); } cx.stroke(); };
+      ribs(); cx.strokeStyle = bone; cx.lineWidth = 2.2; ribs(); cx.lineCap = 'butt';
+      cx.beginPath(); cx.ellipse(x + 19 * side, y - 2, 7, 4.5, side * 0.3, 0, Math.PI * 2); outline(bone, 1.4);
+      cx.fillStyle = C.ink; cx.beginPath(); cx.arc(x + 20 * side, y - 3, 1.4, 0, Math.PI * 2); cx.fill();
+      cx.beginPath(); cx.moveTo(x + 23 * side, y - 5); cx.quadraticCurveTo(x + 30 * side, y - 10, x + 28 * side, y - 16); cx.lineWidth = 2.6; cx.strokeStyle = C.ink; cx.stroke(); cx.lineWidth = 1.2; cx.strokeStyle = bone; cx.stroke();
+    }
+    /* a broken obelisk: the stump still stands, the top lies in the sand */
+    function ruin(x, y, side) {
+      cx.beginPath(); cx.ellipse(x + 6, y + 2, 34, 8, 0, 0, Math.PI * 2); cx.fillStyle = 'rgba(60,30,10,.14)'; cx.fill();
+      cx.beginPath(); cx.rect(x - 11, y - 6, 22, 7); outline(C.stone2, 1.6);
+      cx.beginPath(); cx.moveTo(x - 7, y - 5); cx.lineTo(x - 6, y - 34); cx.lineTo(x - 2, y - 30); cx.lineTo(x + 1, y - 38); cx.lineTo(x + 4, y - 31); cx.lineTo(x + 6, y - 33); cx.lineTo(x + 7, y - 5); cx.closePath(); outline(C.stone, 1.8);
+      cx.strokeStyle = C.stone2; cx.lineWidth = 1.2; cx.beginPath(); for (let k = 0; k < 3; k++) { cx.moveTo(x - 2, y - 26 + k * 7); cx.lineTo(x + 2, y - 26 + k * 7); } cx.stroke();
+      cx.save(); cx.translate(x + side * 30, y - 2); cx.rotate(side * 0.18);
+      cx.beginPath(); cx.moveTo(-side * 14, -5); cx.lineTo(side * 12, -4); cx.lineTo(side * 20, 0); cx.lineTo(side * 12, 4); cx.lineTo(-side * 14, 5); cx.lineTo(-side * 12, 0); cx.closePath(); outline(C.stone, 1.6);
+      cx.beginPath(); cx.moveTo(side * 12, -4); cx.lineTo(side * 20, 0); cx.lineTo(side * 12, 4); cx.closePath(); outline(C.gold, 1.2);
+      cx.restore();
+      cx.beginPath(); cx.ellipse(x + side * 18, y + 3, 16, 4, 0, Math.PI, 0, true); cx.fillStyle = st.dp.dune; cx.fill();
+    }
+    function cairn(x, y) {
+      [[0, 0, 8], [1, -7, 6.5], [-1, -13, 5], [0, -18, 3.6]].forEach(([dx, dy, r]) => { cx.beginPath(); cx.ellipse(x + dx, y + dy, r, r * 0.7, 0, 0, Math.PI * 2); outline(dy ? C.stone : st.dp.rock, 1.4); });
+      cx.beginPath(); cx.moveTo(x, y - 20); cx.lineTo(x, y - 34); cx.lineWidth = 2; cx.strokeStyle = C.wood2; cx.stroke();
+      cx.beginPath(); cx.moveTo(x, y - 34); cx.lineTo(x + 10 + Math.sin(st.t * 5 + x) * 2 + st.wind * 4, y - 31); cx.lineTo(x, y - 27); cx.closePath(); outline(C.red, 1);
+    }
+    function acacia(x, y, s) {
+      cx.beginPath(); cx.ellipse(x + 8, y + 2, 26 * s, 8 * s, 0, 0, Math.PI * 2); cx.fillStyle = 'rgba(60,30,10,.16)'; cx.fill();
+      cx.strokeStyle = C.ink; cx.lineWidth = 4; cx.beginPath(); cx.moveTo(x, y); cx.lineTo(x - 1, y - 16 * s); cx.moveTo(x - 1, y - 14 * s); cx.lineTo(x - 10 * s, y - 24 * s); cx.moveTo(x - 1, y - 14 * s); cx.lineTo(x + 10 * s, y - 25 * s); cx.stroke();
+      cx.strokeStyle = C.wood; cx.lineWidth = 2; cx.stroke();
+      cx.beginPath(); cx.ellipse(x, y - 28 * s, 26 * s, 8 * s, 0, 0, Math.PI * 2); outline('#7E9450', 1.6);
+      cx.beginPath(); cx.ellipse(x - 4, y - 31 * s, 16 * s, 4 * s, 0, 0, Math.PI * 2); cx.fillStyle = '#9CB062'; cx.fill();
+    }
+    /* far-off palm oasis with a pool */
+    function oasis(x, y, side) {
+      cx.beginPath(); cx.ellipse(x, y + 6, 70, 26, 0, 0, Math.PI * 2); cx.fillStyle = 'rgba(126,148,80,.35)'; cx.fill();
+      cx.beginPath(); cx.ellipse(x - side * 6, y + 8, 40, 14, 0, 0, Math.PI * 2); outline('#3E86A8', 2);
+      cx.strokeStyle = '#9ADBE3'; cx.lineWidth = 1.6; cx.beginPath(); cx.moveTo(x - 24, y + 6); cx.lineTo(x - 12, y + 6); cx.moveTo(x + 4, y + 11); cx.lineTo(x + 18, y + 11); cx.stroke();
+      [[-48, -4, 1], [-28, -14, 1.1], [30, -10, 1.05], [48, 2, 0.9], [8, -20, 1.15]].forEach(([dx, dy, s]) => palm(x + dx, y + dy, s * 0.85));
+    }
+    /* arrival in the desert: a mud-brick gate in a wall with palms */
+    function gate(y, label) {
+      const yy = sy(y); if (yy < -160 || yy > H + 40) return;
+      const c = centerX(y), hw = halfW();
+      cx.beginPath(); cx.rect(c - hw - 120, yy - 22, hw * 2 + 240, 22); outline('#C49A6A', 2.2);
+      cx.strokeStyle = 'rgba(43,29,20,.35)'; cx.lineWidth = 1.2; cx.beginPath(); for (let x = c - hw - 120; x < c + hw + 120; x += 22) { cx.moveTo(x, yy - 22); cx.lineTo(x, yy - 11); cx.moveTo(x + 11, yy - 11); cx.lineTo(x + 11, yy); } cx.moveTo(c - hw - 120, yy - 11); cx.lineTo(c + hw + 120, yy - 11); cx.stroke();
+      [-1, 1].forEach(s => { cx.beginPath(); cx.rect(c + s * 46 - 16, yy - 50, 32, 50); outline('#D8B07C', 2.2); cx.beginPath(); cx.rect(c + s * 46 - 19, yy - 55, 38, 7); outline(C.stone2, 1.6); palm(c + s * (hw + 20), yy - 24, 1); palm(c + s * (hw - 30), yy - 30, 0.9); });
+      cx.beginPath(); cx.rect(c - 30, yy - 8, 60, 8); outline(C.mud, 1.6);
+      if (label) { cx.font = '800 15px Nunito, sans-serif'; cx.textAlign = 'center'; const w = cx.measureText(label).width + 22; cx.beginPath(); cx.rect(c - w / 2, yy - 96, w, 24); outline(C.white, 2); cx.fillStyle = C.ink; cx.fillText(label, c, yy - 79); }
+    }
+    /* ---------- the caravan: a driver on foot, laden donkeys on a lead rope ---------- */
+    function donkey(x, y, ang, ph, pack, coat, sc) {
+      cx.save(); cx.translate(x, y); cx.rotate(ang); if (sc) cx.scale(sc, sc);
+      cx.beginPath(); cx.ellipse(4, 6, 12, 20, 0, 0, Math.PI * 2); cx.fillStyle = 'rgba(60,30,10,.2)'; cx.fill();
+      const sw = Math.sin(ph) * 4, body = coat || '#A09080', dark = '#4E4239';
+      cx.strokeStyle = C.ink; cx.lineWidth = 3; cx.lineCap = 'round';
+      cx.beginPath(); cx.moveTo(-5, -7); cx.lineTo(-8, -7 + sw); cx.moveTo(5, -7); cx.lineTo(8, -7 - sw); cx.moveTo(-5, 11); cx.lineTo(-8, 11 - sw); cx.moveTo(5, 11); cx.lineTo(8, 11 + sw); cx.stroke();
+      cx.beginPath(); cx.moveTo(0, 15); cx.quadraticCurveTo(Math.sin(ph * 0.5) * 3, 20, Math.sin(ph * 0.5) * 2, 24); cx.lineWidth = 2; cx.stroke();
+      cx.beginPath(); cx.arc(Math.sin(ph * 0.5) * 2, 25, 2.2, 0, Math.PI * 2); cx.fillStyle = dark; cx.fill(); cx.lineCap = 'butt';
+      cx.beginPath(); cx.ellipse(0, 3, 8.5, 14, 0, 0, Math.PI * 2); outline(body, 1.8);
+      /* long ears first, then the head over them */
+      [-1, 1].forEach(s => { cx.save(); cx.translate(s * 2.8, -18); cx.rotate(s * (0.62 + Math.sin(ph * 0.5 + s) * 0.1)); cx.beginPath(); cx.ellipse(0, -5.5, 2.7, 7, 0, 0, Math.PI * 2); outline(body, 1.3); cx.fillStyle = '#E8B8A8'; cx.beginPath(); cx.ellipse(0, -5, 1.1, 4.3, 0, 0, Math.PI * 2); cx.fill(); cx.fillStyle = dark; cx.beginPath(); cx.ellipse(0, -11, 1.7, 1.9, 0, 0, Math.PI * 2); cx.fill(); cx.restore(); });
+      cx.beginPath(); cx.ellipse(0, -15, 5, 8.5, 0, 0, Math.PI * 2); outline(body, 1.6);
+      cx.beginPath(); cx.ellipse(0, -23, 4.2, 3.8, 0, 0, Math.PI * 2); outline('#E2D8C8', 1.4);
+      cx.fillStyle = dark; cx.beginPath(); cx.arc(-1.6, -24, 0.9, 0, Math.PI * 2); cx.arc(1.6, -24, 0.9, 0, Math.PI * 2); cx.fill();
+      cx.strokeStyle = dark; cx.lineWidth = 2.4; cx.beginPath(); cx.moveTo(0, -10); cx.lineTo(0, 16); cx.moveTo(-6.5, -4); cx.lineTo(6.5, -4); cx.stroke();
+      if (pack) {
+        const cols = [[C.red, C.gold], [C.lapis, '#FBF3DF'], ['#3E8E5A', C.gold]][pack % 3];
+        [-1, 1].forEach(s => { const x0 = s < 0 ? -12.5 : 7.5; cx.beginPath(); cx.roundRect ? cx.roundRect(x0, 0, 5, 13, 2) : cx.rect(x0, 0, 5, 13); outline(cols[0], 1.4); cx.strokeStyle = cols[1]; cx.lineWidth = 1.4; cx.beginPath(); cx.moveTo(x0, 4.5); cx.lineTo(x0 + 5, 4.5); cx.moveTo(x0, 8.5); cx.lineTo(x0 + 5, 8.5); cx.stroke(); });
+        cx.beginPath(); cx.rect(-5, 1, 10, 9); outline('#E9D3A6', 1.3);
+        cx.strokeStyle = C.wood2; cx.lineWidth = 1.1; cx.beginPath(); cx.moveTo(-5, 1); cx.lineTo(5, 10); cx.moveTo(5, 1); cx.lineTo(-5, 10); cx.stroke();
+        if (pack % 2) { cx.beginPath(); cx.ellipse(0, 13, 4.5, 3, 0, 0, Math.PI * 2); outline('#9C6B3E', 1.2); }
+      }
+      cx.restore();
+    }
+    /* the driver seen from behind, striding ahead with his staff (painted upright like the bank people) */
+    function driver(x, y, ph, wind) {
+      const s = 1.25, sw = Math.sin(ph) * 3.5;
+      cx.save(); cx.translate(x, y); cx.scale(s, s);
+      cx.beginPath(); cx.ellipse(2, 1, 9, 3.5, 0, 0, Math.PI * 2); cx.fillStyle = 'rgba(60,30,10,.22)'; cx.fill();
+      cx.strokeStyle = C.ink; cx.lineWidth = 3.6; cx.lineCap = 'round';
+      cx.beginPath(); cx.moveTo(-2.5, -12); cx.lineTo(-3, -1 - Math.max(0, sw)); cx.moveTo(2.5, -12); cx.lineTo(3, -1 - Math.max(0, -sw)); cx.stroke();
+      cx.strokeStyle = '#B57A50'; cx.lineWidth = 2; cx.stroke();
+      cx.beginPath(); cx.moveTo(-5.5, -9); cx.lineTo(-4.5, -17); cx.lineTo(4.5, -17); cx.lineTo(5.5, -9); cx.closePath(); outline('#FBF3DF', 1.3);
+      cx.beginPath(); cx.moveTo(-4.5, -17); cx.lineTo(-5.5, -26); cx.lineTo(5.5, -26); cx.lineTo(4.5, -17); cx.closePath(); outline('#B57A50', 1.3);
+      cx.strokeStyle = C.ink; cx.lineWidth = 3.4; cx.beginPath(); cx.moveTo(-5, -25); cx.lineTo(-8, -17 + sw); cx.moveTo(5, -25); cx.lineTo(8.5, -21); cx.stroke();
+      cx.strokeStyle = '#B57A50'; cx.lineWidth = 1.8; cx.stroke(); cx.lineCap = 'butt';
+      cx.beginPath(); cx.arc(0, -30.5, 4.6, 0, Math.PI * 2); outline('#2B2340', 1.2);
+      cx.strokeStyle = C.red; cx.lineWidth = 1.6; cx.beginPath(); cx.moveTo(-4.5, -31); cx.lineTo(4.5, -31); cx.stroke();
+      /* staff with a streamer that shows the wind */
+      cx.strokeStyle = C.ink; cx.lineWidth = 2.6; cx.beginPath(); cx.moveTo(9, -8); cx.lineTo(9, -46); cx.stroke(); cx.strokeStyle = C.wood; cx.lineWidth = 1.3; cx.stroke();
+      const wv = wind || 0, fl = Math.sin(performance.now() / 90) * 1.5, dirx = wv > 0.05 ? 1 : wv < -0.05 ? -1 : 1, len = 9 + Math.abs(wv) * 9;
+      cx.beginPath(); cx.moveTo(9, -46); cx.quadraticCurveTo(9 + dirx * len * 0.5, -48 + fl, 9 + dirx * len, -44 + fl * 1.5); cx.lineTo(9 + dirx * len * 0.6, -41 + fl); cx.lineTo(9, -40); cx.closePath(); outline(C.red, 1.1);
+      cx.restore();
+    }
+    function caravan(bx, by) {
+      const n = st.donkeys, gap = 44, ph = st.row * 1.3, stum = Math.max(0, st.stumble), sc = 1.05;
+      const pts = [];
+      for (let k = 0; k < n; k++) {
+        const d = 8 + k * gap, x = trailX(d, bx), xa = trailX(d - 14, bx), wob = stum > 0 ? Math.sin(st.t * 38 + k * 2) * stum * (k ? 0.35 : 0.25) : 0;
+        pts.push({ x:x + (stum > 0 ? Math.sin(st.t * 30 + k) * stum * 4 : 0), y:by + d, ang:Math.atan2(xa - x, 14) + wob });
+      }
+      const dx = bx + st.vu * 6, dy = by - 26;
+      /* lead ropes */
+      cx.strokeStyle = C.wood2; cx.lineWidth = 1.6;
+      cx.beginPath(); cx.moveTo(dx - 9, dy - 22); cx.quadraticCurveTo(dx - 12, dy + 2, pts[0].x - 2, pts[0].y - 26);
+      for (let k = 1; k < n; k++) { cx.moveTo(pts[k - 1].x, pts[k - 1].y + 10); cx.quadraticCurveTo((pts[k - 1].x + pts[k].x) / 2 + 4, pts[k].y - 22, pts[k].x, pts[k].y - 26); }
+      cx.stroke();
+      for (let k = 0; k < n; k++) donkey(pts[k].x, pts[k].y, pts[k].ang, ph + k * 1.7, k + 1, k === 0 ? '#8C7D6E' : k % 2 ? '#A59584' : '#978877', sc);
+      driver(dx, dy, ph, st.wind);
+    }

@@ -1,0 +1,249 @@
+  /* ================= audio buttons ================= */
+  function paintAudio() {
+    const mb = $('#btnMusic');
+    if (mb) { const on = Snd.pref.music; mb.innerHTML = '<svg class="ico" width="22" height="22" aria-hidden="true"><use href="#i-music"/>' + (on ? '' : '<use href="#i-slash"/>') + '</svg><span class="lab">Müzik</span>'; mb.setAttribute('aria-label', 'Müzik menüsü' + (on ? '' : ' (kapalı)')); }
+    document.querySelectorAll('[data-audio]').forEach(b => {
+      const k = b.dataset.audio, on = Snd.pref[k], id = k === 'music' ? 'music' : 'speaker';
+      b.innerHTML = '<svg class="ico" width="22" height="22" aria-hidden="true"><use href="#i-' + id + '"/>' + (on ? '' : '<use href="#i-slash"/>') + '</svg><span class="lab">' + (k === 'music' ? 'Müzik' : 'Ses') + '</span>';
+      b.setAttribute('aria-pressed', on ? 'true' : 'false'); b.setAttribute('aria-label', (k === 'music' ? 'Müziği ' : 'Sesleri ') + (on ? 'kapat' : 'aç'));
+    });
+  }
+
+  /* ================= feedback ================= */
+  function toast(t) {
+    const el = $('#toast'); el.textContent = t; el.hidden = false;
+    clearTimeout(toastT); toastT = setTimeout(() => { el.hidden = true; }, 2800);
+  }
+  function floatAt(el, text, neg) {
+    if (!el || reduce) return;
+    const r = el.getBoundingClientRect(), f = document.createElement('div');
+    f.className = 'float' + (neg ? ' neg' : ''); f.textContent = text;
+    f.style.left = (r.left + r.width / 2 - 30) + 'px'; f.style.top = (r.top - 8) + 'px';
+    document.body.appendChild(f);
+    const fw = f.offsetWidth; f.style.left = Math.max(8, Math.min(r.left + r.width / 2 - fw / 2, window.innerWidth - fw - 8)) + 'px';
+    setTimeout(() => f.remove(), 1000);
+  }
+  function trustToast(lv, i) { if (lv) { toast(MERCHANT_NAMES[i] + ' artık ' + TRUST[lv].name.toLowerCase() + ': o pazarda %' + Math.round(TRUST[lv].b * 100) + ' avantaj.'); play('good'); } }
+
+  /* ================= sheets ================= */
+  function openSheet(html, lock, name, wide) {
+    if ($('#veil').hidden) opener = document.activeElement;
+    if ($('#tut')) $('#tut').hidden = true;
+    sheetLock = !!lock; sheetName = name || '';
+    $('#sheet').className = 'sheet' + (wide ? ' wide' : '') + (name === 'title' ? ' title31' : '');
+    $('#veil').classList.toggle('vtitle', name === 'title');
+    $('#sheet').innerHTML = '<div class="sh-in">' + html + '</div>';
+    $('#veil').hidden = false;
+    const f = $('#sheet').querySelector('[data-first]') || $('#sheet').querySelector('button:not(.x)') || $('#sheet').querySelector('button');
+    if (f) f.focus({ preventScroll:true });
+  }
+  function closeSheet() {
+    cancelAnimationFrame(hagRaf); pzClear();
+    if (shipV) { try { shipV.dispose(); } catch (e) {} shipV = null; }
+    if (tvMap) { try { tvMap.dispose(); } catch (e) {} tvMap = null; }
+    if (DLG) { clearInterval(DLG.tm); DLG = null; }
+    disposeHero3();
+    $('#sheet').classList.remove('talk28', 'travel28');
+    $('#veil').hidden = true; $('#sheet').innerHTML = ''; sheetLock = false; requestAnimationFrame(() => { if (!S) return; placeTutor(); /* a hurt hull is mentioned once, as soon as nothing else is open */ if (phase === 'port' && $('#veil').hidden && !departing) repairNag(); });
+    if (phase === 'sea') Sea.pause(false);
+    if (sheetName === 'title' || (sheetName === 'music' && musicBack === 'toTitle')) Snd.mode(phase === 'sea' ? 'sea' : 'port');
+    sheetName = '';
+    if (opener && document.body.contains(opener)) opener.focus({ preventScroll:true });
+    opener = null;
+  }
+  const xBtn = '<button class="x" type="button" data-close aria-label="Kapat">' + ico('i-close', 20) + '</button>';
+  const backBtn = to => '<button class="x" type="button" data-act="' + to + '" aria-label="Geri">' + ico('i-close', 20) + '</button>';
+  const outHtml = o => '<div class="oi ' + o.kind + '"><span class="dot"></span><div>' + (o.title ? '<b>' + esc(o.title) + '</b>' : '') + '<p>' + esc(o.text) + '</p></div></div>';
+  const ongoing = () => S && !S.over && (S.voyage || S.day > 1 || S.stats.trips > 0 || load(S) > 0 || S.cash !== START_CASH + 300 * (S.perk.kese || 0));
+
+  /* ---------- main menu ---------- */
+  function showTitle() {
+    const has = ongoing();
+    if (S && phase === 'port') { lastScene = ''; try { renderStage(); } catch (e) {} }
+    const btn = (act, label, sub, cls) => '<button class="mm-b ' + (cls || '') + '" type="button" data-act="' + act + '"><b>' + label + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</button>';
+    const logo = (() => { try { const L = typeof PORTRAITS !== 'undefined' && PORTRAITS && PORTRAITS._logo; return typeof L === 'string' && L ? L : L && L.src ? L.src : null; } catch (e) { return null; } })();
+    openSheet('<div class="title-art t31">' + (logo ? '<img class="logo-img" src="' + logo + '" alt="Nil Kervancısı">' : '') + '<div class="logo-plate' + (logo ? ' sr' : '') + '"><h2 id="shTitle">Nil Kervancısı</h2><small>Kısa, sert, tuzlu bir ticaret seferi</small></div></div>' +
+      '<div class="mm">' +
+      (has ? btn('cont', 'Devam et', slotLabel(S), 'main') : '') +
+      btn('new', 'Yeni sefer', meta.rep || Object.keys(meta.lv).length ? 'Lonca avantajlarınla başlar' : DAYS + ' gün, 1.500 deben borç', has ? '' : 'main') +
+      btn('daily', 'Günün seferi', 'Bugün herkes aynı nehirde, avantajsız') +
+      btn('loadMenu', 'Kayıtlı oyunlar', 'Kayıt yuvaların') +
+      btn('lonca', 'Kervancılar Loncası', 'İtibar: ' + meta.rep + ' · avantajlar ve başarımlar') +
+      btn('recsT', 'Rekorlar', '') +
+      btn('helpT', 'Nasıl oynanır', '') +
+      '</div><div class="row center"><button class="ib dark" type="button" data-act="musicT"><svg class="ico" width="22" height="22" aria-hidden="true"><use href="#i-music"/></svg><span class="lab">Müzik</span></button><button class="ib dark" type="button" data-audio="sfx"></button></div><p class="muted tmnote" id="tmNote"></p>', true, 'title', true);
+    titleMusicNote();
+    Snd.mode('menu');
+    paintAudio();
+  }
+  /* ---------- music player ---------- */
+  let musicBack = null;
+  function showMusic(back) {
+    musicBack = back || null;
+    const inf = Snd.info();
+    let s = '<div class="sh-h"><h2 id="shTitle">Müzik<small>Parçalar oyunun içinde, notadan sese çevrilerek hazırlanır</small></h2>' + (back ? backBtn(back) : xBtn) + '</div>';
+    s += '<div class="mplay"><span class="eq" aria-hidden="true"><i></i><i></i><i></i></span><div><small>Şimdi çalıyor</small><b id="mNow"></b></div><button class="btn sm gold" type="button" data-act="mNext">Sonraki parça ⏭</button></div>';
+    s += '<div class="tracks">' + inf.tracks.filter(t => t.id !== 'sail').map(t => '<button class="trk" type="button" data-track="' + t.id + '"><b>' + esc(t.name) + '</b><small>' + esc(t.desc) + '</small><span class="ts"></span></button>').join('') + '</div>';
+    s += '<p class="muted" style="margin:0">Seçtiğin parça limanda çalar. Nehirde "Yelkenler Açık" çalar; biri peşine düşünce davullar ve nefesliler girer.</p>';
+    s += '<p class="muted" id="mDiag" style="margin:0;font-size:11.5px"></p><div class="row"><button class="btn sm" type="button" data-act="mAuto"></button><button class="btn sm" type="button" data-act="mOn"></button><button class="btn sm" type="button" data-act="mSfx"></button>' + (haptic.can ? '<button class="btn sm" type="button" data-act="mHap"></button>' : '') + (V3.available() ? '<button class="btn sm" type="button" data-act="m3d"></button><button class="btn sm" type="button" data-act="mFace"></button>' : '') + '</div><div id="installSlot">' + installHtml() + '</div>';
+    openSheet(s, !!back, 'music');
+    updateMusic();
+  }
+  function updateMusic() {
+    if (sheetName !== 'music') return;
+    const inf = Snd.info(), now = inf.tracks.find(t => t.id === inf.playing) || { name:'Yelkenler Açık', ready:true };
+    const nowEl = $('#mNow'); if (!nowEl) return;
+    nowEl.textContent = !inf.music ? 'Müzik kapalı' : !inf.started || inf.ac === 'suspended' ? 'Tarayıcı sesi bekletiyor: ekrana bir kez dokun' : now.name + (now.ready ? '' : ' (hazırlanıyor… %' + now.prog + ')');
+    $('#sheet .mplay').classList.toggle('on', inf.music && inf.started && now.ready);
+    document.querySelectorAll('[data-track]').forEach(b => {
+      const t = inf.tracks.find(x => x.id === b.dataset.track), sel = (inf.mode === 'menu' ? inf.playing : inf.cur) === t.id;
+      b.setAttribute('aria-pressed', sel ? 'true' : 'false');
+      b.querySelector('.ts').textContent = !t.ready ? 'hazırlanıyor… %' + t.prog : sel ? (inf.playing === t.id && inf.music && inf.started ? '♪ çalıyor' : 'seçili') : '';
+    });
+    const a = document.querySelector('[data-act="mAuto"]'); if (a) a.textContent = 'Otomatik sıra: ' + (inf.auto ? 'açık' : 'kapalı');
+    const m = document.querySelector('[data-act="mOn"]'); if (m) m.textContent = 'Müzik: ' + (inf.music ? 'açık' : 'kapalı');
+    const f = document.querySelector('[data-act="mSfx"]'); if (f) f.textContent = 'Efektler: ' + (Snd.pref.sfx ? 'açık' : 'kapalı');
+    const hp = document.querySelector('[data-act="mHap"]'); if (hp) hp.textContent = 'Titreşim: ' + (haptic.on ? 'açık' : 'kapalı');
+    const g3 = document.querySelector('[data-act="m3d"]'); if (g3) g3.textContent = '3B görünüm: ' + (V3.pref() ? 'açık' : 'kapalı');
+    const gf = document.querySelector('[data-act="mFace"]'); if (gf) gf.textContent = '3B yüzler (deneme): ' + (face3d() ? 'açık' : 'kapalı');
+    const dg = $('#mDiag'); if (dg) dg.textContent = 'Ses motoru: ' + ({ none:'başlamadı', suspended:'bekliyor', running:'çalışıyor', closed:'kapalı' }[inf.ac] || inf.ac) + ' · hazır parça: ' + inf.tracks.filter(t => t.ready).length + '/' + inf.tracks.length + (inf.err ? ' · hata: ' + inf.err : '');
+  }
+  Snd.onChange = () => { updateMusic(); titleMusicNote(); };
+  function titleMusicNote() { const el = $('#tmNote'); if (!el) return; const i = Snd.info(), m = i.tracks.find(t => t.id === 'menu'); el.textContent = !i.music ? 'Müzik kapalı' : !m.ready ? 'Müzik hazırlanıyor… %' + m.prog : !i.started ? 'Müzik ilk dokunuşta başlar' : '♪ ' + (i.tracks.find(t => t.id === i.playing) || m).name; }
+  /* ---------- in-game menu ---------- */
+  function showMenu() {
+    if (phase === 'sea') Sea.pause(true);
+    let s = '<div class="sh-h"><h2 id="shTitle">Menü' + (phase === 'sea' ? '<small>Yolculuk duraklatıldı</small>' : '') + '</h2>' + xBtn + '</div>';
+    s += '<button class="btn go1 wide" type="button" data-close data-first>Oyuna dön</button>';
+    s += slotsHtml(phase === 'port' && !S.over);
+    s += '<p class="muted" style="margin:0">Oyun her adımda kendiliğinden de kaydedilir; bu yuvalar ayrıca saklamak istediğin anlar için.</p>';
+    s += '<div class="mgo">' + [['travel', 'i-map', 'Harita'], ['o:defter', 'i-book', 'Defter'], ['o:prices', 'i-stall', 'Fiyatlar'], ['o:ship', 'i-anchor', 'Tersane'], ['o:music', 'i-music', 'Müzik'], ['guide', 'i-whisper', 'Rehber']].map(([a, ic, l]) => '<button class="ib dark" type="button" ' + (a.startsWith('o:') ? 'data-open="' + a.slice(2) + '"' : 'data-act="' + a + '"') + (phase !== 'port' && (a === 'guide' || a === 'travel') ? ' disabled' : '') + '>' + ico(ic, 22) + '<span class="lab">' + l + '</span></button>').join('') + '</div>';
+    s += '<div class="row"><button class="btn" type="button" data-act="newAsk">Baştan başlat</button><button class="btn" type="button" data-act="toTitle">Ana menü</button><button class="btn" type="button" data-act="helpM">Nasıl oynanır</button></div>';
+    s += '<div id="installSlot">' + installHtml() + '</div>';
+    openSheet(s, false, 'menu');
+  }
+  function slotsHtml(canSave) {
+    let s = '<div class="slots">';
+    for (let n = 1; n <= 3; n++) {
+      const v = readSlot(n);
+      s += '<div class="slot"><span class="sn">' + n + '</span><div class="sl">' + (v ? '<b>' + esc(slotLabel(v.S)) + '</b><small>' + esc(v.at) + '</small>' : '<b class="muted">Boş yuva</b>') + '</div>' +
+        (canSave ? '<button class="btn sm gold" type="button" data-save="' + n + '">Kaydet</button>' : '') +
+        '<button class="btn sm" type="button" data-load="' + n + '"' + (v ? '' : ' disabled') + '>Yükle</button></div>';
+    }
+    return s + '</div>';
+  }
+  function showLoad() {
+    openSheet('<div class="sh-h"><h2 id="shTitle">Kayıtlı oyunlar</h2>' + backBtn('toTitle') + '</div>' + slotsHtml(false) +
+      (ongoing() ? '<p class="muted" style="margin:0">Otomatik kayıt: ' + esc(slotLabel(S)) + ' (ana menüde "Devam et").</p>' : ''), true, 'load');
+  }
+  function doSaveSlot(n) {
+    const d = new Date(), at = d.toLocaleDateString('tr-TR') + ' ' + d.toLocaleTimeString('tr-TR', { hour:'2-digit', minute:'2-digit' });
+    S.rs = RS; lsSet(slotKey(n), JSON.stringify({ S, at }));
+    play('build'); toast(n + '. yuvaya kaydedildi.'); showMenu();
+  }
+  function doLoadSlot(n) {
+    const v = readSlot(n); if (!v) { play('no'); return; }
+    departing = false; $('#port').classList.remove('depart');
+    Sea.stop(); plan = null; VG = null; phase = 'port'; document.body.classList.remove('at-sea', 'on-map'); $('#sea').hidden = true; $('#voy').hidden = true; $('#port').hidden = false; Snd.mode('port');
+    S = migrate(v.S); RS = S.rs == null ? null : S.rs; S.voyage = null; sel = null; line = pickLine(); lastScene = '';
+    save(); closeSheet(); renderAll(); play('arrive'); toast(n + '. yuvadaki sefer yüklendi.');
+    if (S.over) showEnd();
+  }
+  /* ---------- guild ---------- */
+  function showLonca(back) {
+    let s = '<div class="sh-h"><h2 id="shTitle">Kervancılar Loncası<small>İtibarın: <b>' + meta.rep + '</b> · serbest seferlerde kazanılır</small></h2>' + (back ? backBtn(back) : xBtn) + '</div>';
+    s += '<h3 class="sh-sec">Avantajlar</h3><div class="ups">';
+    Object.keys(PERKS).forEach(k => {
+      const p = PERKS[k], lv = meta.lv[k] || 0, c = lv < p.max ? p.cost[lv] : null;
+      s += '<div class="up"><b>' + esc(p.name) + '</b><div class="pips">' + Array.from({ length:p.max }, (_, i) => '<i class="' + (i < lv ? 'on' : '') + '"></i>').join('') + '</div><p>' + esc(p.desc) + '</p>' +
+        (c == null ? '<button class="btn sm" type="button" disabled>Tamam</button>' : '<button class="btn sm gold" type="button" data-perk="' + k + '"' + (meta.rep >= c ? '' : ' disabled') + '>' + c + ' itibar</button>') + '</div>';
+    });
+    s += '</div><h3 class="sh-sec">Başarımlar</h3><div class="achs">';
+    ACH.forEach(a => { const ok = !!meta.ach[a.id]; s += '<div class="ach' + (ok ? ' ok' : '') + '"><span class="am">' + (ok ? '★' : '☆') + '</span><div><b>' + esc(a.name) + '</b><small>' + esc(a.desc) + ' · +' + a.rep + ' itibar</small></div></div>'; });
+    s += '</div><p class="muted" style="margin:0">Her serbest sefer sonunda net servetinin her 600 debeni için 1 itibar (en az 1), Sethi\'yi geçersen 2 itibar daha kazanırsın. Yeni avantajlar bir sonraki serbest seferinde geçerli olur.</p>';
+    openSheet(s, !!back, 'lonca', true);
+  }
+  /* ---------- journal ---------- */
+  function showDefter() {
+    const si = seasonIdx(S), se = SEASONS[si], nx = SEASONS[si + 1];
+    let s = '<div class="sh-h"><h2 id="shTitle">Defter<small>' + S.day + '. gün · ' + esc(CITIES[S.city].name) + '</small></h2>' + xBtn + '</div>';
+    s += '<div class="grid2"><div class="kv season" data-s="' + se.id + '"><small>Mevsim · ' + seasonLeft(S) + ' gün kaldı</small><b>' + esc(se.name) + '</b><p>' + esc(se.desc) + '</p>' + (nx ? '<p class="muted">Sonra: ' + esc(nx.name) + ', ' + esc(nx.title.toLowerCase()) + '</p>' : '') + '</div>' +
+      '<div class="kv"><small>Rakip</small><b>Sethi</b><p>' + (S.rival.plan ? esc(CITIES[S.rival.plan.to].dat) + ' ' + gName(S.rival.plan.g) + ' götürüyor, ' + S.rival.plan.arrive + '. gün varır.' : 'Son görüldüğü yer ' + esc(CITIES[S.rival.city].name) + '.') + ' Tahmini serveti ' + fmt(S.rival.cash) + ' deben. Seferi ondan zengin bitirmeye çalış.</p><p class="muted">Yarışlar: ' + S.stats.raceWins + '/' + S.stats.races + ' kazandın</p></div></div>';
+    if (S.bless) s += '<div class="oi good"><span class="dot"></span><div><b>' + esc(BLESS[S.bless].name) + '</b><p>' + esc(BLESS[S.bless].desc) + '</p></div></div>';
+    if (S.contra) s += '<div class="oi bad"><span class="dot"></span><div><b>Kaçak sandıklar</b><p>' + esc(CITIES[S.contra.to].dat) + ', en geç ' + S.contra.due + '. gün · ' + fmt(S.contra.reward) + ' deben. Medjay\'a yakalanma.</p></div></div>';
+    s += '<h3 class="sh-sec">Siparişler</h3>' + (S.orders.length ? S.orders.map(o => '<div class="oi info"><span class="dot"></span><div><b>' + esc(CITIES[o.to].dat) + ' ' + o.q + ' ' + gName(o.g) + '</b><p>' + MERCHANT_NAMES[o.from] + ' için · en geç ' + o.due + '. gün · ödül ' + fmt(o.reward) + ' deben · elinde ' + S.inv[o.g].n + '</p></div></div>').join('') : '<p class="muted" style="margin:0">Taşıdığın sipariş yok. Tüccarlar pazarda sipariş önerir.</p>');
+    const q = Q();
+    if (q && (q.st === 'active' || q.st === 'done' || q.st === 'fail')) { const g = qGoal(q); s += '<h3 class="sh-sec">Hikâye · ' + esc(QUESTS[q.id].name) + '</h3>' + (g ? '<div class="oi info"><span class="dot"></span><div><b>' + esc(g.t) + '</b><p>' + (g.by ? 'En geç ' + g.by + '. gün' : '') + '</p></div></div>' : '') + '<div class="log">' + q.log.slice().reverse().map(l => '<p><b>' + l.d + '. gün</b> ' + esc(l.t) + '</p>').join('') + '</div>'; }
+    s += '<h3 class="sh-sec">Tüccarlar</h3><div class="mlist">';
+    CITIES.forEach((c, i) => {
+      const lv = trustLv(S, i), nxt = TRUST[lv + 1], f = giftOf(i);
+      s += '<div class="mr"><span class="pt">' + portrait(i, lv) + '</span><div><b>' + MERCHANT_NAMES[i] + ' · ' + esc(c.name) + '</b><small>' + hearts(lv) + ' ' + TRUST[lv].name + (nxt ? ' · sonraki seviyeye ' + fmt(Math.max(0, nxt.min - S.trust[i])) + ' puan' : '') + '</small><small>' + (S.gifted[i] ? 'Hediyeni aldı.' : 'Sever: ' + f.q + ' ' + gName(f.g) + ' · ' + esc(f.from)) + '</small></div></div>';
+    });
+    s += '</div><h3 class="sh-sec">Son olaylar</h3><div class="log">' + S.log.slice(-8).reverse().map(l => '<p><b>' + l.d + '. gün</b> ' + esc(l.t) + '</p>').join('') + '</div>';
+    openSheet(s, false, 'defter', true);
+  }
+  function showHelp(back) {
+    openSheet('<div class="sh-h"><h2 id="shTitle">Nasıl oynanır</h2>' + (back ? backBtn(back) : xBtn) + '</div><div class="help"><ul>' +
+      '<li><b>Amaç:</b> ' + DAYS + ' gün sonunda borcu kapatıp elinde en çok deben kalsın. Rakibin Sethi\'den zengin bitir.</li>' +
+      '<li><b>Şehir resmi:</b> Gitmek istediğin yere resimde dokun: pazar (tüccar), tekne (harita ve yolculuk), tapınak, meyhane, atölye, tersane, sipariş panosu ve Mennefer\'de Hapu\'nun evi. Ambar teknenin yanında durur.</li>' +
+      '<li><b>Pazar:</b> Mallar türlerine göre dizilidir. Bir mala dokun, aşağıdaki çubuktan miktarı seç, Al ya da Sat. Yeşil fiyat ucuz, turuncu ve kırmızı pahalı demek; noktalar tezgâhta kalanı gösterir.</li>' +
+      '<li><b>Tersane:</b> Nehirde aldığın darbeler teknede kalır. Her nehir limanında yara başına 90, Mennefer\'de 60 deben onarım.</li>' +
+      '<li><b>Hediyeler:</b> Her tüccar kendi pazarında bulamadığı nadir ya da atölye malını sever. Hediye büyük güven ve bir karşılık getirir.</li>' +
+      '<li><b>Tekneler ve çöl:</b> Mennefer tersanesinde yeni tekne alırsın. Mennefer, Abidos ve Vaset\'ten eşek kervanıyla çöl şehirlerine gidersin; su biterse eşek kaybedersin.</li>' +
+      '<li><b>Atölye:</b> Per-Bastet, Abidos ve Vaset ustalarına hammadde bırak; iki gün sonra gelip ürünü al.</li>' +
+      '<li><b>Pazar:</b> Etiketler bir malın olağan fiyatına göre ucuz mu pahalı mı olduğunu söyler. Çok alırsan fiyat yükselir, çok satarsan düşer. "↗" o malı en iyi bildiğin fiyattan nerede satabileceğini gösterir.</li>' +
+      '<li><b>Mevsimler:</b> Taşkın (1-5. gün), Ekim (6-10) ve Hasat (11-15). Her mevsim fiyatları ve nehri değiştirir.</li>' +
+      '<li><b>Tüccarlar:</b> Bir şehirde alışveriş yaptıkça tüccar sana ısınır; Tanıdık, Dost ve Can dostu olunca alış ve satışta avantaj verir. Sevdiği malı hediye edersen hem güvenini hem bir karşılık kazanırsın.</li>' +
+      '<li><b>Siparişler:</b> Tüccarlar bir malı başka şehre götürmeni ister. Zamanında teslim edersen ödül ve güven, geç kalırsan güven kaybı.</li>' +
+      '<li><b>Yolculuk:</b> Her yolculuk günlere bölünür; her gün haritadan bir durak seçersin. Sahneler: sakin su, çağlayan (kıl payı bahşişleri), fırtına (tayfayı rüzgâra yığ, sandıkları bağla), batık (dalgıçla yüz, nefesini idare et), gece geçişi (fenerlerden kaç). Molalar: köy pazarı, tapınak, kayıkçı. Takipçiler yolda pusu kurar, Sethi varıştan önce yarışa çağırır. Esc oyunu duraklatır.</li>' +
+      '<li><b>Takip:</b> Değerli kervan ve büyük borç haydutları, Medjay\'ı ve tefecinin adamlarını çeker.</li>' +
+      '<li><b>Sethi:</b> Rakibin planını açıkça yürütür: bir şehirde bir malı toplar (orada o mal birkaç gün kıt ve pahalı olur), başka bir şehre götürüp boşaltır (orada fiyat düşer) ve oradaki açık siparişi kapar. Sipariş panosu planını gösterir. Ondan önce varıp sat, aynı gün varırsan yarış ya da liman memuruna rüşvet verip onu bir gün oyala.</li>' +
+      '<li><b>Pazar krizleri:</b> Kıtlık, bayram, bolluk ya da kapanan bir liman birkaç gün sürer ve bir gün önceden duyulur. O şehirdeyken avanslı teslimat sözü gibi seçenekler çıkar.</li>' +
+      '<li><b>Puan avcılığı:</b> Engellerin yanından kıl payı geçmek bahşiş getirir, art arda geçişler komboyu büyütür. Oklu akıntı şeritleri hızlandırır. Uzun yollarda "Kestirme" bir gün kazandırır ama nehri zorlaştırır.</li>' +
+      '<li><b>Stok:</b> Her pazarda her maldan sınırlı miktar var; değerli mallar az bulunur. Ambarı karışık mallarla doldurmak çoğu zaman en iyisidir.</li>' +
+      '<li><b>Kaçakçılık:</b> Hapu\'ya borcunu kapatınca sana yüksek ödüllü ama tehlikeli bir iş teklif eder.</li>' +
+      '<li><b>Pazarlık:</b> Bir mala dokun ve "Pazarlık"a bas: o mal için tek bir anlaşma. Tezgâh doluysa ya da şehir o malı çok arıyorsa pazarlık payı geniştir. Tüccarın yüzüne ve duruşuna bak; fazla sıkıştırırsan küser ve o gün başka pazarlık yapmaz. Her mal için günde bir kez. Seni tanıyan tüccar kendi oyununu da teklif eder: kazanırsan bütün gün indirim.</li>' +
+      '<li><b>Hikâye görevleri:</b> Her seferde bir hikâye açılır: bir soygun, kayıp bir ruhun şarkısı ya da bir kalpazan çetesi. Adımları seni belli şehirlere ve haritadaki ★ duraklara götürür; bulmacalar ve sahnelerle ilerler. Üstteki görev çipi sıradaki adımı gösterir.</li>' +
+      '<li><b>Tefeci:</b> Üstteki Borç rakamına dokununca Hapu\'nun defteri açılır. Borç yalnızca Mennefer\'de ödenir. 3.500 debeni geçen borç Hapu\'nun adamlarını peşine takar.</li>' +
+      '<li><b>Lonca:</b> Sefer sonunda itibar kazanır, ana menüdeki Lonca\'dan kalıcı avantajlar alırsın.</li></ul></div>', !!back, 'help');
+  }
+  function showRecs(hi, back) {
+    const r = recs();
+    let s = '<div class="sh-h"><h2 id="shTitle">Rekorlar</h2>' + (back ? backBtn(back) : xBtn) + '</div>';
+    s += r.length ? '<table class="recs"><tbody>' + r.map((x, i) => '<tr class="' + (x.id === hi ? 'me' : '') + '"><td>' + (i + 1) + '.</td><td>' + esc(x.rk) + '<br><small class="muted">' + esc(x.d) + (x.m === 'daily' ? ' · günün seferi' : '') + '</small></td><td>' + fmt(x.s) + '</td></tr>').join('') + '</tbody></table>' : '<p class="muted">Henüz biten bir sefer yok.</p>';
+    openSheet(s, !!back, 'recs');
+  }
+  function sumAdvice(r, st) {
+    if ((st.interest || 0) > Math.max(800, Math.abs(r.score) * 0.3)) return 'En büyük gider faiz oldu. Bir dahaki sefere Mennefer\'e uğrayıp borcu erken kapatmayı dene.';
+    if ((st.lostVal || 0) > 600) return 'Nehirde çok yük kaybettin. Sakin su ve tapınak duraklarıyla gövdeyi koru; tersanede gövdeyi güçlendir.';
+    if (st.trips <= 3) return 'Az yolculuk yaptın. Kısa rotalarla daha sık al-sat yapmak çoğu zaman daha çok kazandırır.';
+    if (!st.haggles) return 'Hiç pazarlık kazanmadın. Her şehirde günde bir kez dene: iyi bir pazarlık bütün alış satışı iyileştirir.';
+    if (!st.orders) return 'Hiç sipariş teslim etmedin. Siparişler para ve tüccar güveni getirir.';
+    return r.beat ? 'Sethi\'yi geçtin. Bir sonraki hedef: Nil\'in Efendisi için 16.000 deben.' : 'Sethi\'yi geçmek için değerli malları kıt oldukları şehirlerden topla.';
+  }
+  function showEnd(hi, gained) {
+    const r = S.result, st = r.stats;
+    let s = '<div class="sh-h"><h2 id="shTitle">Sefer bitti<small>' + (S.mode === 'daily' ? 'Günün seferi · ' : '') + S.day + '. gün, ' + esc(CITIES[S.city].name) + '</small></h2></div>' +
+      '<div class="score"><div class="big">' + fmt(r.score) + ' deben</div><div class="rk">' + esc(r.rank) + '</div></div>' +
+      '<div class="oi ' + (r.beat ? 'good' : 'bad') + '"><span class="dot"></span><div><b>' + (r.beat ? 'Sethi\'yi geçtin!' : 'Sethi bu sefer önde') + '</b><p>Sethi ' + fmt(r.rival) + ' deben ile döndü.</p></div></div>' +
+      '<p class="muted" style="margin:0;text-align:center">' + (r.debtLeft > 0 ? 'Borcun tam kapanmadı: Hapu ' + fmt(r.debtLeft) + ' deben alacaklı.' : 'Kalan mal satıldı, Hapu\'ya ' + fmt(r.paid) + ' deben ödendi.') + '</p>' +
+      '<div class="grid2 g5"><div class="kv"><small>Yolculuk</small><b>' + st.trips + '</b></div><div class="kv"><small>Kusursuz</small><b>' + st.perfect + '</b></div><div class="kv"><small>Kaçış</small><b>' + st.escapes + '</b></div><div class="kv"><small>Sipariş</small><b>' + st.orders + '</b></div><div class="kv"><small>Kıl payı</small><b>' + (st.near || 0) + '</b></div></div>';
+    const bt = st.best, st0 = r.start == null ? -300 : r.start;
+    s += '<div class="box"><h3>Seferin özeti</h3><div class="sum">' +
+      '<span><small>Başlangıç → bitiş</small><b>' + fmt(st0) + ' → ' + fmt(r.score) + '</b></span>' +
+      '<span><small>Ödenen faiz</small><b class="neg">−' + fmt(st.interest || 0) + '</b></span>' +
+      '<span><small>Nehirde yitirilen yük</small><b class="neg">−' + fmt(st.lostVal || 0) + '</b></span>' +
+      '<span><small>Nehirden kazanılan</small><b class="pos">+' + fmt(st.river || 0) + '</b></span>' +
+      '<span><small>Yarışlar</small><b>' + st.raceWins + '/' + st.races + '</b></span>' +
+      (S.quest && S.quest.st !== 'offer' && S.quest.st !== 'declined' ? '<span><small>Hikâye</small><b class="' + (S.quest.st === 'done' ? 'pos' : 'neg') + '">' + esc(QUESTS[S.quest.id].name) + (S.quest.st === 'done' ? ' ✓' : S.quest.st === 'fail' ? ' ✗' : ' (yarım)') + '</b></span>' : '') +
+      '<span><small>En iyi satış</small><b>' + (bt ? '+' + fmt(bt.p) + ' · ' + gName(bt.g) + ', ' + CITIES[bt.city].name + ' (' + bt.d + '. gün)' : '–') + '</b></span></div>' +
+      '<p class="muted" style="margin:6px 0 0">' + esc(sumAdvice(r, st)) + '</p></div>';
+    if (gained) {
+      s += '<div class="box"><h3>Lonca: +' + gained.rep + ' itibar</h3>' + (gained.newAch.length ? gained.newAch.map(a => '<p>★ <b>' + esc(a.name) + '</b> başarımı açıldı (+' + a.rep + ')</p>').join('') : '<p class="muted">Yeni başarım yok.</p>') + '</div>';
+    }
+    if (S.mode === 'free') { const nf = featFor(meta.runs), nx = Object.keys(FEATS).filter(k => k !== 'sethi' && nf[k] && !(S.feat || {})[k]); if (nx.length) s += '<div class="oi info"><span class="dot"></span><div><b>Bir sonraki seferde açılacak</b><p>' + nx.map(k => esc(FEATS[k].name)).join(', ') + '</p></div></div>'; }
+    s += '<button class="btn gold wide" type="button" data-act="share">' + ico('i-scroll', 18) + ' Sonuç kartını paylaş</button>';
+    s += '<div class="row"><button class="btn go1" type="button" data-act="new" data-first>Yeni sefer</button><button class="btn gold" type="button" data-act="lonca2">Lonca</button><button class="btn" type="button" data-act="toTitle">Ana menü</button></div>';
+    openSheet(s, true, 'end');
+  }
+

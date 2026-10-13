@@ -1,0 +1,281 @@
+  /* ================= state, storage ================= */
+  let S = null, sel = null, rapid = false, hagRaf = 0, hagT0 = 0, qty = 1, phase = 'port', plan = null, line = '', sheetLock = false, lastScene = '', toastT = null, opener = null, sheetName = '';
+  const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const save = () => { if (!S) return; S.rs = RS; lsSet(KEY, JSON.stringify(S)); };
+  const valid = p => p && p.v >= 10 && p.v <= 12 && Array.isArray(p.prices) && p.prices.length >= 5 && p.inv && p.up && p.trust;
+  const recs = () => { const r = jget(RECK, []); return Array.isArray(r) ? r : []; };
+  const meta = Object.assign({ rep:0, lv:{}, ach:{}, runs:0 }, jget(METAK, {}));
+  const saveMeta = () => lsSet(METAK, JSON.stringify(meta));
+  function addRec(res) {
+    const r = recs(), d = new Date();
+    const it = { s:res.score, rk:res.rank, m:S.mode, d:d.getDate() + '.' + (d.getMonth() + 1) + '.' + d.getFullYear(), id:Date.now() };
+    r.push(it); r.sort((a, b) => b.s - a.s); lsSet(RECK, JSON.stringify(r.slice(0, 10)));
+    return it.id;
+  }
+  const slotKey = n => SLOTK + n;
+  const readSlot = n => { const v = jget(slotKey(n), null); return v && valid(v.S) ? v : null; };
+  const slotLabel = x => (x.mode === 'daily' ? 'Günün seferi · ' : '') + x.day + '. gün · ' + CITIES[x.city].name + ' · ' + fmt(x.cash) + ' deben';
+  function todayKey() { const d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+  function seedOf(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h | 0; }
+  const pickLine = () => rpick(MERCHANTS[S.city].lines[Math.min(3, trustLv(S))]);
+  function estAt(i) {
+    const sn = S.seen[i]; if (!sn) return null;
+    if (GOODS.some(g => S.inv[g.id].n > 0 && deals(i, g.id) && sn.p[g.id] == null)) return null;
+    return GOODS.reduce((a, g) => a + (deals(i, g.id) ? S.inv[g.id].n * (sn.p[g.id] || 0) : 0), 0);
+  }
+  function riskOf(dest) {
+    const days = travelDays(S, dest) - (rapid && canRapid(S, dest) ? 1 : 0), val = cargoValueAt(S, S.prices[S.city]);
+    let pc = Math.min(0.75, 0.18 + val / 14000 + (S.debt > 3500 ? 0.18 : 0) + 0.05 * days) * (S.dev.goz && isRiver(dest) && isRiver(S.city) ? 0.7 : 1);
+    if (S.contra) pc = Math.max(pc, 0.85 + 0.15 * pc);
+    if (S.bless === 'bastet') pc = 0;
+    const k = pc < 0.36 ? 'lo' : pc < 0.55 ? 'mid' : 'hi';
+    return [k, 'takip ihtimali %' + Math.round(pc * 100), k === 'lo' ? 1 : k === 'mid' ? 2 : 3];
+  }
+  function bestElsewhere(gid) {
+    let best = null;
+    Object.keys(S.seen).forEach(k => { const i = +k; if (i === S.city || !deals(i, gid)) return; const sn = S.seen[i], p = sn.p[gid]; if (p != null && (!best || p > best.p)) best = { i, p, d:sn.d }; });
+    return best;
+  }
+  const ago = d => S.day - d <= 0 ? 'bugün' : (S.day - d) + ' gün önce';
+  const gName = id => gById(id).short.toLowerCase();
+  const hearts = n => '♥'.repeat(n) + '♡'.repeat(3 - n);
+
+  /* ================= rendering ================= */
+  function renderHud() {
+    $('#hDay').textContent = S.day + '/' + S.days;
+    $('#hCash').textContent = fmt(S.cash);
+    $('#hDebt').textContent = fmt(S.debt);
+    $('#stDebt').classList.toggle('hot', S.debt > 3500);
+    const pg = $('#stDebt .ping'); if (pg) pg.hidden = !((canContra(S) && contraOffer(S)) || (S.city === 1 && phase === 'port' && S.debt > 0 && S.cash >= 100 && !S.over));
+    $('#stDebt').classList.toggle('here', S.city === 1 && phase === 'port' && S.debt > 0 && !S.over);
+    const bp = $('#btnBoard .ping'); if (bp) { const sp = S.rival.plan; bp.hidden = S.over || !(crisisList().some(c => c.state === 'soon') || (sp && sp.to === S.city && sp.arrive - S.day <= 1 && S.day < sp.arrive)); }
+    $('#hLoad').textContent = load(S) + '/' + cap(S);
+    const se = SEASONS[seasonIdx(S)];
+    $('#hSeason').textContent = se.name; $('#stSeason').title = se.title + ': ' + se.desc;
+    $('#stSeason').dataset.s = se.id;
+    renderPlate();
+  }
+  /* ---------- v29: the isometric 3D town on top of the painting (V3.town); the painting stays underneath as the fallback ---------- */
+  let T3 = null, T3fail = 0, T3warm = '', T3hi = null, lastHtml = '';
+  const town3On = () => !!T3 && $('#port').classList.contains('v3-on');
+  const can3 = () => { try { return typeof V3 !== 'undefined' && typeof V3.town === 'function' && V3.available() && V3.pref(); } catch (e) { return false; } };
+  function town3Opts(crates, nar) {
+    const o = townOpts(crates, nar), pr = $('#port').getBoundingClientRect(), av = [];
+    o.ci = S.city;
+    if (S.hero && HEROES[S.hero]) o.hero = 'h_' + S.hero;
+    /* the plaques keep clear of the cartouche, the quest chip and the hold box */
+    ['#cart', '#goal:not([hidden])', '#hold'].forEach(q => { const e = document.querySelector(q); if (!e) return; const b = e.getBoundingClientRect(); if (b.width) av.push({ x:b.left - pr.left, y:b.top - pr.top, w:b.width, h:b.height }); });
+    o.avoid = av;
+    return o;
+  }
+  /* floating zoom buttons over a zoomable 3D view (town 'z3' or map 'zm') */
+  function zoomCtl(host, id) {
+    const old = document.getElementById(id);
+    if (!host) { if (old) old.remove(); return; }
+    if (old && old.parentNode === host) return;
+    if (old) old.remove();
+    const d = document.createElement('div'); d.id = id; d.className = 'zoomctl';
+    d.innerHTML = '<button type="button" data-zoom="in" aria-label="Yakınlaş">+</button><button type="button" data-zoom="out" aria-label="Uzaklaş">−</button><button type="button" data-zoom="reset" aria-label="Görünümü sıfırla">⟲</button>';
+    d.addEventListener('click', e => {
+      const b = e.target.closest('[data-zoom]'); if (!b) return; e.stopPropagation();
+      const v = id === 'z3' ? T3 : tvMap; if (!v || !v.zoom) return;
+      play('tick');
+      if (b.dataset.zoom === 'reset') { if (v.resetView) v.resetView(); return; }
+      const z = typeof v.zoom() === 'number' ? v.zoom() : 1; v.zoom(z * (b.dataset.zoom === 'in' ? 1.35 : 1 / 1.35));
+    });
+    host.appendChild(d);
+  }
+  function town3(crates, nar) {
+    if (phase !== 'port' || !S || !can3() || T3fail > 2) { town3Off(); return; }
+    const o = town3Opts(crates, nar);
+    if (T3) { T3.update(o); return; }
+    const me = T3 = V3.town($('#port'), o, k => { if ($('#veil').hidden) openSpot(k); });
+    if (!me) { T3fail++; return; }
+    GLW.hide();
+    Promise.resolve(me.ready).then(ok => {
+      if (T3 !== me) return;
+      if (!ok) { T3fail++; town3Off(); lastScene = ''; if (phase === 'port') renderStage(); return; }
+      me.__ok = true; { const ps0 = $('#pscene'); if (ps0) ps0.innerHTML = ''; lastScene = '3d'; lastHtml = ''; }
+      [80, 450, 1300].forEach(ms => setTimeout(() => { if (T3 === me && phase === 'port') { layoutStage(); placeTutor(); } }, ms));
+      zoomCtl($('#stage'), 'z3');
+      town3Warm();
+    }, () => { if (T3 === me) { T3fail++; town3Off(); lastScene = ''; } });
+  }
+  function town3Off() {
+    zoomCtl(null, 'z3');
+    if (T3) { try { T3.dispose(); } catch (e) {} T3 = null; T3hi = null; const p = $('#port'); if (p) p.classList.remove('v3-on', 'v3-town'); if (lastHtml.includes('<!--r-->') && phase === 'port') GLW.set(lastHtml, lastPortPal); }
+  }
+  /* build the towns of the next likely ports while the player shops */
+  function town3Warm() {
+    if (!T3 || typeof V3.townWarm !== 'function' || S.over) return;
+    const key = S.day + ':' + S.city; if (T3warm === key) return; T3warm = key;
+    CITIES.map((c, i) => i).filter(i => i !== S.city && canGo(S, i)).sort((a, b) => travelDays(S, a) - travelDays(S, b)).slice(0, 2).forEach(i => {
+      const o = townOpts([], false); o.ci = i; o.spots = spotsHere(i); o.notes = {}; o.crisis = null; o.sethiHere = false; o.caravan = isRiver(i) ? null : { donkeys:carN };
+      try { V3.townWarm(o); } catch (e) {}
+    });
+  }
+  function renderStage() {
+    const c = CITIES[S.city], si = seasonIdx(S);
+    $('#cName').textContent = c.name; $('#cSub').textContent = c.sub; const cd = $('#cDay'); if (cd) cd.textContent = S.day + '. gün · ' + SEASONS[si].name;
+    const crates = crateList();
+    const stg = $('#stage'), nar = !!stg && stg.clientWidth / Math.max(1, stg.clientHeight) < 1.5, ts = typeof townScene === 'function';
+    const o = ts ? townOpts(crates, nar) : null;
+    const key = S.city + '|' + si + '|' + S.day + '|' + S.boat + S.up.yelken + S.up.kurek + S.up.govde + S.up.ambar + '|' + Object.keys(S.dev || {}).filter(k => S.dev[k]).join('') + '|' + crates.join(',') + '|' + nar + '|' + moodBoost + '|' + dmgStage(S) + '|' + ts + (o ? JSON.stringify(o.notes) + o.crisis + o.sethiHere + JSON.stringify(o.spots) + (o.caravan ? o.caravan.donkeys : '') : '');
+    if (T3 && T3.__ok) { if (lastScene !== '3d') { const ps0 = $('#pscene'); if (ps0) ps0.innerHTML = ''; lastScene = '3d'; lastHtml = ''; GLW.hide(); } }
+    else if (key !== lastScene) {
+      let html = null; useTS = false;
+      if (ts) { try { html = townScene(S.city, o); useTS = !!html; } catch (e) { html = null; useTS = false; } }
+      if (!html) { html = isRiver(S.city) ? portScene(S.city, S.up, crates, si, nar, S.day, moodBoost) : oasisScene(S.city, si, S.day, nar, moodBoost); if (nar) html = html.replace('viewBox="0 0 900 400" preserveAspectRatio="xMidYMax slice"', 'viewBox="84 0 816 400" preserveAspectRatio="xMinYMax slice"'); }
+      else lastPortPal = dayPal(si, S.day);
+      const port = $('#port'); let ps = $('#pscene'); if (!ps) { ps = document.createElement('div'); ps.id = 'pscene'; ps.className = 'pscene'; port.appendChild(ps); }
+      ps.innerHTML = html; port.classList.toggle('ts28', useTS); lastScene = key; lastHtml = html;
+      if (html.includes('<!--r-->') && !T3) GLW.set(html, lastPortPal); else GLW.hide();
+      PX.raf = 0; pxApply();
+    }
+    renderHold();
+    town3(crates, nar);
+    if (!T3) { GLW.layout(); GLW.start(); }
+    layoutStage(); requestAnimationFrame(layoutStage);
+  }
+  /* which crates to stack on deck: every good aboard gets at least one, the rest by share of the hold */
+  function crateList() {
+    const L = load(S); if (!L) return [];
+    const have = GOODS.filter(g => S.inv[g.id].n > 0); if (!have.length) return [];
+    const slots = Math.min(10, Math.max(have.length, Math.ceil(L / cap(S) * 10)));
+    const out = have.map(g => g.id);
+    while (out.length < slots) { let best = null, bs = -1; have.forEach(g => { const sh = S.inv[g.id].n / L * slots - out.filter(x => x === g.id).length; if (sh > bs) { bs = sh; best = g.id; } }); out.push(best); }
+    return out.sort((a, b) => GOODS.findIndex(g => g.id === a) - GOODS.findIndex(g => g.id === b));
+  }
+  function priceWhy(g, p) {
+    const c = CITIES[S.city], cm = c.mult[g.id] == null ? 1 : c.mult[g.id], se = SEASONS[seasonIdx(S)], sm = se.mult[g.id] || 1, rest = p / (g.base * cm * sm);
+    const news = (S.news || []).find(n => n.city === S.city && n.g === g.id);
+    const parts = ['Olağan fiyat ' + fmt(g.base)];
+    if (Math.abs(cm - 1) > 0.02) parts.push(c.name + (cm < 1 ? ' bu malı bol üretir' : ' bu malı arar') + ' ×' + cm.toFixed(2));
+    if (Math.abs(sm - 1) > 0.02) parts.push(se.name + ' mevsimi ×' + sm.toFixed(2));
+    parts.push(news ? 'Haber: ' + (news.up ? 'fiyat fırladı' : 'fiyat çöktü') + ' ×' + rest.toFixed(2) : 'Günlük piyasa dalgası ×' + rest.toFixed(2));
+    if (buyDisc(S) > 0) parts.push('Senin avantajın: alışta %' + Math.round(buyDisc(S) * 100) + ' indirim');
+    return parts.join(' · ');
+  }
+  function shelf(gid, stk) {
+    const full = Math.max(1, STOCK[gid]), n = stk >= 99 ? 5 : Math.min(5, Math.ceil(5 * stk / full));
+    return '<span class="shelf' + (stk < 6 ? ' low' : '') + '" title="Bu pazarda kalan: ' + stk + '">' + Array.from({ length:5 }, (_, k) => '<i' + (k < n ? ' class="on"' : '') + '></i>').join('') + '</span>';
+  }
+  /* a crate flies from the row to the hold (or from the hold to the merchant) */
+  function flyCrate(fromEl, gid, toSel) {
+    const to = document.querySelector(toSel); if (!fromEl || !to || reduce) return;
+    const a = fromEl.getBoundingClientRect(), b = to.getBoundingClientRect(), f = document.createElement('div');
+    f.className = 'fly'; f.innerHTML = gIco(gid, 26);
+    f.style.left = (a.left + a.width / 2 - 16) + 'px'; f.style.top = (a.top + a.height / 2 - 16) + 'px';
+    document.body.appendChild(f);
+    requestAnimationFrame(() => { f.style.transform = 'translate(' + (b.left + b.width / 2 - (a.left + a.width / 2)) + 'px,' + (b.top + b.height / 2 - (a.top + a.height / 2)) + 'px) scale(.6)'; f.style.opacity = '0.2'; });
+    setTimeout(() => f.remove(), 650);
+  }
+  let moodBoost = 0;
+  const PERKTXT = o => o.perk ? ' <b class="perk">+ ' + (o.perk === 'itibar' ? '2 Lonca itibarı' : esc(BLESS[o.perk].name)) + '</b>' : '';
+  function contraHtml() {
+    if (S.contra) return '<p class="contra">Hapu\'nun kaçak sandıkları ambarda: ' + esc(CITIES[S.contra.to].dat) + ', en geç ' + S.contra.due + '. gün · ' + fmt(S.contra.reward) + ' deben.</p>';
+    if (!canContra(S)) return '';
+    const o = contraOffer(S); if (!o) return '';
+    const room = freeCap(S), ok = room >= CONTRA;
+    const chests = '<div class="chests">' + Array.from({ length:CONTRA }, () => '<span>' + ico('i-chest', 30) + '<i></i></span>').join('') + '<em>→ ' + cIco(o.to, 18) + esc(CITIES[o.to].name) + ' · ' + o.due + '. gün · ' + ico('i-coin', 14) + '+' + fmt(o.reward) + '</em></div>';
+    return '<div class="contra">' + chests + '<p><b>Hapu\'nun teklifi:</b> borcun bitti, şimdi iş zamanı. 5 mühürlü sandığı ' + esc(CITIES[o.to].dat) + ' götür, en geç ' + o.due + '. gün · <b>' + fmt(o.reward) + ' deben</b>. Medjay neredeyse kesin peşine düşer; yakalanırsan ceza ve Hapu\'ya 800 deben borç.</p>' +
+      (ok ? '<button class="btn sm red" type="button" data-act="contra">Kabul et</button>' :
+        '<div class="need"><b>Ambarda ' + CONTRA + ' boş yer lazım, şu an ' + Math.max(0, room) + ' boş.</b><span>Biraz mal sat ya da tersanede ambarı büyüt' + (upCost(S, 'ambar') != null ? ' (+20 yer, ' + fmt(upCost(S, 'ambar')) + ' deben)' : '') + '. Sonra buradan kabul edebilirsin.</span><div class="row">' +
+        (upCost(S, 'ambar') != null ? '<button class="btn sm gold" type="button" data-open="ship">Tersaneye git</button>' : '') + '<button class="btn sm" type="button" data-close>Pazara dön, mal sat</button></div></div>') + '</div>';
+  }
+  function orderBox() {
+    const dl = deliverable(S);
+    if (dl.length) {
+      const o = dl[0];
+      return '<div class="box order ready"><div class="ot"><span class="oq">' + gIco(o.g, 26) + '<b>' + o.q + '</b></span><span><b>Teslimat hazır</b><span class="och"><i>' + ico('i-coin', 14) + '+' + fmt(o.reward) + '</i>' + PERKTXT(o) + '</span></span></div><button class="btn sm gold" type="button" data-act="deliver">Teslim et</button></div>';
+    }
+    const off = S.offers[S.city];
+    if (off) {
+      const full = S.orders.length >= 2;
+      return '<div class="box order"><div class="ot"><span class="oq">' + gIco(off.g, 26) + '<b>' + off.q + '</b></span><span><b>Sipariş</b><span class="och"><i>→ ' + cIco(off.to, 14) + esc(CITIES[off.to].name) + '</i><i>' + ico('i-sun', 14) + off.due + '. güne kadar</i><i>' + ico('i-coin', 14) + '+' + fmt(off.reward) + '</i>' + PERKTXT(off) + '</span></span></div><button class="btn sm" type="button" data-act="accept"' + (full ? ' disabled title="En fazla 2 sipariş taşıyabilirsin"' : '') + '>' + (full ? 'Dolu' : 'Kabul et') + '</button></div>';
+    }
+    if (S.orders.length) return '<div class="box order mini"><span class="och">' + S.orders.map(o => '<i>' + gIco(o.g, 14) + o.q + ' → ' + cIco(o.to, 14) + esc(CITIES[o.to].name) + ' · ' + o.due + '. gün</i>').join('') + '</span></div>';
+    return '';
+  }
+  const firstRun = () => meta.runs === 0 && S.mode === 'free' && !meta.noHints;
+  const PCOLS = () => CITIES.map((c, i) => i).filter(i => isRiver(i) || has(S, 'desert'));
+  function showPrices() {
+    let s = '<div class="sh-h"><h2 id="shTitle">Fiyat tablosu<small>Bildiğin son fiyatlar · ' + esc(CITIES[S.city].name) + ' sütunu canlı</small></h2>' + xBtn + '</div><div class="ptab-w"><table class="ptab"><thead><tr><th></th>' +
+      PCOLS().map(i => [CITIES[i], i]).map(([c, i]) => '<th class="' + (i === S.city ? 'cur' : '') + (c.river ? '' : ' dz') + '">' + cIco(i, 18) + '<span>' + esc(c.name) + '</span><small>' + (i === S.city ? 'şimdi' : S.seen[i] ? (S.seen[i].src ? 'fısıltı · ' : '') + ago(S.seen[i].d) : 'gidilmedi') + '</small></th>').join('') + '<th class="own">Elinde<small>adet</small></th><th class="own">Maliyet<small>birim ort.</small></th></tr></thead><tbody>';
+    GOODS.forEach(g => {
+      const cols = PCOLS(), vals = cols.map(i => !deals(i, g.id) ? '—' : i === S.city ? Math.round(S.prices[i][g.id]) : S.seen[i] && S.seen[i].p[g.id] != null ? S.seen[i].p[g.id] : null);
+      const known = vals.filter(v => typeof v === 'number'), hi = Math.max(...known), lo = Math.min(...known);
+      const it = S.inv[g.id];
+      const avg = it.n ? it.cost / it.n : 0;
+      s += '<tr><th>' + gIco(g.id, 22) + '<span>' + esc(g.short) + '</span></th>' + vals.map((v, k) => { const i = cols[k]; if (v === '—') return '<td class="na' + (i === S.city ? ' cur' : '') + '">—</td>'; return '<td class="' + (i === S.city ? 'cur ' : '') + (v == null ? 'unk' : known.length > 1 && v === hi ? 'hi' : known.length > 1 && v === lo ? 'lo' : '') + (it.n && v != null && v > avg * 1.05 ? ' pr' : '') + '"' + (it.n && v != null ? ' title="Senin maliyetine göre birim kâr: ' + (v - avg >= 0 ? '+' : '') + fmt(v - avg) + '"' : '') + '>' + (v == null ? '?' : fmt(v)) + '</td>'; }).join('') +
+        (it.n ? '<td class="own n">' + it.n + '</td><td class="own">' + fmt(avg) + '</td>' : '<td class="own none" colspan="2">–</td>') + '</tr>';
+    });
+    s += '</tbody></table></div><p class="muted" style="margin:0"><span class="lg hi"></span> en yüksek (satış için)  <span class="lg lo"></span> en düşük (alış için)  <span class="lg pr"></span> elindeki malı kârla satabileceğin yer. Fiyatları gittiğin şehirlerden öğrenirsin. "Fısıltı" sütunları Lonca\'daki Kayıkçı ağından ya da kayıkçılardan gelir ve yalnızca birkaç malı gösterir.</p>';
+    openSheet(s, false, 'prices', true);
+  }
+  let hagC = 0.5;
+  function hagNow() {
+    const n = $('#needle'); if (!n || n.dataset.done) return;
+    cancelAnimationFrame(hagRaf);
+    const p = +n.dataset.p || 0, d = Math.abs(p - hagC), q = d < 0.06 ? 'perfect' : d < 0.2 ? 'good' : 'miss';
+    n.classList.add(q); n.dataset.done = '1';
+    setTimeout(() => hagFinish(q), 450);
+  }
+  const isPhone = () => window.innerWidth < 900;
+  let mkOn = false;
+  /* open or close the market sheet (phones only; on wide screens the column is always there) */
+  function market(on) {
+    mkOn = !!on && phase === 'port' && !!S && !S.over;
+    document.body.classList.toggle('mk-open', mkOn);
+    renderMbar();
+    if (mkOn) requestAnimationFrame(placeTutor); else { msel = null; hgSide = false; if (phase === 'port' && S) renderPanel(); requestAnimationFrame(() => { if (S && phase === 'port') { layoutStage(); placeTutor(); } }); }
+  }
+  /* the bar under the town on phones: the market and the road */
+  function renderMbar() {
+    const el = $('#mbar'); if (!el || !S) return;
+    if (phase !== 'port' || S.over) { el.innerHTML = ''; return; }
+    const any = CITIES.some((c, i) => canGo(S, i));
+    el.innerHTML = '<button type="button" class="btn mbm" data-act="mkOpen">' + ico('i-stall', 20) + '<span><b>Pazar</b><small>' + esc(MERCHANT_NAMES[S.city]) + '</small></span></button>' +
+      (load(S) ? '<button type="button" class="btn sm sellall" data-act="sellAll">Hepsini sat</button>' : '') +
+      (any ? '<button type="button" class="btn go1 abgo" data-act="travel">' + ico(isRiver(S.city) ? 'i-boat' : 'i-donkey', 20) + '<span>' + (isRiver(S.city) ? 'Yola çık' : 'Dönüş') + '</span></button>' : '<button type="button" class="btn gold abgo" data-act="finish">Seferi bitir</button>');
+  }
+  function renderPanel() {
+    renderMbar();
+    const P = $('#panel');
+    if (phase === 'sea') { P.innerHTML = seaPanel(); return; }
+    if (msel && !shown28(msel)) msel = null;
+    P.innerHTML = '<div class="pbody mk28"><div class="mhrow">' + merchHead() + '<button type="button" class="x mkx" data-act="mkClose" aria-label="Pazarı kapat">' + ico('i-close', 18) + '</button></div>' + marketHtml() + '<div class="abar" id="abar">' + abarHtml() + '</div></div>';
+  }
+  function seaPanel() {
+    const c = load(S) ? GOODS.filter(g => S.inv[g.id].n).map(g => '<span class="cg">' + gIco(g.id, 20) + S.inv[g.id].n + '</span>').join('') + (S.contra ? '<span class="cg">' + ico('i-chest', 20) + CONTRA + ' kaçak</span>' : '') : '<span class="muted">Ambar boş.</span>';
+    const se = SEASONS[plan.season], v = VG, sc = v && v.scene;
+    const HELP = {
+      calm:'← → ile dümen tut, sandıkları ve debenleri topla. Boşluk kürek hamlesi.',
+      rapids:'Kayaların yanından kıl payı geç: her biri bahşiş, art arda geçince kombo. Oklu açık mavi akıntılar hızlandırır.',
+      chase:'Takipçi arkanda. Boşluk ile kürek çek, yanına yanaşmasına izin verme.',
+      night:'Devriye kayıklarının fener ışığına girme. Karanlıkta kaçakçı zulaları var.',
+      storm:'Ok hangi yandan gelirse rüzgâr oradan eser: rüzgâr vurmadan hemen önce ← → ile tayfayı o tarafa yığ. Erken yığarsan tekne öbür yana yatar. Boşluk ile kayan sandığı bağla.',
+      dive:'Ok tuşlarıyla ya da parmağını basılı tutarak yüz. Bir seferde bir şey taşı. Nefes yüzeyde dolar; iki bayılmada dalış biter. Yılan balığı ünlem yapınca kırmızı halkadan çık.',
+      race:'← → ile dümen tut. Davul vurduğu anda Boşluk: güçlü hamle. Akıntılar hızlandırır; Sethi\'nin tam arkası yavaşlatır, hafif yanı hızlandırır.'
+    };
+    const HELPD = {
+      calm:'← → ile kervanı yönet. Su tulumlarını, sandıkları ve debenleri topla; yılanlardan ve kum çukurlarından uzak dur. Boşluk: Koş!',
+      rapids:'Kayaların arasından geç: hiç tökezlemezsen kestirme bir vadi bulursun.',
+      chase:'Çöl akıncıları arkanda. Boşluk ile Koş! deyip aradaki farkı aç.',
+      sandstorm:'Ok çıktığında rüzgâr o yandan esecek: kervanı okun durduğu yana, rüzgâra karşı yüklen. Görüş az, yavaş ve dikkatli ilerle.'
+    };
+    const dzs = plan.terrain === 'desert', SN = { calm:'dunes', rapids:'canyon', sandstorm:'sstorm' };
+    let s = '<div class="pbody"><div class="mhead"><h2>' + (sc ? 'Sahne' : 'Yol haritası') + '</h2><span class="muted">' + esc(CITIES[plan.from].name) + ' → ' + esc(CITIES[plan.dest].name) + ' · ' + plan.days + ' gün</span></div>';
+    if (sc) s += '<div class="box"><h3>' + esc((NODES[dzs && SN[sc] ? SN[sc] : sc === 'dive' ? 'wreck' : sc] || { name:{ chase:dzs ? 'Çöl akıncıları' : 'Pusu!', race:'Sethi ile yarış' }[sc] }).name) + '</h3><p>' + esc(dzs && HELPD[sc] ? HELPD[sc] : HELP[sc]) + '</p></div>';
+    else s += '<div class="steps"><span class="stp on">' + ico('i-map', 18) + '<b>Durak seç</b></span><i class="sa">›</i><span class="stp">' + ico('i-bolt', 18) + '<b>Sahne</b></span><i class="sa">›</i><span class="stp">' + cIco(plan.dest, 18) + '<b>' + esc(CITIES[plan.dest].name) + '</b></span></div><p class="muted" style="margin:0">⚠ risk · ★ ödül · sisli duraklar yaklaşınca görünür</p>';
+    if (v) {
+      const a = v.acc;
+      s += '<div class="box"><div class="och big"><i title="Gövde">' + ico('i-heart', 16) + v.hp + '/' + v.maxhp + '</i>' + (S.caravan ? '<i title="Günlük su">' + ico('i-water', 16) + S.caravan.water + '</i>' : '') + '<i title="Tayfa morali">' + ico('i-sun', 16) + v.morale + '/5</i><i title="Nehirden toplanan">' + ico('i-coin', 16) + '+' + fmt(a.coins + a.nearCoins) + '</i><i title="Sandık">' + ico('i-chest', 16) + a.crates + '</i>' + (v.torn ? '<i class="bad" title="Yelken yırtık">' + ico('i-storm', 16) + 'yırtık</i>' : '') + '</div>' +
+        (a.notes.length ? a.notes.slice(-2).map(n => '<p class="muted" style="margin:4px 0 0">• ' + esc(n.text) + '</p>').join('') : '') + '</div>';
+    }
+    s += '<div class="box"><div class="cargo">' + c + '</div></div>';
+    s += '<button class="btn wide" type="button" data-act="quick" title="Kalan günleri zar belirler; çoğu zaman oynamaktan kötü sonuçlanır">Yolculuğu atla 🎲</button></div>';
+    return s;
+  }
+  function renderAll() { if (!S) return; renderHud(); if (moodBoost) setTimeout(() => { moodBoost = 0; if (phase === 'port') { renderStage(); renderPanel(); } }, 2500); if (phase === 'port') renderStage(); goalChip(); renderPanel(); travelUpdate(); paintAudio(); requestAnimationFrame(placeTutor); }
+

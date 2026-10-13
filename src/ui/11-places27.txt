@@ -1,0 +1,70 @@
+  /* ================= v27: the shipyard, workshops, caravans, temples and the tavern ================= */
+  let shipV = null;
+  function boatThumb(id) {
+    const k = ++uid;
+    return '<svg viewBox="-250 -236 500 290" aria-hidden="true"><rect x="-250" y="2" width="500" height="52" fill="#5FA0AC"/>' + shipSVG2({ boat:id, up:{ govde:0, yelken:0, kurek:0, ambar:0 }, dev:{} }, 0, k) + '</svg>';
+  }
+
+  /* ---------- workshops ---------- */
+  let workN = 1;
+  function showWork() {
+    const W = WORKS[S.city]; if (!W) return;
+    const job = workAt(S, S.city), out = gById(W.out), mx = workMax(S, S.city);
+    workN = Math.max(1, Math.min(workN, mx || 1));
+    let s = '<div class="sh-h"><span class="pt big wk">' + ico('i-workshop', 34) + '</span><h2 id="shTitle">Atölye<small>' + esc(W.who) + '</small></h2>' + xBtn + '</div>';
+    const recipe = '<div class="recipe">' + Object.keys(W.need).map(g => '<span class="rq' + (S.inv[g].n >= W.need[g] ? ' ok' : '') + '">' + gIco(g, 30) + '<b>' + W.need[g] + '</b><small>' + esc(gById(g).short) + '</small></span>').join('<i>+</i>') +
+      '<i>+</i><span class="rq' + (S.cash >= W.fee ? ' ok' : '') + '">' + ico('i-coin', 30) + '<b>' + W.fee + '</b><small>işçilik</small></span><i class="ar">→</i><span class="rq out">' + gIco(W.out, 36) + '<b>' + W.n + '</b><small>' + esc(out.short) + '</small></span></div>';
+    if (job) {
+      const ready = S.day >= job.ready;
+      s += recipe + '<div class="wjob' + (ready ? ' ready' : '') + '">' + gIco(job.g, 40) + '<div><b>' + job.n + ' ' + esc(gById(job.g).short) + '</b><p>' + (ready ? 'Hazır! Ambarına al.' : job.ready + '. gün hazır olacak (' + (job.ready - S.day) + ' gün). Başka yere git, sonra gel.') + '</p></div></div>';
+      s += '<div class="row">' + (ready ? '<button class="btn go1" type="button" data-act="workGet" data-first' + (freeCap(S) > 0 ? '' : ' disabled') + '>' + (freeCap(S) > 0 ? 'Ambara al' : 'Ambarında yer yok') + '</button>' : '<button class="btn" type="button" data-close>Tamam</button>') + '</div>';
+    } else {
+      const best = bestElsewhere(W.out), late = S.day + W.days > S.days;
+      s += recipe + '<p class="ntext">' + esc(out.name) + ' ' + (best ? esc(CITIES[best.i].loc) + ' ' + fmt(best.p) + ' debene satılıyor.' : 'tapınak şehirlerinde çok aranır.') + ' Ürün ' + W.days + ' gün sonra burada hazır olur.</p>';
+      if (late) s += '<p class="ntext warn">Sefer bitmeden hazır olmaz.</p>';
+      else if (!mx) s += '<p class="ntext warn">Malzeme eksik: ' + Object.keys(W.need).filter(g => S.inv[g].n < W.need[g]).map(g => W.need[g] + ' ' + gName(g)).join(', ') + ' getir.</p>';
+      else s += '<div class="wqty"><button class="btn sm" type="button" data-act="workMinus" aria-label="Azalt">−</button><span><b id="wkN">' + workN + '</b> parti → <b>' + workN * W.n + '</b> ' + esc(out.short.toLowerCase()) + ' · ' + fmt(workN * W.fee) + ' deben</span><button class="btn sm" type="button" data-act="workPlus" aria-label="Artır">+</button><button class="btn sm" type="button" data-act="workMax">En çok (' + mx + ')</button></div>' +
+        '<div class="row"><button class="btn go1" type="button" data-act="workGo" data-first>Ustalara bırak</button></div>';
+    }
+    openSheet(s, false, 'work');
+  }
+  /* ---------- caravans ---------- */
+  let carN = 4;
+  function carGo(dest) {
+    if (!startCaravan(S, dest, carN)) { play('no'); return; }
+    closeSheet(); sel = dest; play('coin');
+    plan = seaPlan(S, dest, false); rapid = false; S.voyage = plan; save(); play('sail'); enterSea();
+  }
+  /* ---------- temples ---------- */
+  const TEMPLE_LV = { 0:0, 1:1, 2:2, 3:3, 5:4, 6:3 };
+  function goTemple() {
+    if (!canTemple(S) || phase !== 'port') return;
+    const ci = S.city; S.temple[ci] = true; save();
+    pzTemple({ title:TEMPLES[ci], sub:CITIES[ci].name + ' · tapınak', level:TEMPLE_LV[ci] || 0, seed:(S.rs || 7) * 31 + ci * 977 + S.day, cb:q => templeDone(ci, q) });
+  }
+  function templeDone(ci, q) {
+    S.temple[ci] = true;
+    let txt;
+    if (q === 'miss') txt = 'Işık yolunu bulamadı. Rahipler başlarını salladı: "Belki bir dahaki sefere."';
+    else {
+      const k = pick(Object.keys(BLESS)), cash = q === 'perfect' ? 300 : 120; S.bless = k; S.cash += cash; addTrust(S, ci, q === 'perfect' ? 180 : 80); S.stats.temples = (S.stats.temples || 0) + 1;
+      txt = (q === 'perfect' ? 'Kusursuz! ' : '') + 'Heykel parladı, rahipler adağını kabul etti: +' + fmt(cash) + ' deben ve ' + BLESS[k].name + ' (' + BLESS[k].desc + ')';
+    }
+    S.log.push({ d:S.day, t:TEMPLES[ci] + ': ' + txt });
+    save(); renderAll(); play(q === 'miss' ? 'no' : 'fanfare');
+    openSheet('<div class="out icons">' + outHtml({ kind:q === 'miss' ? 'info' : 'good', title:TEMPLES[ci], text:txt }) + '</div><div class="row"><button class="btn go1" type="button" data-close data-first>Tamam</button></div>', false, 'tdone');
+  }
+  function showEventResult(evId, idx, r) {
+      const extra = evId === 'dice' && idx === 0 && r ? diceHtml(r.kind === 'good') : ''; if (extra) buzz([20, 40, 20, 40, 60]);
+      openSheet(extra + '<div class="out icons"><div class="oi ' + (r ? r.kind : 'info') + '"><span class="oiI">' + ico(r && r.kind === 'good' ? 'i-sun' : r && r.kind === 'bad' ? 'i-storm' : 'i-whisper', 20) + '</span><div><p>' + esc(r ? r.text : '') + '</p></div></div></div><button class="btn go1" type="button" data-act="land" data-first>Pazara çık</button>', true, 'event');
+  }
+  /* an event choice that is a little game first (the baboons) */
+  function eventGame(idx) {
+    const e = eventDef(S, S.pendingEvent), ch = e && e.choices[idx];
+    if (!ch || !ch.game) return false;
+    const evId = S.pendingEvent;
+    closeSheet();
+    pzBaboon({ n:10, dur:12, cb:(caught, total) => { const r = resolveEvent(S, idx, { caught, total }); save(); renderAll(); play(r && r.kind === 'good' ? 'good' : r && r.kind === 'bad' ? 'bad' : 'click'); showEventResult(evId, idx, r); } });
+    return true;
+  }
+

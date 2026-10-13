@@ -1,0 +1,208 @@
+  /* ================= faces, banners and small pictures that replace paragraphs ================= */
+  const FACE0 = MERCHANTS.length, FACE = { hapu:FACE0, merenre:FACE0 + 1, djedi:FACE0 + 2, nakht:FACE0 + 3 };
+  MERCHANTS.push(
+    { name:'Hapu',    look:{ skin:'#B57A50', hair:'#2B2340', wig:'bald', band:'#8F2F21', bg:'#E9C3B4', c1:'#5B3B6E', c2:'#D9A43A', ear:'hoop' }, lines:[] },
+    { name:'Merenre', look:{ skin:'#C98E62', hair:'#EDE7DA', wig:'cap',  band:'#2C6BA6', bg:'#DDF0F2', c1:'#FBF3DF', c2:'#2C6BA6', old:true }, lines:[] },
+    { name:'Djedi',   look:{ skin:'#A86A44', hair:'#1A1424', wig:'long', band:'#D9A43A', bg:'#E8D4D4', c1:'#8F2F21', c2:'#1A1424', beard:true, ear:'hoop' }, lines:[] },
+    { name:'Nakht',   look:{ skin:'#B57A50', hair:'#1A1424', wig:'bob',  band:'#E5B93F', bg:'#E3EEE6', c1:'#1F5FA8', c2:'#FBF3DF' }, lines:[] }
+  );
+  /* Hesy, the Ba: a human-headed bird against the night */
+  function baFace() {
+    let s = '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="50" fill="#1C2240"/>';
+    for (let k = 0; k < 14; k++) s += '<circle cx="' + (8 + (k * 37) % 84) + '" cy="' + (6 + (k * 23) % 60) + '" r="' + (k % 3 ? 1 : 1.6) + '" fill="#F5EBC8" opacity=".8"/>';
+    s += '<circle cx="50" cy="56" r="30" fill="#F2C65A" opacity=".12"/>';
+    s += pth('M50 70Q20 72 10 56Q26 60 36 54Z', '#D9A43A', ink(1.6)) + pth('M50 70Q80 72 90 56Q74 60 64 54Z', '#D9A43A', ink(1.6));
+    s += pth('M38 76L50 92L62 76Z', '#B98A1E', ink(1.6)) + '<ellipse cx="50" cy="66" rx="17" ry="12" fill="#E9C46A" stroke="#2B1D14" stroke-width="1.8"/>';
+    s += pth('M38 64q12 6 24 0M40 70q10 5 20 0', 'none', 'stroke="#B98A1E" stroke-width="1.6" stroke-linecap="round"');
+    s += '<circle cx="50" cy="44" r="12" fill="#B57A50" stroke="#2B1D14" stroke-width="1.8"/>' + pth('M38 44a12 12 0 0 1 24 0v4h-3v-4h-18v6h-3z', '#2B2340');
+    s += '<path d="M44 44q2 -2 4 0M52 44q2 -2 4 0" stroke="#2B1D14" stroke-width="1.8" fill="none" stroke-linecap="round"/><path d="M46 50q4 3 8 0" stroke="#7A3B2E" stroke-width="1.6" fill="none" stroke-linecap="round"/>';
+    s += pth('M46 31h8v-3h-8z', '#E5B93F') + '<circle cx="50" cy="26" r="2.6" fill="#E5B93F"/>';
+    return s + '</svg>';
+  }
+  MERCHANTS.push(
+    { name:'Paneb', look:{ skin:'#B57A50', hair:'#1A1424', wig:'bob', band:'#B7412E', bg:'#F6D9B0', c1:'#FBF3DF', c2:'#B7412E', jolly:true }, lines:[] },
+    { name:'Sethi', look:{ skin:'#A86A44', hair:'#1A1424', wig:'long', band:'#D9A43A', bg:'#CFE3D2', c1:'#2F5D46', c2:'#D9A43A', beard:true, ear:true }, lines:[] },
+    { name:'Kedici Ipi', look:{ skin:'#C08A5E', hair:'#2B2340', wig:'cap', band:'#3A3346', bg:'#E8DFF0', c1:'#3A3346', c2:'#E9C46A', extra:'cat', jolly:true }, lines:[] },
+    { name:'Taşçı Seni', look:{ skin:'#B57A50', hair:'#E3DCCD', wig:'bald', band:'#8C6E44', bg:'#EADFC8', c1:'#C9A262', c2:'#5A4632', old:true, beard:true }, lines:[] },
+    { name:'Kör Bata', look:{ skin:'#A86A44', hair:'#1A1424', wig:'bob', band:'#1F5FA8', bg:'#D8E4EE', c1:'#1F5FA8', c2:'#FBF3DF', old:true }, lines:[] },
+    { name:'Nubyalı Meri', look:{ skin:'#6E4228', hair:'#1A1424', wig:'puff', band:'#D9A43A', bg:'#F3DCC0', c1:'#B7412E', c2:'#D9A43A', ear:'hoop', jolly:true }, lines:[] },
+    { name:'Kaptan Weni', look:{ skin:'#8E5236', hair:'#1B1420', wig:'cap', band:'#2BA59A', bg:'#D3ECEA', c1:'#FBF3DF', c2:'#2BA59A', beard:true, ear:true }, lines:[] }
+  );
+  Object.assign(FACE, { paneb:FACE0 + 4, sethi:FACE0 + 5, tv0:FACE0 + 6, tv1:FACE0 + 7, tv3:FACE0 + 8, tv4:FACE0 + 9, tv7:FACE0 + 10 });
+  const faceOf = who => who === 'ba' ? baFace() : portrait(FACE[who], who === 'hapu' ? 1 : 3);
+
+  /* a painted banner for a card: sky, water, a big emblem and a couple of figures */
+  const MOOD = { day:['#8FC6D6', '#F3E2B8', '#2F7090', '#FFE7A8'], night:['#141A33', '#3A4A72', '#0E1A33', '#F5EBC8'], danger:['#E9A866', '#F6E3B4', '#8F2F21', '#FFE2A0'], gold:['#F2C65A', '#FBF3DF', '#B98A1E', '#FFF3C4'], water:['#5FA0AC', '#CBE6DC', '#174C78', '#FFE7A8'], green:['#9FD39A', '#E3F1DA', '#2F5D46', '#FFE7A8'] };
+  function banner(o) {
+    const M = MOOD[o.mood] || MOOD.day, id = 'bn' + (++uid), night = o.mood === 'night';
+    let s = '<svg class="bnr" viewBox="0 0 400 110" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs>' + grad(id, [[0, M[0]], [1, M[1]]], true) + '</defs><rect width="400" height="110" fill="url(#' + id + ')"/>';
+    if (night) { for (let k = 0; k < 18; k++) s += '<circle cx="' + ((k * 53) % 400) + '" cy="' + (6 + (k * 29) % 60) + '" r="' + (k % 4 ? 1 : 1.6) + '" fill="#F5EBC8" opacity=".8"/>'; s += '<circle cx="340" cy="26" r="13" fill="' + M[3] + '"/><circle cx="346" cy="22" r="11" fill="' + M[0] + '"/>'; }
+    else { s += '<circle cx="340" cy="28" r="34" fill="' + M[3] + '" opacity=".35"/><circle cx="340" cy="28" r="15" fill="' + M[3] + '"/>'; }
+    s += pth('M0 84Q100 76 200 82T400 80V110H0Z', M[2], 'opacity=".85"') + pth('M0 86Q100 78 200 84T400 82', 'none', 'stroke="#FFF6E0" stroke-width="1.5" opacity=".5"');
+    for (let k = 0; k < 8; k++) s += '<path d="M' + (12 + k * 52) + ' ' + (94 + (k % 2) * 6) + 'h16" stroke="#E8FAFC" stroke-width="2" stroke-linecap="round" opacity=".5"/>';
+    if (o.palm !== false) s += palmSVG(366, 86, 62, -8);
+    s += '<circle cx="200" cy="54" r="36" fill="#FBF3DF" stroke="#2B1D14" stroke-width="3"/><circle cx="200" cy="54" r="28" fill="none" stroke="' + M[2] + '" stroke-width="2" opacity=".5"/>';
+    s += '<g style="color:#2B1D14"><use href="#' + o.ico + '" x="177" y="31" width="46" height="46"/></g>';
+    if (o.people !== false) s += personSVG(118, 86, '#FBF3DF', o.load || null) + personSVG(284, 86, '#E6CB95', null, true);
+    if (o.boat) s += '<g transform="translate(60 80) scale(.9)"><use href="#boatMini"/></g>';
+    return s + '</svg>';
+  }
+  const EV_ART = { lapis:{ ico:'i-lapis', mood:'gold' }, tax:{ ico:'i-scroll', mood:'day' }, wreck:{ ico:'i-anchor', mood:'water', boat:true }, dice:{ ico:'i-coin', mood:'night' }, tip:{ ico:'i-whisper', mood:'water', boat:true }, hapu:{ ico:'i-scroll', mood:'danger' }, saray:{ ico:'i-sarap', mood:'gold' }, kahin:{ ico:'i-ankh', mood:'night' }, tapinak:{ ico:'i-ankh', mood:'gold' }, hirsiz:{ ico:'i-moon', mood:'night' },
+    kitlik:{ ico:'i-bugday', mood:'danger', load:'sack' }, bayram:{ ico:'i-sarap', mood:'gold', load:'jar' }, maden:{ ico:'i-bakir', mood:'day' }, liman:{ ico:'i-anchor', mood:'danger', boat:true },
+    temple:{ ico:'i-ankh', mood:'gold' }, market:{ ico:'i-stall', mood:'day', load:'jar' }, boatman:{ ico:'i-whisper', mood:'water', boat:true }, checkpoint:{ ico:'i-scroll', mood:'danger', boat:true }, smugglers:{ ico:'i-moon', mood:'night', boat:true } };
+  EV_ART.cekirge = { ico:'i-locust', mood:'danger' }; EV_ART.babun = { ico:'i-baboon', mood:'day' };
+  const EV_META = { lapis:[{ ico:'i-lapis', gain:2, risk:2 }, { ico:'i-close' }], tax:[{ ico:'i-coin', risk:1 }, { ico:'i-whisper', gain:1, risk:2 }], wreck:[{ ico:'i-anchor', gain:2, risk:1 }, { ico:'i-close' }], dice:[{ ico:'i-coin', gain:2, risk:2 }, { ico:'i-close' }], tip:[{ ico:'i-whisper', gain:1 }, { ico:'i-close' }], hapu:[{ ico:'i-coin', risk:1 }, { ico:'i-bolt', risk:2 }], saray:[{ ico:'i-coin', gain:2 }, { ico:'i-close' }], kahin:[{ ico:'i-ankh', gain:2 }, { ico:'i-close' }], tapinak:[{ ico:'i-ankh', gain:1 }, { ico:'i-close' }], hirsiz:[{ ico:'i-moon', risk:1 }, { ico:'i-bolt', risk:2 }] };
+  const pips = (n, ch, cls) => n ? '<i class="pp ' + cls + '">' + ch.repeat(Math.min(3, n)) + '</i>' : '';
+  function choiceHtml(c, attr, first, off, offText) {
+    return '<button class="choice' + (c.ico ? ' ic' : '') + '" type="button" ' + attr + (first ? ' data-first' : '') + (off ? ' disabled' : '') + '>' + (c.ico ? '<span class="cI">' + ico(c.ico, 26) + '</span>' : '') + '<b>' + esc(c.label) + '</b><small>' + esc(off && offText ? offText : c.sub) + '</small>' + (c.gain || c.risk ? '<span class="cp">' + pips(c.gain, '★', 'g') + pips(c.risk, '⚠', 'r') + '</span>' : '') + '</button>';
+  }
+  /* two bone dice that tumble and land on the result the game already decided */
+  function diceHtml(win) {
+    let a, b; do { a = 1 + Math.floor(Math.random() * 6); b = 1 + Math.floor(Math.random() * 6); } while ((a + b >= 7) !== win);
+    const die = (n, k) => { const P = { 1:[[50, 50]], 2:[[28, 28], [72, 72]], 3:[[28, 28], [50, 50], [72, 72]], 4:[[28, 28], [72, 28], [28, 72], [72, 72]], 5:[[28, 28], [72, 28], [50, 50], [28, 72], [72, 72]], 6:[[28, 26], [72, 26], [28, 50], [72, 50], [28, 74], [72, 74]] }[n]; return '<svg class="die d' + k + '" viewBox="0 0 100 100"><rect x="6" y="6" width="88" height="88" rx="18" fill="#FBF3DF" stroke="#2B1D14" stroke-width="5"/>' + P.map(([x, y]) => '<circle cx="' + x + '" cy="' + y + '" r="8" fill="#2B1D14"/>').join('') + '</svg>'; };
+    return '<div class="dice' + (win ? ' win' : '') + '">' + die(a, 1) + die(b, 2) + '<b>' + (a + b) + '</b></div>';
+  }
+
+  /* ---------- the voyage receipt: route strip, ledger and illustrated outcomes ---------- */
+  function outIcon(o) {
+    const t = o.title || '';
+    if (/Kusursuz/.test(t)) return 'i-sun'; if (/darbe|karaya|sandık düştü/i.test(t)) return 'i-storm'; if (/Kaçtın/.test(t)) return 'i-bolt';
+    if (/Haydut|Medjay|Tefeci|Djedi|Devriye|yetişti/.test(t)) return 'i-scroll'; if (/Sethi/.test(t)) return 'i-c-vaset'; if (/Nehirden|topladık/.test(t)) return 'i-chest';
+    if (/Faiz|Hapu/.test(t)) return 'i-coin'; if (/Kehanet|dua|şöhret|Cesur/i.test(t)) return 'i-ankh'; if (/Kaçak|sandık/i.test(t)) return 'i-chest'; if (/Sipariş/.test(t)) return 'i-scroll';
+    if (/Akhet|Peret|Shemu/.test(t)) return 'i-flood'; if (/görev|Görev|Altın Kedi|Ba'nın|Kalpazan/.test(t)) return 'i-map'; if (/Yolda/.test(t)) return 'i-whisper';
+    return 'i-whisper';
+  }
+  /* v30: a little painted diorama — the stop's iso tile big in the middle, two quiet tiles at the sides, sky or night behind */
+  const EV_TILE = { lapis:'market', tax:'checkpoint', wreck:'wreck', dice:'night', tip:'boatman', hapu:'checkpoint', saray:'temple', kahin:'temple', tapinak:'temple', hirsiz:'night', kitlik:'market', bayram:'temple', maden:'canyon', liman:'checkpoint', cekirge:'storm', babun:'market', smugglers:'smugglers', boatman:'boatman', market:'market', temple:'temple', checkpoint:'checkpoint' };
+  function isoStage(kind, o) {
+    o = o || {};
+    const dz = o.desert || (VT.desert && VT.desert(kind)), night = /night|smugglers|forgers/.test(kind) || o.mood === 'night', side = dz ? 'dunes' : night ? 'night' : 'calm';
+    return '<div class="istage' + (dz ? ' dz' : '') + (night ? ' nt' : '') + (o.cls ? ' ' + o.cls : '') + '" aria-hidden="true"><span class="ist-s l">' + VT.tile(o.left || side) + '</span><span class="ist-m">' + VT.tile(kind, 'big') + (o.ico ? '<i class="ist-i">' + ico(o.ico, 22) + '</i>' : '') + '</span><span class="ist-s r">' + VT.tile(o.right || (dz ? 'oasis' : night ? 'night' : 'boatman')) + '</span></div>';
+  }
+  function vstrip(L) {
+    /* the voyage as a row of small iso tiles: from, every stop, to */
+    const node = (t, title, extra) => '<span class="vsi" title="' + esc(title || '') + '">' + VT.tile(t) + (extra || '') + '<small>' + esc(title || '') + '</small></span>';
+    let s = '<div class="vstrip iso">' + node('city', CITIES[L.from].name, '<i class="vci">' + cIco(L.from, 16) + '</i>');
+    if (L.quick) s += '<i class="vl"></i>' + node('fog', 'Zarla', '<i class="vci">🎲</i>');
+    else (L.path || []).forEach(t => { const d = NODES[t]; if (d) s += '<i class="vl"></i>' + node(t, d.name); });
+    if (L.chaser) s += '<i class="vl"></i>' + node('night', 'Pusu', '<i class="vci">⚔</i>');
+    if (L.rival) s += '<i class="vl"></i>' + node('rapids', 'Sethi', '<i class="vci s">S</i>');
+    return s + '<i class="vl"></i>' + node('city', CITIES[S.city].name, '<i class="vci">' + cIco(S.city, 16) + '</i>') + '</div>';
+  }
+  function vstripOld(L) {
+    const node = (t, cls, title) => '<span class="vs ' + cls + '" title="' + esc(title || '') + '">' + t + '</span>';
+    let s = '<div class="vstrip">' + node(cIco(L.from, 22), 'city', CITIES[L.from].name);
+    if (L.quick) s += '<i class="vl"></i>' + node('🎲', 'dice', 'Yolculuk zarla geçildi');
+    else (L.path || []).forEach(t => { const d = NODES[t]; if (d) s += '<i class="vl"></i>' + node(ico(d.ico, 18), 't-' + t, d.name); });
+    if (L.chaser) s += '<i class="vl"></i>' + node('⚔', 'amb', 'Pusu');
+    if (L.rival) s += '<i class="vl"></i>' + node('S', 'race', 'Sethi ile yarış');
+    return s + '<i class="vl"></i>' + node(cIco(S.city, 22), 'city dest', CITIES[S.city].name) + '</div>';
+  }
+  function ledgerHtml(lg) {
+    if (!lg) return '';
+    const tile = (lab, v, sign, cls) => '<div class="lt ' + cls + '"><small>' + lab + '</small><b data-count="' + v + '" data-pre="' + sign + '">' + sign + '0</b></div>';
+    let s = '<div class="ledger">' + tile('Nehirden', lg.river, '+', 'pos');
+    if (lg.lost) s += tile('Yitirilen yük', lg.lost, '−', 'neg');
+    if (lg.fines) s += tile('Ceza ve haraç', lg.fines, '−', 'neg');
+    s += tile('Faiz', lg.interest, '−', lg.interest ? 'neg' : '');
+    return s + '</div>';
+  }
+  function animateCounts() {
+    const els = document.querySelectorAll('[data-count]'); if (!els.length) return;
+    const t0 = performance.now(), dur = reduce ? 1 : 700;
+    const tick = now => { const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3); els.forEach(el => { if (!document.body.contains(el)) return; el.textContent = el.dataset.pre + fmt(Math.round(+el.dataset.count * e)); }); if (k < 1) requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+  }
+  function showArrival() {
+    const L = S.last, c = CITIES[S.city];
+    let s = '<div class="arrhead">' + isoStage(isRiver(S.city) ? 'city' : 'oasis', { desert:!isRiver(S.city), ico:null, cls:'arr' }) + '<div class="arrt"><h2 id="shTitle">' + esc(c.name) + '</h2><small>' + L.days + ' günlük yolculuk · ' + S.day + '. gün</small></div></div>';
+    s += vstrip(L) + ledgerHtml(L.ledger);
+    s += '<div class="out icons clamp">' + L.out.map(o => '<button type="button" class="oi ' + o.kind + '" data-act="oiMore"><span class="oiI">' + ico(outIcon(o), 20) + '</span><div>' + (o.title ? '<b>' + esc(o.title) + '</b>' : '') + '<p>' + esc(o.text) + '</p></div></button>').join('') + '</div>';
+    const dl = deliverable(S);
+    if (dl.length) s += '<div class="oi good"><span class="oiI">' + ico('i-scroll', 20) + '</span><div><b>Sipariş teslim edilebilir</b><p>' + dl.map(o => o.q + ' ' + gName(o.g)).join(', ') + ' burada bekleniyor. Sipariş panosundan teslim et.</p></div></div>';
+    if (L.news.length) s += '<div class="newsrow">' + L.news.map(n => '<span class="nwc' + (n.up ? ' up' : ' down') + '">' + gIco(n.g, 18) + esc(CITIES[n.city].name) + ' ' + (n.up ? '↑' : '↓') + '</span>').join('') + '</div>';
+    s += '<button class="btn go1" type="button" data-act="' + (S.pendingEvent ? 'event' : 'land') + '" data-first>' + (S.pendingEvent ? 'Devam' : 'Pazara çık') + '</button>';
+    openSheet(s, true, 'arrive');
+    animateCounts();
+  }
+  function showEvent() {
+    const e = eventDef(S, S.pendingEvent);
+    if (!e) { landDone(); return; }
+    const art = EV_ART[e.crisis ? e.crisis.k : e.id] || { ico:'i-whisper', mood:'day' }, meta = EV_META[e.id] || [];
+    openSheet('<div class="ev-card pic iso' + (e.crisis ? ' crisis' : '') + '">' + isoStage(EV_TILE[e.crisis ? e.crisis.k : e.id] || 'boatman', { ico:art.ico, mood:art.mood }) + '<div class="evb">' + (e.crisis ? '<small class="kick">Pazar krizi · ' + e.crisis.until + '. güne kadar</small>' : '') + '<h3 id="shTitle">' + esc(e.title) + '</h3><p>' + esc(e.text) + '</p></div></div><div class="choices">' +
+      e.choices.map((ch, i) => { const off = ch.ok && !ch.ok(S); return choiceHtml(Object.assign({}, meta[i] || {}, ch), 'data-choice="' + i + '"', !i, off, ch.label.includes('söz') ? 'Sipariş defterin dolu (en fazla 2)' : 'Şu an yapamazsın'); }).join('') + '</div>', true, 'event');
+  }
+
+  /* ---------- the Nile as a map: where Sethi is heading, where the crises are ---------- */
+  function nileMap() {
+    const dz = has(S, 'desert'), X = [46, 124, 200, 276, 354, 96, 186, 300], Y = dz ? [106, 100, 110, 102, 107, 170, 170, 36] : [96, 90, 100, 92, 97], sp = S.rival.plan, at = sethiAt(S), VH = dz ? 218 : 165;
+    let s = '<svg class="nmap" viewBox="0 0 400 ' + VH + '" role="img" aria-label="Nil haritası"><defs>' + grad('nm' + (++uid), [[0, '#F3E2B8'], [1, '#E2C28A']], true) + '</defs><rect width="400" height="' + VH + '" fill="#EBD4A2"/>';
+    if (dz) CITIES.forEach((c, i) => { if (c.river) return; const h = c.hub; s += pth('M' + X[h] + ' ' + Y[h] + 'Q' + ((X[h] + X[i]) / 2 + 18) + ' ' + ((Y[h] + Y[i]) / 2) + ' ' + X[i] + ' ' + Y[i], 'none', 'stroke="#B98A4A" stroke-width="4" stroke-dasharray="2 7" stroke-linecap="round"') + '<text x="' + ((X[h] + X[i]) / 2 + 22) + '" y="' + ((Y[h] + Y[i]) / 2 + 4) + '" font-family="Nunito,sans-serif" font-weight="800" font-size="9" fill="#8C6E44">' + c.days + ' gün</text>'; });
+    const river = 'M-10 ' + (Y[0] + 2) + 'Q' + ((X[0] + X[1]) / 2) + ' ' + (Y[1] - 14) + ' ' + X[1] + ' ' + Y[1] + 'T' + X[2] + ' ' + Y[2] + 'T' + X[3] + ' ' + Y[3] + 'T' + X[4] + ' ' + Y[4] + 'T420 ' + (Y[4] + 4);
+    s += pth(river, 'none', 'stroke="#2B1D14" stroke-width="22" stroke-linecap="round" opacity=".25"') + pth(river, 'none', 'stroke="#2A62A8" stroke-width="18" stroke-linecap="round"') + pth(river, 'none', 'stroke="#8FD3E0" stroke-width="2" stroke-dasharray="6 10" opacity=".7"');
+    (dz ? [[20, 40], [150, 40], [360, 170], [380, 40]] : [[20, 40], [150, 30], [300, 150], [380, 40]]).forEach(([x, y]) => { s += palmSVG(x, y + 18, 26, -4); });
+    if (sp && S.day < sp.arrive) { const a = X[sp.from], b = X[sp.to], ya = Y[sp.from] - 34, yb = Y[sp.to] - 34; s += pth('M' + a + ' ' + ya + 'Q' + ((a + b) / 2) + ' ' + (Math.min(ya, yb) - 22) + ' ' + b + ' ' + yb, 'none', 'stroke="#8F2F21" stroke-width="2.5" stroke-dasharray="5 5"') + pth('M' + b + ' ' + yb + 'l' + (a < b ? -9 : 9) + ' -7v12z', '#8F2F21'); }
+    CITIES.forEach((c, i) => {
+      if (!c.river && !dz) return;
+      const cri = crisisList().find(x => x.city === i && x.state !== 'past'), here = i === S.city;
+      s += '<circle cx="' + X[i] + '" cy="' + Y[i] + '" r="17" fill="' + (here ? '#D9A43A' : '#FBF3DF') + '" stroke="#2B1D14" stroke-width="2.5"/><g style="color:#2B1D14"><use href="#i-c-' + c.id + '" x="' + (X[i] - 11) + '" y="' + (Y[i] - 11) + '" width="22" height="22"/></g>';
+      s += '<text x="' + X[i] + '" y="' + (Y[i] + 32) + '" text-anchor="middle" font-family="Cinzel,serif" font-weight="700" font-size="11" fill="#2B1D14">' + esc(c.name) + '</text>';
+      if (here) s += '<text x="' + X[i] + '" y="' + (Y[i] + 44) + '" text-anchor="middle" font-family="Nunito,sans-serif" font-weight="800" font-size="9" fill="#8F2F21">SEN</text>';
+      if (cri) s += '<g class="mcri"><circle cx="' + (X[i] + 14) + '" cy="' + (Y[i] - 12) + '" r="9" fill="#F0A894" stroke="#2B1D14" stroke-width="2"/><text x="' + (X[i] + 14) + '" y="' + (Y[i] - 8) + '" text-anchor="middle" font-size="11" font-weight="800" fill="#2B1D14">⚠</text></g><text x="' + X[i] + '" y="' + (Y[i] + 56) + '" text-anchor="middle" font-family="Nunito,sans-serif" font-weight="800" font-size="9" fill="#8F2F21">' + esc(CRISES[cri.k].name) + ' · ' + cri.from + '–' + cri.until + '</text>';
+    });
+    if (sp) {
+      let x, y;
+      if (at != null) { x = X[at]; y = Y[at] - 34; } else { const k = Math.max(0, Math.min(1, (S.day - sp.start + 0.5) / Math.max(1, sp.arrive - sp.start))); x = X[sp.from] + (X[sp.to] - X[sp.from]) * k; y = (Y[sp.from] + (Y[sp.to] - Y[sp.from]) * k) - 34 - Math.sin(k * Math.PI) * 18; }
+      s += '<g transform="translate(' + x + ' ' + y + ')"><use href="#boatRival" x="-20" y="-28" width="40" height="42"/></g>';
+      s += '<g transform="translate(' + x + ' ' + (y - 36) + ')"><rect x="-44" y="-12" width="88" height="18" rx="9" fill="#2F5D46" stroke="#2B1D14" stroke-width="1.5"/><text x="0" y="1" text-anchor="middle" font-family="Nunito,sans-serif" font-weight="800" font-size="10" fill="#fff">Sethi · ' + (S.day >= sp.arrive ? 'boşaltıyor' : sp.arrive + '. gün') + '</text><g style="color:#fff"><use href="#i-' + sp.g + '" x="30" y="-9" width="12" height="12"/></g></g>';
+    }
+    return s + '</svg>';
+  }
+  /* ---------- the money lender: a locked ledger outside Mennefer, a dial for the amount inside ---------- */
+  const DANGER_DEBT = 3500;
+  function debtGauge(after) {
+    const pct = v => Math.round(100 * Math.min(1, Math.max(0, v) / MAX_DEBT));
+    return '<div class="dg"><i class="dgf" style="width:' + pct(S.debt) + '%"></i>' + (after != null && after < S.debt ? '<i class="dgp" style="left:' + pct(after) + '%;width:' + (pct(S.debt) - pct(after)) + '%"></i>' : '') + '<i class="dgm" style="left:' + pct(DANGER_DEBT) + '%"></i><span class="dgl" style="left:' + pct(DANGER_DEBT) + '%">3.500 · adamları peşine düşer</span><span class="dgr">' + fmt(MAX_DEBT) + '</span></div>';
+  }
+  function showDebt() {
+    const here = S.city === 1, canPay = here && phase === 'port' && !S.over && S.debt > 0 && S.cash > 0;
+    const left = S.days - S.day, max = Math.min(S.cash, S.debt), def = max;
+    let s = '<div class="sh-h"><span class="pt big" id="hapuPt">' + (figURL('hapu', 'neutral', 128) ? '<img class="figp" src="' + figURL('hapu', 'neutral', 128) + '" alt="">' : faceOf('hapu')) + '</span><h2 id="shTitle">Tefeci Hapu<small>' + (here ? 'Mennefer\'deki evinde, hesap defteri açık' : 'Hapu Mennefer\'de oturur · sen ' + esc(CITIES[S.city].loc + ({ a:'sın', ı:'sın', o:'sun', u:'sun', e:'sin', i:'sin', ö:'sün', ü:'sün' }[(CITIES[S.city].loc.match(/[aıoueiöü](?=[^aıoueiöü]*$)/) || ['a'])[0]] || 'sin'))) + '</small></h2>' + xBtn + '</div>';
+    s += '<div class="grid3"><div class="kv"><small>Borç</small><b>' + fmt(S.debt) + '</b></div><div class="kv"><small>Günlük faiz</small><b>%' + String(+(S.rate * 100).toFixed(1)).replace('.', ',') + (S.debt ? ' · ' + fmt(Math.round(S.debt * S.rate)) : '') + '</b></div><div class="kv"><small>Sefer sonunda</small><b>' + fmt(Math.round(S.debt * Math.pow(1 + S.rate, left))) + '</b></div></div>';
+    s += debtGauge(canPay ? S.debt - def : null);
+    if (S.debt > DANGER_DEBT) s += '<p class="warnl">Borcun 3.500\'ün üstünde: Hapu\'nun adamları nehirde peşine düşer.</p>';
+    if (canPay) {
+      s += '<div class="payc"><div class="pamt"><small>Ödenecek</small><b id="payV">' + fmt(def) + '</b><span class="muted" id="paySave"></span></div>' +
+        '<input type="range" id="payR" min="0" max="' + max + '" step="1" value="' + def + '" aria-label="Ödeme tutarı">' +
+        '<div class="chips">' + [[500, '500'], [1000, '1.000'], ['half', 'Yarısı'], ['all', 'Tümü']].map(([q, l]) => '<button type="button" class="chip" data-payq="' + q + '"' + (typeof q === 'number' && q > max ? ' disabled' : '') + '>' + l + '</button>').join('') + '</div>' +
+        '<button class="btn go1 wide" type="button" data-act="payAmt" data-first>Öde</button></div>';
+    } else if (S.debt > 0 && !S.over) {
+      s += '<div class="paylock"><div class="plk">' + ico('i-anchor', 26) + '<b>Ödeme yalnızca Mennefer\'de</b><small>' + (here ? 'Limana çıkınca ödeyebilirsin.' : 'Hapu parayı yalnızca kendi evinde sayar. Mennefer ' + (canGo(S, 1) ? travelDays(S, 1) + ' gün uzakta' : 'bu seferde artık yetişilemez; sefer sonunda kalan borç paranından düşülür') + '.') + '</small></div>' +
+        '<button class="btn" type="button" disabled>Öde</button>' + (!here && canGo(S, 1) && phase === 'port' ? '<button class="btn gold" type="button" data-act="goMennefer">' + ico('i-c-mennefer', 18) + ' Rotayı Mennefer\'e çevir</button>' : '') + '</div>';
+      s += '<div class="nmini">' + nileMini() + '</div>';
+    } else if (!S.debt) s += '<div class="oi good"><span class="oiI">' + ico('i-coin', 20) + '</span><div><b>Borcun yok</b><p>Hapu defterini kapattı. Faiz işlemiyor.</p></div></div>';
+    if (here && phase === 'port' && !S.over) s += '<div class="row"><button class="btn red" type="button" data-act="borrow"' + (S.debt < MAX_DEBT ? '' : ' disabled') + '>500 borç al</button><span class="muted">Sınır ' + fmt(MAX_DEBT) + ' · günlük %' + String(+(S.rate * 100).toFixed(1)).replace('.', ',') + '</span></div>';
+    const cj = contraHtml();
+    if (cj) s += '<h3 class="sh-sec">Kaçak iş</h3>' + cj;
+    else if (S.debt > 0 && !S.contraDone && !S.over && has(S, 'contra')) s += '<p class="muted" style="margin:0">Borcunu tamamen kapatırsan Hapu sana kârlı ama tehlikeli bir iş teklif eder.</p>';
+    else if (!S.debt && !S.contraDone && !S.over && !here && has(S, 'contra')) s += '<p class="muted" style="margin:0">Borcun kapandı. Mennefer\'e uğrarsan Hapu\'nun sana bir teklifi olacak.</p>';
+    openSheet(s, false, 'debt'); figInto($('#hapuPt'), 'hapu', 'neutral', 128);
+    payUpdate();
+  }
+  /* a tiny Nile with Mennefer lit up, for the locked ledger */
+  function nileMini() {
+    const X = [30, 95, 160, 225, 290];
+    let s = '<svg viewBox="0 0 320 54" aria-hidden="true">' + pth('M0 30Q80 18 160 30T320 30', 'none', 'stroke="#2A62A8" stroke-width="10" stroke-linecap="round"');
+    RIVER.map(i => CITIES[i]).forEach((c, i) => { const m = i === 1, here = i === S.city; s += '<circle cx="' + X[i] + '" cy="' + (30 - (i % 2 ? 4 : 0)) + '" r="' + (m ? 13 : 9) + '" fill="' + (m ? '#D9A43A' : here ? '#FBF3DF' : '#E9CFA0') + '" stroke="#2B1D14" stroke-width="2"' + (m ? ' class="mpulse"' : '') + '/>' + (m || here ? '<g style="color:#2B1D14"><use href="#i-c-' + c.id + '" x="' + (X[i] - 7) + '" y="' + (23 - (i % 2 ? 4 : 0)) + '" width="14" height="14"/></g>' : '') + '<text x="' + X[i] + '" y="52" text-anchor="middle" font-family="Nunito,sans-serif" font-weight="800" font-size="8.5" fill="' + (m ? '#8F2F21' : '#5A4632') + '">' + (m ? 'Hapu · ödeme' : here ? 'sen' : '') + '</text>'; });
+    return s + '</svg>';
+  }
+  function payUpdate() {
+    const r = $('#payR'); if (!r || !S) return;
+    const v = +r.value, left = S.days - S.day, save = Math.round(v * (Math.pow(1 + S.rate, left) - 1));
+    const pv = $('#payV'); if (pv) pv.textContent = fmt(v);
+    const ps = $('#paySave'); if (ps) ps.textContent = v ? 'Kalan ' + left + ' günde ' + fmt(save) + ' deben faizden kurtarır' + (v >= S.debt ? ' · borç kapanır' : '') : 'Tutar seç';
+    const g = document.querySelector('#sheet .dg'); if (g) g.outerHTML = debtGauge(S.debt - v);
+    const b = document.querySelector('[data-act="payAmt"]'); if (b) { b.disabled = v <= 0; b.textContent = v >= S.debt ? 'Borcu kapat: ' + fmt(v) + ' deben' : v ? fmt(v) + ' deben öde' : 'Öde'; }
+    document.querySelectorAll('[data-payq]').forEach(c => { const q = c.dataset.payq, want = q === 'all' ? r.max : q === 'half' ? Math.round(+r.max / 2) : +q; c.setAttribute('aria-pressed', +want === v ? 'true' : 'false'); });
+  }
+

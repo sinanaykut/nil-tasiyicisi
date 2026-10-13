@@ -1,0 +1,459 @@
+  /* ================= voyage: a branching route where each stop changes what comes next ================= */
+  const NODES = {
+    calm:       { name:'Sakin su',         ico:'i-sun',     risk:1, gain:1, desc:'Az engel, bol sandık. Tayfa dinlenir: moral ve gövde +1.' },
+    rapids:     { name:'Çağlayan',         ico:'i-bolt',    risk:3, gain:3, desc:'Sık kayalar. Hiç çarpmadan geçersen akıntı yolculuğu 1 gün kısaltır.' },
+    storm:      { name:'Fırtına',          ico:'i-storm',   risk:2, gain:2, desc:'Ustaca geçersen sonraki sahnede +2 kürek; çarpılırsan yelken yırtılır.' },
+    wreck:      { name:'Batık',            ico:'i-anchor',  risk:1, gain:3, desc:'Kancayla dibe dal. Bazen eski bir hazine haritası çıkar.' },
+    night:      { name:'Gece geçişi',      ico:'i-moon',    risk:2, gain:2, desc:'Görünmeden geçersen kaçakçılar seni gizli iskelelerine çağırır; görülürsen Medjay kontrolü bekler.' },
+    market:     { name:'Köy pazarı',       ico:'i-stall',   risk:0, gain:2, desc:'Küçük alışveriş, yelken yaması. Köylüler bazen bir kestirme kanal bilir.' },
+    temple:     { name:'Tapınak',          ico:'i-ankh',    risk:0, gain:1, desc:'Gövdeyi ve yelkeni onar, moral topla ya da kehanetle haritayı aç.' },
+    boatman:    { name:'Kayıkçı',          ico:'i-whisper', risk:0, gain:1, desc:'Varış fiyatlarını ve ilerideki pusu yerlerini anlatır.' },
+    treasure:   { name:'Hazine yeri',      ico:'i-chest',   risk:1, gain:3, desc:'Haritadaki işaret: zengin bir batık.' },
+    canal:      { name:'Eski kanal',       ico:'i-flood',   risk:0, gain:2, desc:'Köylülerin anlattığı kanal: yolculuğu 1 gün kısaltır.' },
+    smugglers:  { name:'Kaçakçı iskelesi', ico:'i-moon',    risk:1, gain:3, desc:'Gizli iskele: malını iyi fiyata sat, ucuz lapis bul.' },
+    checkpoint: { name:'Medjay kontrolü',  ico:'i-scroll',  risk:2, gain:0, desc:'Devriye seni durduruyor: vergi öde ya da gece kaçmayı dene.' },
+    forgers:    { name:'Kalpazan iskelesi', ico:'i-moon',   risk:2, gain:3, desc:'Görev: kalpazanların gizli iskelesi. Fenerlere görünmeden yanaş.' },
+    dunes:      { name:'Kum tepeleri',     ico:'i-sun',     risk:1, gain:1, desc:'Uzun ama sakin yürüyüş. Yolda su tulumu ve sandık bulunur.' },
+    canyon:     { name:'Kayalık geçit',    ico:'i-bolt',    risk:3, gain:3, desc:'Dar vadi, sık kayalar. Hiç tökezlemeden geçersen yol 1 gün kısalır.' },
+    sstorm:     { name:'Kum fırtınası',    ico:'i-storm',   risk:3, gain:2, desc:'Göz gözü görmez. Rüzgârın geldiği yana yüklen; tökezlersen bir tulum patlar.' },
+    oasis:      { name:'Vaha',             ico:'i-water',   risk:0, gain:2, desc:'Hurmalıklar ve kuyu: tulumları doldur, eşekleri dinlendir.' },
+    mirage:     { name:'Serap',            ico:'i-whisper', risk:1, gain:2, desc:'Ufukta bir göl parlıyor. Gerçek mi? Kuyu da olabilir, boşa yürümek de.' },
+    ruin:       { name:'Gömülü tapınak',   ico:'i-temple',  risk:1, gain:3, desc:'Kumların altında unutulmuş bir mabet: ışığı yönlendiren hazineyi bulur.' }
+  };
+  const SCENE_NODES = ['calm', 'rapids', 'storm', 'wreck', 'night', 'treasure', 'forgers', 'dunes', 'canyon', 'sstorm'];
+  const DZ_SCENE = { dunes:'calm', canyon:'rapids', sstorm:'sandstorm' };
+  const RANDOM_NODES = ['calm', 'rapids', 'storm', 'wreck', 'night', 'market', 'temple', 'boatman'];
+  let VG = null;
+  const vRng = seed => { let a = seed | 0; return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; };
+  function makeVoyage(p) {
+    const r = vRng(p.seed ^ 0x5bd1e995), n = Math.max(1, p.days), layers = [];
+    const easy = firstRun() && S.stats.trips === 0;
+    for (let i = 0; i < n; i++) {
+      const pool = p.terrain === 'desert' ? { dunes:2.4, canyon:1.4, sstorm:p.season === 2 ? 2.2 : 1.4, oasis:i > 0 ? 1.4 : 0.5, mirage:1.1, ruin:i > 0 ? 1 : 0.4 } : easy ? (i === 0 ? { calm:1 } : { calm:2, market:1.5, wreck:1 }) : p.rapid ? { rapids:3, storm:1.4, wreck:1 } : { calm:2.4, rapids:2.2, storm:p.season === 0 ? 2.3 : 1.3, wreck:1.4, night:p.contra ? 3 : 1, market:1.3, temple:i > 0 ? 1.2 : 0.6, boatman:1 };
+      const k = easy ? (i === 0 ? 1 : 2) : p.rapid ? 2 : n === 1 ? 3 : (r() < 0.6 ? 3 : 2), opts = [];
+      while (opts.length < k) {
+        const ks = Object.keys(pool).filter(x => !opts.includes(x)); if (!ks.length) break;
+        let q = r() * ks.reduce((a, x) => a + pool[x], 0), pk = ks[0];
+        for (const x of ks) { q -= pool[x]; if (q < 0) { pk = x; break; } }
+        opts.push(pk);
+      }
+      if (!opts.some(x => SCENE_NODES.includes(x))) opts[0] = p.terrain === 'desert' ? ['dunes', 'canyon', 'sstorm'][Math.floor(r() * 3)] : SCENE_NODES[Math.floor(r() * 5)];
+      layers.push(opts.map(t => ({ t, links:[], amb:false, rev:false, fresh:false })));
+    }
+    /* each stop leads to one or two stops of the next day, so a choice commits you to a branch */
+    for (let i = 0; i < n - 1; i++) {
+      const A = layers[i], B = layers[i + 1];
+      A.forEach((nd, j) => { const base = Math.round(j * (B.length - 1) / Math.max(1, A.length - 1)); nd.links = [base]; const nb = base + (r() < 0.5 ? 1 : -1); if (r() < 0.55 && nb >= 0 && nb < B.length) nd.links.push(nb); });
+      B.forEach((_, m) => { if (!A.some(nd => nd.links.includes(m))) { let best = 0, bd = 9; A.forEach((nd, j) => { const d0 = Math.abs(j * (B.length - 1) / Math.max(1, A.length - 1) - m); if (d0 < bd) { bd = d0; best = j; } }); A[best].links.push(m); } });
+      A.forEach(nd => nd.links.sort());
+    }
+    /* an ambush waits on most, but not all, stops of one day; a boatman or a prophecy shows where */
+    if (p.chaser && !easy) { const L = Math.floor(r() * n), safe = Math.floor(r() * layers[L].length); layers[L].forEach((nd, j) => { nd.amb = layers[L].length === 1 || j !== safe; }); }
+    /* the story can put a stop on the map: a wreck holding a lute, the forgers' pier */
+    const qv = easy || p.terrain === 'desert' ? null : qVoyage();
+    if (qv) {
+      const QL = layers[n > 1 ? 1 : 0];
+      let nd = qv === 'dive' ? QL.find(x => x.t === 'wreck') : null;
+      if (!nd) { nd = QL.find(x => !['rapids', 'storm', 'night'].includes(x.t)) || QL[QL.length - 1]; nd.t = qv === 'dive' ? 'wreck' : 'forgers'; }
+      nd.q = true; nd.rev = true;
+    }
+    return { plan:p, layers, layer:0, picks:[], hp:p.hp, maxhp:Math.max(p.hp, p.hpMax || p.hp), extra:0, bonus:0, morale:S.qPerk === 'ba' ? 5 : 3, prophecy:null, torn:false, scout:false, revealAll:easy, easy, shortcut:false, seedN:0, scene:null,
+      chaseDone:!p.chaser, raceDone:!p.rival || p.terrain === 'desert', log:[],
+      acc:{ hits:0, coins:0, crates:0, overboard:0, near:0, nearCoins:0, maxCombo:0, caught:false, escaped:!!p.chaser, beatRival:false, spotted:false, notes:[] } };
+  }
+  const curNode = () => VG.layer > 0 && VG.picks[VG.layer - 1] != null ? VG.layers[VG.layer - 1][VG.picks[VG.layer - 1]] : null;
+  const curPick = () => VG.picks[VG.layer] != null ? VG.layers[VG.layer][VG.picks[VG.layer]] : null;
+  function reachable(i, j) { if (i !== VG.layer) return false; const c = curNode(); return !c || c.links.includes(j); }
+  const visible = (i, nd) => VG.revealAll || nd.rev || i <= VG.layer + 1;
+  const stars = (n, ch) => n ? ch.repeat(n) : '–';
+  function vnote(txt, kind) { VG.log.push(txt); VG.acc.notes.push({ kind:kind || 'info', title:'Yolda', text:txt }); toast(txt); }
+  function setMorale(dv) { const was = VG.morale; VG.morale = Math.max(0, Math.min(5, VG.morale + dv)); if (VG.morale !== was && (VG.morale === 0 || VG.morale === 5)) toast(VG.morale === 5 ? 'Tayfa coşkulu: her sahnede +1 kürek hamlesi.' : 'Tayfa isteksiz: her sahnede 1 kürek hamlesi eksik.'); }
+  const moraleBonus = () => (VG.morale >= 4 ? 1 : 0) - (VG.morale <= 1 ? 1 : 0);
+  /* route surgery used by consequences */
+  function insertNode(li, t) {
+    const L = VG.layers[li]; if (!L) return null;
+    const nd = { t, links:[], amb:false, rev:true, fresh:true }; L.push(nd);
+    const next = VG.layers[li + 1]; if (next) nd.links = next.map((_, m) => m).filter((_, m, a) => m === 0 || m === a.length - 1 || a.length < 3);
+    const m = L.length - 1;
+    if (li === VG.layer + 1) { const c = curPick(); if (c && !c.links.includes(m)) c.links.push(m); }
+    else if (li === VG.layer + 2) { const c = curPick(); (c ? c.links : VG.layers[li - 1].map((_, k) => k)).forEach(k => { const x = VG.layers[li - 1][k]; if (x && !x.links.includes(m)) x.links.push(m); }); }
+    return nd;
+  }
+  function shortcut() {
+    const li = VG.layer + 1; if (li >= VG.layers.length) return false;
+    if (portClosed(S, VG.plan.dest, S.day + VG.plan.days - 1)) return false;
+    const removed = VG.layers.splice(li, 1)[0]; VG.plan.days = Math.max(1, VG.plan.days - 1); VG.shortcut = true;
+    const c = curPick(), nx = VG.layers[li];
+    if (c) c.links = nx ? nx.map((_, m) => m) : [];
+    if (removed.some(nd => nd.amb) && !VG.chaseDone) { VG.chaseDone = true; VG.acc.escaped = true; }
+    return true;
+  }
+  function consequence(t, res) {
+    const L = VG.layer, has = i => !!VG.layers[i];
+    if (t === 'calm') { setMorale(1); if (VG.hp < VG.maxhp) { VG.hp++; vnote('Tayfa sakin suda dinlendi: gövde +1, moral +1.', 'good'); } }
+    if (t === 'dunes') { setMorale(1); if (VG.hp < VG.maxhp) { VG.hp++; vnote('Eşekler serin bir kumulun gölgesinde soluklandı: güç +1.', 'good'); } }
+    if (t === 'canyon') { if (res.hits === 0) { setMorale(1); if (!VG.shortcut && has(L + 1) && shortcut()) vnote('Geçidi tökezlemeden aştın; kestirme bir vadi buldun: yol 1 gün kısaldı!', 'good'); } else if (res.hits >= 2) setMorale(-1); }
+    if (t === 'sstorm') { if (res.hits === 0) { setMorale(1); vnote('Fırtınayı kayıpsız atlattın. Tayfa sana hayran.', 'good'); } else if (S.caravan) { S.caravan.water = Math.max(0, S.caravan.water - 1); setMorale(-1); vnote('Kum fırtınasında bir su tulumu patladı: −1 günlük su.', 'bad'); } }
+    if (t === 'rapids') {
+      if (res.hits === 0) { setMorale(1); if (!VG.shortcut && has(L + 1) && shortcut()) vnote('Hiç çarpmadan geçtin ve akıntıya kapıldın: yolculuk 1 gün kısaldı!', 'good'); }
+      else if (res.hits >= 2) setMorale(-1);
+    }
+    if (t === 'storm') {
+      if (res.coins >= 140) { VG.bonus += 2; setMorale(1); vnote('Rüzgâr arkanda: sonraki sahnede +2 kürek hamlesi.', 'good'); }
+      if (res.hits > 0 && !VG.torn) { VG.torn = true; setMorale(-1); vnote('Yelken yırtıldı: onarılana kadar teknen yavaş. Köy pazarında ya da tapınakta onarılır.', 'bad'); }
+    }
+    if (t === 'wreck' || t === 'treasure') {
+      if (res.coins + res.crates * 150 >= 300) setMorale(1);
+      if (t === 'wreck' && (res.coins >= 150 || res.crates >= 2) && (has(L + 2) || has(L + 1)) && vRng(VG.plan.seed + L * 17)() < 0.6) { insertNode(has(L + 2) ? L + 2 : L + 1, 'treasure'); vnote('Batıktan eski bir harita çıktı: ileride bir hazine yeri işaretli!', 'good'); }
+    }
+    if (t === 'night') {
+      if (!res.spotted) { setMorale(1); if (has(L + 1)) { insertNode(L + 1, 'smugglers'); vnote('Görünmeden geçtin. Kaçakçılar seni gizli iskelelerine davet etti.', 'good'); } }
+      else { setMorale(-1); if (has(L + 1)) { const nd = insertNode(L + 1, 'checkpoint'), c = curPick(); c.links = [VG.layers[L + 1].indexOf(nd)]; vnote('Devriye seni gördü: yarın Medjay kontrolünden geçmek zorundasın.', 'bad'); } }
+    }
+    if (t === 'forgers') { setMorale(res.spotted ? -1 : 1); qForgers(res); }
+    if (t === 'chase') setMorale(res.caught ? -2 : 1);
+    if (t === 'race') setMorale(res.beat ? 1 : 0);
+  }
+  /* ---------- v30: the voyage board — small cel-shaded isometric tiles on a papyrus board ---------- */
+  const VT = (() => {
+    const K = INK, sw = 'stroke="' + K + '" stroke-linejoin="round" stroke-linecap="round"';
+    const P = (d, f, w, extra) => '<path d="' + d + '" fill="' + (f || 'none') + '" ' + sw + ' stroke-width="' + (w == null ? 2 : w) + '"' + (extra || '') + '/>';
+    const F = (d, f, extra) => '<path d="' + d + '" fill="' + f + '"' + (extra || '') + '/>';
+    const TOP = 'M50 18L95 40.5L50 63L5 40.5Z';
+    const base = (top, l, r) => '<ellipse cx="52" cy="70" rx="47" ry="13" fill="rgba(43,29,20,.17)"/>' + P('M5 40.5L50 63V77L5 55Z', l, 2.5) + P('M50 63L95 40.5V55L50 77Z', r, 2.5) + P(TOP, top, 2.5);
+    const earth = '#A97D45', earth2 = '#8A6236', sand = '#E6C98A', sandL = '#D8B46E', sandR = '#B8924E', water = '#4C97B8', nwater = '#2B3F6E', pap = '#EFD9A3';
+    const waves = (c, y) => F('M20 ' + (y || 44) + 'q6-4 12 0t12 0M48 ' + ((y || 44) + 9) + 'q6-4 12 0t12 0', 'none', ' stroke="' + (c || '#CDEAF4') + '" stroke-width="2.2" stroke-linecap="round" opacity=".9"');
+    const reeds = (x, y) => F('M' + x + ' ' + y + 'l-2-14M' + x + ' ' + y + 'l3-13M' + x + ' ' + y + 'l-6-10', 'none', ' stroke="#4E8A46" stroke-width="2" stroke-linecap="round"') + '<circle cx="' + (x - 2) + '" cy="' + (y - 15) + '" r="2.4" fill="#C9A063"/><circle cx="' + (x + 3) + '" cy="' + (y - 14) + '" r="2.2" fill="#C9A063"/>';
+    const palm = (x, y, k) => { k = k || 1; return F('M' + x + ' ' + y + 'V' + (y - 16 * k), 'none', ' stroke="#6E4A2A" stroke-width="' + 3 * k + '" stroke-linecap="round"') + P('M' + x + ' ' + (y - 16 * k) + 'q' + (-11 * k) + ' ' + (-6 * k) + ' ' + (-15 * k) + ' ' + (3 * k) + 'q' + (9 * k) + ' ' + (-2 * k) + ' ' + (15 * k) + ' ' + (2 * k) + 'q' + (6 * k) + ' ' + (-4 * k) + ' ' + (15 * k) + ' ' + (-2 * k) + 'q' + (-4 * k) + ' ' + (-9 * k) + ' ' + (-15 * k) + ' ' + (-3 * k) + 'z', '#4E9A58', 1.6); };
+    const hut = (x, y, w, h, f) => P('M' + x + ' ' + y + 'V' + (y - h) + 'l' + w / 2 + '-7 ' + w / 2 + ' 7V' + y + 'z', f || '#E2B987', 2) + '<rect x="' + (x + w / 2 - 3) + '" y="' + (y - 8) + '" width="6" height="8" fill="' + K + '"/>';
+    const rock = (x, y, k) => { k = k || 1; return P('M' + x + ' ' + y + 'l' + 6 * k + ' ' + (-12 * k) + ' ' + 9 * k + ' ' + (-2 * k) + ' ' + 7 * k + ' ' + 9 * k + ' ' + (-3 * k) + ' ' + 6 * k + 'H' + (x + 2 * k) + 'z', '#8A7A6A', 2) + F('M' + (x + 7 * k) + ' ' + (y - 11 * k) + 'l' + 8 * k + ' ' + (-2 * k) + ' ' + 3 * k + ' ' + 4 * k + 'l' + (-9 * k) + ' ' + 2 * k + 'z', '#B3A595'); };
+    const glow = (x, y, r, c) => '<circle cx="' + x + '" cy="' + y + '" r="' + r + '" fill="' + c + '" opacity=".35"/>';
+    const flag = (x, y, c) => F('M' + x + ' ' + y + 'V' + (y - 18), 'none', ' stroke="' + K + '" stroke-width="2"') + P('M' + x + ' ' + (y - 18) + 'l11 4-11 4z', c || '#B7412E', 1.5);
+    const boat = (x, y, sail) => P('M' + (x - 14) + ' ' + y + 'q14 8 28 0l-3-6H' + (x - 11) + 'z', '#8B5A33', 2) + (sail ? F('M' + x + ' ' + (y - 4) + 'V' + (y - 20), 'none', ' stroke="' + K + '" stroke-width="2"') + P('M' + x + ' ' + (y - 19) + 'q10 7 0 15z', sail, 1.6) : '');
+    const D = {
+      calm: () => base(water, earth, earth2) + waves() + reeds(16, 44) + F('M70 30q3-3 6 0M74 32q3-3 6 0', 'none', ' stroke="' + K + '" stroke-width="1.5"'),
+      rapids: () => base('#3E86A8', earth, earth2) + waves('#E9F6FA', 30) + rock(28, 50, .9) + rock(58, 44, 1.1) + rock(44, 60, .7) + F('M18 48q6-3 12 0M64 56q6-3 12 0', 'none', ' stroke="#fff" stroke-width="2.5" stroke-linecap="round"'),
+      storm: () => base('#3A6F8E', earth, earth2) + waves('#9FC9DA', 46) + P('M26 28q1-11 13-10q4-11 17-6q11-2 13 8q9 2 5 10H30q-6 0-4-2z', '#B9C3DA', 2.2) + F('M34 32l-3 9M46 33l-3 9M62 32l-3 9', 'none', ' stroke="#5A7AA8" stroke-width="2.2" stroke-linecap="round"') + P('M58 24l-8 12h6l-4 11 12-14h-6l4-9z', '#F2C65A', 1.5),
+      wreck: () => base(water, earth, earth2) + waves('#CDEAF4', 50) + F('M44 60L50 24', 'none', ' stroke="' + K + '" stroke-width="3" stroke-linecap="round"') + P('M49 30l15 9-16 3z', '#D9CDB0', 2) + P('M26 52q10 9 34 3l-6-9H30z', '#8B5A33', 2) + F('M30 50h22', 'none', ' stroke="#5E3B20" stroke-width="2"'),
+      night: () => base(nwater, '#6E4A2A', '#4E3420') + waves('#5B78B8', 44) + P('M70 16a9 9 0 1 0 6 15a7 7 0 0 1-6-15z', '#F7E7A6', 1.8) + '<circle cx="26" cy="24" r="1.6" fill="#F7E7A6"/><circle cx="36" cy="18" r="1.3" fill="#F7E7A6"/><circle cx="54" cy="12" r="1.5" fill="#F7E7A6"/>' + glow(40, 46, 9, '#F7C65A') + '<circle cx="40" cy="46" r="3" fill="#F7C65A" stroke="' + K + '" stroke-width="1.5"/>',
+      market: () => base(pap, sandL, sandR) + F('M12 44q16-8 36-4', 'none', ' stroke="#9CBF6E" stroke-width="5" stroke-linecap="round" opacity=".9"') + hut(24, 50, 16, 12) + hut(62, 48, 18, 14) + P('M44 48V36h16v12z', '#fff', 1.8) + F('M44 36h16', 'none', ' stroke="#B7412E" stroke-width="3.5" stroke-dasharray="3.5 3"') + '<rect x="46" y="42" width="5" height="4" fill="#C98A2E"/><rect x="53" y="42" width="5" height="4" fill="#B7412E"/>',
+      temple: () => base(pap, sandL, sandR) + P('M32 52l3-24h30l3 24z', '#E8D4A8', 2) + '<rect x="46" y="38" width="8" height="14" fill="' + K + '"/>' + F('M40 34h20', 'none', ' stroke="' + K + '" stroke-width="1.5"') + flag(36, 30, '#1F5FA8') + flag(64, 30, '#1F5FA8') + palm(16, 50, .7),
+      boatman: () => base(pap, sandL, sandR) + P('M50 63L95 40.5L72.5 29.25L27.5 51.75Z', water, 1.8) + reeds(30, 50) + P('M28 44V34q10-12 20 0v10z', '#C9A063', 2) + F('M30 36l16-2M30 40l16-2', 'none', ' stroke="#8A6236" stroke-width="1.5"') + '<rect x="36" y="38" width="5" height="6" fill="' + K + '"/>' + boat(68, 50) + '<circle cx="68" cy="41" r="3.5" fill="#C98E62" stroke="' + K + '" stroke-width="1.5"/>' + F('M78 36q4-3 8 0', 'none', ' stroke="#CDEAF4" stroke-width="1.8" stroke-linecap="round"'),
+      treasure: () => base(water, earth, earth2) + waves('#CDEAF4', 30) + glow(50, 46, 14, '#F2C65A') + P('M38 50V38h24v12z', '#C98A2E', 2) + F('M38 42h24', 'none', ' stroke="' + K + '" stroke-width="1.8"') + '<rect x="48" y="40" width="4" height="5" fill="#F7E7A6" stroke="' + K + '" stroke-width="1.2"/>' + '<circle cx="30" cy="34" r="1.8" fill="#F7E7A6"/><circle cx="70" cy="36" r="1.5" fill="#F7E7A6"/>',
+      canal: () => base(pap, sandL, sandR) + '<clipPath id="vtc' + (++uid) + '"><path d="' + TOP + '"/></clipPath><g clip-path="url(#vtc' + uid + ')">' + F('M8 47Q50 20 92 43', 'none', ' stroke="' + K + '" stroke-width="13" stroke-linecap="round"') + F('M8 47Q50 20 92 43', 'none', ' stroke="' + water + '" stroke-width="9" stroke-linecap="round"') + '</g>' + reeds(26, 52) + reeds(74, 34) + F('M40 32q5-3 10 0M54 28q5-3 10 0', 'none', ' stroke="#CDEAF4" stroke-width="1.8" stroke-linecap="round"'),
+      smugglers: () => base(nwater, '#6E4A2A', '#4E3420') + waves('#5B78B8', 48) + F('M24 40h32', 'none', ' stroke="#6E4A2A" stroke-width="5" stroke-linecap="round"') + F('M30 40v8M48 40v8', 'none', ' stroke="' + K + '" stroke-width="2.5"') + glow(58, 32, 9, '#F7C65A') + '<rect x="55" y="28" width="6" height="8" rx="1.5" fill="#F7C65A" stroke="' + K + '" stroke-width="1.5"/>' + P('M58 28V22', 'none', 1.5) + boat(72, 54, '#5B4A72'),
+      checkpoint: () => base(water, earth, earth2) + waves('#CDEAF4', 54) + boat(40, 48, '#F1ECE0') + flag(56, 42, '#B7412E') + F('M14 36L86 36', 'none', ' stroke="' + K + '" stroke-width="2" stroke-dasharray="4 4"') + '<rect x="12" y="30" width="4" height="12" fill="#8A6236" stroke="' + K + '" stroke-width="1.5"/><rect x="84" y="30" width="4" height="12" fill="#8A6236" stroke="' + K + '" stroke-width="1.5"/>',
+      forgers: () => base(nwater, '#6E4A2A', '#4E3420') + waves('#5B78B8', 50) + F('M26 42h30', 'none', ' stroke="#6E4A2A" stroke-width="5" stroke-linecap="round"') + F('M32 42v8M50 42v8', 'none', ' stroke="' + K + '" stroke-width="2.5"') + glow(64, 34, 10, '#F0A894') + P('M64 40q-8-6-2-14q0 6 4 6q2-6 6-2q4 6-2 10q-3 2-6 0z', '#F2C65A', 1.5) + F('M62 36q2-4 4-5', 'none', ' stroke="#B7412E" stroke-width="2"'),
+      dunes: () => base(sand, sandL, sandR) + F('M12 44q14-14 30-4t30-8', 'none', ' stroke="' + sandR + '" stroke-width="2.4" stroke-linecap="round"') + F('M22 52q12-8 26-2t26-6', 'none', ' stroke="' + sandR + '" stroke-width="2" stroke-linecap="round" opacity=".7"') + '<circle cx="70" cy="22" r="6" fill="#F2C65A" stroke="' + K + '" stroke-width="1.8"/>' + F('M30 36l2 1M35 34l2 1M40 32l2 1', 'none', ' stroke="' + K + '" stroke-width="2" stroke-linecap="round" opacity=".5"'),
+      canyon: () => base(sand, sandL, sandR) + P('M14 54V30l14-8v28z', earth, 2) + F('M16 36l10-5M16 44l10-5', 'none', ' stroke="' + earth2 + '" stroke-width="1.6"') + P('M86 54V28l-14 6v22z', earth2, 2) + F('M84 36l-10-4M84 44l-10-4', 'none', ' stroke="#6E4A2A" stroke-width="1.6"') + rock(44, 54, .7) + F('M34 58q14-10 28-2', 'none', ' stroke="' + sandR + '" stroke-width="2" stroke-dasharray="3 3"'),
+      sstorm: () => base('#D8B46E', sandL, sandR) + F('M22 46q10-16 26-8t26-6', 'none', ' stroke="#C9A063" stroke-width="5" stroke-linecap="round"') + F('M18 36q12-14 28-4t30-8', 'none', ' stroke="#E6C98A" stroke-width="4" stroke-linecap="round"') + F('M30 56q10-10 24-4t22-6', 'none', ' stroke="#B8924E" stroke-width="3" stroke-linecap="round" opacity=".8"') + '<circle cx="72" cy="20" r="6" fill="#F0A894" opacity=".7"/>',
+      oasis: () => base(sand, sandL, sandR) + '<ellipse cx="46" cy="46" rx="16" ry="7" fill="#5FA8C8" stroke="' + K + '" stroke-width="2"/>' + F('M38 46q4-2 8 0t8 0', 'none', ' stroke="#CDEAF4" stroke-width="1.8" stroke-linecap="round"') + F('M28 40q18-12 36 0', 'none', ' stroke="#9CBF6E" stroke-width="4" stroke-linecap="round"') + palm(66, 44, .9) + palm(30, 40, .75),
+      mirage: () => base(sand, sandL, sandR) + '<ellipse cx="54" cy="42" rx="20" ry="7" fill="#9FD3E8" stroke="' + K + '" stroke-width="1.8" stroke-dasharray="4 3" opacity=".8"/>' + F('M44 42q5-3 10 0t10 0', 'none', ' stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".8"') + palm(70, 36, .6) + '<text x="30" y="40" font-family="Cinzel,serif" font-weight="700" font-size="16" fill="' + K + '" opacity=".75">?</text>' + '<circle cx="24" cy="22" r="6" fill="#F2C65A" stroke="' + K + '" stroke-width="1.8"/>',
+      ruin: () => base(sand, sandL, sandR) + P('M34 52V34h7v18z', '#E8D4A8', 2) + P('M48 52V28h7v24z', '#E8D4A8', 2) + P('M62 52V38h7v14z', '#E8D4A8', 2) + P('M22 54l10-6 6 4-10 6z', '#D9C08A', 1.8) + F('M30 58q10-10 26-4', 'none', ' stroke="' + sandR + '" stroke-width="2.5" stroke-linecap="round"'),
+      fog: () => base('#D8C9A2', '#C4B28A', '#A89670') + '<text x="50" y="52" text-anchor="middle" font-family="Cinzel,serif" font-weight="700" font-size="30" fill="rgba(43,29,20,.55)">?</text>',
+      city: () => base(pap, sandL, sandR) + F('M8 46q20-10 42-4', 'none', ' stroke="#9CBF6E" stroke-width="4" stroke-linecap="round" opacity=".9"') + P('M22 52V34h16v18z', '#E8D4A8', 2) + P('M40 52V26h16v26z', '#F3E2B8', 2) + P('M58 52V36h16v16z', '#E8D4A8', 2) + '<rect x="27" y="40" width="5" height="5" fill="' + K + '"/><rect x="45" y="32" width="6" height="6" fill="' + K + '"/><rect x="45" y="42" width="6" height="10" fill="' + K + '"/><rect x="63" y="42" width="5" height="5" fill="' + K + '"/>' + flag(40, 26, '#D9A43A') + palm(82, 50, .7)
+    };
+    const T = { desert:1, dunes:1, canyon:1, sstorm:1, oasis:1, mirage:1, ruin:1 };
+    return { tile(t, cls) { const f = D[t] || D.calm; return '<svg class="vt ' + (cls || '') + '" viewBox="0 0 100 90" aria-hidden="true">' + f() + '</svg>'; }, desert:t => !!T[t], D };
+  })();
+  /* Sethi's green-and-gold boat, parked on the board when he races this voyage */
+  const sethiMark = () => '<span class="vsethi" title="Sethi de bu yolda"><svg viewBox="0 0 60 44" aria-hidden="true"><path d="M8 32q22 10 44 0l-4-9H12z" fill="#2F5D46" stroke="' + INK + '" stroke-width="2.2" stroke-linejoin="round"/><path d="M30 24V6" stroke="' + INK + '" stroke-width="2.2"/><path d="M30 7q16 9 0 16z" fill="#3E8E5A" stroke="' + INK + '" stroke-width="2"/><path d="M30 7q-9 7 0 16z" fill="#D9A43A" stroke="' + INK + '" stroke-width="2"/><path d="M4 36q6-3 12 0t12 0 12 0 12 0" fill="none" stroke="#4C97B8" stroke-width="2.4" stroke-linecap="round"/></svg><b>Sethi</b></span>';
+  /* the boat we sail, as a clean ink silhouette (or the donkeys in the desert) */
+  function boatSil(dz) {
+    const b = S.boat, k = ++uid;
+    let d;
+    if (dz) d = '<path d="M14 34q1-11 12-11h12q9 0 9 8v3h-4v9h-4v-9H22v9h-4v-9z" fill="#A98463"/><path d="M44 23q2-9 9-9l2 5-5 6z" fill="#A98463"/><path d="M60 34q1-9 9-9h9q7 0 7 6v3h-3v8h-3v-8H70v8h-3v-8z" fill="#8E6C52"/><path d="M83 25q2-7 7-7l2 4-4 5z" fill="#8E6C52"/><path d="M20 23h18v-6H20z" fill="#D9A43A"/>';
+    else {
+      const big = b === 'kadirga' || b === 'mavna', L = big ? 82 : 66, x0 = 48 - L / 2, x1 = 48 + L / 2;
+      d = '<path d="M' + x0 + ' 30Q48 44 ' + x1 + ' 30L' + (x1 - 5) + ' 26H' + (x0 + 5) + 'Z" fill="#8B5A33"/>' + '<path d="M' + (x0 - 4) + ' 22l6 8M' + (x1 + 4) + ' 21l-6 9" stroke="#8B5A33" stroke-width="3" stroke-linecap="round"/>';
+      if (b === 'feluka') d += '<path d="M46 26V3" stroke="#2B1D14" stroke-width="2.4"/><path d="M47 4L74 25H47z" fill="#FBF3DF"/>';
+      else d += '<path d="M48 26V4" stroke="#2B1D14" stroke-width="2.6"/><path d="M' + (big ? 30 : 34) + ' 6h' + (big ? 36 : 28) + 'l-3 16H' + (big ? 33 : 37) + 'z" fill="#FBF3DF"/><path d="M' + (big ? 31 : 35) + ' 10h' + (big ? 34 : 26) + '" stroke="#1F5FA8" stroke-width="2.4"/>';
+      if (b === 'kadirga') for (let i = 0; i < 6; i++) d += '<path d="M' + (28 + i * 8) + ' 32l-5 8" stroke="#6E4425" stroke-width="2" stroke-linecap="round"/>';
+      if (b === 'mavna') d += '<rect x="34" y="20" width="10" height="7" fill="#C9A262"/><rect x="52" y="20" width="10" height="7" fill="#C9A262"/>';
+    }
+    return '<span class="vsil" title="' + esc(dz ? 'Kervan' : boatOf(S).name) + '"><svg viewBox="0 0 96 46" aria-hidden="true"><defs><filter id="vs' + k + '" x="-10%" y="-10%" width="120%" height="130%"><feMorphology operator="dilate" radius="1.4" in="SourceAlpha" result="o"/><feFlood flood-color="#2B1D14"/><feComposite in2="o" operator="in" result="ink"/><feMerge><feMergeNode in="ink"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><ellipse cx="48" cy="40" rx="40" ry="4" fill="rgba(43,29,20,.18)"/><g filter="url(#vs' + k + ')">' + d + '</g></svg><small>' + esc(dz ? S.caravan ? S.caravan.donkeys + ' eşek' : 'Kervan' : boatOf(S).name) + '</small></span>';
+  }
+  function renderVoy() {
+    if (!VG) return;
+    const p = VG.plan, a = VG.acc;
+    let s = '<div class="vhead">' + boatSil(p.terrain === 'desert') + '<b>' + esc(CITIES[p.from].name) + ' → ' + esc(CITIES[p.dest].name) + '</b><span>' + Math.min(VG.layer + 1, VG.layers.length) + '/' + VG.layers.length + '. gün</span>' +
+      '<span class="vmo" title="Tayfa morali: 4 ve üstü her sahnede +1 kürek, 1 ve altı -1">Moral ' + Array.from({ length:5 }, (_, k) => '<i class="' + (k < VG.morale ? 'on' : '') + '"></i>').join('') + '</span>' +
+      (S.caravan ? '<span class="vwat' + (S.caravan.water < VG.layers.length - VG.layer ? ' low' : '') + '" title="Günlük su: her gün bir tulum gider">' + ico('i-water', 16) + S.caravan.water + ' / yol ' + Math.max(0, VG.layers.length - VG.layer) + ' gün' + (S.caravan.water < VG.layers.length - VG.layer ? ' · yetmez!' : '') + '</span>' : '') +
+      (VG.torn ? '<span class="vbad">Yelken yırtık</span>' : '') + (VG.bonus ? '<span class="vgood">+' + VG.bonus + ' kürek</span>' : '') +
+      '<span class="vloot">+' + fmt(a.coins + a.nearCoins) + ' deben · ' + a.crates + ' sandık</span></div>';
+    const dz = p.terrain === 'desert';
+    s += '<div class="vmap' + (dz ? ' dz' : '') + '" id="vmap"><svg class="vlines" id="vlines" aria-hidden="true"></svg>';
+    s += '<div class="vcol end"><div class="vnode city" id="vn-start"><span class="vm">' + VT.tile('city') + '<i class="vci">' + cIco(p.from, 22) + '</i></span><b>' + esc(CITIES[p.from].name) + '</b></div></div>';
+    VG.layers.forEach((opts, i) => {
+      const cls = i === VG.layer ? 'cur' : i < VG.layer ? 'past' : 'next';
+      s += '<div class="vcol ' + cls + '"><small>' + (i + 1) + '. gün</small>' + (p.rival && !VG.raceDone && i === Math.min(VG.layer, VG.layers.length - 1) ? sethiMark() : '') + opts.map((nd, j) => {
+        const vis = visible(i, nd), ok = reachable(i, j), chosen = VG.picks[i] === j, d = NODES[nd.t];
+        const amb = nd.amb && (VG.scout || VG.revealAll) && !VG.chaseDone ? '<span class="vamb" title="Pusu">⚔</span>' : '';
+        if (!vis) return '<button type="button" class="vnode fog" id="vn-' + i + '-' + j + '" disabled data-desc="Sisin ardında ne olduğu belli değil." aria-label="Bilinmeyen durak"><span class="vm">' + VT.tile('fog') + '</span><b>?</b><span class="vst"><em>&nbsp;</em></span></button>';
+        return '<button type="button" class="vnode t-' + nd.t + (chosen ? ' chosen' : '') + (nd.fresh ? ' fresh' : '') + (ok ? '' : ' cut') + '" id="vn-' + i + '-' + j + '" data-vnode="' + i + ':' + j + '"' + (ok ? '' : ' disabled') + ' data-desc="' + esc(d.desc) + '" aria-label="' + esc(d.name + ': ' + d.desc) + '">' +
+          '<span class="vm">' + VT.tile(nd.t) + amb + (nd.q ? '<span class="vq" title="Hikâye görevi">★</span>' : '') + '</span><b>' + esc(d.name) + '</b><span class="vst"><em class="rk">' + stars(d.risk, '⚠') + '</em><em class="gn">' + stars(d.gain, '★') + '</em></span></button>';
+      }).join('') + '</div>';
+    });
+    s += '<div class="vcol end"><div class="vnode city" id="vn-end"><span class="vm">' + VT.tile('city') + '<i class="vci">' + cIco(p.dest, 22) + '</i></span><b>' + esc(CITIES[p.dest].name) + '</b></div></div></div>';
+    const warn = [];
+    if (VG.log.length) warn.push(VG.log[VG.log.length - 1]);
+    else { if (p.rival) warn.push('Sethi de bu yolda: varıştan önce yarışacaksınız.'); if (p.contra) warn.push('Kaçak yük taşıyorsun.'); if (p.bless) warn.push(BLESS[p.bless].name + ' seninle.'); }
+    if (!warn.length) warn.push('Her durak bir sonraki günün yollarını belirler. Sisli duraklar ancak yaklaşınca görünür.');
+    s += '<div class="vfoot"><span id="vdesc">' + esc(warn.join(' ')) + '</span></div>';
+    $('#voy').innerHTML = s;
+    VG.layers.forEach(L => L.forEach(nd => { nd.fresh = false; }));
+    requestAnimationFrame(drawVoyLines);
+    const first = document.querySelector('.vnode[data-vnode]:not(:disabled)'); if (first && !reduce) first.focus({ preventScroll:true });
+    requestAnimationFrame(placeMapTutor);
+  }
+  function placeMapTutor() {
+    const box = $('#tut'); if (!box) return;
+    document.querySelectorAll('.tut-target').forEach(e => e.classList.remove('tut-target'));
+    if (!VG || !VG.easy || meta.tutDone || meta.noHints || $('#voy').hidden || !$('#veil').hidden) { box.hidden = true; return; }
+    const el = document.querySelector('.vnode[data-vnode]:not(:disabled)'); if (!el) { box.hidden = true; return; }
+    const text = VG.layer === 0 ? 'Bu yol haritası. Her gün bir durak seçersin; her durak kısa bir sahne ya da mola. ⚠ risk, ★ ödül demek. Sakin su ile başla.' : 'Dikkat: seçtiğin durak sonraki günün yollarını belirler. Köy pazarı güvenli bir mola, Batık küçük bir hazine avı.';
+    el.classList.add('tut-target');
+    box.innerHTML = '<span class="tn">Harita</span><p>' + esc(text) + '</p><div class="row"><button class="chip" type="button" data-act="noHints">Rehberi kapat</button></div>';
+    box.hidden = false;
+    const r = el.getBoundingClientRect(), bw = box.offsetWidth, bh = box.offsetHeight, sy = window.scrollY, sx = window.scrollX;
+    let top = r.bottom + 12, left = r.left + r.width / 2 - bw / 2, below = true;
+    if (top + bh > window.innerHeight - 8 && r.top - bh - 12 > 8) { top = r.top - bh - 12; below = false; }
+    left = Math.max(8, Math.min(left, window.innerWidth - bw - 8));
+    box.style.top = (top + sy) + 'px'; box.style.left = (left + sx) + 'px'; box.dataset.dir = below ? 'down' : 'up';
+    box.style.setProperty('--ax', Math.max(14, Math.min(bw - 14, r.left + r.width / 2 - left)) + 'px');
+  }
+  function drawVoyLines() {
+    const map = $('#vmap'), svg = $('#vlines'); if (!map || !svg || !VG) return;
+    const mr = map.getBoundingClientRect();
+    svg.setAttribute('viewBox', '0 0 ' + mr.width + ' ' + mr.height); svg.setAttribute('width', mr.width); svg.setAttribute('height', mr.height);
+    const col = window.innerWidth <= 899;
+    const c = el => { const r = el.querySelector('.vm, svg').getBoundingClientRect(); return [r.left + r.width / 2 - mr.left, r.top + r.height * 0.47 - mr.top]; };
+    const seg = (a, b, cls) => { const d = col ? 'M' + a[0] + ' ' + a[1] + ' C' + a[0] + ' ' + (a[1] + b[1]) / 2 + ' ' + b[0] + ' ' + (a[1] + b[1]) / 2 + ' ' + b[0] + ' ' + b[1] : 'M' + a[0] + ' ' + a[1] + ' C' + (a[0] + b[0]) / 2 + ' ' + a[1] + ' ' + (a[0] + b[0]) / 2 + ' ' + b[1] + ' ' + b[0] + ' ' + b[1]; return '<path class="' + cls + ' ru" d="' + d + '"/><path class="' + cls + '" d="' + d + '"/>'; };
+    let d = '';
+    VG.layers.forEach((opts, i) => opts.forEach((nd, j) => {
+      const from = $('#vn-' + i + '-' + j);
+      if (i === 0) d += seg(c($('#vn-start')), c(from), VG.picks[0] === j ? 'done' : VG.layer === 0 ? 'open' : 'faint');
+      if (i === VG.layers.length - 1) d += seg(c(from), c($('#vn-end')), VG.picks[i] === j ? 'done' : 'faint');
+      else nd.links.forEach(m => { const to = $('#vn-' + (i + 1) + '-' + m); if (!to) return; const done = VG.picks[i] === j && VG.picks[i + 1] === m, open = i + 1 === VG.layer && VG.picks[i] === j; d += seg(c(from), c(to), done ? 'done' : open ? 'open' : 'faint'); });
+    }));
+    svg.innerHTML = d;
+    voyBoat(c);
+  }
+  /* our boat (or the donkeys) as a token on the board: it sits on the last stop and glides to the next one */
+  function voyBoat(c) {
+    const map = $('#vmap'); if (!map || !VG) return;
+    const at = VG.layer > 0 && VG.picks[VG.layer - 1] != null ? $('#vn-' + (VG.layer - 1) + '-' + VG.picks[VG.layer - 1]) : $('#vn-start'); if (!at) return;
+    const [x, y] = c(at), dz = VG.plan.terrain === 'desert';
+    let b = $('#vboat');
+    if (!b) { b = document.createElement('span'); b.id = 'vboat'; b.className = 'vboat' + (dz ? ' dz' : ''); b.setAttribute('aria-hidden', 'true');
+      b.innerHTML = dz ? '<svg viewBox="0 0 56 44"><ellipse cx="28" cy="38" rx="20" ry="5" fill="rgba(43,29,20,.25)"/><path d="M12 30q2-12 14-12h10q10 0 10 9v3h-4v8h-4v-8H20v8h-4v-8z" fill="#A98463" stroke="#2B1D14" stroke-width="2.2" stroke-linejoin="round"/><path d="M40 18q2-8 8-8l2 4-4 6z" fill="#A98463" stroke="#2B1D14" stroke-width="2"/><path d="M18 18h18v-6H18z" fill="#D9A43A" stroke="#2B1D14" stroke-width="2"/></svg>'
+        : '<svg viewBox="0 0 56 48"><ellipse cx="28" cy="42" rx="22" ry="5" fill="rgba(43,29,20,.25)"/><path d="M6 32q22 12 44 0l-4-8H10z" fill="#8B5A33" stroke="#2B1D14" stroke-width="2.4" stroke-linejoin="round"/><path d="M28 26V4" stroke="#2B1D14" stroke-width="2.6"/><path d="M28 6q16 8 0 18z" fill="#FBF3DF" stroke="#2B1D14" stroke-width="2.2" stroke-linejoin="round"/><path d="M30 10q7 4 0 9" fill="none" stroke="#B7412E" stroke-width="2.4"/><path d="M28 4l-9 2 9 3z" fill="#B7412E" stroke="#2B1D14" stroke-width="1.4"/></svg>';
+      map.appendChild(b); }
+    const prev = VG.boatXY;
+    if (prev && !reduce && (Math.abs(prev[0] - x) + Math.abs(prev[1] - y) > 2)) { b.style.transition = 'none'; b.style.transform = 'translate(' + prev[0] + 'px,' + prev[1] + 'px)'; void b.offsetWidth; b.style.transition = ''; }
+    requestAnimationFrame(() => { b.style.transform = 'translate(' + x + 'px,' + y + 'px)'; });
+    VG.boatXY = [x, y];
+  }
+  function enterSea() {
+    mkOn = false; document.body.classList.remove('mk-open');
+    phase = 'sea'; sel = null; wakeSet(true); if ($('#tut')) $('#tut').hidden = true;
+    if (plan.days0) plan.days = plan.days0;
+    S.voyageSnap = null; try { S.voyageSnap = JSON.parse(JSON.stringify(S)); } catch (e) { S.voyageSnap = null; }
+    document.body.classList.add('at-sea');
+    GLW.stop(); town3Off(); $('#spots').innerHTML = ''; $('#port').hidden = true; $('#sea').hidden = true;
+    VG = makeVoyage(plan);
+    renderAll(); Snd.mode('sea'); play('sail');
+    if (window.innerWidth <= 860) window.scrollTo(0, 0);
+    showMap();
+  }
+  /* the update runs later when the browser animates it: a voyage skipped in between must not come back */
+  function showMap() { vt(() => { if (!VG || phase !== 'sea') return; heroOverlay(false); $('#sea').hidden = true; $('#voy').hidden = false; document.body.classList.add('on-map'); renderVoy(); renderPanel(); }); }
+  function chooseNode(i, j) {
+    if (!VG || !reachable(i, j) || VG.picks[i] != null) return;
+    VG.picks[i] = j; const nd = VG.layers[i][j];
+    play('click');
+    if (nd.t === 'canal') { vnote(shortcut() ? 'Eski kanaldan süzüldün: yolculuk 1 gün kısaldı.' : 'Kanal sakin ama kısaltmadı: liman o gün kapalı.', 'good'); setMorale(1); afterStop(nd); return; }
+    VG.sceneQ = !!nd.q;
+    if (SCENE_NODES.includes(nd.t)) playScene(DZ_SCENE[nd.t] || (nd.t === 'wreck' || nd.t === 'treasure' ? 'dive' : nd.t === 'forgers' ? 'night' : nd.t), nd.t);
+    else nodeCard(nd.t);
+  }
+  function playScene(kind, nodeT) {
+    const p = VG.plan;
+    const last = VG.layer >= VG.layers.length - 1;
+    const final = kind === 'race' || (last && VG.raceDone && kind !== 'chase');
+    const o = { hp:VG.hp, maxhp:VG.maxhp, rowers:p.rowers, speed:Math.max(0, p.speed - (VG.torn ? 1 : 0)), torn:VG.torn, extra:Math.max(0, (p.extra || 0) + VG.extra + VG.bonus + moraleBonus()),
+      season:p.season, day:S.day + Math.min(VG.layer, VG.layers.length - 1), seed:(p.seed + 7919 * (++VG.seedN)) | 0, dest:p.dest, from:p.from, bless:p.bless, contra:p.contra, chaser:p.chaser, val:p.val, final, rich:nodeT === 'treasure', special:nodeT === 'wreck' && VG.sceneQ && qVoyage() === 'dive' ? 'lute' : null,
+      boat:S.boat, dev:Object.assign({}, S.dev, VG.acc.ramUsed ? { burun:false } : {}), dmg:p.terrain === 'desert' ? 0 : (VG.hp >= VG.maxhp ? 0 : VG.hp / VG.maxhp >= 0.7 ? 1 : VG.hp / VG.maxhp >= 0.4 ? 2 : 3), terrain:p.terrain, donkeys:S.caravan ? S.caravan.donkeys : 0,
+      label:kind === 'race' ? CITIES[p.dest].name + ' önünde' : nodeT === 'forgers' ? 'Kalpazan iskelesi' : (Math.min(VG.layer, VG.layers.length - 1) + 1) + '. gün' };
+    VG.bonus = 0;
+    VG.scene = kind; VG.sceneNode = nodeT || kind; if ($('#tut')) $('#tut').hidden = true;
+    $('#voy').hidden = true; $('#sea').hidden = false; document.body.classList.remove('on-map');
+    o.hero = S.hero; heroOverlay(kind !== 'dive' && kind !== 'race');
+    const info = Sea.play(kind, o, res => { heroOverlay(false); sceneDone(kind, res); });
+    const pb = document.querySelector('[data-pad="B"]'); if (pb) pb.textContent = info.action;
+    if (kind === 'chase') Snd.mode('chase');
+    renderPanel();
+  }
+  function sceneDone(kind, res) {
+    if (!VG) return;
+    const a = VG.acc, nodeT = VG.sceneNode; VG.scene = null;
+    VG.hp = res.hp; a.hits += res.hits; a.coins += res.coins; a.crates += res.crates; a.overboard += res.overboard || 0;
+    if (res.water && S.caravan) { S.caravan.water += res.water; vnote(res.water + ' su tulumu buldun: +' + res.water + ' günlük su.', 'good'); }
+    if (res.ramUsed) a.ramUsed = true;
+    if (res.special === 'lute') { const q = Q(); if (q && q.id === 'ba' && q.step === 1) { q.step = 2; qLog('Batıktan Hesy\'nin udunu çıkardın. Ba kuşu sevinçle ötüyor.'); vnote('Hesy\'nin udu ambarda! Şarkıyı hatırlamak için Vaset\'teki arpçıya git.', 'good'); } } a.near += res.near || 0; a.nearCoins += res.nearCoins || 0; a.maxCombo = Math.max(a.maxCombo, res.maxCombo || 0);
+    if (kind === 'chase') { a.caught = res.caught; a.escaped = !res.caught; VG.inChase = false; Snd.mode('sea'); }
+    if (kind === 'race') a.beatRival = res.beat;
+    if (res.spotted) a.spotted = true;
+    if (res.wreck || VG.hp <= 0) { endVoyage(); return; }
+    consequence(nodeT, res);
+    if (kind === 'chase' || kind === 'race') { advance(); return; }
+    afterStop(curPick());
+  }
+  function afterStop(nd) {
+    if (nd && nd.amb && !VG.chaseDone) { VG.chaseDone = true; VG.inChase = true; toast('Pusu! ' + ({ haydut:'Haydutlar', medjay:'Medjay devriyesi', tefeci:'Tefecinin adamları', djedi:'Djedi\'nin adamları', bedevi:'Çöl akıncıları' }[VG.plan.chaser] || 'Biri') + ' bu durakta seni bekliyordu.'); playScene('chase'); return; }
+    advance();
+  }
+  function advance() {
+    VG.layer++;
+    if (VG.layer >= VG.layers.length) {
+      if (!VG.raceDone) { VG.raceDone = true; toast('Liman göründü. Sethi de yanında: son düzlük!'); playScene('race'); return; }
+      endVoyage(); return;
+    }
+    showMap();
+  }
+  function endVoyage(quick) {
+    const a = VG.acc;
+    const res = { path:VG.picks.map((j, i) => VG.layers[i] && VG.layers[i][j] ? VG.layers[i][j].t : null).filter(Boolean), hp:Math.max(0, VG.hp), hits:a.hits, wreck:VG.hp <= 0, caught:a.caught, escaped:a.escaped && !!VG.plan.chaser, coins:a.coins, crates:a.crates, overboard:a.overboard, prophecy:VG.prophecy, near:a.near, nearCoins:a.nearCoins, maxCombo:a.maxCombo, beatRival:a.beatRival, spotted:a.spotted, notes:a.notes, quick:!!quick, ramUsed:!!a.ramUsed };
+    VG = null; $('#voy').hidden = true; document.body.classList.remove('on-map'); heroOverlay(false);
+    landed(res);
+  }
+  function skipVoyage() {
+    if (!VG) return;
+    Sea.stop();
+    const p = VG.plan, q = quickSea(p), total = VG.layers.length, remain = Math.max(0, total - VG.layer) / total, a = VG.acc;
+    const h = Math.min(VG.hp, Math.round(q.hits * remain)); a.hits += h; VG.hp -= h;
+    if (!VG.chaseDone || VG.inChase) { a.caught = q.caught; a.escaped = !q.caught; VG.inChase = false; }
+    if (!VG.raceDone) a.beatRival = q.beatRival;
+    a.coins += Math.round(q.coins * remain);
+    endVoyage(true);
+  }
+  /* ---------- stops without a scene ---------- */
+  function nodeCard(t) {
+    const p = VG.plan, r = vRng(p.seed + VG.layer * 131 + 7), nd = NODES[t], L = VG.layer;
+    let s = '<div class="sh-h"><span class="vm big t-' + t + '">' + ico(nd.ico, 30) + '</span><h2 id="shTitle">' + esc(nd.name) + '<small>' + (L + 1) + '. gün · ' + esc(CITIES[p.from].name) + ' → ' + esc(CITIES[p.dest].name) + '</small></h2></div>';
+    s += isoStage(t, { ico:nd.ico });
+    const ch = [];
+    const held = GOODS.filter(g => S.inv[g.id].n > 0).sort((a, b) => S.inv[b.id].n * b.base - S.inv[a.id].n * a.base)[0];
+    if (t === 'market' || t === 'smugglers') {
+      const sm = t === 'smugglers';
+      s += '<p class="ntext">' + (sm ? 'Gizli iskele: kimse ad sormuyor, herkes fiyat soruyor.' : 'Köy pazarı: köylüler şehir malına meraklı.') + '</p>';
+      if (held) { const pr = Math.round(S.prices[S.city][held.id] * (sm ? 1.55 : 1.3)), n = Math.min(sm ? 12 : 10, S.inv[held.id].n); ch.push({ label:'Sat: ' + n + ' ' + gName(held.id), ico:'i-' + held.id, gain:2, sub:'Birimi ' + fmt(pr) + ' · toplam ' + fmt(pr * n) + ' deben (şehirden %' + (sm ? 55 : 30) + ' iyi)', run() { loseGoods(S, held.id, n); S.cash += pr * n; return n + ' ' + gName(held.id) + ' için ' + fmt(pr * n) + ' deben aldın.'; } }); }
+      const g2 = sm ? gById('lapis') : GOODS[Math.floor(r() * 5)], pr2 = Math.round(g2.base * (sm ? 0.62 : 0.6)), q2 = Math.max(0, Math.min(sm ? 3 : 6, freeCap(S), Math.floor(S.cash / pr2)));
+      if (q2 > 0) ch.push({ label:'Al: ' + q2 + ' ' + gName(g2.id), ico:'i-' + g2.id, gain:2, sub:'Birimi ' + fmt(pr2) + ' · toplam ' + fmt(pr2 * q2) + ' deben (olağanın %' + (sm ? 38 : 40) + ' altı)', run() { S.cash -= pr2 * q2; S.inv[g2.id].n += q2; S.inv[g2.id].cost += pr2 * q2; return q2 + ' ' + gName(g2.id) + ' ' + fmt(pr2 * q2) + ' debene ambara yüklendi.'; } });
+      if (!sm && VG.torn && S.cash >= 60) ch.push({ label:'Yelkeni yamat', ico:'i-bolt', gain:1, sub:'60 deben · tekne yeniden hızlanır', run() { S.cash -= 60; VG.torn = false; return 'Köyün yelkencisi yırtığı yamadı.'; } });
+      if (!sm) ch.push({ label:'Köylülerle sohbet et', ico:'i-whisper', gain:1, sub:'Belki bir kestirme bilen çıkar', run() { if (VG.layers[L + 1] && !VG.shortcut && r() < 0.4) { insertNode(L + 1, 'canal'); return 'Yaşlı bir çiftçi eski bir sulama kanalını anlattı: haritana eklendi.'; } setMorale(1); return 'Köylüler hurma ikram etti. Tayfa keyiflendi: moral +1.'; } });
+    } else if (t === 'temple') {
+      s += '<p class="ntext">Kıyıda küçük bir Hathor tapınağı.</p>';
+      if (VG.hp < VG.maxhp || VG.torn) ch.push({ label:'Tekneyi onar', ico:'i-heart', gain:2, sub:'Gövde tamamen onarılır' + (VG.torn ? ', yelken dikilir' : ''), run() { VG.hp = VG.maxhp; VG.torn = false; return 'Tapınak marangozları tekneni onardı.'; } });
+      ch.push({ label:'Kürekçiler için dua', ico:'i-ankh', gain:1, sub:'Kalan sahnelerde +1 kürek hamlesi, moral +1', run() { VG.extra++; setMorale(1); return 'Kürekçiler dualarla coştu.'; } });
+      const fogLeft = !VG.revealAll && VG.layers.some((Lr, i) => i > L + 1 && Lr.some(x => !x.rev));
+      if (fogLeft && S.cash >= 80) ch.push({ label:'Kehanet iste', ico:'i-map', gain:2, sub:'80 deben · haritadaki sis kalkar, pusular görünür', run() { S.cash -= 80; VG.revealAll = true; return 'Rahibe gözlerini kapadı ve yolu anlattı: bütün duraklar ve pusular haritada.'; } });
+      else if (!VG.prophecy && S.cash >= 80) { const pg = held || gById('sedir'); ch.push({ label:'Pazar kehaneti', ico:'i-' + pg.id, gain:2, sub:'80 deben · ' + CITIES[p.dest].loc + ' ' + gName(pg.id) + ' aranacak: varınca fiyatı +%45', run() { S.cash -= 80; VG.prophecy = pg.id; return 'Rahibe tütsünün dumanına baktı: "' + CITIES[p.dest].loc + ' herkes ' + gName(pg.id) + ' arayacak." Varınca fiyatı yüzde 45 yukarıda olacak.'; } }); }
+      if (S.cash >= 100 && !S.bless) ch.push({ label:'Bağış yap', ico:'i-sun', gain:1, sub:'100 deben · sonraki yolculuk için kutsama', run() { S.cash -= 100; const k = Object.keys(BLESS)[Math.floor(r() * 3)]; S.bless = k; return BLESS[k].name + ': ' + BLESS[k].desc; } });
+    } else if (t === 'boatman') {
+      const sp = snap(S, p.dest); S.seen[p.dest] = sp; VG.scout = true;
+      for (let k = L + 1; k <= L + 2 && k < VG.layers.length; k++) VG.layers[k].forEach(x => { x.rev = true; });
+      const best = GOODS.slice().sort((a, b) => sp.p[b.id] / b.base - sp.p[a.id] / a.base).slice(0, 2);
+      const ambL = VG.layers.findIndex(Lr => Lr.some(x => x.amb));
+      s += '<p class="ntext">Yaşlı kayıkçı ağını onarırken ' + esc(CITIES[p.dest].name) + ' fiyatlarını sayıyor:</p><div class="newsrow">' + best.map(g => '<span class="nwc up">' + gIco(g.id, 18) + esc(g.short) + ' ' + fmt(sp.p[g.id]) + '</span>').join('') + (ambL > L ? '<span class="nwc down">⚔ ' + (ambL + 1) + '. gün pusu</span>' : '<span class="nwc">✓ sular temiz</span>') + '</div><p class="muted" style="margin:0">Fiyatlar defterine işlendi; ilerideki duraklar ve pusu yerleri haritada.</p>';
+    } else if (t === 'checkpoint') {
+      const toll = Math.round(S.cash * 0.08 + 40);
+      s += '<p class="ntext">Medjay yolu kesmiş: "Vergi ya da arama."</p>';
+      ch.push({ label:'Vergiyi öde', ico:'i-coin', risk:1, sub:fmt(Math.min(S.cash, toll)) + ' deben' + (S.contra ? ' · kaçak sandıklar aranmaz' : ''), run() { const f = Math.min(S.cash, toll); S.cash -= f; return fmt(f) + ' deben ödedin, yol açıldı.'; } });
+      ch.push({ label:'Gece kaçmayı dene', ico:'i-moon', gain:1, risk:2, sub:'Gece geçişi sahnesi: fenerlere yakalanırsan ceza', run() { return '@night'; } });
+    }
+    else if (t === 'oasis') {
+      const K = S.caravan, add = 2;
+      s += '<p class="ntext">Hurmalıkların arasında taş bir kuyu. Eşekler suyu kokladı bile.</p>';
+      ch.push({ label:'Tulumları doldur', ico:'i-water', gain:3, sub:'+' + add + ' günlük su · eşekler dinlenir (güç +1)', run() { if (K) K.water += add; VG.hp = Math.min(VG.maxhp, VG.hp + 1); setMorale(1); return 'Tulumlar doldu: +' + add + ' günlük su.'; } });
+      if (S.inv.hurma) ch.push({ label:'Hurma topla', ico:'i-hurma', gain:1, sub:'Ambarına 6 hurma (yer varsa)', run() { const k = addGoods(S, 'hurma', 6); return k ? k + ' hurma topladın.' : 'Heybelerde yer yoktu.'; } });
+    } else if (t === 'mirage') {
+      const K = S.caravan;
+      s += '<p class="ntext">Ufukta bir göl titriyor. Rehber kaşlarını çattı: "Göller kum üstünde yürümez."</p>';
+      ch.push({ label:'Göle doğru sap', ico:'i-water', gain:2, risk:2, sub:'Ya gerçek bir kuyu (+3 su) ya da boşa yürüyüş (−1 su)', run() { if (r() < 0.45) { if (K) K.water += 3; setMorale(1); return 'Serap değilmiş! Gizli bir kuyu: +3 günlük su.'; } if (K) K.water = Math.max(0, K.water - 1); setMorale(-1); return 'Göl yaklaştıkça kaçtı. Bir günlük su boşa gitti.'; } });
+      ch.push({ label:'Rehberi dinle', ico:'i-whisper', gain:1, sub:'Yoldan sapma: güvenli', run() { setMorale(0); return 'Rehber gülümsedi: "Çöl sabırlı olanı sever."'; } });
+    } else if (t === 'ruin') {
+      s += '<p class="ntext">Rüzgâr kumu süpürmüş: yarısı gömülü bir sütun ve karanlık bir giriş. İçeriden serin bir hava geliyor.</p>';
+      ch.push({ label:'İçeri gir', ico:'i-temple', gain:3, risk:1, sub:'Işığı aynalarla heykele ulaştır: hazine', run() { return '@ruin'; } });
+    }
+    if (t !== 'checkpoint') ch.push({ label:'Yola devam', ico:'i-close', sub:'Bir şey yapmadan geç', run() { return ''; } });
+    s += '<div class="choices neutral">' + ch.map((c, k) => choiceHtml(c, 'data-nchoice="' + k + '"', !k)).join('') + '</div>';
+    nodeChoices = ch; nodeType = t;
+    openSheet(s, true, 'node');
+  }
+  let nodeChoices = null, nodeType = null;
+  function nodeChoose(k) {
+    const c = nodeChoices && nodeChoices[k]; if (!c) return;
+    const txt = c.run(); nodeChoices = null;
+    save(); closeSheet(); renderHud();
+    if (txt === '@night') { playScene('night', 'cpnight'); return; }
+    if (txt === '@ruin') {
+      const lv = 2 + Math.floor(vRng(VG.plan.seed + VG.layer)() * 2);
+      pzTemple({ title:'Gömülü tapınak', sub:'Çölün ortasında, ' + (VG.layer + 1) + '. gün', level:lv, seed:VG.plan.seed + VG.layer * 53, cb:q => {
+        let t2;
+        if (q === 'miss') t2 = 'Işık yolunu bulamadı; kum girişi yeniden örttü.';
+        else { const cash = q === 'perfect' ? 400 : 180, g = q === 'perfect' ? (vRng(VG.plan.seed)() < 0.5 ? 'lapis' : 'tutsu') : null, k = g ? addGoods(S, g, 1) : 0; S.cash += cash; S.stats.temples = (S.stats.temples || 0) + 1; t2 = 'Heykelin kaidesinden ' + fmt(cash) + ' deben' + (k ? ' ve 1 ' + gName(g) : '') + ' çıktı!'; }
+        VG.acc.notes.push({ kind:q === 'miss' ? 'info' : 'good', title:'Gömülü tapınak', text:t2 }); VG.log.push(t2); save(); closeSheet(); renderHud(); toast(t2); play(q === 'miss' ? 'no' : 'fanfare');
+        afterStop(curPick());
+      } });
+      return;
+    }
+    if (txt) { VG.acc.notes.push({ kind:'good', title:NODES[nodeType].name, text:txt }); VG.log.push(txt); play('good'); toast(txt); }
+    if (nodeType === 'temple' || nodeType === 'market') setMorale(nodeType === 'temple' ? 1 : 0);
+    afterStop(curPick());
+  }
+  function landed(res) {
+    const p = plan; if (!p) return;
+    plan = null; S.voyage = null; S.voyageSnap = null; Sea.stop(); VG = null; wakeSet(false); $('#voy').hidden = true; document.body.classList.remove('on-map'); heroOverlay(false);
+    arrive(S, p, res); qArrive(S.last.out);
+    line = pickLine();
+    phase = 'port';
+    Snd.mode('port');
+    vt(() => { if (phase !== 'port') return; document.body.classList.remove('at-sea', 'on-map'); $('#sea').hidden = true; $('#voy').hidden = true; $('#port').hidden = false; save(); lastScene = ''; renderAll(); });
+    const port = $('#port'); port.classList.add('arriveA'); setTimeout(() => port.classList.remove('arriveA'), 1500);
+    play(res.wreck ? 'wreck' : res.caught ? 'bad' : 'arrive');
+    showArrival();
+  }
+  function landDone() {
+    closeSheet();
+    if (guide().step === 'voyage') { guideTo('sell'); placeTutor(); }
+    if (qPort(true)) return;
+    if (heroDesert()) return;
+    if (repairNag()) return;
+    S.hq = S.hq || {};
+    if (!S.hq['c' + S.city]) { S.hq['c' + S.city] = 1; save(); setTimeout(() => { if ($('#veil').hidden && phase === 'port') heroQuip('arrive', { c:CITIES[S.city].name }); }, 500); }
+    if (!CITIES.some((c, i) => canGo(S, i))) toast('Bu son durağın. Malını sat, sonra "Seferi bitir"e bas.');
+  }
+  function endGame() {
+    if (S.over) return;
+    finish(S); const id = addRec(S.result);
+    const newAch = ACH.filter(a => S.result.ach.includes(a.id) && !meta.ach[a.id]);
+    newAch.forEach(a => { meta.ach[a.id] = true; });
+    const rep = S.result.rep + newAch.reduce((a, x) => a + x.rep, 0);
+    meta.rep += rep; meta.runs++; saveMeta();
+    save(); renderAll(); play('fanfare'); showEnd(id, { rep, newAch });
+  }
+  function fresh(mode, hero) {
+    const dk = todayKey(); departing = false; $('#port').classList.remove('depart');
+    Sea.stop(); plan = null; VG = null; phase = 'port'; document.body.classList.remove('at-sea', 'on-map'); $('#sea').hidden = true; $('#voy').hidden = true; $('#port').hidden = false; Snd.mode('port');
+    S = mode === 'daily' ? newGame({ hero, daily:true, dateKey:dk, seed:seedOf('nil10-' + dk), arc:ARCS[Math.abs(seedOf('arc-' + dk)) % ARCS.length] }) : newGame({ hero, perks:Object.assign({}, meta.lv), feat:featFor(meta.runs), arc:featFor(meta.runs).quest ? ARCS[meta.runs % ARCS.length] : null });
+    sel = null; qty = 1; line = pickLine(); lastScene = '';
+    save(); closeSheet(); renderAll();
+    msel = null; hgSide = false; mkOn = false; document.body.classList.remove('mk-open');
+    const g = guide();
+    if (mode !== 'daily' && !g.off && g.step !== 'done' && !g.introDone) { g.introDone = true; saveMeta(); guideIntro(); return; }
+    toast(mode === 'daily' ? 'Günün seferi başladı. Herkes aynı nehirle başlıyor.' : 'Yeni sefer başladı. Mennefer pazarındasın.');
+    if (!showUnlocks()) qPort(true);
+  }
+
+

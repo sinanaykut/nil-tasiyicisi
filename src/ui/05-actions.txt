@@ -1,0 +1,47 @@
+  /* ================= actions ================= */
+  function selectCity(i) {
+    if (phase !== 'port' || !canGo(S, i)) return;
+    if (sheetName !== 'travel') { sel = i; play('click'); showTravel(i); return; }
+    sel = i; play('click'); buzz('pick');
+    if (guide().step === 'city') guideTo('sail');
+    travelUpdate();
+    const b = document.querySelector('#sheet [data-act="go"]'); if (b && !reduce) b.focus({ preventScroll:true });
+  }
+  function trade(kind, gid, btn) {
+    if (phase !== 'port' || S.over) return;
+    const g = gById(gid);
+    let lvUp = 0;
+    if (kind === 'buy') {
+      const r = buy(S, gid, qty);
+      if (!r.n) { play('no'); toast(r.reason === 'cap' ? 'Kervan dolu. Tersanede ambarı büyütebilirsin.' : r.reason === 'stock' ? 'Bu pazarda ' + gName(gid) + ' kalmadı.' : 'Paran yetmiyor.'); return; }
+      play('buy'); floatAt(btn, '+' + r.n + ' ' + gName(gid) + ' · −' + fmt(r.cost), true); flyCrate(btn, gid, '#hold'); lvUp = r.lvUp; pulseCargo(); if (guide().step === 'buy') { guideTo('ship'); if (isPhone()) setTimeout(() => market(false), 900); }
+      if (r.reason === 'stock') toast('Pazarda bu kadar ' + gName(gid) + ' vardı: ' + r.n + ' aldın.');
+      else if (r.n < qty && qty !== Infinity) toast(r.n + ' ' + gName(gid) + ' alabildin.');
+    } else {
+      const r = sell(S, gid, qty);
+      if (!r.n) { play('no'); return; }
+      floatAt(btn, '+' + fmt(r.rev) + (r.profit ? '  (kâr ' + (r.profit > 0 ? '+' : '') + fmt(r.profit) + ')' : ''), r.profit < 0);
+      play(r.profit > 1500 ? 'big' : 'sell'); lvUp = r.lvUp; flyCrate(document.querySelector('#hold'), gid, '.mhd .pt'); if (r.profit > 1500) moodBoost = 2;
+      if (r.profit > 1500 && (S.hq || {}).sale !== S.day) { S.hq = S.hq || {}; S.hq.sale = S.day; setTimeout(() => heroQuip('sale'), 700); }
+      if (r.flip) toast('Bugün buradan aldığın malı ' + esc(MERCHANT_NAMES[S.city]) + ' ancak aldığın fiyata geri alır.');
+      if (r.profit > 1500) line = rpick(['Bu kâr Firavun\'un kulağına gider!', 'Kervancı değil, simyacısın sen.', 'Böyle bir pazarlığı ancak dedem görmüştü.', 'Terazim bile şaşırdı.']);
+    }
+    if (lvUp) { line = pickLine(); trustToast(lvUp, S.city); }
+    if (!S.inv[gid].n && !deals(S.city, gid)) msel = null;
+    save(); renderAll();
+    const again = document.querySelector('[data-' + kind + '="' + gid + '"]:not(:disabled)'); if (again) again.focus({ preventScroll:true });
+  }
+  let departing = false;
+  function go() {
+    if (phase !== 'port' || sel == null || !canGo(S, sel) || S.over) return;
+    if (departing) return;
+    if (['ship', 'city', 'sail'].includes(guide().step)) guideTo('voyage');
+    if (!isRiver(sel) && !S.caravan) { carGo(sel); return; }
+    if (sheetName) closeSheet();
+    if (!isRiver(sel) || !isRiver(S.city)) { plan = seaPlan(S, sel, false); rapid = false; S.voyage = plan; save(); play('sail'); enterSea(); return; }
+    plan = seaPlan(S, sel, rapid); rapid = false; S.voyage = plan; save();
+    $('#spots').innerHTML = ''; $('#hold').classList.add('away');
+    const port = $('#port'), my = plan; port.classList.add('depart'); play('sail'); departing = true;
+    const gb = document.querySelector('[data-act="go"]'); if (gb) gb.disabled = true;
+    setTimeout(() => { port.classList.remove('depart'); $('#hold').classList.remove('away'); if (!departing || plan !== my || !S || S.voyage !== my || phase !== 'port') { departing = false; return; } departing = false; enterSea(); }, reduce ? 0 : 1150);
+  }

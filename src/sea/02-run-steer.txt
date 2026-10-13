@@ -1,0 +1,329 @@
+    /* rowing on the drum beat is worth much more than a wild pull */
+    function raceBoost() {
+      const r = st.race, ph = st.t % r.per, d = Math.min(ph, r.per - ph);
+      if (d < 0.1) { r.combo++; r.onBeat++; st.boostK = RT.pb + Math.min(0.06, (r.combo - 1) * 0.02); st.boostT = 0.85; drumFb(r.combo > 1 ? 'Tam vuruş! x' + r.combo : 'Tam vuruş!', '#F2C65A'); sfx('near'); }
+      else if (d < 0.18) { r.onBeat++; st.boostK = 1 + (RT.pb - 1) * 0.65; st.boostT = 0.75; drumFb('İyi!', '#BFE6EC'); }
+      else { r.combo = 0; r.offBeat++; st.boostK = 1.08; st.boostT = 0.5; drumFb(ph < r.per / 2 ? 'Geç kaldın' : 'Erken!', '#F0A894'); }
+    }
+    /* does an obstacle touch a boat at lane-x x, world y (same shapes as our own collisions) */
+    function touches(o, x, y, br) {
+      if (o.k === 'whirl' || o.k === 'quick') return false;
+      if (o.k === 'hippo' && !(Math.sin(o.ph * 2.2) > -0.1)) return false;
+      const ox = sx(o.u, o.y), oy = sy(o.y), wide = o.k === 'sand' || o.k === 'dune', rr = wide ? o.w * 0.45 : o.k === 'log' ? o.len * 0.45 : o.r;
+      const dx = x - ox, dy = (sy(y) - 8) - oy, d2 = o.k === 'log' || wide ? Math.hypot(dx / (rr / o.r), dy) : Math.hypot(dx, dy);
+      return d2 < o.r + br;
+    }
+    /* Sethi picks the cheapest lane: clear water, a current, our draft; never our wake or our hull */
+    function sethiLane(rv) {
+      const hw = halfW(), look = RT.look, g = st.dist - rv.y; let best = rv.u, bc = 1e9;
+      for (let k = -8; k <= 8; k++) {
+        const L = k / 10; let c = Math.abs(L - rv.u) * 0.5 + Math.max(0, Math.abs(L) - 0.74) * 5 + Math.abs(L - rv.lane) * 0.12;
+        for (const o of st.obs) {
+          const a = o.y - rv.y; if (a < -24 || a > look || o.k === 'whirl' || (o.miss && a > 64)) continue;
+          let ou = o.u + (o.vu || 0) * Math.max(0, a) / Math.max(120, rv.v); if (Math.abs(ou) > 0.85) ou = Math.sign(ou) * 1.7 - ou;
+          const half = ((o.k === 'log' ? o.len * 0.5 : o.k === 'sand' ? o.w * 0.5 : o.r) + 24) / hw, d = Math.abs(L - ou);
+          if (d < half) c += 2 + 4 * (1 - d / half) * (1 - Math.max(0, a) / (look + 80));
+        }
+        for (const sm of st.streams) { const a = sm.y - rv.y; if (a > 320 || a < -sm.len + 40) continue; if (Math.abs(L - sm.u) < 0.12) c -= 0.9; }
+        if (g > 20 && g < 200) { const d = Math.abs(L - st.u) * hw; if (d < 24) c += 1.2; else if (d < 56) c -= 0.5; }
+        if (Math.abs(g) < 70 && Math.abs(L - st.u) * hw < 32) c += 2.2;
+        if (c < bc) { bc = c; best = L; }
+      }
+      return best;
+    }
+    function raceStep(dt, bx) {
+      const r = st.race, rv = st.rival, hw = halfW();
+      const bi = Math.floor(st.t / r.per), newBeat = bi !== r.lastBeat;
+      if (newBeat) { r.lastBeat = bi; if (r.tP == null) drumSnd(bi % 4 === 0); }
+      if (r.fbT > 0) r.fbT -= dt; if (r.flashT > 0) r.flashT -= dt; if (r.bump > 0) r.bump -= dt;
+      /* steering */
+      rv.plan -= dt;
+      if (r.tS != null) rv.tu = rv.park; else if (rv.plan <= 0) { rv.plan = 0.12; rv.tu = sethiLane(rv); }
+      const tg = Math.max(-1.5, Math.min(1.5, (rv.tu - rv.u) * 4));
+      rv.vu += (tg - rv.vu) * Math.min(1, dt * 5); rv.u += rv.vu * dt * 0.62;
+      if (Math.abs(rv.u) > 0.92) { rv.u = Math.sign(rv.u) * 0.92; rv.vu *= -0.3; }
+      /* Sethi's strokes: a strong start, a push when he is behind, and a sprint at the end, always on the beat */
+      if (rv.boostT > 0) rv.boostT -= dt; if (rv.slowT > 0) rv.slowT -= dt; if (rv.inv > 0) rv.inv -= dt;
+      rv.rech += dt; if (rv.charges < 3 && rv.rech > RT.rech) { rv.rech = 0; rv.charges++; }
+      const prog = rv.y / r.finY;
+      const gapP = rv.y - st.dist, left = r.finY - rv.y;
+      if (newBeat && r.tS == null && rv.charges > 0 && rv.boostT <= 0 && (bi === 1 || (gapP < -130 && R() < 0.35) || (left < r.finY * 0.25 && gapP < 150 && R() < 0.8) || (rv.charges > 2 && R() < 0.06))) {
+        rv.charges--; rv.boostT = 0.9; rv.boosts++;
+        if (left < r.finY * 0.28 && !r.toldS) { r.toldS = true; flash('Sethi son gücüyle asılıyor!'); }
+      }
+      /* wake and draft, both ways */
+      const lat = Math.abs(st.u - rv.u) * hw, run = r.tP == null && r.tS == null;
+      r.wake = run && gapP > 28 && gapP < 175 && lat < 22;
+      r.draft = run && !r.wake && gapP > 20 && gapP < 150 && lat < 58;
+      rv.wake = run && -gapP > 28 && -gapP < 175 && lat < 22;
+      rv.draft = run && !rv.wake && -gapP > 20 && -gapP < 150 && lat < 58;
+      if (r.wake) { r.wakeT += dt; if (!r.toldW) { r.toldW = true; flash('Sethi\'nin dalgası! Biraz yana kay'); } }
+      if (r.draft) { r.draftT += dt; if (!r.toldD) { r.toldD = true; flash('Rüzgâr gölgesi: hızlandın!'); } }
+      /* Sethi's speed */
+      let v = rv.base * (1 + Math.min(0.4, st.t / 40) * 0.25);
+      /* he never lets it get boring: a pull when he is behind (fading in the last fifth), an easier oar when far ahead */
+      if (RT.rubber) { const f = prog < 0.8 ? 1 : Math.max(0.25, (1 - prog) / 0.2); if (gapP < -100) v *= 1 + Math.min(RT.rb, (-gapP - 100) / 1500) * f; else if (gapP > 130) v *= 1 - Math.min(RT.ra, (gapP - 130) / 900); }
+      if (rv.boostT > 0) v *= RT.sb;
+      rv.inStream = st.streams.some(sm => rv.y > sm.y && rv.y < sm.y + sm.len && Math.abs(rv.u - sm.u) < 0.16); if (rv.inStream) v *= RT.sm;
+      if (rv.slowT > 0) v *= 0.6; if (rv.stall > 0) v *= 0.4; if (rv.wake) v *= 0.84; else if (rv.draft) v *= 1.1;
+      if (r.tS != null) v = rv.base * 0.12;
+      rv.v += (v - rv.v) * Math.min(1, dt * 4); rv.y += rv.v * dt; rv.row += dt * (rv.boostT > 0 ? 14 : 7);
+      rv.trail.push({ x:sx(rv.u, rv.y), y:rv.y }); if (rv.trail.length > 46) rv.trail.shift();
+      /* Sethi can misjudge a rock too, and once in a while an oar snaps */
+      const rx = sx(rv.u, rv.y), ry = sy(rv.y);
+      if (rv.stall > 0) rv.stall -= dt;
+      if (rv.blunder && prog >= rv.blunder && r.tS == null) { rv.blunder = 0; rv.stall = 2; rv.boostT = 0; flash('Sethi\'nin küreği kırıldı!'); sfx('lash'); for (let k = 0; k < 12; k++) st.parts.push({ x:rx, y:ry, vx:rnd(-120, 120), vy:rnd(-120, 40), life:.7, max:.7, c:k % 2 ? C.wood : '#C9955A', r:rnd(2, 4) }); }
+      if (rv.inv <= 0) for (const o of st.obs) if (touches(o, rx, rv.y, 14)) {
+        rv.inv = 1.1; rv.slowT = 0.65; rv.hits++; rv.vu += (rv.u > o.u ? 1 : -1) * 0.8;
+        for (let k = 0; k < 14; k++) st.parts.push({ x:rx, y:ry, vx:rnd(-150, 150), vy:rnd(-150, 50), life:.6, max:.6, c:k % 3 ? C.foam : '#BFE3C2', r:rnd(2, 4.5) });
+        if (ry > 40 && ry < H - 20) floatText(rx, ry - 50, 'Sethi çarptı!', '#F2C65A'); else flash('Sethi kayaya sürttü!');
+        sfx('splash'); break;
+      }
+      /* hull against hull */
+      if (run && Math.abs(gapP) < 54 && lat < 28 && r.bump <= 0) {
+        const sd = st.u >= rv.u ? 1 : -1; st.vu += sd * 1.4; rv.vu -= sd * 1.4; st.slowT = Math.max(st.slowT, 0.25); rv.slowT = Math.max(rv.slowT, 0.25);
+        r.bump = 1; st.shake = 0.15; sfx('hit'); flash('Bordalar çarpıştı!');
+      }
+      /* lead changes (with a little hysteresis so it does not flicker) */
+      if (Math.abs(gapP) > 20) { const lead = gapP > 0 ? -1 : 1; if (r.lead && lead !== r.lead && run && st.t > 2) { r.swaps++; flash(lead > 0 ? 'Sethi\'yi geçtin!' : 'Sethi öne geçti!'); } r.lead = lead; }
+      if (!r.toldEnd && r.finY - st.dist < r.finY * 0.2) { r.toldEnd = true; if (!r.toldS) flash('Son düzlük! Kalabalık bekliyor'); }
+      /* the line */
+      if (r.tP == null && st.dist >= r.finY) { r.tP = st.t - (st.dist - r.finY) / Math.max(60, st.v); r.park = st.u >= rv.u ? 0.62 : -0.62; st.boostT = 0; if (r.tS == null) r.flashT = 0.3; }
+      if (r.tS == null && rv.y >= r.finY) { r.tS = st.t - (rv.y - r.finY) / Math.max(60, rv.v); rv.park = rv.u > st.u ? 0.62 : -0.62; rv.boostT = 0; if (r.tP == null) r.flashT = 0.3; }
+      /* a close finish plays in slow motion */
+      const near = r.finY - Math.min(st.dist, rv.y);
+      if (!r.slowUsed && run && near > 0 && near < 190 && Math.abs(gapP) < 80) { r.slow = true; r.slowUsed = true; }
+      if (r.slow && ((r.tP != null && r.tS != null) || Math.abs(gapP) > 150)) r.slow = false;
+      if (r.phase === 'run' && (r.tP != null || r.tS != null)) {
+        const first = Math.min(r.tP == null ? 1e9 : r.tP, r.tS == null ? 1e9 : r.tS);
+        if ((r.tP != null && r.tS != null) || st.t - first > 1.6) raceResult();
+      }
+      if (r.phase === 'fin') {
+        r.fin += dt;
+        r.conf.forEach(p => { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 60 * dt; p.a += p.va * dt; }); r.conf = r.conf.filter(p => p.y < H + 20);
+        if (r.fin > 3.0) finish();
+      }
+    }
+    function raceResult() {
+      const r = st.race, rv = st.rival, est = (y, v) => st.t + (r.finY - y) / Math.max(st.base, v);
+      const tP = r.tP != null ? r.tP : est(st.dist, st.v), tS = r.tS != null ? r.tS : est(rv.y, rv.v);
+      const vAvg = r.finY / Math.max(1, Math.min(tP, tS));
+      r.margin = (tS - tP) * vAvg / BOY; r.photo = Math.abs(r.margin) < 0.6; st.beat = tP <= tS;
+      r.phase = 'fin'; r.fin = 0; r.slow = false; r.flashT = Math.max(r.flashT, 0.35);
+      sfx(st.beat ? 'fanfare' : 'bad');
+      if (st.beat) for (let k = 0; k < 70; k++) r.conf.push({ x:rnd(0, W), y:rnd(-H * 0.5, -10), vx:rnd(-30, 30), vy:rnd(60, 160), a:R() * 6, va:rnd(-6, 6), c:[C.gold, C.red, C.lapis, '#2BA59A', C.white][k % 5], s:rnd(4, 8) });
+    }
+
+    /* ---------- drawing: a tomb painting seen from above ---------- */
+    function outline(fill, w) { cx.fillStyle = fill; cx.fill(); cx.lineWidth = w || 2; cx.strokeStyle = C.ink; cx.stroke(); }
+    function riverPath(off) {
+      const hw = halfW() + off, top = st.dist + boatY() + 40, bot = st.dist + boatY() - H - 40;
+      cx.beginPath();
+      for (let y = bot; y <= top; y += 16) cx.lineTo(centerX(y) - hw, sy(y));
+      for (let y = top; y >= bot; y -= 16) cx.lineTo(centerX(y) + hw, sy(y));
+      cx.closePath();
+    }
+    function drawFields() {
+      const seg = 190, top = st.dist + boatY() + seg, bot = st.dist + boatY() - H - seg, s0 = Math.floor(bot / seg) * seg, hw = halfW();
+      for (let y = s0; y <= top; y += seg) {
+        [-1, 1].forEach(side => {
+          const h = hash(y * 0.37 + side * 11 + st.seedDeco);
+          if (h > 0.72) return;
+          const c = centerX(y), inner = c + side * (hw + 70 + h * 40), outer = side < 0 ? -20 : W + 20;
+          const x0 = Math.min(inner, outer), x1 = Math.max(inner, outer), yy = sy(y), fh = seg * (0.62 + h * 0.3);
+          if (x1 - x0 < 30) return;
+          cx.beginPath(); cx.rect(x0, yy - fh, x1 - x0, fh); outline(P.field, 2);
+          cx.strokeStyle = P.furrow; cx.lineWidth = 2;
+          cx.beginPath();
+          if (h < 0.36) for (let fy = yy - fh + 8; fy < yy - 4; fy += 9) { cx.moveTo(x0 + 4, fy); cx.lineTo(x1 - 4, fy); }
+          else for (let fx = x0 + 8; fx < x1 - 4; fx += 10) { cx.moveTo(fx, yy - fh + 4); cx.lineTo(fx, yy - 4); }
+          cx.stroke();
+          cx.strokeStyle = P.fieldEdge; cx.lineWidth = 3; cx.beginPath(); cx.moveTo(x0, yy - fh); cx.lineTo(x1, yy - fh); cx.stroke();
+        });
+      }
+    }
+    function drawRiver() {
+      cx.fillStyle = P.bank; cx.fillRect(0, 0, W, H);
+      cx.fillStyle = P.bank2;
+      for (let k = 0; k < 18; k++) { const y = ((k * 97 + st.dist * 1) % (H + 60)) - 30, x = hash(k * 3.1) * W; cx.beginPath(); cx.ellipse(x, y, 16 + hash(k) * 30, 4, 0, 0, Math.PI * 2); cx.fill(); }
+      drawFields();
+      riverPath(26); cx.fillStyle = 'rgba(90,70,40,.16)'; cx.fill();
+      riverPath(16); cx.fillStyle = mixC(P.bank, '#FFFFFF', 0.25); cx.fill(); cx.lineWidth = 2; cx.strokeStyle = C.ink; cx.stroke();
+      riverPath(10); cx.fillStyle = P.edge; cx.fill(); cx.lineWidth = 2.5; cx.strokeStyle = C.ink; cx.stroke();
+      riverPath(0); cx.fillStyle = P.deep; cx.fill();
+      riverPath(-14); cx.fillStyle = P.water; cx.fill();
+      /* sheen in the middle of the current */
+      const top = st.dist + boatY() + 30, bot = st.dist + boatY() - H - 30;
+      cx.fillStyle = P.sheen;
+      cx.beginPath();
+      for (let y = bot; y <= top; y += 16) cx.lineTo(centerX(y) - halfW() * 0.32 + Math.sin(y * 0.01) * 10, sy(y));
+      for (let y = top; y >= bot; y -= 16) cx.lineTo(centerX(y) + halfW() * 0.32 + Math.sin(y * 0.012) * 10, sy(y));
+      cx.closePath(); cx.fill();
+      /* painted zigzag water, drifting slowly with the current */
+      /* v30: the harbour's painted zigzags: a dark under-stroke and a pale crest, chunky like the 3D water */
+      const hw = halfW(), row = 38, y0 = Math.floor(bot / row) * row, drift = (st.t * 18) % 24;
+      for (let pass = 0; pass < 2; pass++) {
+        cx.strokeStyle = pass ? 'rgba(232,246,250,.6)' : 'rgba(16,48,92,.35)'; cx.lineWidth = pass ? 2.6 : 3.2; cx.lineJoin = 'miter';
+        for (let y = y0; y <= top + row; y += row) {
+          const c = centerX(y), off = ((y / row) % 2 ? 12 : 0) + drift, yy = sy(y) + (pass ? 0 : 2.5);
+          cx.beginPath();
+          for (let x = c - hw + 18 + off, k = 0; x < c + hw - 18; x += 12, k++) cx.lineTo(x, yy + (k % 2 ? -5 : 5));
+          cx.stroke();
+        }
+      }
+      cx.lineJoin = 'round';
+      /* sun glints dancing on the current */
+      for (let k = 0; k < 26; k++) {
+        const yy = ((hash(k * 5.7) * (H + 80)) + st.dist * 0.15) % (H + 80) - 40, wy = st.dist + boatY() - yy, c = centerX(wy), x = c + (hash(k * 9.1) * 2 - 1) * hw * 0.85, a = Math.max(0, Math.sin(st.t * 2.4 + k * 1.7));
+        if (a < 0.2) continue;
+        cx.strokeStyle = 'rgba(255,250,225,' + (a * 0.7).toFixed(2) + ')'; cx.lineWidth = 1.6; cx.beginPath(); cx.moveTo(x - 5 * a, yy); cx.lineTo(x + 5 * a, yy); cx.moveTo(x, yy - 3 * a); cx.lineTo(x, yy + 3 * a); cx.stroke();
+      }
+      /* foam along the banks */
+      cx.strokeStyle = C.foam; cx.lineWidth = 2.2; cx.setLineDash([10, 14]); cx.lineDashOffset = -st.dist * 0.5;
+      [-1, 1].forEach(side => { cx.beginPath(); for (let y = bot; y <= top; y += 16) cx.lineTo(centerX(y) + side * (hw - 6), sy(y)); cx.stroke(); });
+      cx.setLineDash([]);
+      /* floating lotus pads near the banks */
+      const ls = 120, l0 = Math.floor(bot / ls) * ls;
+      for (let y = l0; y <= top; y += ls) {
+        const h = hash(y * 0.21 + st.seedDeco); if (h > 0.55) continue;
+        const side = h < 0.27 ? -1 : 1, x = centerX(y) + side * (hw - 26 - h * 30), yy = sy(y);
+        cx.beginPath(); cx.arc(x, yy, 9, 0.3, Math.PI * 2 - 0.1); cx.lineTo(x, yy); cx.closePath(); outline('#5FA05A', 1.4);
+        if (h < 0.15) { cx.beginPath(); cx.arc(x + 12, yy - 6, 4.5, 0, Math.PI * 2); outline('#F2A7B8', 1.2); }
+        cx.beginPath(); cx.arc(x - 14, yy + 8, 6, 0.6, Math.PI * 2 + 0.3); cx.lineTo(x - 14, yy + 8); cx.closePath(); outline('#4F8E4C', 1.2);
+      }
+      /* bank life */
+      const seg = 64, s0 = Math.floor(bot / seg) * seg;
+      for (let y = s0; y <= top + seg; y += seg) {
+        const c = centerX(y), yy = sy(y);
+        [-1, 1].forEach(side => {
+          const h = hash(y * 0.113 + side * 7 + st.seedDeco), h2 = hash(y * 0.71 + side * 3);
+          const bx = c + side * (hw + 22 + h2 * 22);
+          if (h < 0.3) papyrus(bx, yy, 0.8 + h2 * 0.6);
+          else if (h < 0.48) palm(bx + side * 14, yy, 0.9 + h2 * 0.4);
+          else if (h < 0.58) village(bx + side * 46, yy, side);
+          else if (h < 0.62) obelisk(bx + side * 40, yy);
+          else if (h < 0.65) pylon(bx + side * 70, yy);
+          else if (h < 0.7) camel(bx + side * 34, yy, side);
+          else if (h < 0.75) shaduf(bx + side * 6, yy, side);
+          else if (h < 0.79) people(bx + side * 20, yy, side);
+          else if (h < 0.83) cattle(bx + side * 44, yy, side);
+        });
+      }
+    }
+    function papyrus(x, y, s) {
+      cx.strokeStyle = C.papyrus2; cx.lineWidth = 2;
+      for (let k = -2; k <= 2; k++) {
+        const sway = Math.sin(st.t * 1.6 + x * 0.05 + k) * 1.6;
+        const tx = x + k * 6 * s + sway, ty = y - 26 * s + Math.abs(k) * 3;
+        cx.beginPath(); cx.moveTo(x + k * 2, y); cx.lineTo(tx, ty); cx.stroke();
+        cx.beginPath(); cx.moveTo(tx, ty); cx.lineTo(tx - 6 * s, ty - 9 * s); cx.lineTo(tx + 6 * s, ty - 9 * s); cx.closePath(); outline(C.umbel, 1.4);
+      }
+    }
+    /* v30: a town palm: ringed brown trunk, flat blade fronds in two greens, ink edges */
+    function palm(x, y, s) {
+      cx.beginPath(); cx.ellipse(x + 10 * s, y + 2, 18 * s, 5 * s, 0, 0, Math.PI * 2); cx.fillStyle = 'rgba(60,30,10,.16)'; cx.fill();
+      const tx = x + 3 * s, ty = y - 44 * s, sw = Math.sin(st.t * 1.2 + x) * 0.05;
+      cx.beginPath(); cx.moveTo(x - 3 * s, y); cx.quadraticCurveTo(x + 4 * s, y - 22 * s, tx - 2.4 * s, ty); cx.lineTo(tx + 2.4 * s, ty); cx.quadraticCurveTo(x + 8 * s, y - 22 * s, x + 3 * s, y); cx.closePath(); outline('#87573A', 1.5);
+      cx.strokeStyle = '#5E3A24'; cx.lineWidth = 1.1; cx.beginPath(); for (let k = 1; k < 6; k++) { const f = k / 6, yy = y - 44 * s * f, xx = x + (tx - x) * f * f + 4 * s * Math.sin(f * Math.PI) * 0.6; cx.moveTo(xx - 3 * s, yy + 1); cx.lineTo(xx + 3 * s, yy - 1); } cx.stroke();
+      for (let k = 0; k < 7; k++) {
+        const a = -Math.PI / 2 + (k - 3) * 0.62 + sw, len = (k === 3 ? 20 : 26) * s, ex = tx + Math.cos(a) * len, ey = ty + Math.sin(a) * len * 0.62 + (Math.abs(k - 3) > 1 ? 9 * s : 0), nx = -Math.sin(a) * 4.5 * s, ny = Math.cos(a) * 3 * s;
+        cx.beginPath(); cx.moveTo(tx, ty); cx.lineTo((tx + ex) / 2 + nx, (ty + ey) / 2 + ny - 2 * s); cx.lineTo(ex, ey); cx.lineTo((tx + ex) / 2 - nx * 0.4, (ty + ey) / 2 - ny * 0.4); cx.closePath(); outline(k % 2 ? '#2F6B45' : '#3F8A55', 1.2);
+      }
+      cx.fillStyle = '#6A3E22'; cx.beginPath(); cx.arc(tx - 2 * s, ty + 3 * s, 2.2 * s, 0, Math.PI * 2); cx.arc(tx + 2.5 * s, ty + 3.5 * s, 2.2 * s, 0, Math.PI * 2); cx.fill();
+    }
+    /* v30: an iso mud-brick house like the towns: lit front, shaded side, flat roof with red studs, lapis band */
+    function house(x, y, w, h, col) {
+      const d = w * 0.42, dy = d * 0.5, L = x - w / 2, Rr = x + w / 2;
+      cx.beginPath(); cx.moveTo(Rr, y); cx.lineTo(Rr + d, y - dy); cx.lineTo(Rr + d, y - dy - h); cx.lineTo(Rr, y - h); cx.closePath(); outline('#D2B386', 1.6);
+      cx.beginPath(); cx.rect(L, y - h, w, h); outline(col === '#E6CB95' || col === '#DCBB82' ? '#EBD3A4' : '#F1DFB8', 1.8);
+      cx.beginPath(); cx.moveTo(L - 1, y - h); cx.lineTo(Rr + 1, y - h); cx.lineTo(Rr + d + 1, y - h - dy); cx.lineTo(L + d - 1, y - h - dy); cx.closePath(); outline('#F7E8C8', 1.6);
+      cx.fillStyle = C.lapis; cx.fillRect(L + 1, y - h + 3, w - 2, 2.4);
+      cx.fillStyle = C.red; cx.fillRect(L, y - h, 3, h); cx.fillRect(Rr - 3, y - h, 3, h); cx.fillRect(L - 1, y - h - 3, 3, 3); cx.fillRect(Rr - 2, y - h - 3, 3, 3); cx.fillRect(Rr + d - 2, y - h - dy - 3, 3, 3);
+      cx.beginPath(); cx.moveTo(x - 3.5, y); cx.lineTo(x - 3.5, y - 8); cx.arc(x, y - 8, 3.5, Math.PI, 0); cx.lineTo(x + 3.5, y); cx.closePath(); outline('#3A2A22', 1.1);
+      if (w > 22) { cx.beginPath(); cx.moveTo(Rr + d * 0.3, y - h * 0.45); cx.lineTo(Rr + d * 0.3, y - h * 0.7 - 2); cx.lineTo(Rr + d * 0.65, y - h * 0.7 - 3.5); cx.lineTo(Rr + d * 0.65, y - h * 0.45 - 1.5); cx.closePath(); cx.fillStyle = '#3A2A22'; cx.fill(); }
+    }
+    function village(x, y, side) {
+      house(x, y, 30, 22, '#E6CB95'); house(x + side * 30, y - 10, 24, 18, '#DCBB82'); house(x - side * 6, y - 26, 20, 14, '#EAD3A4');
+      cx.beginPath(); cx.arc(x + side * 22, y + 6, 6, 0, Math.PI * 2); outline('#B7412E', 1.4);
+    }
+    function obelisk(x, y) {
+      cx.beginPath(); cx.moveTo(x - 6, y); cx.lineTo(x - 4, y - 56); cx.lineTo(x, y - 64); cx.lineTo(x + 4, y - 56); cx.lineTo(x + 6, y); cx.closePath(); outline(C.stone, 1.8);
+      cx.beginPath(); cx.moveTo(x - 4, y - 56); cx.lineTo(x, y - 64); cx.lineTo(x + 4, y - 56); cx.closePath(); outline(C.gold, 1.4);
+      cx.strokeStyle = C.stone2; cx.lineWidth = 1.2; cx.beginPath(); for (let k = 0; k < 4; k++) { cx.moveTo(x - 2, y - 46 + k * 10); cx.lineTo(x + 2, y - 46 + k * 10); } cx.stroke();
+    }
+    function pylon(x, y) {
+      cx.beginPath(); cx.moveTo(x - 40, y); cx.lineTo(x - 34, y - 40); cx.lineTo(x - 10, y - 40); cx.lineTo(x - 6, y); cx.closePath(); outline(C.stone, 1.8);
+      cx.beginPath(); cx.moveTo(x + 6, y); cx.lineTo(x + 10, y - 40); cx.lineTo(x + 34, y - 40); cx.lineTo(x + 40, y); cx.closePath(); outline(C.stone, 1.8);
+      cx.beginPath(); cx.rect(x - 7, y - 30, 14, 30); outline(C.mud, 1.6);
+      cx.beginPath(); cx.rect(x - 9, y - 34, 18, 5); outline(C.stone2, 1.4);
+      [-22, 22].forEach(dx => { cx.strokeStyle = C.wood2; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(x + dx, y - 40); cx.lineTo(x + dx, y - 58); cx.stroke(); cx.beginPath(); cx.moveTo(x + dx, y - 58); cx.lineTo(x + dx + 10, y - 54 + Math.sin(st.t * 4 + dx) * 1.5); cx.lineTo(x + dx, y - 50); cx.closePath(); outline(dx < 0 ? C.red : C.lapis, 1); });
+    }
+    function camel(x, y, side) {
+      const s = side, step = Math.sin(st.t * 5 + x) * 2;
+      cx.strokeStyle = C.ink; cx.lineWidth = 2.4;
+      cx.beginPath(); cx.moveTo(x - 8 * s, y - 10); cx.lineTo(x - 9 * s + step, y); cx.moveTo(x + 8 * s, y - 10); cx.lineTo(x + 9 * s - step, y); cx.stroke();
+      cx.beginPath(); cx.ellipse(x, y - 14, 13, 7, 0, 0, Math.PI * 2); outline('#C9955A', 1.6);
+      cx.beginPath(); cx.arc(x - 2 * s, y - 21, 6, Math.PI, 0); outline('#C9955A', 1.4);
+      cx.beginPath(); cx.moveTo(x + 11 * s, y - 16); cx.quadraticCurveTo(x + 18 * s, y - 20, x + 17 * s, y - 28); cx.lineWidth = 4; cx.strokeStyle = C.ink; cx.stroke(); cx.lineWidth = 2.2; cx.strokeStyle = '#C9955A'; cx.stroke();
+      cx.beginPath(); cx.ellipse(x + 19 * s, y - 29, 5, 3, 0, 0, Math.PI * 2); outline('#C9955A', 1.3);
+      cx.beginPath(); cx.arc(x - 2 * s, y - 30, 4, 0, Math.PI * 2); outline('#8E5A33', 1.2);
+      cx.beginPath(); cx.rect(x - 6 * s - 3, y - 28, 8, 8); outline('#FBF3DF', 1.2);
+    }
+    function shaduf(x, y, side) {
+      const a = Math.sin(st.t * 1.8 + x) * 0.3;
+      cx.strokeStyle = C.wood2; cx.lineWidth = 3; cx.beginPath(); cx.moveTo(x, y); cx.lineTo(x, y - 30); cx.stroke();
+      cx.save(); cx.translate(x, y - 30); cx.rotate(a);
+      cx.beginPath(); cx.moveTo(-24 * side, 0); cx.lineTo(18 * side, 0); cx.lineWidth = 2.6; cx.strokeStyle = C.wood; cx.stroke();
+      cx.beginPath(); cx.arc(18 * side, 2, 4, 0, Math.PI * 2); outline('#94776A', 1.2);
+      cx.strokeStyle = C.ink; cx.lineWidth = 1.2; cx.beginPath(); cx.moveTo(-24 * side, 0); cx.lineTo(-24 * side, 14); cx.stroke();
+      cx.beginPath(); cx.arc(-24 * side, 17, 4, 0, Math.PI); outline('#B7412E', 1.2);
+      cx.restore();
+      person(x + 10 * side, y, '#FBF3DF', 0);
+    }
+    /* v30: a small adult on the bank: legs, white kilt, bare torso with a collar, black wig */
+    function person(x, y, cloth, wave) {
+      const sk = '#B57A50';
+      cx.strokeStyle = C.ink; cx.lineWidth = 3; cx.lineCap = 'round'; cx.beginPath(); cx.moveTo(x - 1.6, y - 6); cx.lineTo(x - 2, y); cx.moveTo(x + 1.6, y - 6); cx.lineTo(x + 2, y); cx.stroke(); cx.strokeStyle = sk; cx.lineWidth = 1.5; cx.stroke();
+      cx.beginPath(); cx.moveTo(x - 3.4, y - 11); cx.lineTo(x + 3.4, y - 11); cx.lineTo(x + 4.2, y - 5); cx.lineTo(x - 4.2, y - 5); cx.closePath(); outline(cloth, 1.1);
+      cx.beginPath(); cx.moveTo(x - 3.6, y - 11); cx.lineTo(x - 3.8, y - 17.5); cx.lineTo(x + 3.8, y - 17.5); cx.lineTo(x + 3.6, y - 11); cx.closePath(); outline(sk, 1.1);
+      cx.fillStyle = C.gold; cx.fillRect(x - 3.4, y - 17.5, 6.8, 1.6);
+      cx.beginPath(); cx.arc(x, y - 20.5, 3, 0, Math.PI * 2); outline(sk, 1.1);
+      cx.beginPath(); cx.arc(x, y - 21.2, 3.3, Math.PI * 0.95, Math.PI * 2.05); cx.lineTo(x + 3.3, y - 18.5); cx.lineTo(x - 3.3, y - 18.5); cx.closePath(); cx.fillStyle = '#22202A'; cx.fill();
+      if (wave) { const a = Math.sin(st.t * 8 + x) * 0.5; cx.strokeStyle = C.ink; cx.lineWidth = 2.6; cx.beginPath(); cx.moveTo(x + 3.4, y - 16.5); cx.lineTo(x + 7 + a * 2, y - 24 - a * 2); cx.stroke(); cx.strokeStyle = sk; cx.lineWidth = 1.3; cx.stroke(); }
+      cx.lineCap = 'butt';
+    }
+    function people(x, y, side) { person(x, y, '#FBF3DF', 1); person(x + side * 12, y + 4, '#E6CB95', 0); person(x + side * 22, y - 2, '#FBF3DF', 1); }
+    function cattle(x, y, side) {
+      [0, 1].forEach(k => {
+        const xx = x + side * k * 30, yy = y + k * 6;
+        cx.beginPath(); cx.ellipse(xx, yy - 10, 12, 7, 0, 0, Math.PI * 2); outline(k ? '#FBF3DF' : '#8E5A33', 1.4);
+        cx.beginPath(); cx.arc(xx + 13 * side, yy - 13, 4.5, 0, Math.PI * 2); outline(k ? '#FBF3DF' : '#8E5A33', 1.2);
+        cx.strokeStyle = C.ink; cx.lineWidth = 1.6; cx.beginPath(); cx.moveTo(xx + 11 * side, yy - 17); cx.quadraticCurveTo(xx + 13 * side, yy - 23, xx + 17 * side, yy - 20); cx.stroke();
+        if (k === 0) { cx.fillStyle = '#FBF3DF'; cx.beginPath(); cx.arc(xx - 3, yy - 11, 3, 0, Math.PI * 2); cx.fill(); }
+      });
+    }
+    function quay(y, label, landmark) {
+      const yy = sy(y); if (yy < -160 || yy > H + 40) return;
+      const c = centerX(y), hw = halfW();
+      cx.beginPath(); cx.rect(c - hw - 30, yy - 30, hw * 2 + 60, 30); outline(C.stone, 2.4);
+      cx.strokeStyle = C.stone2; cx.lineWidth = 1.6; cx.beginPath(); for (let x = c - hw - 30; x < c + hw + 30; x += 34) { cx.moveTo(x, yy - 30); cx.lineTo(x, yy); } cx.moveTo(c - hw - 30, yy - 15); cx.lineTo(c + hw + 30, yy - 15); cx.stroke();
+      cx.beginPath(); cx.rect(c - 40, yy - 2, 80, 26); outline(C.wood, 2);
+      cx.strokeStyle = C.wood2; cx.lineWidth = 1.4; cx.beginPath(); for (let x = c - 30; x < c + 40; x += 12) { cx.moveTo(x, yy); cx.lineTo(x, yy + 22); } cx.stroke();
+      if (landmark) cityMark(landmark, c, yy - 30);
+      [-1, 1].forEach(s => { house(c + s * (hw - 10), yy - 30, 30, 22, '#E6CB95'); person(c + s * 60, yy - 30, s < 0 ? '#FBF3DF' : '#E6CB95', 1); });
+      if (label) {
+        cx.font = '800 15px Nunito, sans-serif'; cx.textAlign = 'center';
+        const w = cx.measureText(label).width + 22;
+        cx.beginPath(); cx.rect(c - w / 2, yy - 104, w, 24); outline(C.white, 2);
+        cx.fillStyle = C.ink; cx.fillText(label, c, yy - 87);
+      }
+    }
+    function cityMark(id, x, y) {
+      if (id === 'mennefer') [[-70, 60], [10, 42], [70, 30]].forEach(([dx, s]) => { cx.beginPath(); cx.moveTo(x + dx - s, y); cx.lineTo(x + dx, y - s * 1.1); cx.lineTo(x + dx + s, y); cx.closePath(); outline(C.stone, 2); cx.beginPath(); cx.moveTo(x + dx, y - s * 1.1); cx.lineTo(x + dx + s, y); cx.lineTo(x + dx, y); cx.closePath(); outline(C.stone2, 1.4); });
+      else if (id === 'vaset') { obelisk(x - 60, y); obelisk(x + 60, y); pylon(x, y); }
+      else if (id === 'abidos') pylon(x, y);
+      else if (id === 'perbastet') { cx.beginPath(); cx.moveTo(x - 14, y); cx.lineTo(x - 14, y - 34); cx.lineTo(x - 18, y - 52); cx.lineTo(x - 6, y - 42); cx.lineTo(x + 6, y - 42); cx.lineTo(x + 18, y - 52); cx.lineTo(x + 14, y - 34); cx.lineTo(x + 14, y); cx.closePath(); outline('#3A3346', 2); cx.fillStyle = C.gold; cx.beginPath(); cx.arc(x - 5, y - 34, 2.4, 0, Math.PI * 2); cx.arc(x + 5, y - 34, 2.4, 0, Math.PI * 2); cx.fill(); obelisk(x + 70, y); }
+      else if (id === 'abu') { [[-50, 30], [40, 24], [0, 18]].forEach(([dx, r]) => { cx.beginPath(); cx.ellipse(x + dx, y - r * 0.6, r * 1.4, r, 0, Math.PI, 0); outline('#A9725F', 2); }); obelisk(x + 80, y); }
+    }
+    /* hull outline per boat type: [bow y, stern y, half width] */
+    const HULLS = { nehir:[-36, 30, 13], feluka:[-40, 32, 10], mavna:[-34, 32, 20], kadirga:[-48, 40, 14] };

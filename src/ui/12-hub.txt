@@ -1,0 +1,394 @@
+  /* ================= v28: the city picture is the hub ================= */
+  /* goods grouped like a shop shelf: one coloured band per kind */
+  const GROUPS = [
+    { id:'food', name:'Gıda', col:'#3E8E5A', g:['bugday', 'hurma', 'sarap', 'tuz'] },
+    { id:'raw', name:'Ham madde', col:'#A8743F', g:['papirus', 'bakir', 'sedir'] },
+    { id:'rare', name:'Değerli', col:'#1F5FA8', g:['tutsu', 'lapis'] },
+    { id:'craft', name:'Atölye', col:'#8A4E8E', g:['muska', 'kitap', 'kyphi'] }
+  ];
+  let msel = null, hgSide = false, useTS = false, tvMap = null;
+  const shown28 = gid => deals(S.city, gid) || S.inv[gid].n > 0;
+  const TAGW = { steal:'Kelepir', cheap:'Ucuz', ok:'Olağan', dear:'Pahalı', boom:'Fırladı' }, TAGA = { steal:'⇊', cheap:'↓', ok:'', dear:'↑', boom:'⇈' };
+  function priceTag(g, p) { const r = p / g.base; return r < 0.55 ? 'steal' : r < 0.82 ? 'cheap' : r > 1.9 ? 'boom' : r > 1.25 ? 'dear' : 'ok'; }
+  function dots5(gid, stk) { const full = Math.max(1, STOCK[gid]), n = stk >= 99 ? 5 : Math.min(5, Math.ceil(5 * stk / full)); return Array.from({ length:5 }, (_, k) => '<i' + (k < n ? ' class="on"' : '') + '></i>').join(''); }
+  function tileHtml(g) {
+    const it = S.inv[g.id], on = msel === g.id, held = it.n ? '<i class="held" title="Elindeki">' + it.n + '</i>' : '';
+    if (!deals(S.city, g.id)) return '<button type="button" class="tile off' + (on ? ' sel' : '') + '" data-tile="' + g.id + '" aria-pressed="' + on + '" aria-label="' + esc(g.name) + ': burada alınıp satılmaz">' + held + '<span class="ti">' + gIco(g.id, 28) + '</span><b class="tn">' + esc(g.short) + '</b><span class="tp no">satılmaz</span></button>';
+    const p = Math.round(S.prices[S.city][g.id]), tg = priceTag(g, p), stk = S.stock ? S.stock[S.city][g.id] : 99, show = g.craft ? Math.round(p * (1 + sellBonus(S))) : Math.round(p * (1 - buyDisc(S)));
+    const hot = (S.mods || []).some(m => m.city === S.city && (!m.g || m.g === g.id) && S.day >= m.from && S.day <= m.until);
+    return '<button type="button" class="tile t-' + tg + (g.craft ? ' sellonly' : '') + (on ? ' sel' : '') + (it.n ? ' have' : '') + '" data-tile="' + g.id + '" aria-pressed="' + on + '" aria-label="' + esc(g.name) + ', ' + fmt(show) + ' deben, ' + TAGW[tg] + (it.n ? ', elinde ' + it.n : '') + '" title="' + esc(priceWhy(g, p)) + '">' + held + (hot ? '<i class="hot" title="Sethi ya da kriz">!</i>' : '') +
+      '<span class="ti">' + gIco(g.id, 28) + '</span><b class="tn">' + esc(g.short) + '</b><span class="tp ' + tg + '">' + fmt(show) + (TAGA[tg] ? '<em>' + TAGA[tg] + '</em>' : '') + '</span>' +
+      (g.craft ? '<span class="tdots craft" title="Bu tüccar atölye malını satın alır, satmaz">yalnız satış</span>' : '<span class="tdots' + (stk < 6 ? ' low' : '') + '" title="Tezgâhta kalan: ' + stk + '">' + dots5(g.id, stk) + '</span>') + '</button>';
+  }
+  function marketHtml() {
+    let s = '<div class="mgrid" id="mgrid">';
+    GROUPS.forEach(G => { const gs = G.g.map(gById).filter(g => shown28(g.id)); if (!gs.length) return; s += '<section class="mg mg-' + G.id + '" style="--gc:' + G.col + '"><h4>' + G.name + '</h4><div class="tiles">' + gs.map(tileHtml).join('') + '</div></section>'; });
+    return s + '</div>';
+  }
+  function merchHead() {
+    const m = MERCHANTS[S.city], lv = trustLv(S), hb = hagB(S);
+    const tags = (S.edge === S.city ? '<i class="edge" title="Sethi\'den önce vardın">+%8</i>' : '') + (hb ? '<i class="edge hagl" title="Pazarlık">%' + Math.round(hb * 100) + '</i>' : '') + (fameB(S) ? '<i class="edge" title="Tayfanın şöhreti">+%5</i>' : '');
+    return '<button type="button" class="mhd" data-act="talk" aria-label="' + esc(m.name) + ' ile konuş"><span class="pt' + (moodBoost > 0 ? ' glad' : moodBoost < 0 ? ' sour' : '') + '" data-pk="' + S.city + '">' + (figURL(String(S.city), moodBoost > 0 ? 'happy' : moodBoost < 0 ? 'angry' : 'neutral', 96, () => { const e = document.querySelector('.mhd .pt[data-pk="' + S.city + '"]'); if (e) figInto(e, String(S.city), moodBoost > 0 ? 'happy' : moodBoost < 0 ? 'angry' : 'neutral', 96); }) ? '<img class="figp" src="' + figURL(String(S.city), moodBoost > 0 ? 'happy' : moodBoost < 0 ? 'angry' : 'neutral', 96) + '" alt="">' : portrait(S.city, Math.max(0, Math.min(3, lv + moodBoost)))) + '</span><span class="mhn"><b>' + esc(m.name) + ' <i class="tl" title="' + TRUST[lv].name + '">' + hearts(lv) + '</i>' + tags + '</b><small>' + esc(line) + '</small></span><span class="mhk">' + ico('i-whisper', 18) + '<em>Konuş</em></span></button>';
+  }
+  /* the action bar: what you can do with the good you tapped */
+  function abarHtml() {
+    if (S.over) return '<div class="ab0"><span class="abh">Sefer bitti.</span></div>';
+    const g = msel && gById(msel);
+    if (!g) {
+      const any = CITIES.some((c, i) => canGo(S, i));
+      return '<div class="ab0"><span class="abh">' + ico('i-stall', 18) + '<span>' + (load(S) ? 'Satmak ya da almak için mala dokun' : 'Almak için bir mala dokun') + '</span></span>' + (load(S) ? '<button type="button" class="btn sm sellall" data-act="sellAll">Hepsini sat</button>' : '') +
+        (any ? '<button type="button" class="btn go1 abgo" data-act="travel">' + ico(isRiver(S.city) ? 'i-boat' : 'i-donkey', 20) + '<span>' + (isRiver(S.city) ? 'Yola çık' : 'Dönüş') + '</span></button>' : (S.day < S.days ? '<button type="button" class="btn sm" data-act="wait">Bir gün bekle</button>' : '') + '<button type="button" class="btn gold abgo" data-act="finish">Seferi bitir</button>') + '</div>';
+    }
+    const it = S.inv[g.id], dl = deals(S.city, g.id), b = bestElsewhere(g.id), avg = it.n ? it.cost / it.n : 0;
+    const p = dl ? Math.round(S.prices[S.city][g.id]) : 0, tg = dl ? priceTag(g, p) : null;
+    const sp = S.rival.plan, notes = [];
+    if (sp && sp.to === S.city && sp.g === g.id && S.day < sp.arrive) notes.push('Sethi ' + sp.arrive + '. gün buraya boşaltacak');
+    (S.mods || []).forEach(m => { if (m.city !== S.city || (m.g && m.g !== g.id) || S.day < m.from || S.day > m.until) return; notes.push(m.src === 'sethi' ? (m.mult < 1 ? 'Sethi boşalttı: ' + m.until + '. güne kadar ucuz' : 'Sethi topladı: ' + m.until + '. güne kadar kıt') : 'Kriz: ' + m.until + '. güne kadar ' + (m.mult > 1 ? 'pahalı' : 'ucuz')); });
+    const info = [dl ? '<em class="tw ' + tg + '">' + TAGW[tg] + '</em>' : '', it.n ? 'Elinde ' + it.n + ' · ort. ' + fmt(avg) : 'Elinde yok', b ? cIco(b.i, 12) + fmt(b.p) + '↗' : ''].filter(Boolean).join(' · ') + (notes.length ? '<span class="abw">⚠ ' + esc(notes[0]) + '</span>' : '');
+    let s = '<div class="ab1"><span class="abg">' + gIco(g.id, 30) + '<span><b>' + esc(g.short) + '</b><small>' + info + '</small></span></span>' +
+      (dl ? '<span class="chips" role="group" aria-label="Miktar">' + [[1, '1'], [10, '10'], [Infinity, 'Hepsi']].map(([q, l]) => '<button type="button" class="chip" data-qty="' + q + '" aria-pressed="' + (qty === q) + '">' + l + '</button>').join('') + '</span>' : '') +
+      '<button type="button" class="x sm abx" data-act="unpick" aria-label="Seçimi kapat">' + ico('i-close', 16) + '</button></div>';
+    if (!dl) return s + '<div class="ab2"><span class="abno">Burada alınıp satılmaz' + (b ? ' · en iyi ' + esc(CITIES[b.i].name) + ' ' + fmt(b.p) : '') + '</span></div>';
+    const qb = g.craft ? { n:0, cost:0 } : quoteBuy(S, g.id, qty), qs = quoteSell(S, g.id, qty);
+    if (hgSide && hgSide.g === g.id) return hgBar(g);
+    const hgOk = canHaggle28(S, g.id), why = hgMad(S) ? 'Tüccar küs' : !hgOk ? 'Bugün oldu' : '';
+    if (!CITIES.some((c, i) => canGo(S, i))) s += '<div class="ab3">' + (S.day < S.days ? '<button type="button" class="btn sm" data-act="wait">Bir gün bekle</button>' : '') + '<button type="button" class="btn gold" data-act="finish">Seferi bitir</button></div>';
+    return s + '<div class="ab2">' +
+      '<button type="button" class="btn buy" data-buy="' + g.id + '"' + (qb.n ? '' : ' disabled') + ' aria-label="' + esc(g.name) + ' al"><b>Al' + (qb.n ? ' ' + qb.n : '') + '</b><small>' + (qb.n ? '−' + fmt(qb.cost) : g.craft ? 'satmaz' : qb.reason === 'cap' ? 'ambar dolu' : qb.reason === 'stock' ? 'tezgâh boş' : 'para yok') + '</small></button>' +
+      '<button type="button" class="btn sell" data-sell="' + g.id + '"' + (qs.n ? '' : ' disabled') + ' aria-label="' + esc(g.name) + ' sat"><b>Sat' + (qs.n ? ' ' + qs.n : '') + '</b><small>' + (qs.n ? '+' + fmt(qs.rev) : 'elinde yok') + '</small></button>' +
+      '<button type="button" class="btn hag" data-act="hag28"' + (hgOk && (qb.n || qs.n) ? '' : ' disabled') + ' title="Bu mal için tüccarla pazarlık et">' + ico('i-whisper', 18) + '<b>' + (why || 'Pazarlık') + '</b></button></div>';
+  }
+  function pickGood(gid) {
+    if (phase !== 'port' || !gById(gid)) return;
+    msel = msel === gid ? null : gid; hgSide = false; play('click'); buzz('pick');
+    renderPanel(); placeTutor();
+    const t = document.querySelector('.tile[data-tile="' + gid + '"]'); if (t) t.focus({ preventScroll:true });
+  }
+
+  /* ---------- the people we talk to: big busts, a name plate and a speech box ---------- */
+  const CAST0 = { paneb:['Paneb', 'dümencin, çocukluk arkadaşın'], hapu:['Hapu', 'tefeci'], sethi:['Sethi', 'rakip tüccar'], merenre:['Merenre', 'kâtip'], djedi:['Djedi', 'Leydi Nebet\'in yeğeni'], nakht:['Nakht', 'müfettiş'], tv0:['Kedici Ipi', 'Senet oyuncusu'], tv1:['Taşçı Seni', 'Senet oyuncusu'], tv3:['Kör Bata', 'Senet oyuncusu'], tv4:['Nubyalı Meri', 'Senet oyuncusu'], tv7:['Kaptan Weni', 'Senet oyuncusu'] };
+  function whoName(who) {
+    if (typeof who === 'number') return [MERCHANTS[who].name, (MERCHANTS[who].title || CITIES[who].name)];
+    try { if (typeof CAST !== 'undefined' && CAST[who]) return [CAST[who].name, CAST[who].title || '']; } catch (e) {}
+    return CAST0[who] || [String(who), ''];
+  }
+  function bustHtml(who, o) {
+    o = o || {};
+    if (typeof bustSVG === 'function') { try { const h = bustSVG(who, o); if (h) return h; } catch (e) {} }
+    const idx = typeof who === 'number' ? who : FACE[who];
+    if (who === 'ba') return '<div class="bustfb">' + baFace() + '</div>';
+    return '<div class="bustfb' + (o.mood === 'angry' || o.mood === 'sad' ? ' sour' : o.mood === 'happy' ? ' glad' : '') + '">' + portrait(idx == null ? FACE.paneb : idx, o.lv != null ? o.lv : o.mood === 'happy' ? 3 : o.mood === 'angry' ? 0 : 1) + '</div>';
+  }
+  let DLG = null;
+  /* say(who, lines, opts): opts = { choices:[{label, sub, ico, off, run(), keep}], mood, tell, lv, html, lock, onDone, sub } */
+  function say(who, lines, opts) {
+    opts = opts || {};
+    if (DLG && DLG.tm) clearInterval(DLG.tm);
+    DLG = { who, lines:[].concat(lines || []).filter(Boolean), i:0, o:opts, tm:0, typing:false };
+    const nm = whoName(who);
+    const s = '<div class="dlg' + (typeof who === 'number' ? ' m' : ' c-' + who) + '"><div class="dlg-art" id="dlgArt">' + bustHtml(who, { mood:opts.mood || 'neutral', tell:opts.tell || null, lv:opts.lv, talk:false }) + '</div>' +
+      '<div class="dlg-side"><div class="dlg-np"><b id="shTitle">' + esc(nm[0]) + '</b><small>' + esc(opts.sub || nm[1]) + '</small></div>' +
+      '<button type="button" class="dlg-box" data-act="dlgNext" aria-live="polite"><span id="dlgTxt"></span><i class="dlg-more" aria-hidden="true">▼</i></button>' +
+      '<div class="dlg-ch" id="dlgCh"></div><div class="dlg-x" id="dlgX"></div></div>' + (opts.lock ? '' : xBtn) + '</div>';
+    openSheet(s, !!opts.lock, 'say', true);
+    $('#sheet').classList.add('talk28');
+    /* heroes get the live 3D bust when the module is there; everyone else keeps the SVG */
+    const fk = figKey(who);
+    const h33 = c33Has(fk) ? CH33.stage($('#dlgArt'), fk, { mood:opts.mood || 'neutral', tell:opts.tell || null, frame:'dialog' }) : null;
+    if (h33) { DLG.h3 = h33; H3.push(h33); }
+    else if (figHas(fk)) { DLG.h3 = null; figInto($('#dlgArt'), fk, opts.mood || 'neutral', 420, 'big'); }
+    else DLG.h3 = typeof who === 'string' && /^h_/.test(who) ? mountHero3($('#dlgArt'), who.slice(2), { size:'dialog', mood:opts.mood || 'neutral', tell:opts.tell || null }) : null;
+    dlgLine();
+  }
+  function dlgTalk(on) { const a = $('#dlgArt'); if (!a) return; const b = a.querySelector('.bust') || a.firstElementChild; if (b) b.classList.toggle('talk', on); if (DLG && DLG.h3) { try { DLG.h3.update && DLG.h3.update({ talk:on }); } catch (e) {} } }
+  function dlgLine() {
+    if (!DLG) return;
+    const el = $('#dlgTxt'); if (!el) return;
+    const t = DLG.lines[DLG.i] || '';
+    clearInterval(DLG.tm); $('#dlgCh').innerHTML = ''; $('#dlgX').innerHTML = '';
+    document.querySelector('.dlg-box').classList.remove('done');
+    if (reduce || !t) { el.textContent = t; dlgEnd(); return; }
+    let n = 0; DLG.typing = true; dlgTalk(true); el.textContent = '';
+    DLG.tm = setInterval(() => { n += 2; el.textContent = t.slice(0, n); if (n >= t.length) dlgEnd(); }, 30);
+  }
+  function dlgEnd() {
+    if (!DLG) return;
+    clearInterval(DLG.tm); DLG.typing = false; dlgTalk(false);
+    const el = $('#dlgTxt'); if (el) el.textContent = DLG.lines[DLG.i] || '';
+    const box = document.querySelector('.dlg-box'); if (box) box.classList.add('done');
+    if (DLG.i < DLG.lines.length - 1) { if (box) box.classList.add('more'); return; }
+    if (box) box.classList.remove('more');
+    const ch = DLG.o.choices || [];
+    $('#dlgCh').innerHTML = ch.map((c, k) => '<button type="button" class="dch' + (c.cls ? ' ' + c.cls : '') + '" data-dlg="' + k + '"' + (c.off ? ' disabled' : '') + (k ? '' : ' data-first') + '>' + (c.ico ? '<span class="dI">' + ico(c.ico, 22) + '</span>' : '') + '<span><b>' + esc(c.label) + '</b>' + (c.sub ? '<small>' + esc(c.sub) + '</small>' : '') + '</span></button>').join('');
+    $('#dlgX').innerHTML = DLG.o.html || '';
+    const f = $('#dlgCh').querySelector('button:not(:disabled)'); if (f && !reduce) f.focus({ preventScroll:true });
+    guideMark();
+  }
+  function dlgNext() {
+    if (!DLG) return;
+    if (DLG.typing) { dlgEnd(); return; }
+    if (DLG.i < DLG.lines.length - 1) { DLG.i++; play('tick'); dlgLine(); return; }
+    if (!(DLG.o.choices || []).length) { const d = DLG.o.onDone; DLG = null; closeSheet(); if (d) d(); }
+  }
+  function dlgPick(k) {
+    if (!DLG) return;
+    const c = (DLG.o.choices || [])[k]; if (!c || c.off) return;
+    play('click');
+    if (c.keep) { c.run && c.run(); return; }
+    DLG = null; closeSheet(); if (c.run) c.run();
+  }
+  /* change what is said without closing the dialogue */
+  function dlgSay(lines, opts) {
+    if (!DLG || sheetName !== 'say') return;
+    DLG.lines = [].concat(lines); DLG.i = 0; if (opts) Object.assign(DLG.o, opts);
+    if (opts && opts.sub) { const n = document.querySelector('.dlg-np small'); if (n) n.textContent = opts.sub; }
+    if (opts && (opts.mood || opts.tell !== undefined)) { if (DLG.h3) { try { DLG.h3.update && DLG.h3.update({ mood:DLG.o.mood || 'neutral', tell:DLG.o.tell || null }); } catch (e) {} } else { const a = $('#dlgArt'); if (a && !a.classList.contains('fig')) a.innerHTML = bustHtml(DLG.who, { mood:DLG.o.mood || 'neutral', tell:DLG.o.tell || null, lv:DLG.o.lv }); else if (a) figInto(a, figKey(DLG.who), DLG.o.mood || 'neutral', 420, 'big'); } }
+    dlgLine();
+  }
+
+  /* ---------- Paneb, the guide: a friend who teaches by doing ---------- */
+  function guide() {
+    const g = meta.guide = meta.guide || {};
+    if (g.off == null) g.off = !!(meta.noHints || meta.tutDone);
+    if (!g.seen) g.seen = {};
+    return g;
+  }
+  const guideOn = () => !guide().off && guide().step && guide().step !== 'done';
+  function guideIntro(replay) {
+    const g = guide();
+    if (replay) { g.off = false; g.seen = {}; meta.noHints = false; }
+    g.step = 'intro'; saveMeta();
+    const here = CITIES[S.city].name;
+    say('paneb', ['Hey, uyan! Benim, Paneb. Dümenci, çocukluk arkadaşın. ' + (S.city === 1 ? 'Mennefer iskelesindeyiz.' : here + ' iskelesindeyiz.'),
+      'Rahmetli babanın teknesi artık senin. Ama Tefeci Hapu ona 1.500 deben borç vermiş… ve bu borç da artık senin.',
+      'Önümüzde 30 gün var. Ucuz al, pahalı sat, borcu öde. Bir de Sethi var: yeşil-altın yelkenli, bizden zengin bitirmek için her şeyi yapar.',
+      'Laf çok, gösterelim. Ben yanındayım!'],
+      { mood:'happy', lock:true, choices:[{ label:'Hadi başlayalım', ico:'i-boat', run() { const g2 = guide(); g2.step = 'market'; saveMeta(); renderAll(); } }, { label:'Rehberi kapat', sub:'Oyunu biliyorum', ico:'i-close', run() { guideOff(); } }] });
+  }
+  function guideOff() { const g = guide(); g.off = true; g.step = 'done'; meta.noHints = true; saveMeta(); placeTutor(); renderAll(); }
+  function guideTo(step) { const g = guide(); if (g.off || !g.step || g.step === 'done') return; g.step = step; saveMeta(); }
+  /* the good a newcomer should buy first: cheap here, dearer one day away */
+  function tutPlan() {
+    const sm = SEASONS[seasonIdx(S)].mult; let best = null;
+    CITIES.forEach((c, d) => {
+      if (!canGo(S, d) || travelDays(S, d) !== 1) return;
+      GOODS.forEach(g => {
+        if (!deals(d, g.id) || !deals(S.city, g.id) || g.craft || g.base > 130) return;
+        const p = S.prices[S.city][g.id], n = Math.min(Math.floor(S.cash / p), freeCap(S), S.stock ? S.stock[S.city][g.id] : 99);
+        const gain = n * (g.base * c.mult[g.id] * (sm[g.id] || 1) - p);
+        if (n > 0 && (!best || gain > best.gain)) best = { g:g.id, d, gain };
+      });
+    });
+    return best;
+  }
+  function guideDest() {
+    const main = GOODS.filter(g => S.inv[g.id].n > 0).sort((a, b) => S.inv[b.id].n * b.base - S.inv[a.id].n * a.base)[0], sm = SEASONS[seasonIdx(S)].mult;
+    const c = CITIES.map((x, i) => i).filter(i => canGo(S, i) && isRiver(i));
+    if (!main) return c.sort((a, b) => travelDays(S, a) - travelDays(S, b))[0];
+    return c.sort((a, b) => (travelDays(S, a) - travelDays(S, b)) * 0.3 + (CITIES[b].mult[main.id] || 0) * (sm[main.id] || 1) - (CITIES[a].mult[main.id] || 0) * (sm[main.id] || 1))[0];
+  }
+  const spotEl = k => (town3On() ? document.querySelector('#port .v3t-l[data-spot="' + k + '"]:not([hidden])') : null) || document.querySelector('#spots [data-spot="' + k + '"]') || document.querySelector('#port .pscene [data-spot="' + k + '"]');
+  /* what Paneb points at now: { el, text } */
+  function tutStep() {
+    const g = guide();
+    if (g.off || !S || S.over || !g.step || g.step === 'done' || g.step === 'intro') return null;
+    if (phase !== 'port') return null;
+    if (g.step === 'market') return { el:spotEl('market'), text:'Önce tüccara git: resimdeki pazara dokun.' };
+    if (g.step === 'buy') {
+      if (load(S) > 0) { guideTo('ship'); return tutStep(); }
+      const pl = tutPlan(), gid = pl ? pl.g : 'bugday';
+      if (msel !== gid) return { el:document.querySelector('.tile[data-tile="' + gid + '"]'), text:gById(gid).short + ' burada ucuz, ' + (pl ? CITIES[pl.d].loc + ' daha pahalı' : 'başka yerde daha pahalı') + '. Önce ona dokun.' };
+      if (qty !== Infinity) return { el:document.querySelector('.chip[data-qty="Infinity"]'), text:'"Hepsi"ne bas: paranın yettiği kadar alırsın.' };
+      return { el:document.querySelector('[data-buy="' + gid + '"]'), text:'Şimdi "Al". Mallar tekneye, ambara gider.' };
+    }
+    if (g.step === 'ship') return { el:spotEl('ship'), text:(freeCap(S) <= 0 ? 'Ambar doldu!' : 'Mallar ambarda!') + ' Şimdi tekneye dokun: Nil haritası açılır.' };
+    if (g.step === 'sell') {
+      if (!load(S)) { guideTo('done'); toast('Paneb: "Ucuz al, pahalı sat. Bundan sonrası sende, kaptan!"'); return null; }
+      const gid = GOODS.filter(x => S.inv[x.id].n > 0 && deals(S.city, x.id))[0];
+      if (!gid) return null;
+      if (msel !== gid.id) return { el:document.querySelector('.tile[data-tile="' + gid.id + '"]'), text:'Vardık! Getirdiğin mala dokun.' };
+      return { el:document.querySelector('[data-sell="' + gid.id + '"]'), text:'"Sat"a bas. Kârını yanında görürsün.' };
+    }
+    return null;
+  }
+  /* Paneb's line inside a sheet (the travel map), when the coach bubble cannot show */
+  function coachHtml(text) { return '<div class="coach"><span class="cf">' + portrait(FACE.paneb, 3) + '</span><p>' + esc(text) + '</p></div>'; }
+  function placeTutor() {
+    document.querySelectorAll('.tut-target').forEach(e => e.classList.remove('tut-target'));
+    const box = $('#tut'); if (!box) return;
+    if (!$('#veil').hidden) { box.hidden = true; guideMark(); return; }
+    const st = tutStep();
+    const hk = st && st.el && st.el.classList.contains('v3t-l') ? st.el.dataset.spot : null;
+    if (T3 && T3hi !== hk) { if (T3hi) T3.highlight(T3hi, false); if (hk) T3.highlight(hk, true); T3hi = hk; }
+    if (!st || !st.el) { box.hidden = true; return; }
+    st.el.classList.add('tut-target');
+    box.innerHTML = '<span class="cf">' + portrait(FACE.paneb, 3) + '</span><div><span class="tn">Paneb</span><p>' + esc(st.text) + '</p><button class="chip" type="button" data-act="noHints">Rehberi kapat</button></div>';
+    box.hidden = false;
+    const r = st.el.getBoundingClientRect();
+    /* phones: the guide docks as a slim strip at the top or bottom edge, on the side away from what you must tap */
+    box.classList.toggle('dock', isPhone());
+    if (isPhone()) {
+      const bh0 = box.offsetHeight, hud = document.querySelector('.hud'), hb = hud ? hud.getBoundingClientRect().bottom + 6 : 8;
+      const mb = document.querySelector('#mbar'), mt = mb && mb.offsetParent && !document.body.classList.contains('mk-open') ? mb.getBoundingClientRect().top - 6 : window.innerHeight - 8;
+      const topSpot = { t:hb, b:hb + bh0 }, botSpot = { t:mt - bh0, b:mt };
+      const hits = q => !(q.b < r.top - 4 || q.t > r.bottom + 4);
+      let useTop = (r.top + r.bottom) / 2 > window.innerHeight * 0.45;
+      if (useTop && hits(topSpot) && !hits(botSpot)) useTop = false; else if (!useTop && hits(botSpot) && !hits(topSpot)) useTop = true;
+      const top0 = useTop ? topSpot.t : botSpot.t;
+      box.style.top = (top0 + window.scrollY) + 'px'; box.style.left = (8 + window.scrollX) + 'px';
+      box.dataset.dir = 'none'; return;
+    }
+    const bw = box.offsetWidth, bh = box.offsetHeight;
+    let top = r.bottom + 12, left = r.left + r.width / 2 - bw / 2, below = true;
+    if (top + bh > window.innerHeight - 8 && r.top - bh - 12 > 8) { top = r.top - bh - 12; below = false; }
+    const sgr = $('#stage').getBoundingClientRect();
+    top = Math.max(8, Math.min(top, window.innerHeight - bh - 8));
+    left = Math.max(8, Math.min(left, window.innerWidth - bw - 8));
+    box.style.top = (top + window.scrollY) + 'px'; box.style.left = (left + window.scrollX) + 'px';
+    box.dataset.dir = below ? 'down' : 'up';
+    box.style.setProperty('--ax', Math.max(14, Math.min(bw - 14, r.left + r.width / 2 - left)) + 'px');
+  }
+  /* highlight inside an open sheet (merchant dialog, travel sheet) */
+  function guideMark() {
+    const g = guide(); if (g.off || !g.step) return;
+    let el = null;
+    if (g.step === 'market' && sheetName === 'say') el = document.querySelector('#dlgCh [data-dlg="0"]');
+    if (sheetName === 'travel') el = g.step === 'city' ? [...document.querySelectorAll('#sheet [data-city="' + guideDest() + '"]')].find(e => e.offsetParent) || null : g.step === 'sail' ? document.querySelector('#sheet [data-act="go"]') : null;
+    if (el) el.classList.add('tut-target');
+  }
+  /* a one-time explanation the first time a system is met */
+  function guideOnce(key, lines, then, mood) {
+    const g = guide();
+    if (g.off || g.seen[key]) { then && then(); return; }
+    g.seen[key] = true; saveMeta();
+    say('paneb', lines, { mood:mood || 'happy', choices:[{ label:'Anladım', ico:'i-sun', run:then }], sub:'dümencin' });
+  }
+  const PANEB = {
+    work:['Atölye! Ustalara ham madde bırakırsın, iki gün sonra gelip ürünü alırsın.', 'Tarif kartta yazıyor. Ürünler pazarda pahalı satılır, bazı tüccarlar da hediye diye bayılır.'],
+    temple:['Tapınağın ışık odası. Aynaları çevir, güneş ışığını heykele ulaştır.', 'Çözersen rahipler para ve bir kutsama verir. Her tapınak bir kez.'],
+    tavern:['Meyhane! Burada Senet oynanır, babamın en sevdiği oyun.', 'İlk oyunda ben yanındayım, kuralları oynarken anlatırım.'],
+    yard:['Tersane. Nehirde aldığımız darbeler teknede kalır; kalafatçılar her yarayı parayla onarır.', 'Mennefer\'in büyük tersanesinde onarım ucuz; yeni tekne ve gemi cihazları da yalnız orada.'],
+    board:['Sipariş panosu. Tüccarların siparişleri, Sethi\'nin planı ve pazar krizleri burada asılı.', 'Siparişi kabul et, malı zamanında götür: para ve güven kazanırsın.'],
+    haggle:['Pazarlık zamanı! Tüccarın yüzüne ve tezgâhına bak.', 'Tezgâhı doluysa ve mal ona yük oluyorsa indirir. Bir mal bu şehirde çok aranıyorsa sana iyi para verir. Fazla sıkıştırırsan küser.'],
+    desert:['Çöl yolu! Teknemiz burada bekler, eşek kiralarız.', 'Her eşek 10 yük taşır, her gün bir tulum su gider. Su biterse eşek kaybederiz. Vahalarda kuyu var, oralarda su bedava.']
+  };
+
+  /* ---------- places in the picture ---------- */
+  const SPOT_NAME = { market:'Pazar', ship:'Tekne · yola çık', temple:'Tapınak', tavern:'Meyhane', work:'Atölye', yard:'Tersane', hapu:'Hapu\'nun evi', board:'Sipariş panosu', well:'Kuyu' };
+  const SPOT_ICO = { market:'i-stall', ship:'i-boat', temple:'i-temple', tavern:'i-senet', work:'i-workshop', yard:'i-anchor', hapu:'i-coin', board:'i-scroll', well:'i-water' };
+  function spotsHere(ci) { const job = workAt(S, ci); return { market:true, ship:true, temple:TEMPLES[ci] != null, tavern:TAVERN[ci] != null, work:!!WORKS[ci] && (has(S, 'atolye') || !!job), yard:isRiver(ci), hapu:ci === 1, board:true, well:/^(siwa|kharga)$/.test(CITIES[ci].id) }; }
+  function boardCount() {
+    if (S.over) return 0;
+    let n = deliverable(S).length + (S.offers[S.city] && S.orders.length < 2 ? 1 : 0) + (canContra(S) && contraOffer(S) ? 1 : 0);
+    n += crisisList().filter(c => c.state !== 'past').length ? 1 : 0;
+    return n;
+  }
+  const crisisHere = () => { const c = crisisList().find(x => x.city === S.city && x.state === 'now'); return c ? c.k : null; };
+  function townOpts(crates, nar) {
+    const job = workAt(S, S.city);
+    return { si:seasonIdx(S), day:S.day, nar, mood:moodBoost, boat:{ boat:S.boat, up:S.up, dev:S.dev, dmg:dmgStage(S) }, cargo:crates, caravan:!isRiver(S.city) ? { donkeys:S.caravan ? S.caravan.donkeys : 4 } : null,
+      spots:spotsHere(S.city), notes:{ board:boardCount(), work:job ? (S.day >= job.ready ? 'ready' : 'busy') : null, temple:S.temple[S.city] ? 'done' : null }, crisis:crisisHere(), sethiHere:sethiAt(S) === S.city };
+  }
+  /* fallback pins on the old painting, in its 900x400 units */
+  function fallbackPins(nar) {
+    const P = { market:[118, 196], board:[300, 232], tavern:[206, 214], work:[262, 180], temple:[340, 132], hapu:[226, 128], yard:[836, 286], well:[250, 226] };
+    if (S.city === 4) P.yard = [826, 300];
+    if (!isRiver(S.city)) { P.temple = [380, 170]; P.tavern = [214, 214]; }
+    P.ship = isRiver(S.city) ? [nar ? 478 : 560, nar ? 200 : 210] : [CITIES[S.city].id === 'saww' ? (nar ? 436 : 520) : nar ? 450 : 560, 270];
+    return P;
+  }
+  /* screen position of a point in the painting */
+  function vbPt(sv, x, y) { try { const m = sv.getScreenCTM(), p = sv.createSVGPoint(); p.x = x; p.y = y; const q = p.matrixTransform(m); return [q.x, q.y]; } catch (e) { return null; } }
+  function layoutStage() {
+    const port = $('#port'), box = $('#spots'), stg = $('#stage'); if (!port || !box || !stg || phase !== 'port' || !S) return;
+    const sr = stg.getBoundingClientRect(), small = sr.width < 720, here = spotsHere(S.city), out = [];
+    stg.classList.toggle('small', small);
+    if (town3On()) {
+      box.innerHTML = '';
+      const pr = port.getBoundingClientRect(), w = T3.where('ship'), dx = pr.left - sr.left, dy = pr.top - sr.top;
+      placeHold(w ? { left:w.x + dx, top:w.y + dy, right:w.x + w.w + dx, bottom:w.y + w.h + dy } : null, sr);
+      return;
+    }
+    const sv = port.querySelector('.pscene svg'); if (!sv) return;
+    let ship = null;
+    if (useTS) {
+      port.querySelectorAll('.pscene [data-spot]').forEach(el => { if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '0'); if (!el.getAttribute('role')) el.setAttribute('role', 'button'); const r = el.getBoundingClientRect(); if (el.dataset.spot === 'ship') ship = r; if (small) out.push({ k:el.dataset.spot, x:r.left + r.width / 2 - sr.left, y:r.top - sr.top + Math.min(26, r.height * 0.25), tag:true }); });
+    } else {
+      const nar = sr.width / Math.max(1, sr.height) < 1.5, P = fallbackPins(nar);
+      Object.keys(P).forEach(k => { if (!here[k]) return; const q = vbPt(sv, P[k][0], P[k][1]); if (q) out.push({ k, x:q[0] - sr.left, y:q[1] - sr.top }); });
+      const sg = port.querySelector('.pscene [data-spot="ship"]');
+      if (sg) ship = sg.getBoundingClientRect();
+      else { const c = P.ship, a = vbPt(sv, c[0] - 120, c[1] - 30), b = vbPt(sv, c[0] + 120, c[1] + 90); if (a && b) ship = { left:a[0], top:a[1], right:b[0], bottom:b[1], width:b[0] - a[0], height:b[1] - a[1] }; }
+    }
+    /* keep pins on screen and apart */
+    const job = workAt(S, S.city), bc = boardCount();
+    const nm = k => k === 'ship' && !isRiver(S.city) ? 'Kervan · yola çık' : SPOT_NAME[k];
+    out.forEach(o => { const hw = o.tag ? (nm(o.k).replace(' · yola çık', '').length * 7 + 22) / 2 + 4 : 38; o.x = Math.max(hw, Math.min(sr.width - hw, o.x)); o.y = Math.max(small ? 62 : 70, Math.min(sr.height - 30, o.y)); });
+    /* a tag is a small plaque: its width follows its text; a pin is a round button with a label under it */
+    out.forEach(o => { o.w = o.tag ? nm(o.k).replace(' · yola çık', '').length * 7 + 22 : 70; o.h = o.tag ? 26 : 46; });
+    out.sort((a, b) => a.y - b.y).forEach((o, i) => { for (let pass = 0; pass < 3; pass++) for (let j = 0; j < i; j++) { const p = out[j]; if (Math.abs(p.x - o.x) < (p.w + o.w) / 2 + 4 && Math.abs(p.y - o.y) < (p.h + o.h) / 2) o.y = Math.min(sr.height - 12, p.y + (p.h + o.h) / 2 + 2); } });
+    const note = k => k === 'board' && bc ? '<i class="pn">' + bc + '</i>' : k === 'work' && job && S.day >= job.ready ? '<i class="pn">!</i>' : k === 'hapu' && (canContra(S) && contraOffer(S)) ? '<i class="pn">!</i>' : '';
+    box.innerHTML = out.map(o => '<button type="button" class="' + (o.tag ? 'stag' : 'pin') + ' sp-' + o.k + ((k => (k === 'temple' && !canTemple(S)) || (k === 'tavern' && !canTavern(S)))(o.k) ? ' dim' : '') + '" data-spot="' + o.k + '" style="left:' + Math.round(o.x) + 'px;top:' + Math.round(o.y) + 'px" aria-label="' + esc(nm(o.k)) + '">' + (o.tag ? '' : '<span class="pi">' + ico(o.k === 'ship' && !isRiver(S.city) ? 'i-donkey' : SPOT_ICO[o.k], 24) + '</span>') + '<b>' + esc(o.tag ? nm(o.k).replace(' · yola çık', '') : nm(o.k)) + '</b>' + note(o.k) + '</button>').join('');
+    placeHold(ship ? { left:ship.left - sr.left, top:ship.top - sr.top, right:ship.right - sr.left, bottom:ship.bottom - sr.top } : null, sr);
+  }
+  /* the hold, right next to the ship (or the donkeys) */
+  function holdHtml() {
+    const L = load(S), C = cap(S), K = !isRiver(S.city) && S.caravan, items = GOODS.filter(g => S.inv[g.id].n > 0);
+    const chips = (S.contra ? '<span class="hc contra" title="Hapu\'nun mühürlü sandıkları">' + ico('i-chest', 16) + '<b>' + CONTRA + '</b></span>' : '') + items.slice(0, 6).map(g => '<span class="hc" title="' + esc(g.name) + '">' + gIco(g.id, 16) + '<b>' + S.inv[g.id].n + '</b></span>').join('') + (items.length > 6 ? '<span class="hc more">+' + (items.length - 6) + '</span>' : '');
+    let s = '<div class="hh"><b>' + (K ? ico('i-donkey', 15) + 'Kervan' : ico('i-chest', 15) + 'Ambar') + '</b><span>' + L + '/' + C + '</span></div><i class="hbar"><em style="width:' + Math.round(Math.min(1, L / Math.max(1, C)) * 100) + '%"></em></i>';
+    if (K) { s += '<div class="hw" title="Günlük su">' + Array.from({ length:Math.min(8, K.water) }, () => ico('i-water', 13)).join('') + '<b>' + K.water + ' gün su</b>' + (/^(siwa|kharga)$/.test(CITIES[S.city].id) ? '' : '<button type="button" class="hbtn" data-act="water1"' + (S.cash >= K.donkeys * WATER_COST ? '' : ' disabled') + '>+1 · ' + K.donkeys * WATER_COST + '</button>') + '</div>'; }
+    return s + (chips ? '<div class="hcs">' + chips + '</div>' : '<div class="hcs empty">boş</div>');
+  }
+  function renderHold() { const el = $('#hold'); if (!el || !S) return; el.innerHTML = holdHtml(); }
+  function placeHold(r, sr) {
+    /* v31: the hold sits in the picture's corner by the boat, never over the town */
+    const el = $('#hold'); if (!el) return;
+    el.style.left = ''; el.style.top = ''; el.style.bottom = ''; el.dataset.side = ''; el.classList.add('corner'); return;
+    if (!r) { el.style.left = '10px'; el.style.top = ''; el.style.bottom = '10px'; return; }
+    el.style.bottom = '';
+    const w = el.offsetWidth, h = el.offsetHeight, W = sr.width, H = sr.height, cx = (r.left + r.right) / 2;
+    /* other things in the picture the box should not hide: places, their tags, the cartouche */
+    const avoid = [];
+    document.querySelectorAll((town3On() ? '#port .v3t-l:not([hidden]):not(.ship)' : '#pscene [data-spot]:not([data-spot="ship"]), #spots [data-spot]') + ', #cart, #goal:not([hidden])').forEach(e => { const b = e.getBoundingClientRect(); if (b.width) avoid.push([b.left - sr.left, b.top - sr.top, b.right - sr.left, b.bottom - sr.top, e.closest('#port') ? 0.35 : 1]); });
+    const cost = (x, y) => avoid.reduce((a, [l, t, rr, bb, k]) => a + k * Math.max(0, Math.min(x + w, rr) - Math.max(x, l)) * Math.max(0, Math.min(y + h, bb) - Math.max(y, t)), 0);
+    const cands = [[cx - w / 2, r.bottom + 2, 'b'], [r.left - w - 4, r.bottom - h - 4, 'l'], [r.right + 4, r.bottom - h - 4, 'r'], [cx - w / 2, r.top - h - 4, 't'], [r.left - w - 4, (r.top + r.bottom) / 2 - h / 2, 'l'], [r.right + 4, (r.top + r.bottom) / 2 - h / 2, 'r']];
+    let best = null;
+    cands.forEach(([x0, y0, sd], k) => {
+      const x1 = Math.max(6, Math.min(W - w - 6, x0)), y1 = Math.max(56, Math.min(H - h - 6, y0));
+      /* moved far from where it wanted to be = it covers the ship: punish */
+      const drift = Math.abs(x1 - x0) + Math.abs(y1 - y0), c = cost(x1, y1) + drift * h * 1.5 + k * 40;
+      if (!best || c < best.c) best = { x:x1, y:y1, side:sd === 't' ? 'tp' : sd, c };
+    });
+    const x = best.x, y = best.y, side = best.side;
+    el.style.left = Math.round(x) + 'px'; el.style.top = Math.round(y) + 'px'; el.dataset.side = side;
+    el.style.setProperty('--ax', Math.round(Math.max(14, Math.min(w - 14, cx - x))) + 'px');
+  }
+  function pulseCargo() { const el = $('#hold'); if (!el || reduce) return; el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); }
+  function tapFx(k) {
+    document.querySelectorAll('[data-spot="' + k + '"]').forEach(el => { el.classList.remove('tap'); void el.getBoundingClientRect(); el.classList.add('tap'); setTimeout(() => el.classList.remove('tap'), 420); });
+  }
+  /* open a place in town */
+  function openSpot(k) {
+    if (!S || S.over || phase !== 'port') return false;
+    if (k === 'hero') { play('click'); heroCard(); return true; }
+    const here = spotsHere(S.city); if (!here[k]) return false;
+    tapFx(k); play('click'); buzz('pick');
+    if (k === 'market') { if (isPhone()) { market(true); if (guide().step === 'market') { guideTo('buy'); placeTutor(); } } else showMerchant(); }
+    else if (k === 'ship') { if (guide().step === 'ship') guideTo('city'); showTravel(); }
+    else if (k === 'temple') { if (!canTemple(S)) { toast(S.temple[S.city] ? 'Bu tapınağın ışık odasını zaten çözdün.' : 'Tapınak şu an kapalı.'); return true; } guideOnce('temple', PANEB.temple, goTemple); }
+    else if (k === 'tavern') showTavern();
+    else if (k === 'work') guideOnce('work', PANEB.work, showWork);
+    else if (k === 'yard') guideOnce('yard', PANEB.yard, showYard);
+    else if (k === 'hapu') showHapu();
+    else if (k === 'board') guideOnce('board', PANEB.board, showBoard);
+    else if (k === 'well') { const n = S.caravan ? buyWater(S, 2) : 0; if (n) { toast('Tulumlar kuyudan doldu: +' + n + ' günlük su.'); play('splash'); save(); renderAll(); } else toast(S.caravan ? 'Tulumlar dolu.' : 'Kuyunun suyu serin. Kervanın olsa tulumları doldururdun.'); }
+    return true;
+  }
+  /* subtle depth: far, mid and near layers drift with the pointer or the phone's tilt */
+  const PX = { x:0, y:0, raf:0, on:false };
+  function pxApply() {
+    PX.raf = 0; const port = $('#port'); if (!port || reduce) return;
+    /* moved through the transform attribute so a layer's own placement is kept */
+    [['.px1', 3], ['.px2', 7], ['.px3', 12]].forEach(([q, k]) => port.querySelectorAll(q).forEach(el => { if (el.dataset.t0 == null) el.dataset.t0 = el.getAttribute('transform') || ''; el.setAttribute('transform', 'translate(' + (-PX.x * k).toFixed(1) + ' ' + (-PX.y * k * 0.5).toFixed(1) + ') ' + el.dataset.t0); }));
+  }
+  function pxSet(x, y) { PX.x = Math.max(-1, Math.min(1, x)); PX.y = Math.max(-1, Math.min(1, y)); if (!PX.raf) PX.raf = requestAnimationFrame(pxApply); }

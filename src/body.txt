@@ -1,0 +1,44 @@
+<div class="app" id="app">
+  <header class="hud">
+    <button type="button" class="hplate hudp" id="hplate" data-act="heroInfo" aria-label="Kahraman"><span class="hpav" id="hpAv"></span><span class="hpt"><b id="hpName">Nil Kervancısı</b><small id="hpTitle"></small><span class="hearts" id="hHp" aria-label="Gövde"></span></span><i class="hpp" id="hpPow" hidden></i></button>
+    <div class="stats">
+      <div class="st"><small>Gün</small><b id="hDay">1/15</b></div>
+      <div class="st season" id="stSeason"><small>Mevsim</small><b id="hSeason">Akhet</b></div>
+      <div class="st"><small>Deben</small><b id="hCash">0</b></div>
+      <button type="button" class="st debt" id="stDebt" data-open="debt" aria-label="Borç: tefeci Hapu ile işlemler"><small>Borç <span class="car">▾</span></small><b id="hDebt">0</b><i class="ping" hidden></i></button>
+      <div class="st load"><small>Ambar</small><b id="hLoad">0/40</b></div>
+    </div>
+    <nav class="menu" aria-label="Menü">
+      <button class="ib" type="button" data-act="travel" id="btnBoard"><svg class="ico" width="22" height="22" aria-hidden="true"><use href="#i-map"/></svg><span class="lab">Harita</span><i class="ping" hidden></i></button>
+      <button class="ib" type="button" data-open="defter"><svg class="ico" width="22" height="22" aria-hidden="true"><use href="#i-book"/></svg><span class="lab">Defter</span></button>
+      <button class="ib" type="button" data-open="prices"><svg class="ico" width="22" height="22" aria-hidden="true"><use href="#i-stall"/></svg><span class="lab">Fiyatlar</span></button>
+      <button class="ib" type="button" data-open="ship"><svg class="ico" width="22" height="22" aria-hidden="true"><use href="#i-anchor"/></svg><span class="lab">Tersane</span></button>
+      <button class="ib" type="button" data-open="music" id="btnMusic"></button>
+      <button class="ib menuB" type="button" data-open="menu"><svg class="ico" width="22" height="22" aria-hidden="true"><use href="#i-menu"/></svg><span class="lab">Menü</span></button>
+    </nav>
+  </header>
+  <main class="main">
+    <section class="left">
+      <div class="stage" id="stage">
+        <div class="port" id="port"><div class="pscene" id="pscene"></div></div>
+        <div class="spots" id="spots"></div>
+        <div class="hold" id="hold" aria-label="Ambar"></div>
+        <div class="mbar" id="mbar"></div>
+        <div class="cart" id="cart"><h1 id="cName">Mennefer</h1><small id="cSub"></small><em id="cDay"></em></div>
+        <button type="button" class="goal" id="goal" data-act="quest" hidden></button>
+        <div class="voy" id="voy" hidden></div>
+        <canvas id="sea" hidden aria-label="Nehir yolculuğu: teknen kayalar, timsahlar ve takipçiler arasında ilerliyor"></canvas>
+        <button class="skipBtn" type="button" data-act="quick" title="Yolculuğu oynamadan geç: kazaları ve takipçileri zar belirler">Atla ⏭</button>
+        <div class="pads" aria-hidden="true">
+          <button type="button" data-pad="L">◀</button>
+          <button type="button" class="pb" data-pad="B">Kürek!</button>
+          <button type="button" data-pad="R">▶</button>
+        </div>
+      </div>
+    </section>
+    <aside class="panel" id="panel" aria-label="Pazar"></aside>
+  </main>
+</div>
+<div class="veil" id="veil" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="shTitle"></div></div>
+<div class="toast" id="toast" role="status" hidden></div>
+<div class="tut" id="tut" role="note" hidden></div>

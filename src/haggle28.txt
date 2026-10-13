@@ -1,0 +1,395 @@
+  /* ================= Haggling 2.0 (owner: bulmaca): one negotiation about one good =================
+     The merchant has a hidden "room" (how far he can move from the list price). The player guesses it from
+     the shelf (stock), the crowd (how much the city wants the good), his face / body language (a tell per
+     merchant that means "has room" or "near my limit", ~15 % bluffs) and his lines. Max 4 offers.
+     Pure logic: hgNew / hgStep / hgPick (no DOM, used by the Node simulation too). UI: haggleDeal(o, cb). */
+  const HG_TELL = { sweat:'terliyor', glance:'gözü kayıyor', smile:'gülümsüyor', frown:'kaşlarını çattı', tap:'parmak tıklatıyor', arms:'kollarını kavuşturdu', lean:'öne eğildi', scratch:'başını kaşıyor', eyebrow:'kaşını kaldırdı' };
+  /* per merchant: room tell, limit tell, praise (1 loves it, 0 shrugs, -1 hates it), patience bonus, lines.
+     {p} = his price. Lines: o = opening [buy, sell], c = counters, f = firm, y = accepts, a = angry,
+     b = calls you back after a walk-away, n = lets you go, h = reaction to praise */
+  const HG_M = [
+    { room:'glance', lim:'tap', praise:1, pat:0, o:['Kedilerim bu malı çok sever. Fiyatı da ona göre.', 'Getirdiğine kediler bir baksın bakalım.'],
+      c:['Kediler homurdandı ama olsun: {p}.', 'Bıyıklarım titredi… {p}.'], f:'{p}. Kedi tüyüne yemin, aşağısı yok.', y:'Peki. Kediler de onayladı, anlaştık!',
+      a:'Kediler tıslıyor, ben de! Çık dükkânımdan!', b:'Dur, dur! Kediler arkandan miyavladı. Gel: {p}.', n:'Güle güle. Kediler zaten seni pek sevmemişti.', h:'Kedilerimi mi beğendin? Ah, ne iyi insansın!' },
+    { room:'scratch', lim:'arms', praise:-1, pat:1, o:['Kırk yıllık taş gibi sağlam mal. Fiyatı da sağlam.', 'Göster bakalım. Taşı da malı da elle yoklarım.'],
+      c:['Keski gibi yavaş yavaş: {p}.', 'Piramit bir günde yapılmaz. {p}.'], f:'{p}. Bu taş daha fazla yontulmaz.', y:'Olur. Piramit gibi sağlam bir anlaşma.',
+      a:'Kırk yılda böyle hakaret duymadım. Yürü!', b:'Acele etme evlat. Otur. {p} olsun.', n:'Yolun açık olsun. Taş beklemeyi bilir.', h:'Dalkavukluğu bırak. Taş tatlı sözden anlamaz.' },
+    { room:'eyebrow', lim:'frown', praise:1, pat:0, o:['Deftere bakıyorum… fiyat burada yazıyor.', 'Ne getirdin? Deftere yazmadan bir bakayım.'],
+      c:['Kamışı batırıyorum: {p}.', 'Bir satırı siliyorum… {p}.'], f:'{p}. Mürekkep kurudu, değişmez.', y:'Yazıldı, mühürlendi. Anlaştık.',
+      a:'Adını kara mürekkeple yazdım. Git!', b:'Bekle! Defterde bir hata buldum: {p}.', n:'Defteri kapattım. Başka gün.', h:'Yazımı mı beğendin? Osiris şahit, kızardım.' },
+    { room:'lean', lim:'sweat', praise:1, pat:-1, o:['EN İYİ MAL KHA\'DA! Fiyatı da EN İYİ!', 'GETİR BAKALIM! Kha her şeyi alır!'],
+      c:['HA! {p}, daha ne istiyorsun?!', 'Kulağım çınlıyor… {p}!'], f:'{p}! SON! Başka laf yok!', y:'ANLAŞTIK! Bütün Vaset duydu!',
+      a:'YETER! Tezgâhı kapatıyorum! DIŞARI!', b:'HEY HEY! Nereye? Gel, {p}!', n:'GİT O ZAMAN! …Bir dahaki sefere.', h:'DOĞRU SÖYLÜYORSUN! Herkes duysun!' },
+    { room:'smile', lim:'glance', praise:0, pat:0, o:['Taş gibi berrak konuşayım: fiyat bu.', 'Güneyde her şeyin değeri bellidir. Seninkinin de.'],
+      c:['Dağların hatırına: {p}.', 'Taşı ışığa tuttum… {p}.'], f:'{p}. Lapis kadar sert son söz.', y:'Güzel. Mal sahibini buldu.',
+      a:'Sabrım lapis kadar nadirdi. Bitti!', b:'Dur. Nehir gibi acele etme. {p}.', n:'Taş bekler. Ben de beklerim.', h:'Güzel söz. Ama fiyat değişmez… pek.' },
+    { room:'eyebrow', lim:'arms', praise:-1, pat:0, o:['Kâhin bugün bu fiyatı uygun gördü.', 'Kâhine soracağım. Sen önce bir göster.'],
+      c:['Kâhin hapşırdı… hayra yoruyorum: {p}.', 'Amun sabırlıdır, ben değilim. {p}.'], f:'{p}. Bir daha sorarsam kâhin küser.', y:'Kâhin onayladı. Tuzla mühürledik.',
+      a:'Kâhin "git" dedi. Ben de diyorum: GİT!', b:'Dur! Kâhin seni geri çağırdı: {p}.', n:'Kâhin zaten gideceğini söylemişti.', h:'Tatlı dil kâhini kandırmaz. Beni hiç.' },
+    { room:'lean', lim:'tap', praise:1, pat:1, o:['Önce bir hurma ye. Sonra fiyat.', 'Ne getirdin bakalım? Al, hurma ye.'],
+      c:['Peki, {p}. Ama bir hurma daha yiyeceksin.', 'Kuyunun hatırına: {p}.'], f:'Son salkım, son söz: {p}.', y:'Anlaştık! Tatlı bir pazarlık oldu.',
+      a:'Hurmamı yedin, sabrımı da! Hadi bakalım!', b:'Nereye? Hurman yarım kaldı! {p}, otur.', n:'Git ama hurmanı al. Yolda acıkırsın.', h:'Ay, tatlı dilli! Al bir hurma daha.' },
+    { room:'glance', lim:'scratch', praise:0, pat:0, o:['Punt\'tan geldi. Babun bile kokladı.', 'Babun bir koklasın, sonra konuşuruz.'],
+      c:['Babun kaşını kaldırdı… {p}.', 'Dalgalar sakin, ben de: {p}.'], f:'Denizin tuzu üstüne: {p}, son!', y:'Anlaştık! Babun alkışlıyor.',
+      a:'Babun dişlerini gösterdi. Ben de! Git!', b:'Hop! Babun paçana yapıştı. {p}, dön.', n:'Babunum esnedi. Pazarlık bitti demek.', h:'Babunuma söyle, o sever. Ben tüccarım.' }
+  ];
+  const HG_OFF = [0.05, 0.12, 0.20], HG_MAX = 4;
+  function hgRng(seed) {
+    let a = typeof seed === 'number' ? seed >>> 0 : String(seed == null ? Math.random() : seed).split('').reduce((h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0, 2166136261);
+    if (!a) a = 0x9E3779B9;
+    return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  }
+  /* what the player can see: shelf 0 almost empty, 1 half, 2 full, 3 overflowing and dusty; crowd 0 nobody … 3 everyone wants it */
+  const hgShelf = f => f > 1.15 ? 3 : f > 0.62 ? 2 : f > 0.28 ? 1 : 0;
+  const hgCrowd = w => w > 1.25 ? 3 : w > 1.05 ? 2 : w > 0.85 ? 1 : 0;
+  function hgRoom(o, rnd) {
+    const f = Math.max(0, Math.min(2, (o.stock || 0) / Math.max(1, o.stockFull || 1))), w = o.want || 1, buy = o.side !== 'sell';
+    let r = buy ? 0.02 + 0.11 * Math.min(f, 1.6) + (1 - w) * 0.1 : 0.03 + (w - 1) * 0.3 + (0.6 - Math.min(f, 1.2)) * 0.06;
+    r += (o.trust || 0) * 0.012 + (o.mood || 0) * 0.03 + Math.min(0.025, Math.log2(1 + (o.qty || 1)) / 200) + (rnd() - 0.5) * 0.05;
+    return Math.max(0.02, Math.min(0.24, r));
+  }
+  function hgNew(o) {
+    o = Object.assign({ ci:0, g:'bugday', side:'buy', qty:1, unit:10, stock:10, stockFull:10, want:1, trust:0, mood:0 }, o);
+    const ci = Math.max(0, Math.min(HG_M.length - 1, o.ci | 0)), M = HG_M[ci], rnd = o.rng || hgRng(o.seed);
+    const f = Math.max(0, (o.stock || 0) / Math.max(1, o.stockFull || 1));
+    const st = { o, ci, M, rnd, buy:o.side !== 'sell', R:hgRoom(o, rnd), cur:0, round:0, praised:false, walked:false, fin:false, res:null,
+      pat:Math.max(2, 3 + M.pat + ((o.trust || 0) >= 2 ? 1 : 0) + ((o.mood || 0) > 0.4 ? 1 : 0) - ((o.mood || 0) < -0.4 ? 1 : 0)),
+      shelf:hgShelf(f), f, crowd:hgCrowd(o.want || 1), tell:null, bluff:false, mood:(o.mood || 0) > 0.3 ? 'happy' : (o.mood || 0) < -0.3 ? 'sad' : 'neutral', log:[] };
+    hgTell(st);
+    return st;
+  }
+  /* body language shows how much room is left; ~15 % of the time he bluffs */
+  function hgTell(st) {
+    const has = st.R - st.cur >= 0.03; st.bluff = st.rnd() < 0.15;
+    st.tell = (has !== st.bluff) ? st.M.room : st.M.lim;
+  }
+  const hgR = x => Math.round(x * 1000) / 1000;
+  /* one player action → { ev, tell, bluff, learn } ; acts: offer (k = 0..2), praise, walk, accept, leave.
+     A tell is learned only when the answer showed its meaning: he gave ground after a "room" tell, or held firm after a "limit" tell. */
+  function hgStep(st, act, k) {
+    const before = st.cur, out = hgStep0(st, act, k);
+    if (out && (act === 'offer' || act === 'walk')) {
+      let l = out.ev === 'back' || out.ev === 'yes' || (out.ev === 'counter' && st.cur - before >= 0.015) ? 'room' : out.ev === 'firm' || out.ev === 'bye' || out.ev === 'angry' || out.ev === 'counter' ? 'limit' : null;
+      if (l && (l === 'room') !== (out.tell === st.M.room)) l = null;
+      out.learn = l;
+    }
+    return out;
+  }
+  function hgStep0(st, act, k) {
+    if (st.fin) return null;
+    const M = st.M, prevTell = st.tell, prevBluff = st.bluff, out = { act, ev:'', tell:prevTell, bluff:prevBluff, learn:null };
+    const end = (done, angry, ev) => { st.fin = true; out.ev = ev; st.res = { done, mult:done ? hgR(st.buy ? 1 - st.cur : 1 + st.cur) : 1, angry:!!angry }; if (!done) delete st.res.mult; };
+    if (act === 'praise') {
+      if (st.praised) return null;
+      st.praised = true; out.ev = 'praise'; out.praise = M.praise;
+      if (M.praise > 0) { st.R = Math.min(0.26, st.R + 0.025); st.pat++; st.mood = 'happy'; }
+      else if (M.praise < 0) { st.R = Math.max(0.02, st.R - 0.01); st.pat--; st.mood = 'angry'; if (st.pat <= 0) { end(false, true, 'angry'); return out; } }
+      else { st.R += 0.01; st.mood = 'thinking'; }
+      hgTell(st); return out;
+    }
+    if (act === 'accept') { end(true, false, 'deal'); return out; }
+    if (act === 'leave') { end(false, false, 'leave'); return out; }
+    if (st.round >= HG_MAX) return null;
+    if (act === 'walk') {
+      if (st.walked) return null;
+      st.walked = true; st.round++;
+      if (st.R - st.cur >= 0.03) { st.cur = hgR(st.cur + (st.R - st.cur) * 0.7); out.ev = 'back'; st.mood = 'surprised'; hgTell(st); }
+      else end(false, false, 'bye');
+      return out;
+    }
+    if (act === 'offer') {
+      const a = HG_OFF[k];
+      if (a == null || a <= st.cur + 1e-9) return null;
+      st.round++;
+      if (a <= st.R) {
+        /* easy for him → yes; close to his limit → he haggles back a little first, then gives in if you insist */
+        if (a <= st.R - 0.035 || st.asked === a || st.round >= HG_MAX) { st.cur = a; out.ev = 'yes'; st.mood = 'happy'; end(true, false, 'yes'); return out; }
+        st.asked = a; st.cur = hgR(Math.max(st.cur, a - 0.02 - st.rnd() * 0.015)); out.ev = 'counter'; st.mood = 'thinking'; hgTell(st);
+        if (st.round >= HG_MAX) out.last = true;
+        return out;
+      }
+      st.asked = a;
+      const gap = a - st.R;
+      st.pat -= gap >= 0.1 ? 2 : gap >= 0.03 ? 1 : 0;
+      if (st.pat <= 0) { end(false, true, 'angry'); st.mood = 'angry'; return out; }
+      const before = st.cur;
+      st.cur = hgR(Math.min(st.R, st.cur + (st.R - st.cur) * (gap < 0.03 ? 0.85 : 0.5)));
+      out.ev = st.cur - before < 0.005 ? 'firm' : 'counter';
+      st.mood = st.pat <= 1 ? 'angry' : out.ev === 'firm' ? 'sly' : 'thinking';
+      hgTell(st);
+      if (st.round >= HG_MAX) out.last = true;
+      return out;
+    }
+    return null;
+  }
+  /* what a player would do: 'read' = reads shelf, crowd and every tell; 'cues' = shelf and crowd only (no notebook yet); 'random'; 'greedy'; 'timid' */
+  function hgGuess(st) {
+    const s = st.shelf, c = st.crowd;
+    return st.buy ? [0.04, 0.08, 0.13, 0.18][s] + [0.02, 0, -0.015, -0.03][c] : [0.03, 0.05, 0.1, 0.17][c] + [0.02, 0.01, 0, -0.01][s];
+  }
+  function hgPick(st, strat, known) {
+    const offs = HG_OFF.map((a, k) => a > st.cur + 1e-9 ? k : -1).filter(k => k >= 0), canOff = st.round < HG_MAX;
+    if (strat === 'random') {
+      const A = []; if (canOff) offs.forEach(k => A.push(['offer', k])); if (!st.praised) A.push(['praise']); if (canOff && !st.walked) A.push(['walk']); A.push(['accept']);
+      return A[Math.floor(st.rnd() * A.length)];
+    }
+    if (strat === 'greedy') return canOff && offs.length ? ['offer', offs[offs.length - 1]] : ['accept'];
+    if (strat === 'timid') return canOff && st.cur === 0 ? ['offer', 0] : ['accept'];
+    /* the reader: knows each merchant's tells (from the notebook) and what the shelf and the crowd mean */
+    known = known || {};
+    const M = st.M, cues = strat === 'cues', mean = known[st.tell] || (cues ? null : st.tell === M.room ? 'room' : st.tell === M.lim ? 'limit' : null);
+    if (!st.praised && (known.praise != null ? known.praise : cues ? 0 : M.praise) > 0) return ['praise'];
+    if (st.est == null) st.est = hgGuess(st);
+    if (st.lastCur != null && st.cur > st.lastCur) st.est = mean === 'room' ? Math.max(st.est, st.cur + 0.05) : Math.min(st.est, st.cur + 0.01);
+    st.lastCur = st.cur;
+    if (!canOff || st.mood === 'angry' || (mean === 'limit' && st.cur > 0)) return ['accept'];
+    const want = st.est + (mean === 'room' ? 0.035 : -0.01);
+    let pickK = -1; offs.forEach(k => { if (HG_OFF[k] <= want) pickK = k; });
+    if (mean === 'room' && !st.walked && st.round < HG_MAX - 1 && (pickK < 0 || st.est - HG_OFF[pickK] > 0.035)) return ['walk'];
+    if (pickK >= 0) return ['offer', pickK];
+    return st.cur > 0 || !offs.length ? ['accept'] : ['offer', offs[0]];
+  }
+
+  /* ---------- pictures: the shelf with this good, and the crowd that wants it ---------- */
+  function hgBox(g, x, y, kind, dust) {
+    let s = '<g transform="translate(' + x + ' ' + y + ')">';
+    if (kind === 'sack') s += pth('M-13 0C-19 -6 -17 -19 -6 -22L-9 -29Q0 -25 9 -29L6 -22C17 -19 19 -6 13 0Z', '#E2C88E', ink(1.8)) + pth('M-6 -22Q0 -20 6 -22', 'none', 'stroke="#8C5A38" stroke-width="2.6"') + pth('M-9 -6q9 3 18 0', 'none', 'stroke="#C9A86A" stroke-width="1.6"');
+    else if (kind === 'jar') s += pth('M-6 -30h12v4q10 4 10 13q0 9 -9 13h-14q-9 -4 -9 -13q0 -9 10 -13z', '#C46A45', ink(1.8)) + pth('M-6 -26q-8 -1 -9 6M6 -26q8 -1 9 6', 'none', ink(1.6)) + pth('M-12 -12h24', 'none', 'stroke="#F3D3A0" stroke-width="2" opacity=".7"');
+    else if (kind === 'log') s += '<rect x="-17" y="-20" width="34" height="9" rx="4.5" fill="#B5743F" stroke="' + INK + '" stroke-width="1.6"/><rect x="-17" y="-10" width="34" height="9" rx="4.5" fill="#A0632F" stroke="' + INK + '" stroke-width="1.6"/><circle cx="13" cy="-15.5" r="3" fill="#E7B98A" stroke="' + INK + '" stroke-width="1.2"/><circle cx="13" cy="-5.5" r="3" fill="#E7B98A" stroke="' + INK + '" stroke-width="1.2"/>';
+    else if (kind === 'basket') s += pth('M-16 -14h32l-4 14h-24z', '#C99A56', ink(1.8)) + '<circle cx="-7" cy="-17" r="5" fill="#2F5FB3" stroke="' + INK + '" stroke-width="1.4"/><circle cx="3" cy="-18" r="5.5" fill="#1F4F98" stroke="' + INK + '" stroke-width="1.4"/><circle cx="10" cy="-15" r="4" fill="#3A71C8" stroke="' + INK + '" stroke-width="1.4"/>' + pth('M-13 -8h26M-12 -3h24', 'none', 'stroke="#8C5A38" stroke-width="1.2"');
+    else s += '<rect x="-16" y="-26" width="32" height="26" rx="2" fill="#B98A52" stroke="' + INK + '" stroke-width="1.8"/>' + pth('M-16 -17h32M-16 -8h32', 'none', 'stroke="#8C5A38" stroke-width="1.4"');
+    if (kind !== 'basket' && kind !== 'log') s += '<use href="#i-' + g + '" x="-8" y="-' + (kind === 'jar' ? 21 : kind === 'sack' ? 18 : 19) + '" width="16" height="16"/>';
+    if (dust) s += pth(kind === 'sack' ? 'M-8 -27q8 3 16 0' : 'M-13 -' + (kind === 'jar' ? 30 : kind === 'log' ? 20 : 26) + 'h26', 'none', 'stroke="#D8D2C4" stroke-width="3" stroke-linecap="round" opacity=".9"');
+    return s + '</g>';
+  }
+  const HG_KIND = { bugday:'sack', tuz:'sack', hurma:'sack', papirus:'crate', sarap:'jar', kyphi:'jar', tutsu:'jar', sedir:'log', lapis:'basket', bakir:'crate', muska:'crate', kitap:'crate' };
+  const HG_SHELF_T = ['Raf boş', 'Raf yarı dolu', 'Raf dolu', 'Raf taşıyor, tozlu'], HG_CROWD_T = ['Kimse istemiyor', 'Alan az', 'Alan çok', 'Herkes istiyor'];
+  /* wide (desktop, labels are HTML chips) or tall (phone, labels painted in); the background runs past the viewBox to fill any letterbox */
+  function hgShelfSVG(st, tall) {
+    const g = st.o.g, kind = HG_KIND[g] || 'crate', n = Math.max(0, Math.min(8, Math.round(Math.min(1, st.f) * 8))), over = st.shelf === 3, low = st.shelf === 0, cr = st.crowd;
+    const W = tall ? 220 : 320, H = tall ? 252 : 176, k = ++uid;
+    let s = '<svg class="hgshelf ' + (tall ? 't' : 'w') + '" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMax meet" role="img" aria-label="Tüccarın rafı: ' + HG_SHELF_T[st.shelf] + '. ' + HG_CROWD_T[cr] + '."><defs>' + grad('hgw' + k, [[0, '#D9B57C'], [1, '#C79A5E']], true) + '</defs>';
+    s += '<rect x="-400" y="-300" width="' + (W + 800) + '" height="' + (H + 300) + '" fill="url(#hgw' + k + ')"/>';
+    for (let i = -10; i < 18; i++) s += pth('M' + (i * 40) + ' -300V0h40v14q-20 10 -40 0', i % 2 ? '#FBF3DF' : '#1F5FA8', ink(1.4));
+    s += '<rect x="-400" y="152" width="' + (W + 800) + '" height="' + (H - 152 + 300) + '" fill="#A87A48"/>' + pth('M-400 152H' + (W + 400), 'none', ink(2));
+    /* shelf frame: two boards, four places each; the bottom board fills first */
+    s += '<rect x="12" y="26" width="196" height="126" fill="#8E5A33" stroke="' + INK + '" stroke-width="2.2"/><rect x="18" y="32" width="184" height="114" fill="#6E4326"/>';
+    s += '<rect x="14" y="86" width="192" height="7" fill="#B07A45" stroke="' + INK + '" stroke-width="1.6"/><rect x="14" y="143" width="192" height="7" fill="#B07A45" stroke="' + INK + '" stroke-width="1.6"/>';
+    const SL = [[40, 86], [86, 86], [132, 86], [178, 86], [40, 143], [86, 143], [132, 143], [178, 143]], order = [4, 5, 6, 7, 0, 1, 2, 3];
+    SL.forEach((p, i) => { if (order.indexOf(i) >= n) s += '<ellipse cx="' + p[0] + '" cy="' + (p[1] - 2) + '" rx="13" ry="3" fill="#000" opacity=".22"/>'; });
+    order.slice(0, n).forEach(i => { s += hgBox(g, SL[i][0], SL[i][1], kind, over); });
+    if (over) {
+      /* unsold stock piles up in front of the shelf, gathering dust and a cobweb */
+      (tall ? [[34, 246], [68, 246], [51, 220]] : [[232, 166], [266, 166], [249, 140]]).forEach(p => { s += hgBox(g, p[0], p[1], kind, true); });
+      s += pth('M18 32l26 0M18 32l0 26M18 32l20 20M18 44q8 -2 12 -12M18 52q14 0 22 -20', 'none', 'stroke="#EDE7DA" stroke-width="1.2" opacity=".85"');
+      for (let i = 0; i < 9; i++) s += '<circle class="hgdust" cx="' + (30 + i * 21) + '" cy="' + (40 + (i * 37) % 90) + '" r="1.6" fill="#F4ECD8" opacity=".75" style="--d:' + (i * 0.4) + 's"/>';
+    } else if (low) s += '<text x="110" y="70" text-anchor="middle" class="hgempty">boş</text>';
+    /* the crowd: people who want this good here (grey = nobody) */
+    const C = ['#2BA59A', '#B7412E', '#D9A43A'], P = tall ? [[166, 254], [140, 254], [192, 254]] : over ? [] : [[286, 152], [252, 152], [300, 128]], sc = 1;
+    P.forEach((q, i) => {
+      if (i === 2 && cr < 3) return;
+      const on = i < cr;
+      s += '<g class="hgppl' + (on ? '' : ' off') + '" transform="translate(' + q[0] + ' ' + q[1] + ') scale(' + sc + ')">' + pth('M-9 0l2 -26h14l2 26z', on ? C[i] : '#B9A27A', ink(1.6)) + '<circle cy="-33" r="8" fill="' + (on ? '#B57A50' : '#C9B18A') + '" stroke="' + INK + '" stroke-width="1.6"/>' + (on ? pth('M7 -24l9 -14', 'none', 'stroke="#B57A50" stroke-width="3.2" stroke-linecap="round"') + '<circle cx="17" cy="-40" r="3" fill="#B57A50" stroke="' + INK + '" stroke-width="1.2"/>' : '') + '</g>';
+    });
+    if (!tall && over && cr) s += '<g transform="translate(300 96)"><circle r="12" fill="' + C[0] + '" stroke="' + INK + '" stroke-width="1.6"/><text y="5" text-anchor="middle" class="hgcnt">' + cr + '</text></g>';
+    if (tall) {
+      const tag = (x, y, t, anchor) => { const w = t.length * 8.4 + 16, x0 = anchor === 'end' ? x - w : x - w / 2; return '<g class="hgtag"><rect x="' + x0 + '" y="' + (y - 13) + '" width="' + w + '" height="21" rx="10.5" fill="#FBF3DF" stroke="' + INK + '" stroke-width="1.8"/><text x="' + (x0 + w / 2) + '" y="' + (y + 2) + '" text-anchor="middle">' + esc(t) + '</text></g>'; };
+      s += tag(110, 172, HG_SHELF_T[st.shelf]) + tag(214, 199, HG_CROWD_T[cr], 'end');
+    }
+    return s + '</svg>';
+  }
+  /* a small glyph for each tell (used with the portrait fallback and in the notebook) */
+  const HG_GLYPH = {
+    sweat:'<path d="M50 18q-18 26 0 44q18 -18 0 -44z" fill="#8FD3E0" stroke="#2B1D14" stroke-width="5"/>',
+    glance:'<ellipse cx="50" cy="50" rx="32" ry="19" fill="#fff" stroke="#2B1D14" stroke-width="5"/><circle cx="68" cy="50" r="10" fill="#2B1D14"/><path d="M84 30l10 -8M84 70l10 8" stroke="#2B1D14" stroke-width="5" stroke-linecap="round"/>',
+    smile:'<path d="M20 42q30 38 60 0" fill="none" stroke="#2B1D14" stroke-width="8" stroke-linecap="round"/>',
+    frown:'<path d="M18 32l26 13M82 32l-26 13" stroke="#2B1D14" stroke-width="8" stroke-linecap="round"/><path d="M32 74q18 -12 36 0" fill="none" stroke="#2B1D14" stroke-width="7" stroke-linecap="round"/>',
+    tap:'<rect x="20" y="54" width="60" height="22" rx="6" fill="#B57A50" stroke="#2B1D14" stroke-width="5"/><path d="M32 54v-18M50 54v-24M68 54v-18" stroke="#2B1D14" stroke-width="7" stroke-linecap="round"/><path d="M84 28l7 -9M86 44h10" stroke="#2B1D14" stroke-width="5" stroke-linecap="round"/>',
+    arms:'<path d="M16 36l68 32M84 36l-68 32" stroke="#B57A50" stroke-width="16" stroke-linecap="round"/><path d="M16 36l68 32M84 36l-68 32" stroke="#2B1D14" stroke-width="4" stroke-linecap="round" opacity=".45"/>',
+    lean:'<path d="M30 86q4 -40 36 -56" fill="none" stroke="#2B1D14" stroke-width="8" stroke-linecap="round"/><circle cx="70" cy="26" r="13" fill="#B57A50" stroke="#2B1D14" stroke-width="5"/><path d="M78 56l14 4M74 70l12 10" stroke="#2B1D14" stroke-width="5" stroke-linecap="round"/>',
+    scratch:'<path d="M18 62q0 -40 32 -40t32 40" fill="#B57A50" stroke="#2B1D14" stroke-width="5"/><path d="M60 10l8 14M72 14l2 14M48 8l10 14" stroke="#2B1D14" stroke-width="5" stroke-linecap="round"/>',
+    eyebrow:'<path d="M14 42q18 -24 36 -10" fill="none" stroke="#2B1D14" stroke-width="8" stroke-linecap="round"/><path d="M56 44h30" stroke="#2B1D14" stroke-width="8" stroke-linecap="round"/><circle cx="32" cy="60" r="8" fill="#2B1D14"/><circle cx="70" cy="62" r="8" fill="#2B1D14"/>'
+  };
+  const hgGlyph = (t, cls) => '<svg class="' + (cls || 'hgg') + '" viewBox="0 0 100 100" aria-hidden="true">' + (HG_GLYPH[t] || '') + '</svg>';
+  const HG_MLV = { happy:3, neutral:1, thinking:1, sly:1, surprised:2, sad:0, angry:0 };
+  function hgBust(st, talk) {
+    const who = st.o.who != null ? st.o.who : st.ci, lv = Math.max(0, Math.min(3, st.o.trust || 0));
+    let fig = '';
+    if (typeof bustSVG === 'function') { try { fig = bustSVG(who, { mood:st.mood, tell:st.tell, lv, talk:!!talk }); } catch (e) { fig = ''; } }
+    if (fig) return '<div class="hgbust real m-' + st.mood + '">' + fig + '</div>';
+    /* fallback: the round portrait, big, with the tell as a badge */
+    const ci = typeof who === 'number' ? who : st.ci;
+    return '<div class="hgbust fb m-' + st.mood + '"><span class="hgpt">' + portrait(ci, HG_MLV[st.mood] != null ? HG_MLV[st.mood] : 1) + '</span>' + hgGlyph(st.tell, 'hgtb') + (st.mood === 'angry' ? '<svg class="hgsteam" viewBox="0 0 60 40" aria-hidden="true">' + pth('M8 34q-6 -10 2 -16t2 -16M28 34q-6 -10 2 -16t2 -16M48 34q-6 -10 2 -16t2 -16', 'none', 'stroke="#B7412E" stroke-width="5" stroke-linecap="round"') + '</svg>' : '') + '</div>';
+  }
+
+  /* ---------- the sheet ---------- */
+  const hgName = st => (MERCHANTS[st.ci] && MERCHANTS[st.ci].name) || 'Tüccar';
+  const hgUnitTxt = v => v >= 100 ? fmt(v) : (Math.round(v * 10) / 10).toLocaleString('tr-TR');
+  const hgPrice = (st, c) => st.o.unit * (st.buy ? 1 - c : 1 + c);
+  const hgPct = (st, c) => (st.buy ? '−' : '+') + '%' + Math.round(c * 100);
+  const hgKnown = ci => ((meta.tells28 || {})[ci]) || {};
+  function haggleDeal(o, cb) {
+    pzClear();
+    const st = hgNew(o);
+    PZ = { kind:'haggle', tok:Math.random(), timers:[], cb, st, called:false, auto:null };
+    hgBind();
+    if (window.__nil && window.__nil.fn) { window.__nil.fn.haggleAuto = haggleAuto; window.__nil.fn.haggleDeal = haggleDeal; }
+    const g = gById(o.g) || { name:o.g }, nm = hgName(st), q = st.o.qty || 1;
+    let s = '<div class="hg' + (st.buy ? ' buy' : ' sell') + '">';
+    s += '<div class="hghd"><h2 id="shTitle">Pazarlık · ' + esc(nm) + '<small>' + gIco(o.g, 18) + ' <b>' + fmt(q) + ' ' + esc(g.short || g.name) + '</b> ' + (st.buy ? 'alıyorsun' : 'satıyorsun') + '</small></h2><span class="hgrd" id="hgRd" aria-label="Tur"></span><button class="btn sm hgx" type="button" data-hg="leave">Vazgeç</button></div>';
+    s += '<div class="hgl"><div class="hgstage" id="hgBust"></div><div class="hgtell" id="hgTell" aria-live="polite"></div><div class="hgbook" id="hgBook"></div></div>';
+    s += '<div class="hgr"><div class="hgscene">' + hgShelfSVG(st) + hgShelfSVG(st, true) + '<div class="hgcues"><span>' + hgShelfIco() + HG_SHELF_T[st.shelf] + '</span><span>' + hgPplIco() + HG_CROWD_T[st.crowd] + '</span></div></div>';
+    s += '<div class="hgbub" id="hgBub" aria-live="polite"></div>';
+    s += '<div class="hgdeal" id="hgDeal"></div><div class="hgbtns" id="hgBtns"></div></div>';
+    s += '<p class="hghint">' + (st.buy ? 'Raf doluysa ve alan azsa çok indirir.' : 'Rafı boşsa ve alan çoksa çok öder.') + ' Yüzüne de bak: bazen blöf yapar.</p></div>';
+    openSheet(s, true, 'pz', true);
+    hgPaint({ ev:'open' }, true);
+    return st;
+  }
+  const hgShelfIco = () => '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="3" y="3" width="18" height="18" fill="#8E5A33" stroke="#2B1D14" stroke-width="2"/><path d="M3 12h18" stroke="#2B1D14" stroke-width="2"/><rect x="6" y="6" width="5" height="5" fill="#E2C88E"/><rect x="13" y="14" width="5" height="6" fill="#E2C88E"/></svg>';
+  const hgPplIco = () => '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="8" cy="7" r="3.5" fill="#B57A50" stroke="#2B1D14" stroke-width="1.6"/><circle cx="16.5" cy="8" r="3" fill="#B57A50" stroke="#2B1D14" stroke-width="1.6"/><path d="M2 22q0-9 6-9t6 9zM11 22q1-8 5.5-8t5.5 8z" fill="#2BA59A" stroke="#2B1D14" stroke-width="1.6"/></svg>';
+  function hgLine(st, ev) {
+    const M = st.M, p = '<b>' + hgUnitTxt(hgPrice(st, st.cur)) + ' deben</b>', L = t => esc(t).replace('{p}', p);
+    if (ev.ev === 'open') return esc(M.o[st.buy ? 0 : 1]) + ' Tanesi ' + p + '.';
+    if (ev.ev === 'counter') return L(M.c[st.round % 2]) + (ev.last ? ' <em>Son sözüm.</em>' : '');
+    if (ev.ev === 'firm') return L(M.f);
+    if (ev.ev === 'yes' || ev.ev === 'deal') return esc(M.y);
+    if (ev.ev === 'angry') return esc(M.a);
+    if (ev.ev === 'back') return L(M.b);
+    if (ev.ev === 'bye') return esc(M.n);
+    if (ev.ev === 'praise') return esc(M.h) + (st.fin ? '' : ' ' + (M.praise > 0 ? 'Tanesi ' + p + '.' : ''));
+    if (ev.ev === 'leave') return 'Peki. Kapım açık.';
+    return '';
+  }
+  function hgPaint(ev, first) {
+    if (!PZ || PZ.kind !== 'haggle') return;
+    const st = PZ.st, nm = hgName(st), known = hgKnown(st.ci), q = st.o.qty || 1;
+    const bust = $('#hgBust'); if (bust && hg33(st, ev, first)) { hgTalk(); if (!first && (ev.ev === 'angry' || ev.ev === 'firm')) { bust.classList.remove('shk'); void bust.offsetWidth; bust.classList.add('shk'); } }
+    else if (bust) { bust.innerHTML = hgBust(st, false); hgTalk(); if (!first && (ev.ev === 'angry' || ev.ev === 'firm' || (ev.ev === 'counter' && st.mood === 'angry'))) { bust.classList.remove('shk'); void bust.offsetWidth; bust.classList.add('shk'); } }
+    const tl = $('#hgTell');
+    if (tl) {
+      const mean = known[st.tell];
+      const rv = Math.min(1, st.R / 0.25), my = st.res && st.res.done ? Math.min(1, st.cur / 0.25) : -1;
+      tl.innerHTML = st.fin ? '<span class="hgrevt">Gizli payı</span><span class="hgbar" aria-hidden="true"><i style="width:' + (rv * 100).toFixed(1) + '%"></i>' + (my >= 0 ? '<b style="left:' + (my * 100).toFixed(1) + '%"></b>' : '') + '</span><span class="hgrevv">en çok <b>' + hgPct(st, st.R) + '</b></span>' : hgGlyph(st.tell) + '<span><b>' + esc(nm) + '</b> ' + esc(HG_TELL[st.tell] || '') + '</span>' + (mean ? '<i class="' + mean + '">' + (mean === 'room' ? 'daha verir' : 'sınırda') + '</i>' : '<i class="q">?</i>') + (st.pat <= 1 && !st.fin ? '<i class="mad">sabrı bitiyor!</i>' : '');
+    }
+    const bk = $('#hgBook');
+    if (bk) {
+      const ks = Object.keys(known).filter(t => t !== 'praise');
+      bk.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 5q4-2 9 1v14q-5-3-9-1z" fill="#FBF3DF" stroke="#2B1D14" stroke-width="1.6"/><path d="M21 5q-4-2-9 1v14q5-3 9-1z" fill="#F1E2BC" stroke="#2B1D14" stroke-width="1.6"/></svg>' +
+        (ks.length || known.praise != null ? ks.map(t => '<span>' + hgGlyph(t) + '<em class="' + known[t] + '">' + (known[t] === 'room' ? 'verir' : 'sınır') + '</em></span>').join('') + (known.praise != null ? '<span class="pr">Övgü: <em class="' + (known.praise > 0 ? 'room' : known.praise < 0 ? 'limit' : '') + '">' + (known.praise > 0 ? 'sever' : known.praise < 0 ? 'sevmez' : 'fark etmez') + '</em></span>' : '') : '<small>Defterin boş: yüzünü izle, öğrendikçe yazılır.</small>');
+    }
+    const bub = $('#hgBub'); if (bub) { bub.innerHTML = '<b>' + esc(nm) + '</b>' + hgLine(st, ev); bub.classList.remove('pop'); void bub.offsetWidth; bub.classList.add('pop'); }
+    const rd = $('#hgRd'); if (rd) rd.innerHTML = Array.from({ length:HG_MAX }, (_, k) => '<i class="' + (k < st.round ? 'on' : '') + '"></i>').join('');
+    const dl = $('#hgDeal');
+    if (dl) {
+      const u = hgPrice(st, st.cur), list = st.o.unit, tot = u * q, diff = Math.abs(list - u) * q;
+      const nod = st.fin && !st.res.done;
+      let h = '<div class="hgnow"><small>' + (st.buy ? 'Onun fiyatı' : 'Sana verdiği') + '</small><b>' + hgUnitTxt(nod ? list : u) + '</b><span>deben / tane</span></div>';
+      if (nod) h += '<div class="hgtot"><span class="list">alışveriş olmadı</span></div>'; else h += '<div class="hgtot"><span>' + (st.cur > 0 ? '<s>' + hgUnitTxt(list) + '</s> ' : '') + '× ' + fmt(q) + ' = <b>' + fmt(tot) + '</b></span>' + (st.cur > 0 ? '<span class="gain">' + hgPct(st, st.cur) + ' · ' + (st.buy ? fmt(diff) + ' ucuz' : fmt(diff) + ' fazla') + '</span>' : '<span class="list">liste fiyatı</span>') + '</div>';
+      if (st.fin) {
+        const r = st.res, ok = r.done;
+        h += '<div class="hgstamp ' + (r.angry ? 'bad' : ok ? 'ok' : 'no') + '">' + (r.angry ? 'Kovuldun!' : ok ? 'Anlaştık' + (st.cur > 0 ? ' ' + hgPct(st, st.cur) : '') : 'Anlaşma yok') + '</div>';
+      }
+      dl.innerHTML = h;
+    }
+    const bt = $('#hgBtns');
+    if (bt) {
+      let h = '';
+      if (st.fin) h = '<button class="btn go1 hgok" type="button" data-hg="done" data-first>' + (st.res.done ? 'Tamam' : st.res.angry ? 'Pazardan çık' : 'Pazara dön') + '</button>';
+      else {
+        const canOff = st.round < HG_MAX;
+        h += '<div class="hgoff">' + HG_OFF.map((a, k) => '<button class="btn hgo o' + k + '" type="button" data-hg="offer" data-k="' + k + '"' + (!canOff || a <= st.cur + 1e-9 ? ' disabled' : '') + '><b>' + hgPct(st, a) + '</b><small>' + hgUnitTxt(hgPrice(st, a)) + '</small></button>').join('') + '</div>';
+        h += '<div class="hgact"><button class="btn hga" type="button" data-hg="praise"' + (st.praised ? ' disabled' : '') + '>' + ico('i-whisper', 18) + 'Övgü</button>';
+        h += '<button class="btn hga" type="button" data-hg="walk"' + (st.walked || !canOff ? ' disabled' : '') + '>' + hgWalkIco() + 'Gidiyormuş gibi yap</button>';
+        h += '<button class="btn go1 hgk" type="button" data-hg="accept"' + (canOff ? '' : ' data-first') + '>Kabul<small>' + hgUnitTxt(hgPrice(st, st.cur)) + '</small></button></div>';
+      }
+      bt.innerHTML = h;
+      const f = bt.querySelector('[data-first]') || bt.querySelector('.hgo:not([disabled])');
+      if (f && !PZ.auto && document.activeElement && document.activeElement.closest && document.activeElement.closest('#sheet')) f.focus({ preventScroll:true });
+    }
+  }
+  const hgWalkIco = () => '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="13" cy="4" r="2.6" fill="currentColor"/><path d="M12 8l-3 6 3 3-1 6M12 8l4 4 3 1M9 14l-4 2" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  /* v33: the merchant as a live 3D character (CH33): his face shows the tell, he reacts to every answer */
+  function hg33(st, ev, first) {
+    const who = st.o.who != null ? st.o.who : st.ci, key = String(who);
+    try { if (typeof CH33 === 'undefined' || !CH33.on() && face3d() || !CH33.has(key)) return false; } catch (e) { return false; }
+    const bust = $('#hgBust');
+    if (!PZ.c33 || !PZ.c33.alive) {
+      if (!first && !PZ.c33) return false;
+      bust.innerHTML = hgBust(st, false);
+      PZ.c33 = CH33.stage(bust, key, { mood:st.mood, tell:st.tell, frame:'bust' });
+      if (!PZ.c33) return false;
+      try { H3.push(PZ.c33); } catch (e) {}
+      return true;
+    }
+    PZ.c33.update({ mood:st.mood, tell:st.tell });
+    const e = ev && ev.ev;
+    if (e === 'angry') PZ.c33.react('angry');
+    else if (e === 'yes' || e === 'deal') PZ.c33.react('laugh');
+    else if (e === 'back') PZ.c33.react('wave');
+    else if (e === 'bye') PZ.c33.update({ act:'shrug' });
+    else if (e === 'praise' && st.M.praise > 0) PZ.c33.react('laugh');
+    return true;
+  }
+  function hgTalk() {
+    if (PZ && PZ.c33 && PZ.c33.alive && !reduce) { const h = PZ.c33, tok = PZ.tok; h.update({ talk:true }); PZ.timers.push(setTimeout(() => { if (PZ && PZ.tok === tok) h.update({ talk:false }); }, 1400)); }
+    const el = document.querySelector('#hgBust .bust, #hgBust .hgpt'); if (!el || reduce) return;
+    el.classList.add('talk'); const tok = PZ && PZ.tok;
+    if (PZ) PZ.timers.push(setTimeout(() => { if (PZ && PZ.tok === tok) el.classList.remove('talk'); }, 1300));
+  }
+  function hgLearn(st, ev) {
+    const known = hgKnown(st.ci), name = hgName(st); let msg = '';
+    if (ev.act === 'praise') { if (known.praise == null) { known.praise = st.M.praise; msg = name + (st.M.praise > 0 ? ' övgüyü sever.' : st.M.praise < 0 ? ' övgüden hoşlanmaz.' : ' için övgü fark etmez.'); } }
+    else if (ev.learn && ev.tell && !ev.bluff && !known[ev.tell]) { known[ev.tell] = ev.learn; msg = name + ' ' + HG_TELL[ev.tell] + ' → ' + (ev.learn === 'room' ? 'daha verir.' : 'sınırda.'); }
+    if (msg) { meta.tells28 = meta.tells28 || {}; meta.tells28[st.ci] = known; saveMeta(); toast(msg + ' Deftere yazıldı.'); }
+  }
+  function hgDo(act, k) {
+    if (!PZ || PZ.kind !== 'haggle') return;
+    const st = PZ.st;
+    if (act === 'done') { hgClose(); return; }
+    const ev = hgStep(st, act, k); if (!ev) { play('no'); return; }
+    hgLearn(st, ev);
+    play(ev.ev === 'angry' ? 'bad' : ev.ev === 'yes' || ev.ev === 'deal' ? 'haggle' : ev.ev === 'bye' || ev.ev === 'leave' ? 'no' : 'tick');
+    if (ev.ev === 'angry') buzz([60, 40, 60]); else if (ev.ev === 'yes' || ev.ev === 'deal') buzz([15, 20, 30]);
+    hgPaint(ev);
+  }
+  function hgClose() {
+    if (!PZ || PZ.kind !== 'haggle' || PZ.called) return;
+    PZ.called = true; const cb = PZ.cb, res = Object.assign({}, PZ.st.res || { done:false, angry:false });
+    pzClear();
+    try { if (typeof cb === 'function') cb(res); }
+    finally { if (document.querySelector('#sheet .hg')) closeSheet(); }
+  }
+  /* test helper: plays the open haggle through the same buttons' code path */
+  function haggleAuto(strategy, opt) {
+    if (!PZ || PZ.kind !== 'haggle') return false;
+    const tok = PZ.tok, ms = (opt && opt.ms) != null ? opt.ms : 260; PZ.auto = strategy || 'read';
+    const tick = () => {
+      if (!PZ || PZ.tok !== tok) return;
+      const st = PZ.st;
+      if (st.fin) { if (!(opt && opt.stay)) hgDo('done'); return; }
+      const a = hgPick(st, PZ.auto, hgKnown(st.ci)); hgDo(a[0], a[1]);
+      PZ && PZ.timers.push(setTimeout(tick, ms));
+    };
+    PZ.timers.push(setTimeout(tick, ms));
+    return true;
+  }
+  function hgBind() {
+    const sh = $('#sheet');
+    if (sh && !sh._hgBound) {
+      sh._hgBound = true;
+      sh.addEventListener('click', e => {
+        if (!PZ || PZ.kind !== 'haggle') return;
+        const b = e.target.closest && e.target.closest('[data-hg]'); if (!b || b.disabled) return;
+        hgDo(b.dataset.hg, b.dataset.k != null ? +b.dataset.k : undefined);
+      });
+    }
+    /* keys 1 2 3 = the three offers */
+    if (!document._hgKey) {
+      document._hgKey = true;
+      document.addEventListener('keydown', e => {
+        if (!PZ || PZ.kind !== 'haggle' || PZ.st.fin || e.ctrlKey || e.metaKey || e.altKey || !/^[1-3]$/.test(e.key)) return;
+        const b = document.querySelector('#sheet [data-hg="offer"][data-k="' + (+e.key - 1) + '"]'); if (b && !b.disabled) { e.preventDefault(); hgDo('offer', +e.key - 1); }
+      });
+    }
+  }

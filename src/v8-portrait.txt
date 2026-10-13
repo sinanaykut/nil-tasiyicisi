@@ -1,0 +1,34 @@
+  /* ================= portraits ================= */
+  function portrait(i, lvl) {
+    const L = MERCHANTS[i].look, id = 'pc' + i + '-' + (uid++), H = L.hair, SK = L.skin, INK = '#1A1424';
+    const happy = lvl >= 3, smile = lvl >= 1 || L.jolly;
+    let s = '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><clipPath id="' + id + '"><circle cx="50" cy="50" r="50"/></clipPath></defs>';
+    s += '<circle cx="50" cy="50" r="50" fill="' + L.bg + '"/><g clip-path="url(#' + id + ')">';
+    if (L.wig === 'long') s += '<path d="M25 48Q24 17 50 16Q76 17 75 48L78 90H22Z" fill="' + H + '"/><path d="M28 58V88M72 58V88" stroke="#fff" stroke-opacity=".12" stroke-width="2"/>';
+    if (L.wig === 'puff') s += '<circle cx="50" cy="31" r="25" fill="' + H + '"/><circle cx="30" cy="39" r="12" fill="' + H + '"/><circle cx="70" cy="39" r="12" fill="' + H + '"/>';
+    s += '<path d="M10 104Q12 76 50 72Q88 76 90 104Z" fill="#FBF6EA"/>';
+    s += '<path d="M26 82Q50 100 74 82L70 73Q50 86 30 73Z" fill="' + L.c1 + '"/><path d="M30 76Q50 90 70 76L67 71Q50 81 33 71Z" fill="' + L.c2 + '"/>';
+    s += '<rect x="43" y="56" width="14" height="17" rx="6" fill="' + SK + '"/>';
+    s += '<circle cx="31.5" cy="47" r="4.2" fill="' + SK + '"/><circle cx="68.5" cy="47" r="4.2" fill="' + SK + '"/>';
+    if (L.ear === 'hoop') s += '<circle cx="31" cy="56" r="4" fill="none" stroke="#E5B93F" stroke-width="2"/><circle cx="69" cy="56" r="4" fill="none" stroke="#E5B93F" stroke-width="2"/>';
+    else if (L.ear) s += '<circle cx="31.5" cy="54" r="2.6" fill="#E5B93F"/><circle cx="68.5" cy="54" r="2.6" fill="#E5B93F"/>';
+    s += '<ellipse cx="50" cy="45" rx="18" ry="19.5" fill="' + SK + '"/>';
+    if (L.wig === 'bob') s += '<path d="M29 52Q26 22 50 21Q74 22 71 52L71 62Q67 64 64 60L64.5 39Q50 31 35.5 39L36 60Q33 64 29 62Z" fill="' + H + '"/><path d="M33 35Q50 26 67 35" stroke="' + L.band + '" stroke-width="3.5" fill="none" stroke-linecap="round"/>';
+    if (L.wig === 'long') s += '<path d="M30 50Q29 24 50 23Q71 24 70 50Q66 36 50 34Q34 36 30 50Z" fill="' + H + '"/><path d="M31.5 37Q50 27 68.5 37" stroke="' + L.band + '" stroke-width="3" fill="none" stroke-linecap="round"/>';
+    if (L.wig === 'bald') s += '<ellipse cx="44" cy="31" rx="5.5" ry="2.6" fill="#fff" opacity=".18"/><path d="M33 35Q50 26 67 35" stroke="' + L.band + '" stroke-width="4" fill="none" stroke-linecap="round"/>';
+    if (L.wig === 'cap') s += '<path d="M31.5 42Q31 23 50 23Q69 23 68.5 42Q62 34 50 34Q38 34 31.5 42Z" fill="' + H + '"/><path d="M32 40Q50 31 68 40" stroke="' + L.band + '" stroke-width="3" fill="none" stroke-linecap="round"/>';
+    if (L.wig === 'puff') s += '<path d="M33 38Q50 27 67 38Q62 31 50 31Q38 31 33 38Z" fill="' + H + '"/><circle cx="33" cy="25" r="2.6" fill="' + L.band + '"/><circle cx="50" cy="12" r="2.6" fill="#E5B93F"/><circle cx="67" cy="25" r="2.6" fill="' + L.band + '"/><circle cx="22" cy="40" r="2.4" fill="#E5B93F"/><circle cx="78" cy="40" r="2.4" fill="#E5B93F"/>';
+    s += '<path d="M38 39Q42 37 46 39M54 39Q58 37 62 39" stroke="' + (L.old ? '#EDE7DA' : INK) + '" stroke-width="' + (L.old ? 2.4 : 1.8) + '" fill="none" stroke-linecap="round"/>';
+    if (happy) s += '<path d="M38.5 46Q42 42.5 45.5 46M54.5 46Q58 42.5 61.5 46" stroke="' + INK + '" stroke-width="2.3" fill="none" stroke-linecap="round"/>';
+    else s += '<ellipse cx="42" cy="46" rx="4.2" ry="3" fill="#fff"/><ellipse cx="58" cy="46" rx="4.2" ry="3" fill="#fff"/><circle cx="42.4" cy="46" r="2.3" fill="' + INK + '"/><circle cx="58.4" cy="46" r="2.3" fill="' + INK + '"/><circle cx="43.2" cy="45.2" r=".7" fill="#fff"/><circle cx="59.2" cy="45.2" r=".7" fill="#fff"/><path d="M37.6 45.6L34.4 44.6M62.4 45.6L65.6 44.6" stroke="' + INK + '" stroke-width="1.6" stroke-linecap="round"/>';
+    s += '<path d="M50 48Q48.5 52 50.5 53" stroke="#000" stroke-opacity=".2" stroke-width="1.4" fill="none" stroke-linecap="round"/>';
+    s += '<circle cx="37.5" cy="53" r="3.3" fill="#F08F8F" opacity=".38"/><circle cx="62.5" cy="53" r="3.3" fill="#F08F8F" opacity=".38"/>';
+    if (L.old) s += '<path d="M35 50.5Q36.5 52.5 38 51.5M65 50.5Q63.5 52.5 62 51.5M44 34.5H56" stroke="#000" stroke-opacity=".18" stroke-width="1.1" fill="none" stroke-linecap="round"/>';
+    if (happy) s += '<path d="M44.5 55.5Q50 62.5 55.5 55.5Z" fill="#7A3B2E"/>';
+    else if (smile) s += '<path d="M45 56Q50 60 55 56" stroke="#7A3B2E" stroke-width="1.9" fill="none" stroke-linecap="round"/>';
+    else s += '<path d="M46.5 57.2Q50 58 53.5 57.2" stroke="#7A3B2E" stroke-width="1.8" fill="none" stroke-linecap="round"/>';
+    if (L.beard) s += '<path d="M47 63.5H53L52 74Q50 76 48 74Z" fill="' + H + '"/>';
+    if (L.extra === 'lotus') s += '<g transform="translate(50 24)"><path d="M0 0Q-10-4-9-11Q-3-7 0 0Z" fill="#F7C6D0"/><path d="M0 0Q10-4 9-11Q3-7 0 0Z" fill="#F7C6D0"/><path d="M0 0Q-5-8 0-14Q5-8 0 0Z" fill="#F2A7B8"/></g>';
+    if (L.extra === 'cat') s += '<g transform="translate(70 68)"><path d="M2 34V12L5 3 10 9H17L22 3 25 12V34Z" fill="#33313F"/><circle cx="9.5" cy="15" r="1.7" fill="#E5B93F"/><circle cx="17.5" cy="15" r="1.7" fill="#E5B93F"/><circle cx="13.5" cy="25" r="1.2" fill="#E5B93F"/></g>';
+    return s + '</g></svg>';
+  }

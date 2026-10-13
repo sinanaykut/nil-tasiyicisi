@@ -1,0 +1,928 @@
+const face3d = () => lsGet('nil-kervanci-face3d') === '1';
+/*CORE*/
+let RS = null;
+let rng = () => {
+  if (RS == null) return Math.random();
+  RS = RS + 0x6D2B79F5 | 0;
+  let t = Math.imul(RS ^ RS >>> 15, 1 | RS); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+  return ((t ^ t >>> 14) >>> 0) / 4294967296;
+};
+const DAYS = 30, SEASON_LEN = 10, START_CASH = 1200, START_DEBT = 1500, INTEREST = 0.03, MAX_DEBT = 8000, BASE_CAP = 40, IMPACT = 0.007;
+const fmtN = n => Math.round(n).toLocaleString('tr-TR');
+const SEASONS = [
+  { id:'akhet', name:'Akhet', title:'Taşkın mevsimi', desc:'Nil taştı: akıntı hızlı, girdaplar çok. Buğday pahalı, sedir ucuz.', mult:{ bugday:1.25, sedir:.86, hurma:.9 }, river:{ speed:1.1, whirl:2.2, sand:.4, width:1.08 } },
+  { id:'peret', name:'Peret', title:'Ekim mevsimi', desc:'Tarlalar yeşerdi: papirüs bol ve ucuz, şarap aranıyor.', mult:{ papirus:.8, sarap:1.18, kyphi:1.1 }, river:{ speed:1, whirl:1, sand:1, width:1 } },
+  { id:'shemu', name:'Shemu', title:'Hasat mevsimi', desc:'Hasat zamanı: buğday ucuz, nehir sığ, kum adaları çok. Bakır ve lapis aranıyor.', mult:{ bugday:.72, bakir:1.12, lapis:1.12, hurma:1.15, tuz:1.1 }, river:{ speed:.96, whirl:.5, sand:2.2, width:.92 } }
+];
+const seasonIdx = S => Math.min(2, Math.floor((S.day - 1) / ((S.days || DAYS) / 3)));
+const seasonLeft = S => Math.min(S.days, (seasonIdx(S) + 1) * ((S.days || DAYS) / 3)) - S.day + 1;
+const TRUST = [ { min:0, name:'Yabancı', b:0 }, { min:150, name:'Tanıdık', b:.03 }, { min:500, name:'Dost', b:.06 }, { min:1300, name:'Can dostu', b:.1 } ];
+const trustLv = (S, i) => { const t = S.trust[i == null ? S.city : i]; let l = 0; TRUST.forEach((x, k) => { if (t >= x.min) l = k; }); return l; };
+const hagB = S => S.haggle && S.haggle.city === S.city && S.haggle.day === S.day ? S.haggle.b : 0;
+const fameB = S => S.fame && S.fame.city === S.city && S.fame.day === S.day ? S.fame.b : 0;
+/* the hero you play: a passive trait and one power (per voyage, or per day in port for Neferet) */
+const HEROES = {
+  ahmose:  { name:'Ahmose',  title:'Eski Medjay',  passive:'Teknen bir darbeye daha dayanır.', power:'Muhafız', pdesc:'Yolculukta bir kez: pusudaki takipçiler senden korkup kaçar.', when:'voy' },
+  neferet: { name:'Neferet', title:'Tüccar kızı',  passive:'Alışta ve satışta her yerde %3 avantaj.', power:'Tatlı dil', pdesc:'Günde bir kez: bulunduğun pazarda bugün bütün alış satışların %6 daha iyi.', when:'port' },
+  sitre:   { name:'Sitre',   title:'Kâtip',        passive:'Komşu şehirlerin fiyatlarını her varışta öğrenirsin.', power:'Kehanet', pdesc:'Yolculukta bir kez: haritadaki sis kalkar, pusular görünür.', when:'voy' },
+  bakenre: { name:'Bakenre', title:'Nil çocuğu',   passive:'Her sahnede bir kürek hamlesi fazla.', power:'Akıntı', pdesc:'Yolculukta bir kez: kestirme bir akıntı yolu 1 gün kısaltır.', when:'voy' }
+};
+const HERO_IDS = Object.keys(HEROES);
+const heroB = S => S.hero === 'neferet' ? 0.03 + (S.heroDay && S.heroDay.city === S.city && S.heroDay.day === S.day ? 0.06 : 0) : 0;
+const buyDisc = S => TRUST[trustLv(S)].b + hagB(S) + heroB(S);
+const sellBonus = S => TRUST[trustLv(S)].b + hagB(S) + fameB(S) + heroB(S) + (S.edge === S.city ? 0.08 : 0);
+const canHaggle = S => !S.over && !(S.haggle && S.haggle.city === S.city && S.haggle.day === S.day);
+/* haggling: a timing game; q is 'perfect', 'good' or 'miss' */
+function haggle(S, q, bo) {
+  if (!canHaggle(S)) return null;
+  const wins = S.stats.haggles || 0, b = q === 'miss' ? 0 : bo != null ? bo : q === 'perfect' ? Math.max(0.08, 0.12 - wins * 0.01) : 0.05;
+  S.haggle = { city:S.city, day:S.day, b };
+  if (q === 'miss') S.trust[S.city] = Math.max(0, S.trust[S.city] - 60);
+  S.stats.haggles = (S.stats.haggles || 0) + (b > 0 ? 1 : 0);
+  S.log.push({ d:S.day, t: b ? MERCHANT_NAMES[S.city] + ' ile pazarlıkta %' + Math.round(b * 100) + ' koparttın.' : MERCHANT_NAMES[S.city] + ' pazarlığa kızdı.' });
+  return b;
+}
+const BLESS = {
+  bastet: { name:'Bastet\'in gözü', desc:'Bir sonraki yolculukta kimse peşine düşmez.' },
+  sobek:  { name:'Sobek\'in sözü',  desc:'Bir sonraki yolculukta timsahlar sana dokunmaz.' },
+  hapi:   { name:'Hapi\'nin lütfu', desc:'Bir sonraki yolculukta teknen bir darbeye daha dayanır.' }
+};
+function migrate(S) {
+  if (!S) return S;
+  S.stats = Object.assign({ near:0, haggles:0, rapids:0, interest:0, lostVal:0, best:null, river:0 }, S.stats);
+  if (S.bless === undefined) S.bless = null;
+  if (S.haggle === undefined) S.haggle = null;
+  if (!S.stock) genStock(S);
+  if (S.contra === undefined) S.contra = null;
+  if (S.fame === undefined) S.fame = null;
+  if (S.quest === undefined) S.quest = null;
+  if (!S.mods) S.mods = [];
+  if (!S.crises) S.crises = [];
+  if (!S.feat) S.feat = Object.assign({}, FEAT_ALL);
+  if (!S.feat.haggle) S.feat.haggle = true;
+  if (!S.boat) S.boat = 'nehir';
+  if (!S.dev) S.dev = {};
+  if (!S.work) S.work = [];
+  if (S.stash === undefined) S.stash = null;
+  if (S.caravan === undefined) S.caravan = null;
+  if (!S.temple) S.temple = {};
+  if (!S.tavern) S.tavern = {};
+  if (!S.boatSpent) S.boatSpent = 0;
+  if (S.hull == null || S.hull > maxHp(S)) S.hull = maxHp(S);
+  if (!S.hg28) S.hg28 = {};
+  GOODS.forEach(g => { if (!S.inv[g.id]) S.inv[g.id] = { n:0, cost:0 }; if (S.trend[g.id] == null) S.trend[g.id] = 1; });
+  while (S.trust.length < CITIES.length) S.trust.push(0);
+  while (S.gifted.length < CITIES.length) S.gifted.push(false);
+  if (!S.prices || S.prices.length < CITIES.length || GOODS.some(g => S.prices[0][g.id] == null)) { const keep = S.news; rollPrices(S); S.news = keep || []; }
+  if (!S.stock || S.stock.length < CITIES.length) genStock(S);
+  if (S.rival && S.rival.plan === undefined && !S.over) { S.rival.plan = null; sethiPlan(S, S.rival.city == null ? 3 : S.rival.city, S.day); }
+  return S;
+}
+const PERKS = {
+  kese:   { name:'Başlangıç kesesi', max:3, cost:[5, 12, 24], desc:'Her seviye sefere 300 deben fazla parayla başlarsın.' },
+  tayfa:  { name:'Tecrübeli tayfa',  max:1, cost:[10],        desc:'Her yolculukta bir kürek hamlesi fazla.' },
+  usta:   { name:'Usta marangoz',    max:1, cost:[16],        desc:'Teknen bir darbeye daha dayanır.' },
+  ag:     { name:'Kayıkçı ağı',      max:2, cost:[7, 18],     desc:'Sefere komşu iki şehirde en çok aranan iki malın fiyatını bilerek başlarsın (2. seviyede bütün şehirlerde).' },
+  hapu:   { name:'Hapu\'nun dostu',  max:1, cost:[22],        desc:'Tefeci faizi günlük yüzde 3\'ten 2,5\'e iner.' }
+};
+const ACH = [
+  { id:'kusursuz', name:'Kusursuz kaptan', desc:'Bir seferde 3 yolculuğu hiç darbe almadan bitir.', rep:3, ok:(S, r) => S.stats.perfect >= 3 },
+  { id:'kacak',    name:'Nil tilkisi',     desc:'Bir seferde 3 takipçiden kaç.', rep:3, ok:(S, r) => S.stats.escapes >= 3 },
+  { id:'borcsuz',  name:'Borçsuz yaşam',   desc:'Hapu\'ya olan borcunu 15. günden önce kapat.', rep:3, ok:(S, r) => S.stats.paidDay > 0 && S.stats.paidDay < 15 },
+  { id:'sethi',    name:'Sethi\'nin kâbusu', desc:'Seferi Sethi\'den zengin bitir.', rep:2, ok:(S, r) => r.beat },
+  { id:'siparis',  name:'Sözünün eri',     desc:'Bir seferde 3 sipariş teslim et.', rep:3, ok:(S, r) => S.stats.orders >= 3 },
+  { id:'dost',     name:'Herkesin dostu',  desc:'Bir tüccarla "Can dostu" ol.', rep:3, ok:(S, r) => S.trust.some(t => t >= TRUST[3].min) },
+  { id:'zengin',   name:'Nil\'in Efendisi', desc:'30.000 deben ile bitir.', rep:4, ok:(S, r) => r.score >= 30000 },
+  { id:'kilpayi',  name:'Kıl payı ustası', desc:'Bir seferde 15 kez kıl payı geç.', rep:3, ok:(S, r) => (S.stats.near || 0) >= 15 },
+  { id:'pazarlik', name:'Pazarlık ustası', desc:'Bir seferde 4 pazarlık kazan.', rep:2, ok:(S, r) => (S.stats.haggles || 0) >= 4 },
+  { id:'kacakci',  name:'Gece kuşu', desc:'Hapu\'nun kaçak sandıklarını Medjay\'a yakalanmadan teslim et.', rep:3, ok:(S, r) => (S.stats.contra || 0) >= 1 },
+  { id:'destan',   name:'Destan',          desc:'Bir seferde hikâye görevini sonuna kadar götür.', rep:3, ok:(S, r) => !!(S.quest && S.quest.st === 'done') },
+  { id:'firavun',  name:'Hazinedar',       desc:'60.000 deben ile bitir.', rep:6, ok:(S, r) => r.score >= 60000 },
+  { id:'kervan',   name:'Çöl kervancısı',  desc:'Bir seferde iki çöl yolculuğunu tamamla.', rep:3, ok:(S, r) => (S.stats.desert || 0) >= 2 },
+  { id:'zanaat',   name:'Atölye ustası',   desc:'Bir seferde atölyelerden 10 ürün al.', rep:3, ok:(S, r) => (S.stats.crafted || 0) >= 10 },
+  { id:'mabet',    name:'Işığın efendisi', desc:'Bir seferde üç tapınak odasını çöz.', rep:3, ok:(S, r) => (S.stats.temples || 0) >= 3 },
+  { id:'kadirga',  name:'Kadırga kaptanı', desc:'Sedir kadırga satın al.', rep:3, ok:(S, r) => S.boat === 'kadirga' }
+];
+const GOODS = [
+  { id:'bugday',  name:'Buğday',          short:'Buğday',  base:16 },
+  { id:'papirus', name:'Papirüs',         short:'Papirüs', base:50 },
+  { id:'hurma',   name:'Hurma',           short:'Hurma',   base:40 },
+  { id:'sarap',   name:'Şarap',           short:'Şarap',   base:120 },
+  { id:'tuz',     name:'Siwa tuzu',       short:'Tuz',     base:90 },
+  { id:'bakir',   name:'Bakır',           short:'Bakır',   base:280 },
+  { id:'sedir',   name:'Sedir kerestesi', short:'Sedir',   base:620 },
+  { id:'tutsu',   name:'Punt tütsüsü',    short:'Tütsü',   base:900 },
+  { id:'lapis',   name:'Lapis taşı',      short:'Lapis',   base:1400 },
+  { id:'muska',   name:'Fayans muska',    short:'Muska',   base:300, craft:true },
+  { id:'kitap',   name:'Ölüler Kitabı',   short:'Kitap',   base:450, craft:true },
+  { id:'kyphi',   name:'Kyphi',           short:'Kyphi',   base:900, craft:true }
+];
+const RAW = GOODS.filter(g => !g.craft);
+/* null = this market does not deal in that good */
+const CITIES = [
+  { id:'perbastet', name:'Per-Bastet', dat:'Per-Bastet\'e', loc:'Per-Bastet\'te', sub:'Delta limanı, kedi tanrıçanın şehri', river:true,
+    mult:{ bugday:.8, papirus:.78, hurma:1.35, sarap:1.08, tuz:1.3, bakir:1.2, sedir:1.0, tutsu:1.3, lapis:1.2, muska:1.3, kitap:1.1, kyphi:null } },
+  { id:'mennefer',  name:'Mennefer',   dat:'Mennefer\'e',   loc:'Mennefer\'de',   sub:'Piramitlerin yanı · tefecinin evi', river:true,
+    mult:{ bugday:1.12, papirus:1.12, hurma:1.3, sarap:.8, tuz:1.2, bakir:1.06, sedir:.78, tutsu:1.25, lapis:1.18, muska:1.25, kitap:1.3, kyphi:1.3 } },
+  { id:'abidos',    name:'Abidos',     dat:'Abidos\'a',     loc:'Abidos\'ta',     sub:'Osiris tapınağı', river:true,
+    mult:{ bugday:.82, papirus:.92, hurma:1.15, sarap:1.16, tuz:1.45, bakir:1.12, sedir:1.14, tutsu:1.35, lapis:1.06, muska:null, kitap:1.45, kyphi:1.25 } },
+  { id:'vaset',     name:'Vaset',      dat:'Vaset\'e',      loc:'Vaset\'te',      sub:'Teb, tapınaklar şehri', river:true,
+    mult:{ bugday:1.18, papirus:1.15, hurma:1.25, sarap:1.18, tuz:1.3, bakir:.78, sedir:1.06, tutsu:1.35, lapis:.86, muska:1.1, kitap:null, kyphi:1.45 } },
+  { id:'abu',       name:'Abu',        dat:'Abu\'ya',       loc:'Abu\'da',        sub:'Elefantin adası', river:true,
+    mult:{ bugday:1.08, papirus:1.2, hurma:1.2, sarap:1.0, tuz:1.4, bakir:.9, sedir:1.22, tutsu:1.2, lapis:.76, muska:1.2, kitap:1.15, kyphi:1.2 } },
+  { id:'siwa',      name:'Siwa',       dat:'Siwa\'ya',      loc:'Siwa\'da',       sub:'Amun kâhininin vahası', river:false, hub:1, days:3,
+    mult:{ bugday:1.9, papirus:1.6, hurma:.55, sarap:1.45, tuz:.42, bakir:1.5, sedir:null, tutsu:1.3, lapis:null, muska:1.45, kitap:1.2, kyphi:1.35 } },
+  { id:'kharga',    name:'Harga',      dat:'Harga\'ya',     loc:'Harga\'da',      sub:'Hibis tapınağı ve hurma bahçeleri', river:false, hub:2, days:2,
+    mult:{ bugday:1.55, papirus:null, hurma:.45, sarap:.9, tuz:.8, bakir:1.4, sedir:null, tutsu:null, lapis:null, muska:1.3, kitap:1.25, kyphi:null } },
+  { id:'saww',      name:'Saww',       dat:'Saww\'a',       loc:'Saww\'da',       sub:'Kızıldeniz limanı · Punt gemileri', river:false, hub:3, days:2,
+    mult:{ bugday:1.8, papirus:1.5, hurma:1.4, sarap:1.6, tuz:null, bakir:1.3, sedir:1.5, tutsu:.6, lapis:1.25, muska:1.55, kitap:null, kyphi:1.1 } }
+];
+const RIVER = CITIES.map((c, i) => i).filter(i => CITIES[i].river);
+const isRiver = i => !!(CITIES[i] && CITIES[i].river);
+const deals = (i, g) => CITIES[i].mult[g] != null;
+/* the hulls you can own; upgrades below belong to the hull and go with it when it is sold */
+const BOATS = {
+  nehir:   { name:'Nehir teknesi', cap:40, hp:3, sail:0,  row:0, price:0,    desc:'Eski dostun: dengeli, sade.' },
+  feluka:  { name:'Feluka',        cap:35, hp:3, sail:1,  row:1, price:2600, desc:'Üçgen yelkenli, hafif ve hızlı: uzun yollar bir gün kısalır.' },
+  mavna:   { name:'Yük mavnası',   cap:80, hp:4, sail:-1, row:0, price:3600, desc:'Geniş ve sağlam: iki kat yük, ama uzun yollarda bir gün yavaş.' },
+  kadirga: { name:'Sedir kadırga', cap:70, hp:5, sail:1,  row:2, price:9000, desc:'Byblos sedirinden büyük kadırga: geniş ambar, güçlü kürekçiler, hızlı.' }
+};
+const BOAT_IDS = Object.keys(BOATS);
+const UPS = {
+  govde:  { name:'Sağlam gövde', max:2, cost:[700, 1800], desc:['Teknen bir darbeye daha dayanır.', 'Teknen iki darbeye daha dayanır.'] },
+  yelken: { name:'Geniş yelken', max:2, cost:[600, 1600], desc:['3 günlük ve daha uzun yollar 1 gün kısalır. Tekne daha hızlı.', '2 günlük ve daha uzun yollar 1 gün kısalır. Tekne çok daha hızlı.'] },
+  kurek:  { name:'Kürekçiler',   max:2, cost:[450, 1200], desc:['Bir kürek hamlesi fazla, hamleler daha çabuk dolar.', 'İki kürek hamlesi fazla, hamleler çok çabuk dolar.'] },
+  ambar:  { name:'Geniş ambar',  max:2, cost:[500, 1400], desc:['Teknen 20 birim daha fazla taşır.', 'Teknen 40 birim daha fazla taşır.'] }
+};
+/* ship devices: made by Ptah's craftsmen in Mennefer from goods you bring */
+const DEVS = {
+  burun: { name:'Bakır mahmuz', need:{ bakir:3 }, cost:200, desc:'Her yolculukta ilk darbeyi bakır burun karşılar.' },
+  fener: { name:'Gece feneri',  need:{ bakir:1, sarap:2 }, cost:120, desc:'Gece geçişlerinde devriye fenerleri küçülür, sen daha çok görürsün.' },
+  goz:   { name:'Horus gözü',   need:{ lapis:1 }, cost:150, desc:'Pruvadaki göz kötü niyetlileri caydırır: peşine düşen azalır.' }
+};
+/* workshops: leave raw goods, the craftsmen need a couple of days, collect the goods in the same city */
+const WORKS = {
+  0: { out:'kyphi', need:{ tutsu:1, sarap:1, hurma:2 }, n:2, fee:60, days:2, who:'Bastet tapınağının parfümcüleri' },
+  2: { out:'muska', need:{ bakir:1, tuz:2 }, n:3, fee:40, days:2, who:'Abidos fayans ustaları' },
+  3: { out:'kitap', need:{ papirus:5 }, n:1, fee:30, days:2, who:'Karnak yazıcıları' }
+};
+const MAX_BATCH = 8;
+const RANKS = [
+  { min:-1e9,  name:'Tefecinin kölesi' },
+  { min:0,     name:'Çırak Kervancı' },
+  { min:5000,  name:'Gezgin Tüccar' },
+  { min:15000, name:'Kervanbaşı' },
+  { min:30000, name:'Nil\'in Efendisi' },
+  { min:60000, name:'Firavun\'un Hazinedarı' }
+];
+const rankOf = s => { let r = RANKS[0]; for (const x of RANKS) if (s >= x.min) r = x; return r.name; };
+const boatOf = S => BOATS[S.boat] || BOATS.nehir;
+const boatCap = S => boatOf(S).cap + 20 * S.up.ambar;
+const maxHp = S => boatOf(S).hp + S.up.govde + (S.perk.usta || 0) + (S.hero === 'ahmose' ? 1 : 0);
+const sailOf = S => S.up.yelken + boatOf(S).sail;
+/* ---------- v28: the hull keeps its scars between voyages; the river yards mend them ---------- */
+const hullNow = S => S.hull == null ? maxHp(S) : Math.max(0, Math.min(S.hull, maxHp(S)));
+/* 0 sound, 1 scuffed, 2 damaged, 3 critical */
+const dmgStage = S => { const m = maxHp(S), h = hullNow(S); return h >= m ? 0 : h / m >= 0.7 ? 1 : h / m >= 0.4 ? 2 : 3; };
+const REPAIR = { river:90, mennefer:60 };
+const repairCost = S => S.city === 1 ? REPAIR.mennefer : REPAIR.river;
+const canRepair = S => isRiver(S.city) && !S.caravan && !S.over && hullNow(S) < maxHp(S);
+function repairHull(S, n) {
+  if (!canRepair(S)) return 0;
+  const c = repairCost(S); n = Math.max(0, Math.min(n == null ? Infinity : n, maxHp(S) - hullNow(S), Math.floor(S.cash / c)));
+  if (!n) return 0;
+  S.hull = hullNow(S) + n; S.cash -= n * c; if (dmgStage(S) < 2) S.repNag = false;
+  S.log.push({ d:S.day, t:'Kalafatçılar teknende ' + n + ' yarayı onardı (' + fmtN(n * c) + ' deben).' });
+  return n;
+}
+const CONTRA = 5;
+const DONKEY = 10;
+const invLoad = inv => GOODS.reduce((a, g) => a + (inv[g.id] ? inv[g.id].n : 0), 0);
+const stashLoad = S => S.stash ? invLoad(S.stash) : 0;
+const load = S => invLoad(S.inv) + (S.contra ? CONTRA : 0) + (S.quest && S.quest.cargo ? S.quest.cargo : 0);
+/* with a caravan out, what you can carry is the donkeys' load, and it all has to fit back on the boat later */
+const cap = S => S.caravan ? Math.min(S.caravan.donkeys * DONKEY, boatCap(S) - stashLoad(S)) : boatCap(S);
+/* each market only has so much of each good; valuable goods are scarce, so the hold is filled with a mix */
+const STOCK = { bugday:120, papirus:90, hurma:110, sarap:55, tuz:70, bakir:32, sedir:18, tutsu:10, lapis:8, muska:0, kitap:0, kyphi:0 };
+function genStock(S) {
+  S.stock = CITIES.map(c => { const o = {}; GOODS.forEach(g => { const m = c.mult[g.id]; o[g.id] = m == null || !STOCK[g.id] ? 0 : Math.max(2, Math.round(STOCK[g.id] * (0.6 + rng() * 0.7) * (m < 0.6 ? (g.base > 500 ? 1.3 : 2.2) : m < 0.9 ? 1.5 : m > 1.1 ? 0.7 : 1))); }); return o; });
+}
+const freeCap = S => cap(S) - load(S);
+/* river distance; off-river cities are reached from their hub only */
+const dist = (a, b) => {
+  const A = CITIES[a], B = CITIES[b];
+  if (A.river && B.river) return Math.abs(a - b);
+  if (!A.river && B.river) return A.days + Math.abs(A.hub - b);
+  if (A.river && !B.river) return B.days + Math.abs(a - B.hub);
+  return A.days + B.days + Math.abs(A.hub - B.hub);
+};
+const pick = a => a[Math.floor(rng() * a.length)];
+const gById = id => GOODS.find(g => g.id === id);
+const linked = (a, b) => a !== b && (isRiver(a) && isRiver(b) || (!isRiver(b) && CITIES[b].hub === a) || (!isRiver(a) && CITIES[a].hub === b));
+function travelDays(S, dest) {
+  if (!isRiver(dest)) return CITIES[dest].days;
+  if (!isRiver(S.city)) return CITIES[S.city].days;
+  let d = dist(S.city, dest);
+  const s = sailOf(S);
+  if (s < 0 && d >= 2) d++;
+  if (s >= 1 && d >= 3) d--;
+  if (s >= 2 && d >= 2) d--;
+  return Math.max(1, d);
+}
+/* features open one by one over the first free runs, so a newcomer meets one system at a time */
+const FEAT_ALL = { haggle:true, crisis:true, quest:true, contra:true, desert:true, atolye:true };
+const featFor = runs => ({ haggle:true, crisis:runs >= 1, quest:runs >= 2, contra:runs >= 2, desert:runs >= 1, atolye:runs >= 1 });
+const has = (S, f) => !S.feat || !!S.feat[f];
+/* market crises: announced a day ahead, last a few days, and come with a choice when you are there */
+const CRISES = {
+  kitlik: { name:'Tahıl kıtlığı', cities:[1, 3, 4], g:'bugday', mult:2.1, stock:0.45, len:4, desc:'ambarlar boşaldı: buğday iki kat pahalı ve az bulunuyor' },
+  bayram: { name:'Opet bayramı',  cities:[3, 2],    g:'sarap',  mult:1.75, len:3, desc:'bayram sofraları kuruluyor: şarap çok aranıyor' },
+  maden:  { name:'Bakır bolluğu', cities:[0, 1],    g:'bakir',  mult:0.55, stock:1.8, len:3, desc:'Sina seferi döndü: bakır yarı fiyatına' },
+  liman:  { name:'Liman kapandı', cities:[0, 2, 3, 4], g:null, len:2, close:true, after:1.3, desc:'Medjay limanı iki gün kapattı; açılınca her mal %30 pahalı' },
+  cekirge:{ name:'Çekirge sürüsü', cities:[0, 1, 2], g:'bugday', g2:'papirus', mult:2.3, mult2:1.6, stock:0.4, len:3, desc:'gökyüzü karardı, tarlalar yendi: buğday ve papirüs fırladı' }
+};
+const portClosed = (S, i, day) => (S.crises || []).some(c => CRISES[c.k].close && c.city === i && day >= c.from && day <= c.closeUntil);
+const canGo = (S, dest) => {
+  if (S.over || dest === S.city || !linked(S.city, dest)) return false;
+  const d = travelDays(S, dest);
+  if (!isRiver(dest)) return has(S, 'desert') && !S.contra && S.day + 2 * d <= S.days;
+  return S.day + d <= S.days && (!isRiver(S.city) || !portClosed(S, dest, S.day + d));
+};
+/* why a city cannot be reached right now, in a few words */
+function whyNot(S, dest) {
+  if (dest === S.city) return 'Buradasın';
+  if (!isRiver(S.city)) return CITIES[S.city].hub === dest ? null : 'Önce ' + CITIES[CITIES[S.city].hub].dat + ' dön';
+  if (!isRiver(dest)) {
+    if (CITIES[dest].hub !== S.city) return CITIES[CITIES[dest].hub].loc + 'n';
+    if (!has(S, 'desert')) return 'Sonraki seferde açılır';
+    if (S.contra) return 'Kaçak sandıklarla çöle çıkılmaz';
+    if (S.day + 2 * travelDays(S, dest) > S.days) return 'Dönmeye vakit yok';
+    return null;
+  }
+  const d = travelDays(S, dest);
+  if (S.day + d > S.days) return 'Sefer biter';
+  if (portClosed(S, dest, S.day + d)) return 'Liman kapalı';
+  return null;
+}
+function genCrises(S) {
+  const n = S.days >= 30 ? 6 : 3, all = Object.keys(CRISES).sort(() => rng() - 0.5), kinds = Array.from({ length:n }, (_, i) => all[i % all.length]);
+  const step = (S.days - 4) / n, starts = kinds.map((k, i) => Math.round(3 + i * step + rng() * Math.max(1, step - 3)));
+  S.crises = kinds.map((k, i) => {
+    const d = CRISES[k], city = d.cities[Math.floor(rng() * d.cities.length)], from = starts[i], c = { id:i, k, city, from, until:from + d.len - 1, done:false };
+    if (d.close) { c.closeUntil = c.until; c.until += 2; S.mods.push({ city, g:null, mult:d.after, from:c.closeUntil + 1, until:c.until, src:'kriz' }); }
+    else { S.mods.push({ city, g:d.g, mult:d.mult, stock:d.stock, from, until:c.until, src:'kriz' }); if (d.g2) S.mods.push({ city, g:d.g2, mult:d.mult2, stock:d.stock, from, until:c.until, src:'kriz' }); }
+    return c;
+  });
+}
+/* temporary market changes (Sethi's buying and dumping, crises) applied on top of each day's prices */
+function applyMods(S) {
+  (S.mods || []).forEach(m => {
+    if (S.day < m.from || S.day > m.until) return;
+    (m.g ? [m.g] : GOODS.map(g => g.id)).filter(g => deals(m.city, g)).forEach(g => { S.prices[m.city][g] = Math.max(2, S.prices[m.city][g] * m.mult); if (S.stock && m.stock != null) S.stock[m.city][g] = Math.max(1, Math.round(S.stock[m.city][g] * m.stock)); });
+  });
+  if (S.mods) S.mods = S.mods.filter(m => m.until >= S.day);
+}
+/* Sethi works in the open: he announces where he is taking which good, and the market feels it */
+const SETHI_RATE = 0.052;
+const sethiDays = (a, b) => Math.max(1, dist(a, b) - 1);
+function sethiPlan(S, from, day) {
+  const R = S.rival, opts = [];
+  RIVER.forEach(to => {
+    const c = CITIES[to];
+    if (to === from) return; const arrive = day + sethiDays(from, to); if (arrive > S.days || portClosed(S, to, arrive)) return;
+    RAW.slice(1).forEach(g => { if (deals(to, g.id) && deals(from, g.id)) opts.push({ to, g:g.id, arrive, sc:c.mult[g.id] / CITIES[from].mult[g.id] + rng() * 0.25 - (arrive - day) * 0.05 }); });
+  });
+  if (!opts.length) { R.plan = null; return; }
+  opts.sort((a, b) => b.sc - a.sc);
+  const o = opts[Math.floor(rng() * Math.min(3, opts.length))];
+  R.plan = { from, to:o.to, g:o.g, start:day, arrive:o.arrive, delayed:false };
+  S.mods.push({ city:from, g:o.g, mult:1.22, stock:0.35, from:day, until:day + 1, src:'sethi' });
+}
+const sethiAt = S => { const p = S.rival.plan; return !p ? S.rival.city : S.day < p.start ? p.from : S.day >= p.arrive ? p.to : null; };
+function sethiArrive(S, out) {
+  const R = S.rival; let guard = 0;
+  while (R.plan && R.plan.arrive <= S.day && guard++ < 12) {
+    const p = R.plan, gn = gById(p.g).short.toLowerCase();
+    S.mods.push({ city:p.to, g:p.g, mult:0.68, from:p.arrive, until:p.arrive + 2, src:'sethi' });
+    R.cash += 80 + Math.round(gById(p.g).base * 0.35);
+    let snatched = false;
+    if (S.offers[p.to] && !(S.city === p.to && S.day === p.arrive && out == null)) { S.offers[p.to] = null; snatched = true; }
+    S.log.push({ d:p.arrive, t:'Sethi ' + CITIES[p.to].dat + ' ' + gn + ' boşalttı' + (snatched ? ' ve oradaki siparişi kaptı' : '') + '.' });
+    if (out && p.to === S.city && p.arrive + 2 >= S.day) out.push({ kind:'bad', title:'Sethi buraya ' + gn + ' boşalttı', text:'Fiyatı ' + (p.arrive + 2) + '. güne kadar düşük kalacak.' + (snatched ? ' ' + MERCHANT_NAMES[p.to] + '\'in siparişini de kaptı.' : '') });
+    R.city = p.to; R.last = p.arrive;
+    sethiPlan(S, p.to, p.arrive + 1);
+  }
+}
+function sethiDelay(S) {
+  const p = S.rival.plan; if (!p || p.delayed || S.cash < 150 || p.arrive <= S.day || S.over) return false;
+  S.cash -= 150; p.delayed = true; p.arrive++; S.log.push({ d:S.day, t:'Liman memurunu Sethi\'yi oyalaması için tuttun. Sethi ' + CITIES[p.to].dat + ' ' + p.arrive + '. gün varacak.' });
+  return true;
+}
+function cargoValueAt(S, prices) { return GOODS.reduce((a, g) => a + S.inv[g.id].n * prices[g.id], 0); }
+function snap(S, i) { const o = {}; GOODS.forEach(g => { o[g.id] = Math.round(S.prices[i][g.id]); }); return { d:S.day, p:o }; }
+
+function newGame(opts) {
+  opts = opts || {};
+  RS = opts.seed != null ? (opts.seed | 0) : null;
+  const perk = Object.assign({ kese:0, tayfa:0, usta:0, ag:0, hapu:0 }, opts.daily ? {} : (opts.perks || {}));
+  const S = { v:12, hero:HEROES[opts.hero] ? opts.hero : null, heroDay:null, mode: opts.daily ? 'daily' : 'free', dateKey: opts.dateKey || null, days:DAYS, day:1, city:1, perk, rate: perk.hapu ? 0.025 : INTEREST,
+              cash:START_CASH + 300 * perk.kese, debt:START_DEBT, inv:{}, up:{ govde:0, yelken:0, kurek:0, ambar:0 },
+              trend:{}, prices:[], news:[], seen:{}, visited:[1], log:[], over:false, result:null, last:null, pendingEvent:null, boat:'nehir', dev:{}, work:[], stash:null, caravan:null, temple:{}, tavern:{}, boatSpent:0,
+              trust:CITIES.map(() => 0), gifted:CITIES.map(() => false), offers:{}, orders:[], edge:null,
+              rival:{ city:3, cash:2400, last:null, plan:null }, mods:[], crises:[], feat:Object.assign({}, opts.daily ? FEAT_ALL : (opts.feat || FEAT_ALL)),
+              quest:opts.arc ? { id:opts.arc, step:0, st:'offer', by:0, cargo:0, f:{}, log:[] } : null,
+              stats:{ vlog:'', trips:0, hits:0, escapes:0, caught:0, crates:0, perfect:0, orders:0, paidDay:0, races:0, raceWins:0, near:0, haggles:0, rapids:0, interest:0, lostVal:0, best:null, river:0 }, bless:null, haggle:null, fame:null, contra:null };
+  GOODS.forEach(g => { S.inv[g.id] = { n:0, cost:0 }; S.trend[g.id] = 1; });
+  S.hull = maxHp(S); S.hg28 = {};
+  rollPrices(S);
+  S.news = [];
+  S.seen[1] = snap(S, 1);
+  /* the boatmen's network only whispers the two most sought-after goods of a city, not the whole market */
+  const whisper = i => { const o = {}; GOODS.filter(g => deals(i, g.id) && !g.craft).sort((a, b) => S.prices[i][b.id] / (b.base * CITIES[i].mult[b.id]) - S.prices[i][a.id] / (a.base * CITIES[i].mult[a.id])).slice(0, 2).forEach(g => { o[g.id] = Math.round(S.prices[i][g.id]); }); return { d:S.day, p:o, src:'ag' }; };
+  if (perk.ag >= 1) [0, 2].forEach(i => { S.seen[i] = whisper(i); });
+  if (perk.ag >= 2) [3, 4].forEach(i => { S.seen[i] = whisper(i); });
+  S.offers[1] = makeOrder(S, 1);
+  if (has(S, 'crisis')) genCrises(S);
+  sethiPlan(S, 3, 1);
+  applyMods(S); S.seen[1] = snap(S, 1);
+  S.startWorth = S.cash - S.debt;
+  S.log.push({ d:1, t:'Tefeci Hapu sana ' + fmtN(START_DEBT) + ' deben borç verdi. Faiz günlük yüzde ' + String(+(S.rate * 100).toFixed(1)).replace('.', ',') + '. Sefer ' + S.days + ' gün sürüyor.' });
+  S.rs = RS;
+  return S;
+}
+function rollPrices(S) {
+  GOODS.forEach(g => {
+    let t = S.trend[g.id] * (0.88 + rng() * 0.24);
+    t += (1 - t) * 0.25;
+    S.trend[g.id] = Math.min(1.35, Math.max(0.7, t));
+  });
+  const sm = SEASONS[seasonIdx(S)].mult;
+  S.prices = CITIES.map(c => {
+    const o = {};
+    GOODS.forEach(g => { o[g.id] = Math.max(2, g.base * (c.mult[g.id] == null ? 1 : c.mult[g.id]) * (sm[g.id] || 1) * S.trend[g.id] * (0.68 + rng() * 0.72)); });
+    return o;
+  });
+  S.news = [];
+  CITIES.forEach((c, i) => {
+    if (rng() < 0.14) {
+      const dl = GOODS.filter(g => deals(i, g.id)), g = pick(dl), up = rng() < 0.5;
+      S.prices[i][g.id] *= up ? 2.1 + rng() * 1.1 : 0.32 + rng() * 0.16;
+      S.news.push({ city:i, g:g.id, up });
+    }
+  });
+  genStock(S);
+  applyMods(S);
+}
+/* goods bought in this market today cannot be sold back here for a profit or for trust */
+function boughtHere(S, g) { const t = S.today; return t && t.d === S.day && t.c === S.city && t.g[g] ? t.g[g] : 0; }
+function noteBuy(S, g, n) { if (!S.today || S.today.d !== S.day || S.today.c !== S.city) S.today = { d:S.day, c:S.city, g:{} }; S.today.g[g] = (S.today.g[g] || 0) + n; }
+function sameDayCap(S, g) { const it = S.inv[g]; return boughtHere(S, g) && it.n ? Math.max(1, Math.floor(it.cost / it.n)) : 0; }
+function quoteBuy(S, g, q) {
+  if (!deals(S.city, g) || gById(g).craft) return { n:0, cost:0, reason:'market', p:S.prices[S.city][g] };
+  const room = freeCap(S);
+  let n = 0, cost = 0, reason = '', p = S.prices[S.city][g];
+  const k = 1 - buyDisc(S);
+  while (n < q) {
+    if (n >= room) { reason = 'cap'; break; }
+    if (S.stock && n >= S.stock[S.city][g]) { reason = 'stock'; break; }
+    const u = Math.max(1, Math.round(p * k));
+    if (S.cash - cost < u) { reason = 'cash'; break; }
+    cost += u; n++; p *= 1 + IMPACT;
+  }
+  return { n, cost, reason, p };
+}
+function quoteSell(S, g, q) {
+  if (!deals(S.city, g)) return { n:0, rev:0, p:S.prices[S.city][g], reason:'market' };
+  q = Math.min(q, S.inv[g].n);
+  let n = 0, rev = 0, p = S.prices[S.city][g];
+  const k = 1 + sellBonus(S), cap = sameDayCap(S, g);
+  while (n < q) { rev += cap ? Math.min(cap, Math.round(p * k)) : Math.round(p * k); n++; p *= 1 - IMPACT; }
+  return { n, rev, p, flip:!!cap };
+}
+function buy(S, g, q) {
+  const r = quoteBuy(S, g, q);
+  if (r.n > 0) { S.cash -= r.cost; S.inv[g].n += r.n; S.inv[g].cost += r.cost; S.prices[S.city][g] = r.p; if (S.stock) S.stock[S.city][g] -= r.n; noteBuy(S, g, r.n); r.lvUp = addTrust(S, S.city, r.cost / 70); }
+  return r;
+}
+function sell(S, g, q) {
+  const it = S.inv[g], avg = it.n ? it.cost / it.n : 0;
+  const r = quoteSell(S, g, q);
+  if (r.n > 0) {
+    it.cost = Math.max(0, it.cost - avg * r.n); it.n -= r.n;
+    if (it.n === 0) it.cost = 0;
+    S.cash += r.rev; S.prices[S.city][g] = r.p;
+    r.profit = Math.round(r.rev - avg * r.n);
+    if (!S.over && (!S.stats.best || r.profit > S.stats.best.p)) S.stats.best = { p:r.profit, g, city:S.city, d:S.day };
+    if (!S.over && !r.flip) r.lvUp = addTrust(S, S.city, r.rev / 35);
+    else if (r.flip) S.trust[S.city] = Math.max(0, S.trust[S.city] - r.rev / 70);
+  }
+  return r;
+}
+function loseGoods(S, g, l, track) {
+  const it = S.inv[g]; l = Math.min(l, it.n);
+  if (track && S.stats && S.prices && S.prices[S.city]) S.stats.lostVal = (S.stats.lostVal || 0) + Math.round(l * S.prices[S.city][g]);
+  const avg = it.n ? it.cost / it.n : 0;
+  it.n -= l; it.cost = Math.max(0, it.cost - avg * l);
+  if (it.n <= 0) { it.n = 0; it.cost = 0; }
+  return l;
+}
+function loseFrac(S, frac) {
+  const lost = [];
+  GOODS.forEach(g => { const it = S.inv[g.id]; if (it.n > 0) { const l = loseGoods(S, g.id, Math.max(1, Math.round(it.n * frac)), true); if (l) lost.push(l + ' ' + g.short.toLowerCase()); } });
+  return lost;
+}
+function addGoods(S, g, q) { const k = Math.min(q, Math.max(0, freeCap(S))); S.inv[g].n += k; return k; }
+function addTrust(S, i, a) {
+  const before = trustLv(S, i); S.trust[i] = Math.max(0, S.trust[i] + a); const after = trustLv(S, i);
+  if (after > before) { S.log.push({ d:S.day, t:MERCHANT_NAMES[i] + ' artık ' + TRUST[after].name.toLowerCase() + '.' }); return after; }
+  return 0;
+}
+const MERCHANT_NAMES = ['Meret', 'Ptahhotep', 'Nefer', 'Kha', 'Tiye'];
+const FAVS = [ { g:'sarap', q:1, rg:'sarap', rq:8 }, { g:'bakir', q:1, rg:'sedir', rq:2 }, { g:'papirus', q:3, rg:'papirus', rq:20 }, { g:'sarap', q:2, rg:'bakir', rq:4 }, { g:'bugday', q:8, rg:'lapis', rq:1 } ];
+const canGift = S => !S.gifted[S.city] && S.inv[FAVS[S.city].g].n >= FAVS[S.city].q;
+function gift(S) {
+  if (!canGift(S)) return null;
+  const f = FAVS[S.city]; loseGoods(S, f.g, f.q); S.gifted[S.city] = true;
+  const got = addGoods(S, f.rg, f.rq);
+  const lv = addTrust(S, S.city, 300);
+  S.log.push({ d:S.day, t:MERCHANT_NAMES[S.city] + '\'e hediye verdin, karşılığında ' + got + ' ' + gById(f.rg).short.toLowerCase() + ' aldın.' });
+  return { got, g:f.rg, lvUp:lv };
+}
+/* v28 gifts: rare or crafted things the merchant's own market never sells */
+const GIFTS = [
+  { g:'muska', q:2, from:'Abidos atölyesi', rw:{ bless:'bastet', goods:{ g:'papirus', q:10 } }, txt:'Bastet\'in gözü seninle (bir yolculuk takipçisiz) + 10 papirüs', thanks:'İki muska! Biri bana, biri en yaşlı kedime. Bastet seni kollayacak, sözüm söz.' },
+  { g:'kitap', q:1, from:'Vaset atölyesi', rw:{ repair:true, goods:{ g:'sedir', q:2 } }, txt:'Ustaları tekneni bedava onarır + 2 sedir', thanks:'Ölüler Kitabı… Kırk yıl taş taşıdım, şimdi öbür dünyaya yolum belli. Ustalarım teknene baksın.' },
+  { g:'kyphi', q:1, from:'Per-Bastet atölyesi', rw:{ prices:true, bless:'hapi' }, txt:'Bütün pazarların fiyatları deftere + Hapi\'nin lütfu', thanks:'Kyphi! Tapınak bu gece cennet gibi kokacak. Yazıcılarım bütün pazarların fiyatlarını senin için yazdı.' },
+  { g:'kitap', q:1, from:'Vaset atölyesi', rw:{ goods:{ g:'bakir', q:6 } }, txt:'6 bakır', thanks:'KİTAP MI?! Okuyamam ama ÇOK güzel! Al şu bakırları, herkes duysun!' },
+  { g:'muska', q:2, from:'Abidos atölyesi', rw:{ goods:{ g:'lapis', q:1 } }, txt:'1 lapis taşı', thanks:'Fayans muskalar… Lapisle ne güzel durur. Al, bu taş senin.' },
+  { g:'lapis', q:1, from:'Abu ya da Vaset pazarı', rw:{ goods:{ g:'tuz', q:12 }, bless:'sobek' }, txt:'12 tuz + Sobek\'in sözü', thanks:'Lapis! Kâhin bu taşı görünce gülümsedi. Gerçekten gülümsedi.' },
+  { g:'tutsu', q:1, from:'Saww ya da Nil pazarları', rw:{ goods:{ g:'hurma', q:24 } }, txt:'24 hurma', thanks:'Punt tütsüsü! Bahçem bu kokuyla yeniden çiçek açar. Al şu hurmaları, itiraz istemem.' },
+  { g:'kitap', q:1, from:'Vaset atölyesi', rw:{ goods:{ g:'tutsu', q:2 } }, txt:'2 Punt tütsüsü', thanks:'Bir kitap! Babunum resimlerine bakacak, ben de denizde okuyacağım.' }
+];
+const GIFT_TRUST = 450;
+const giftOf = i => GIFTS[i] || null;
+const canGift28 = (S, i) => { i = i == null ? S.city : i; const f = giftOf(i); return !!f && !S.over && !S.gifted[i] && S.inv[f.g].n >= f.q; };
+function gift28(S) {
+  const i = S.city, f = giftOf(i); if (!canGift28(S, i)) return null;
+  loseGoods(S, f.g, f.q); S.gifted[i] = true;
+  const r = { lvUp:addTrust(S, i, GIFT_TRUST), got:[] };
+  const w = f.rw;
+  if (w.goods) { const k = addGoods(S, w.goods.g, w.goods.q); if (k) { S.inv[w.goods.g].cost += 0; r.got.push(k + ' ' + gById(w.goods.g).short.toLowerCase()); } const rest = w.goods.q - k; if (rest > 0) { const c = Math.round(rest * gById(w.goods.g).base * 0.6); S.cash += c; r.got.push(fmtN(c) + ' deben (ambar doluydu)'); } }
+  if (w.bless) { S.bless = w.bless; r.got.push(BLESS[w.bless].name); }
+  if (w.repair) { S.hull = maxHp(S); S.repNag = false; r.got.push('tekne onarıldı'); }
+  if (w.prices) { CITIES.forEach((c, k) => { if (S.prices[k]) S.seen[k] = snap(S, k); }); r.got.push('bütün fiyatlar'); }
+  S.log.push({ d:S.day, t:MERCHANT_NAMES[i] + '\'e ' + f.q + ' ' + gById(f.g).short.toLowerCase() + ' hediye ettin: ' + r.got.join(', ') + '.' });
+  return r;
+}
+/* v28 haggling over one good: the deal is struck at a fixed unit price for one quantity */
+const hgKey = (S, g) => S.day + ':' + S.city + ':' + g;
+const hgMad = S => !!(S.hg28 && S.hg28.mad === S.day + ':' + S.city);
+const canHaggle28 = (S, g) => !S.over && !hgMad(S) && !(S.hg28 && S.hg28[hgKey(S, g)]);
+function hgMark(S, g, r) {
+  S.hg28 = S.hg28 || {}; S.hg28[hgKey(S, g)] = r && r.done ? 1 : 2;
+  if (r && r.angry) S.hg28.mad = S.day + ':' + S.city;
+  /* forget other days so the save stays small */
+  Object.keys(S.hg28).forEach(k => { if (k !== 'mad' && +k.split(':')[0] !== S.day) delete S.hg28[k]; });
+  if (r && r.done) S.stats.haggles = (S.stats.haggles || 0) + 1;
+  else if (r && r.angry) S.trust[S.city] = Math.max(0, S.trust[S.city] - 60);
+}
+function dealBuy(S, g, n, unit) {
+  if (!deals(S.city, g) || gById(g).craft || S.over) return { n:0, cost:0, reason:'market' };
+  /* rounded against the player, so a 0% deal never beats the normal one */
+  unit = Math.max(1, Math.ceil(unit - 1e-6));
+  let k = Math.min(n | 0, Math.max(0, freeCap(S)), S.stock ? S.stock[S.city][g] : Infinity, Math.floor(S.cash / unit));
+  const reason = k < n ? (freeCap(S) < n ? 'cap' : S.stock && S.stock[S.city][g] < n ? 'stock' : 'cash') : '';
+  k = Math.max(0, k); if (!k) return { n:0, cost:0, reason };
+  const cost = k * unit;
+  S.cash -= cost; S.inv[g].n += k; S.inv[g].cost += cost; if (S.stock) S.stock[S.city][g] -= k;
+  S.prices[S.city][g] *= Math.pow(1 + IMPACT, k);
+  noteBuy(S, g, k);
+  const r = { n:k, cost, reason, unit, lvUp:addTrust(S, S.city, cost / 70) };
+  S.log.push({ d:S.day, t:MERCHANT_NAMES[S.city] + ' ile pazarlıkla ' + k + ' ' + gById(g).short.toLowerCase() + ' aldın, birimi ' + fmtN(unit) + '.' });
+  return r;
+}
+function dealSell(S, g, n, unit) {
+  if (!deals(S.city, g) || S.over) return { n:0, rev:0, reason:'market' };
+  const it = S.inv[g], avg = it.n ? it.cost / it.n : 0, k = Math.max(0, Math.min(n | 0, it.n)); unit = Math.max(1, Math.floor(unit + 1e-6));
+  if (!k) return { n:0, rev:0 };
+  const cap = sameDayCap(S, g); if (cap) unit = Math.min(unit, cap);
+  const rev = k * unit;
+  it.cost = Math.max(0, it.cost - avg * k); it.n -= k; if (!it.n) it.cost = 0;
+  S.cash += rev; S.prices[S.city][g] *= Math.pow(1 - IMPACT, k);
+  const r = { n:k, rev, unit, profit:Math.round(rev - avg * k) };
+  if (!S.stats.best || r.profit > S.stats.best.p) S.stats.best = { p:r.profit, g, city:S.city, d:S.day };
+  if (!cap) r.lvUp = addTrust(S, S.city, rev / 35);
+  else S.trust[S.city] = Math.max(0, S.trust[S.city] - rev / 70);
+  S.log.push({ d:S.day, t:MERCHANT_NAMES[S.city] + ' ile pazarlıkla ' + k + ' ' + gById(g).short.toLowerCase() + ' sattın, birimi ' + fmtN(unit) + '.' });
+  return r;
+}
+/* merchant orders: carry goods from one city to another before a deadline */
+function makeOrder(S, from) {
+  if (!isRiver(from)) return null;
+  const tos = RIVER.filter(i => i !== from && S.day + Math.max(1, dist(from, i) - 1) + 1 <= S.days);
+  if (!tos.length) return null;
+  const to = pick(tos), g = pick(RAW.slice(0, 6).filter(x => deals(to, x.id)));
+  const q = Math.max(2, Math.min(20, Math.round((500 + rng() * 700) / g.base)));
+  let reward = Math.round(q * g.base * 0.75 + 170 * dist(from, to) + 120);
+  const due = Math.min(S.days, S.day + dist(from, to) + 3);
+  const r = rng(), perk = r < 0.18 ? 'itibar' : r < 0.36 ? pick(Object.keys(BLESS)) : null;
+  if (perk) reward = Math.round(reward * 0.6);
+  return { from, to, g:g.id, q, reward, due, perk };
+}
+function acceptOrder(S) { const o = S.offers[S.city]; if (!o || S.orders.length >= 2) return false; S.orders.push(o); S.offers[S.city] = null; S.log.push({ d:S.day, t:MERCHANT_NAMES[o.from] + ' için ' + CITIES[o.to].dat + ' ' + o.q + ' ' + gById(o.g).short.toLowerCase() + ' götürmeyi kabul ettin.' }); return true; }
+const deliverable = S => S.orders.filter(o => o.to === S.city && S.inv[o.g].n >= o.q);
+function deliver(S, o) {
+  const k = S.orders.indexOf(o); if (k < 0 || o.to !== S.city || S.inv[o.g].n < o.q) return null;
+  loseGoods(S, o.g, o.q); S.cash += o.reward; S.orders.splice(k, 1); S.stats.orders++;
+  if (o.perk === 'itibar') S.repBonus = (S.repBonus || 0) + 2;
+  else if (o.perk && BLESS[o.perk]) S.bless = o.perk;
+  const lv = addTrust(S, o.from, 250);
+  S.log.push({ d:S.day, t:'Sipariş teslim edildi: ' + fmtN(o.reward) + ' deben ödül.' });
+  return { reward:o.reward, lvUp:lv, from:o.from, perk:o.perk };
+}
+function payDebt(S, amt) { amt = Math.min(amt, S.debt, S.cash); if (amt <= 0) return 0; S.cash -= amt; S.debt -= amt; if (S.debt <= 0 && !S.stats.paidDay) S.stats.paidDay = S.day; S.log.push({ d:S.day, t:'Tefeciye ' + fmtN(amt) + ' deben ödedin.' }); return amt; }
+function borrow(S, amt) { amt = Math.min(amt, MAX_DEBT - S.debt); if (amt <= 0) return 0; S.debt += amt; S.cash += amt; S.log.push({ d:S.day, t:'Tefeciden ' + fmtN(amt) + ' deben borç aldın.' }); return amt; }
+function upCost(S, k) { const u = UPS[k]; return S.up[k] >= u.max ? null : u.cost[S.up[k]]; }
+function doUp(S, k) {
+  const c = upCost(S, k);
+  if (c == null || S.cash < c || !isRiver(S.city)) return false;
+  S.cash -= c; S.up[k]++; if (k === 'govde') S.hull = Math.min(maxHp(S), (S.hull == null ? maxHp(S) - 1 : S.hull) + 1);
+  S.log.push({ d:S.day, t:'Tersanede ' + UPS[k].name.toLowerCase() + ' yaptırdın.' });
+  return true;
+}
+/* ---------- the shipyard: hulls change hands, upgrades go with the hull ---------- */
+const upSpent = S => Object.keys(UPS).reduce((a, k) => a + UPS[k].cost.slice(0, S.up[k]).reduce((x, y) => x + y, 0), 0);
+const boatWorth = S => Math.round((S.boat === 'nehir' ? 600 : boatOf(S).price * 0.6) + upSpent(S) * 0.5);
+const canBoatYard = S => S.city === 1 && !S.over;
+function boatQuote(S, id) {
+  const b = BOATS[id]; if (!b || id === S.boat) return null;
+  const net = b.price - boatWorth(S), fits = load(S) + stashLoad(S) <= b.cap;
+  return { net, fits, ok:fits && S.cash >= net && canBoatYard(S) };
+}
+function buyBoat(S, id) {
+  const q = boatQuote(S, id); if (!q || !q.ok) return null;
+  const old = boatOf(S).name;
+  S.cash -= q.net; S.boatSpent = (S.boatSpent || 0) + q.net; S.boat = id; S.up = { govde:0, yelken:0, kurek:0, ambar:0 }; S.hull = maxHp(S);
+  S.log.push({ d:S.day, t:old + ' satıldı, ' + BOATS[id].name + ' alındı (' + (q.net >= 0 ? fmtN(q.net) + ' deben fark ödedin' : fmtN(-q.net) + ' deben üste aldın') + ').' });
+  return q;
+}
+const devMissing = (S, k) => { const d = DEVS[k]; return Object.keys(d.need).filter(g => S.inv[g].n < d.need[g]); };
+const canDev = (S, k) => S.city === 1 && !S.dev[k] && !devMissing(S, k).length && S.cash >= DEVS[k].cost && !S.over;
+function makeDev(S, k) {
+  if (!canDev(S, k)) return false;
+  const d = DEVS[k]; Object.keys(d.need).forEach(g => loseGoods(S, g, d.need[g])); S.cash -= d.cost; S.dev[k] = true;
+  S.log.push({ d:S.day, t:'Ptah\'ın ustaları teknene ' + d.name.toLowerCase() + ' taktı.' });
+  return true;
+}
+/* ---------- workshops ---------- */
+const workAt = (S, i) => (S.work || []).find(w => w.city === i);
+function workMax(S, i) {
+  const W = WORKS[i]; if (!W) return 0;
+  let n = MAX_BATCH; Object.keys(W.need).forEach(g => { n = Math.min(n, Math.floor(S.inv[g].n / W.need[g])); });
+  return Math.max(0, Math.min(n, Math.floor(S.cash / W.fee)));
+}
+const canWork = S => has(S, 'atolye') && !!WORKS[S.city] && !workAt(S, S.city) && !S.over && S.day + WORKS[S.city].days <= S.days;
+function startWork(S, n) {
+  const W = WORKS[S.city]; n = Math.min(n | 0, workMax(S, S.city)); if (!canWork(S) || n <= 0) return null;
+  Object.keys(W.need).forEach(g => loseGoods(S, g, W.need[g] * n)); S.cash -= W.fee * n;
+  const job = { city:S.city, g:W.out, n:W.n * n, ready:S.day + W.days }; S.work.push(job);
+  S.log.push({ d:S.day, t:W.who + ' ' + job.n + ' ' + gById(W.out).short.toLowerCase() + ' için işe koyuldu; ' + job.ready + '. gün hazır.' });
+  return job;
+}
+function collectWork(S) {
+  const w = workAt(S, S.city); if (!w || S.day < w.ready) return 0;
+  const k = addGoods(S, w.g, w.n); if (!k) return 0;
+  const val = Math.round(gById(w.g).base * 0.55); S.inv[w.g].cost += val * k;
+  w.n -= k; if (w.n <= 0) S.work = S.work.filter(x => x !== w);
+  S.stats.crafted = (S.stats.crafted || 0) + k;
+  S.log.push({ d:S.day, t:'Atölyeden ' + k + ' ' + gById(w.g).short.toLowerCase() + ' aldın.' });
+  return k;
+}
+/* ---------- caravans: rent donkeys at the hub, water is life ---------- */
+const DONKEY_RENT = 45, WATER_COST = 6;
+const caravanWater = (dest) => CITIES[dest].days * 2 + 2;
+const caravanCost = (S, dest, n) => n * (DONKEY_RENT + 12 * CITIES[dest].days);
+function caravanFit(S, n) {
+  /* what goes on the donkeys: the goods that sell best at the destination first */
+  return Math.min(n * DONKEY, invLoad(S.inv));
+}
+const caravanOrder = dest => GOODS.slice().sort((a, b) => (deals(dest, b.id) ? CITIES[dest].mult[b.id] * b.base : 0) - (deals(dest, a.id) ? CITIES[dest].mult[a.id] * a.base : 0));
+function startCaravan(S, dest, n) {
+  n = Math.max(2, Math.min(8, n | 0)); const cost = caravanCost(S, dest, n);
+  if (isRiver(dest) || CITIES[dest].hub !== S.city || S.cash < cost || S.caravan) return null;
+  S.cash -= cost;
+  const room = n * DONKEY, keep = {}, stash = {};
+  GOODS.forEach(g => { keep[g.id] = { n:0, cost:0 }; stash[g.id] = { n:0, cost:0 }; });
+  const order = caravanOrder(dest);
+  let left = room - (S.quest && S.quest.cargo ? S.quest.cargo : 0);
+  order.forEach(g => { const it = S.inv[g.id], k = Math.max(0, Math.min(it.n, left)), avg = it.n ? it.cost / it.n : 0; left -= k;
+    keep[g.id] = { n:k, cost:avg * k }; stash[g.id] = { n:it.n - k, cost:it.cost - avg * k }; });
+  S.inv = keep; S.stash = stash;
+  S.caravan = { donkeys:n, water:caravanWater(dest), hub:S.city, dest, cost };
+  S.log.push({ d:S.day, t:n + ' eşekli kervan kiraladın (' + fmtN(cost) + ' deben). Teknen ' + CITIES[S.city].loc + ' bekliyor.' });
+  return S.caravan;
+}
+function endCaravan(S) {
+  if (!S.caravan) return;
+  if (S.stash) GOODS.forEach(g => { const a = S.inv[g.id], b = S.stash[g.id]; if (b) { a.n += b.n; a.cost += b.cost; } });
+  S.stash = null; S.caravan = null; S.stats.desert = (S.stats.desert || 0) + 1;
+}
+/* a dry day costs a donkey and whatever it carried beyond what the rest can take */
+function caravanDays(S, d, out) {
+  const K = S.caravan; if (!K) return;
+  for (let i = 0; i < d; i++) {
+    if (K.water > 0) { K.water--; continue; }
+    if (K.donkeys > 1) {
+      K.donkeys--;
+      const over = load(S) - K.donkeys * DONKEY, lost = [];
+      for (let guard = 0; load(S) > K.donkeys * DONKEY && guard < 40; guard++) { const g = GOODS.filter(x => S.inv[x.id].n > 0).sort((a, b) => a.base - b.base)[0]; if (!g) break; const l = loseGoods(S, g.id, Math.min(S.inv[g.id].n, load(S) - K.donkeys * DONKEY), true); lost.push(l + ' ' + g.short.toLowerCase()); }
+      out.push({ kind:'bad', title:'Su bitti', text:'Bir eşek susuzluktan yığıldı.' + (over > 0 && lost.length ? ' Taşıyamadıkların kumda kaldı: ' + lost.join(', ') + '.' : '') });
+    } else out.push({ kind:'bad', title:'Su bitti', text:'Dudakların çatladı, ama son eşeğin dayandı.' });
+  }
+}
+function buyWater(S, k) {
+  const K = S.caravan; if (!K) return 0; const free = /^(siwa|kharga)$/.test(CITIES[S.city].id);
+  const price = free ? 0 : K.donkeys * WATER_COST; k = Math.max(0, Math.min(k, price ? Math.floor(S.cash / price) : k));
+  S.cash -= price * k; K.water += k; return k;
+}
+/* ---------- temples and the tavern ---------- */
+const TEMPLES = { 0:'Bastet\'in aynalı odası', 1:'Ptah\'ın atölye mabedi', 2:'Osiris\'in karanlık odası', 3:'Karnak\'ın güneş salonu', 5:'Amun kâhininin odası', 6:'Hibis\'in gizli odası' };
+const canTemple = S => TEMPLES[S.city] != null && !S.temple[S.city] && !S.over;
+const TAVERN = { 0:'Kedili Meyhane', 1:'Piramit Meyhanesi', 3:'Karnak Meyhanesi', 4:'Fil Adası Meyhanesi', 7:'Punt Meyhanesi' };
+const TAVERN_WHO = { 0:'Kedici Ipi', 1:'Taşçı Seni', 3:'Kör Bata', 4:'Nubyalı Meri', 7:'Kaptan Weni' };
+const canTavern = S => TAVERN[S.city] != null && S.tavern[S.city] !== S.day && !S.over && S.cash >= 100;
+
+/* what waits on the river: decided when you set sail */
+/* once the debt is paid, Hapu offers dirty work: carry his sealed crates, the Medjay will be watching */
+const canContra = S => has(S, 'contra') && S.city === 1 && S.debt === 0 && !S.contra && !S.over && S.day <= S.days - 2 && !S.contraDone;
+function contraOffer(S) {
+  const tos = [0, 2, 3, 4].filter(i => S.day + Math.max(1, travelDays(S, i) - 1) <= S.days);
+  if (!tos.length) return null;
+  const to = tos[(S.day * 7 + S.cash) % tos.length];
+  return { to, reward:1800 + 700 * dist(1, to), due:Math.min(S.days, S.day + dist(1, to) + 2) };
+}
+function takeContra(S) {
+  const o = contraOffer(S); if (!o || !canContra(S) || freeCap(S) < CONTRA) return null;
+  S.contra = o; S.contraDone = true;
+  S.log.push({ d:S.day, t:'Hapu\'nun mühürlü sandıklarını ' + CITIES[o.to].dat + ' götürmeyi kabul ettin.' });
+  return o;
+}
+const canRapid = (S, dest) => isRiver(dest) && isRiver(S.city) && travelDays(S, dest) >= 2 && !portClosed(S, dest, S.day + travelDays(S, dest) - 1);
+function seaPlan(S, dest, rapid) {
+  rapid = !!rapid && canRapid(S, dest);
+  const days = travelDays(S, dest) - (rapid ? 1 : 0), val = cargoValueAt(S, S.prices[S.city]);
+  let chaser = null;
+  const desert = !isRiver(dest) || !isRiver(S.city);
+  const pc = Math.min(0.75, 0.18 + val / 14000 + (S.debt > 3500 ? 0.18 : 0) + 0.05 * days) * (S.dev.goz && !desert ? 0.7 : 1);
+  if (rng() < pc) {
+    const r = rng();
+    chaser = desert ? 'bedevi' : S.debt > 3500 && r < 0.4 ? 'tefeci' : r < 0.7 ? 'haydut' : 'medjay';
+  }
+  if (S.quest && S.quest.st === 'active' && S.quest.id === 'kedi' && S.quest.cargo && rng() < 0.75) chaser = 'djedi';
+  const sp = S.rival.plan, rival = !desert && !!sp && dest === sp.to && sp.arrive >= S.day && Math.abs(S.day + days - sp.arrive) <= 1, bless = S.bless; S.bless = null;
+  if (bless === 'bastet') chaser = null;
+  if (S.contra && rng() < 0.85) chaser = 'medjay';
+  if (desert && chaser && chaser !== 'bedevi') chaser = 'bedevi';
+  return { days, days0:days, chaser, dest, from:S.city, speed:desert ? 0 : Math.max(0, Math.min(3, sailOf(S))), rowers:desert ? 0 : S.up.kurek + boatOf(S).row, extra:(S.perk.tayfa || 0) + (S.hero === 'bakenre' ? 1 : 0), hero:S.hero, first:!S.stats.trips, hp:desert ? 3 : hullNow(S) + (bless === 'hapi' ? 1 : 0), hpMax:desert ? 3 : maxHp(S) + (bless === 'hapi' ? 1 : 0), dmg:desert ? 0 : dmgStage(S), boat:S.boat, dev:Object.assign({}, S.dev), terrain:desert ? 'desert' : 'river', donkeys:S.caravan ? S.caravan.donkeys : 0, val, contra:!!S.contra, rival, rapid, bless, season:seasonIdx(S), seed:Math.floor(rng() * 1e9) };
+}
+/* quick crossing for players who skip the river run: on average worse than playing */
+function quickSea(plan) {
+  /* the very first crossing of a newcomer is gentle: no wreck, no ambush */
+  if (plan.first) return { hits:0, wreck:false, caught:false, escaped:!!plan.chaser, coins:Math.round(10 + rng() * 30), crates:0, beatRival:false, quick:true };
+  const hits = Math.min(plan.hp, Math.floor(rng() * (2 + plan.days + (plan.rapid ? 2 : 0))));
+  const caught = plan.chaser ? rng() < 0.6 - 0.1 * plan.rowers - 0.08 * plan.speed : false;
+  return { hits, wreck: hits >= plan.hp, caught, escaped: !!plan.chaser && !caught, coins: Math.round(rng() * 40), crates:0, beatRival: plan.rival ? rng() < 0.3 : false, quick:true };
+}
+function applySea(S, plan, res) {
+  const out = [], dz = plan.terrain === 'desert';
+  S.stats.trips++; S.stats.hits += res.hits; if (plan.rapid) S.stats.rapids++;
+  S.stats.vlog = (S.stats.vlog || '') + (res.wreck ? 'x' : res.caught ? 'c' : res.hits ? 'h' : 'p');
+  if (res.near) { S.stats.near += res.near; S.cash += res.nearCoins || 0; out.push({ kind:'good', title:'Cesur dümen', text:res.near + ' kez kıl payı geçtin. Tayfa coştu ve ' + fmtN(res.nearCoins || 0) + ' deben bahşiş topladı.' }); }
+  if (res.wreck) {
+    const lost = loseFrac(S, 0.4);
+    out.push(dz ? { kind:'bad', title:'Kervan dağıldı', text:'Eşekler kumda dağıldı, toparlaman saatler sürdü. Bulunamayan yük: ' + (lost.join(', ') || 'yok') + '.' } : { kind:'bad', title:'Gemi karaya oturdu', text:'Teknen ağır hasar aldı. Kurtarılamayan yük: ' + (lost.join(', ') || 'yok') + '.' });
+  } else if (res.hits > 0) {
+    const lostBy = {};
+    for (let k = 0; k < res.hits; k++) {
+      const owned = GOODS.filter(g => S.inv[g.id].n > 0);
+      if (!owned.length) break;
+      const g = pick(owned), l = loseGoods(S, g.id, Math.max(1, Math.round(S.inv[g.id].n * 0.15)), true);
+      lostBy[g.id] = (lostBy[g.id] || 0) + l;
+    }
+    const lost = Object.keys(lostBy).map(id => lostBy[id] + ' ' + gById(id).short.toLowerCase());
+    out.push({ kind:'bad', title:res.hits + ' darbe aldın', text: lost.length ? (dz ? 'Eşekler tökezledi, kuma düşen yük: ' : 'Sarsıntıda suya düşen yük: ') + lost.join(', ') + '.' : 'Neyse ki kaybedecek yükün yoktu.' });
+  } else { S.stats.perfect++; out.push({ kind:'good', title:'Kusursuz yolculuk', text:'Tek bir çizik bile almadan vardın. Tayfa seninle gurur duyuyor.' }); }
+  if (plan.chaser) {
+    if (res.caught) {
+      S.stats.caught++;
+      if (plan.chaser === 'bedevi') { const lost = loseFrac(S, 0.3); if (S.caravan) S.caravan.water = Math.max(0, S.caravan.water - 1); out.push({ kind:'bad', title:'Çöl akıncıları yetişti', text:'Yüklerini ve bir tulum suyunu aldılar: ' + (lost.join(', ') || 'boş heybelere güldüler') + '.' }); }
+      else if (plan.chaser === 'haydut') { const lost = loseFrac(S, 0.3); out.push({ kind:'bad', title:'Haydutlar yetişti', text:'Kervanını yağmaladılar: ' + (lost.join(', ') || 'boş ambara küfrettiler') + '.' }); }
+      else if (plan.chaser === 'medjay') {
+        if (S.contra) { const f = Math.min(S.cash, Math.round(S.cash * 0.25 + 300)); S.cash -= f; S.contra = null; out.push({ kind:'bad', title:'Medjay kaçak malı buldu', text:'Hapu\'nun sandıklarına el koydular ve ' + fmtN(f) + ' deben ceza kestiler. Hapu da çok kızacak.' }); S.debt += 800; S.log.push({ d:S.day, t:'Kaçak sandıklar yakalandı. Hapu borcuna 800 deben "zarar" ekledi.' }); }
+        else { const f = Math.min(S.cash, Math.round(S.cash * 0.15 + 50)); S.cash -= f; out.push({ kind:'bad', title:'Medjay seni durdurdu', text:'Kaçakçılık şüphesiyle ' + fmtN(f) + ' deben ceza kestiler.' }); }
+      }
+      else if (plan.chaser === 'djedi') {
+        if (S.quest && S.quest.cargo) { S.quest.cargo = 0; S.quest.f.stolen = true; out.push({ kind:'bad', title:'Djedi\'nin adamları heykeli kaptı', text:'Altın kedi gitti! Kâtip Merenre\'nin casuslarına göre Djedi onu Vaset\'te satmaya çalışacak.' }); }
+        else { const lost = loseFrac(S, 0.2); out.push({ kind:'bad', title:'Djedi\'nin adamları', text:'Heykeli bulamayınca öfkelerini ambardan çıkardılar: ' + (lost.join(', ') || 'boş ambar') + '.' }); }
+      }
+      else { const take = Math.min(S.cash, Math.round(S.debt * 0.3)); S.cash -= take; S.debt -= take; out.push({ kind:'bad', title:'Tefecinin adamları', text:'Hapu\'nun adamları seni yakaladı ve zorla ' + fmtN(take) + ' deben tahsil etti. Borcundan düştüler, en azından.' }); }
+    } else {
+      S.stats.escapes++;
+      const who = { haydut:'Haydutları', medjay:'Medjay devriyesini', tefeci:'Tefecinin adamlarını', djedi:'Djedi\'nin adamlarını', bedevi:'Çöl akıncılarını' }[plan.chaser];
+      out.push({ kind:'good', title:'Kaçtın!', text: who + (dz ? ' kum fırtınasının içinde kaybettin.' : ' Nil\'in tozunda bıraktın.') });
+    }
+  }
+  if (res.spotted) {
+    if (S.contra) { const f = Math.min(S.cash, Math.round(S.cash * 0.25 + 300)); S.cash -= f; S.contra = null; S.debt += 800; out.push({ kind:'bad', title:'Devriye kaçak malı buldu', text:'Gece geçişinde Medjay seni gördü, sandıklara el koydu ve ' + fmtN(f) + ' deben ceza kesti. Hapu da borcuna 800 ekledi.' }); }
+    else { const f = Math.min(S.cash, Math.round(S.cash * 0.08 + 40)); S.cash -= f; out.push({ kind:'bad', title:'Devriye fark etti', text:'Gece geçişinde Medjay devriyesi seni gördü: ' + fmtN(f) + ' deben "geçiş bahşişi".' }); }
+  }
+  if (res.overboard) {
+    const lostBy = {};
+    for (let k = 0; k < res.overboard; k++) { const owned = GOODS.filter(g => S.inv[g.id].n > 0); if (!owned.length) break; const g = pick(owned), l = loseGoods(S, g.id, Math.max(1, Math.round(S.inv[g.id].n * 0.12)), true); lostBy[g.id] = (lostBy[g.id] || 0) + l; }
+    const lost = Object.keys(lostBy).map(id => lostBy[id] + ' ' + gById(id).short.toLowerCase());
+    out.push({ kind:'bad', title:'Fırtınada sandık düştü', text:res.overboard + ' sandık güverteden kaydı. ' + (lost.length ? 'Denize giden: ' + lost.join(', ') + '.' : 'Neyse ki boştular.') });
+  }
+  if (res.notes) res.notes.forEach(n => out.push(n));
+  if (res.coins) { S.cash += res.coins; } S.stats.river = (S.stats.river || 0) + (res.coins || 0) + (res.nearCoins || 0);
+  if (res.crates) {
+    const gotBy = {};
+    for (let k = 0; k < res.crates; k++) { const g = pick(GOODS.slice(0, 5)), q = addGoods(S, g.id, Math.max(1, Math.round(180 / g.base))); if (q) gotBy[g.id] = (gotBy[g.id] || 0) + q; }
+    const got = Object.keys(gotBy).map(id => gotBy[id] + ' ' + gById(id).short.toLowerCase());
+    S.stats.crates += res.crates;
+    if (got.length || res.coins) out.push({ kind:'good', title:dz ? 'Yolda bulduğun' : 'Nehirden topladıkların', text:(got.length ? got.join(', ') : '') + (res.coins ? (got.length ? ' ve ' : '') + fmtN(res.coins) + ' deben' : '') + '.' });
+  } else if (res.coins) out.push({ kind:'good', title:dz ? 'Yolda bulduğun' : 'Nehirden topladıkların', text:fmtN(res.coins) + ' deben.' });
+  if (res.water && S.caravan) { S.caravan.water += res.water; out.push({ kind:'good', title:'Su tulumları', text:res.water + ' tulum su buldun: ' + res.water + ' gün daha dayanırsın.' }); }
+  if (res.ramUsed) out.push({ kind:'good', title:'Bakır mahmuz', text:'İlk darbeyi bakır burun karşıladı.' });
+  return out;
+}
+function arrive(S, plan, res) {
+  S.seen[S.city] = snap(S, S.city);
+  const lost0 = S.stats.lostVal || 0, cash0 = S.cash;
+  const out = applySea(S, plan, res);
+  const river = (res.coins || 0) + (res.nearCoins || 0), ledger = { river, lost:(S.stats.lostVal || 0) - lost0, fines:Math.max(0, river - (S.cash - cash0)) };
+  const d = plan.days, seasonBefore = seasonIdx(S);
+  if (plan.terrain !== 'desert') { const left = (res.hp != null ? res.hp : plan.hp - (res.hits || 0)) - (plan.bless === 'hapi' ? 1 : 0); S.hull = res.wreck ? 1 : Math.max(1, Math.min(maxHp(S), left)); if (dmgStage(S) < 2) S.repNag = false; }
+  caravanDays(S, d, out);
+  S.day += d; S.city = plan.dest; S.edge = null;
+  if (S.caravan && isRiver(S.city)) { endCaravan(S); out.push({ kind:'good', title:'Kervan döndü', text:'Eşekler sahiplerine, yükler teknene. ' + CITIES[S.city].name + ' iskelesinde teknen seni bekliyordu.' }); }
+  else if (S.caravan && /^(siwa|kharga)$/.test(CITIES[S.city].id)) { const need = CITIES[S.city].days + 1; if (S.caravan.water < need) { S.caravan.water = need; out.push({ kind:'good', title:'Vaha kuyuları', text:'Tulumlar vahanın tatlı suyuyla doldu: dönüş için ' + need + ' günlük su.' }); } }
+  const before = S.debt;
+  S.debt = Math.round(S.debt * Math.pow(1 + S.rate, d)); S.stats.interest = (S.stats.interest || 0) + (S.debt - before);
+  const R = S.rival;
+  R.cash = Math.round(R.cash * (1 + SETHI_RATE * d * (0.6 + rng() * 0.8)));
+  if (plan.rival && R.plan) {
+    S.stats.races++;
+    const gn = gById(R.plan.g).short.toLowerCase();
+    if (res.beatRival) { S.stats.raceWins++; S.edge = S.city; R.cash = Math.round(R.cash * 0.97); R.plan.arrive = Math.max(R.plan.arrive, S.day + 1); out.push({ kind:'good', title:'Sethi\'yi geçtin!', text:'Rakibinden önce vardın: bu ziyarette satışların yüzde 8 fazla getirir. Sethi ' + gn + ' yükünü ancak yarın boşaltabilecek.' }); }
+    else { R.plan.arrive = Math.min(R.plan.arrive, S.day); out.push({ kind:'bad', title:'Sethi senden önce vardı', text:'İskeleyi o kaptı ve pazara ' + gn + ' boşalttı.' }); }
+  }
+  sethiArrive(S, out);
+  for (let i = 0; i < d; i++) rollPrices(S);
+  if (res.prophecy && gById(res.prophecy)) { S.prices[S.city][res.prophecy] *= 1.45; out.push({ kind:'good', title:'Kehanet gerçek oldu', text:CITIES[S.city].loc + ' herkes ' + gById(res.prophecy).short.toLowerCase() + ' arıyor: fiyatı bugün yüzde 45 yukarıda.' }); }
+  if ((res.maxCombo || 0) >= 5) { S.fame = { city:S.city, day:S.day, b:0.05 }; out.push({ kind:'good', title:'Tayfanın şöhreti', text:'x' + res.maxCombo + ' kıl payı kombosuyla geldiğin limanda konuşuluyor. Bugün satışların %5 fazla getirir.' }); }
+  if (S.contra) {
+    if (S.contra.to === S.city) { S.cash += S.contra.reward; S.stats.contra = (S.stats.contra || 0) + 1; out.push({ kind:'good', title:'Kaçak teslim edildi', text:'Hapu\'nun adamı sandıkları sessizce aldı ve ' + fmtN(S.contra.reward) + ' deben saydı.' }); S.log.push({ d:S.day, t:'Hapu\'nun kaçak işini bitirdin: ' + fmtN(S.contra.reward) + ' deben.' }); S.contra = null; }
+    else if (S.contra.due < S.day) { S.debt += 1000; out.push({ kind:'bad', title:'Hapu\'nun işi gecikti', text:'Sandıklar zamanında gitmedi. Hapu sandıkları geri aldırdı ve borcuna 1.000 deben "gecikme" yazdı.' }); S.contra = null; }
+  }
+  S.orders = S.orders.filter(o => {
+    if (o.due >= S.day) return true;
+    S.trust[o.from] = Math.max(0, S.trust[o.from] - (o.advance ? 200 : 120));
+    if (o.advance) { const back = Math.min(S.cash, o.advance); S.cash -= back; S.debt += o.advance - back; }
+    out.push({ kind:'bad', title:'Sipariş gecikti', text:MERCHANT_NAMES[o.from] + '\'in ' + CITIES[o.to].dat + ' siparişini zamanında götüremedin. Güveni azaldı.' + (o.advance ? ' Aldığın ' + fmtN(o.advance) + ' deben avansı geri ödedin.' : '') });
+    return false;
+  });
+  const off = S.offers[S.city];
+  if ((!off || off.due < S.day + 1) && !S.orders.some(o => o.from === S.city)) S.offers[S.city] = rng() < 0.75 ? makeOrder(S, S.city) : null;
+  if (seasonIdx(S) !== seasonBefore) { const se = SEASONS[seasonIdx(S)]; out.push({ kind:'info', title:se.name + ': ' + se.title, text:se.desc }); }
+  S.seen[S.city] = snap(S, S.city);
+  if (S.hero === 'sitre') RIVER.forEach(i => { if (Math.abs(i - S.city) === 1 && isRiver(S.city)) S.seen[i] = snap(S, i); });
+  if (!S.visited.includes(S.city)) S.visited.push(S.city);
+  if (S.debt > before) out.push({ kind:'info', title:'Faiz işledi', text:'Borcun ' + fmtN(before) + ' debenden ' + fmtN(S.debt) + ' debene çıktı.' });
+  if (S.city === 1 && S.debt > 0 && S.cash > 0 && isRiver(plan.from)) out.push({ kind:'info', title:'Hapu\'nun evi burada', text:'Borç yalnızca Mennefer\'de ödenir. Üstteki Borç rakamına dokunup ' + fmtN(Math.min(S.cash, S.debt)) + ' debene kadar ödeyebilirsin.' });
+  ledger.interest = S.debt - before;
+  S.last = { from:plan.from, days:d, out, news:S.news.slice(), path:res.path || null, quick:!!res.quick, chaser:plan.chaser || null, rival:!!plan.rival, ledger };
+  S.pendingEvent = (isRiver(S.city) || CITIES[S.city].id === 'saww') && rng() < 0.45 ? pickEvent(S) : null;
+  const cr = has(S, 'crisis') && (S.crises || []).find(c => c.city === S.city && !c.done && S.day >= c.from && S.day <= c.until && CRISIS_EV[c.k]);
+  if (cr) S.pendingEvent = 'crisis:' + cr.id;
+  S.log.push({ d:S.day, t:CITIES[S.city].name + ' şehrine vardın. ' + out.map(o => o.title).join(' · ') + '.' });
+  if (S.log.length > 80) S.log.splice(0, S.log.length - 80);
+  return S.last;
+}
+/* arrival events with a choice */
+const EVENTS = [
+  { id:'lapis', ok:S => S.cash >= 500 && freeCap(S) >= 2, title:'Gerçek lapis, yarı fiyatına!', text:'Bir adam iki lapis uzatıyor: "Yarı fiyatına." Gerçek mi, boyalı taş mı?',
+    choices:[ { label:'Al', sub:'İki taş, piyasanın yarısı', run(S) { const p = Math.round(S.prices[S.city].lapis); S.cash -= p; if (rng() < 0.55) { addGoods(S, 'lapis', 2); S.inv.lapis.cost += p; return { kind:'good', text:'Taşlar gerçek! İki lapisi ' + fmtN(p) + ' debene kaptın.' }; } return { kind:'bad', text:'Taşlar mavi boyalı kireç taşı çıktı. Adam çoktan kayboldu. ' + fmtN(p) + ' deben gitti.' }; } },
+              { label:'Geç', sub:'Gökyüzü taş yağdırmaz', run() { return { kind:'info', text:'Adam omuz silkip başka bir saf aramaya gitti.' }; } } ] },
+  { id:'tax', ok:S => S.cash >= 200, title:'Vergi memuru', text:'Vergi memuru: "Yüzde on. Ya da konuşabiliriz."',
+    choices:[ { label:'Öde', sub:'Paranın yüzde 10\'u', run(S) { const t = Math.round(S.cash * 0.1); S.cash -= t; return { kind:'info', text:fmtN(t) + ' deben ödedin. Memur seni deftere "uslu" diye yazdı.' }; } },
+              { label:'Pazarlık et', sub:'Yarı yarıya şans', run(S) { if (rng() < 0.5) { const t = Math.round(S.cash * 0.03); S.cash -= t; return { kind:'good', text:'Memur güldü, sadece ' + fmtN(t) + ' deben aldı.' }; } const t = Math.round(S.cash * 0.2); S.cash -= t; return { kind:'bad', text:'Memur kızdı. Cezalı vergi: ' + fmtN(t) + ' deben.' }; } } ] },
+  { id:'wreck', ok:S => S.cash >= 150 && freeCap(S) >= 3, title:'Batık tekne', text:'Kıyıda batık bir tekne; bir dalgıç 150 debene bakar.',
+    choices:[ { label:'Dalgıç tut', sub:'150 deben, içinde ne var bilinmez', run(S) { S.cash -= 150; if (rng() < 0.6) { const g = pick(GOODS.slice(1, 5)), q = addGoods(S, g.id, Math.max(1, Math.round(500 / g.base))); return { kind:'good', text:'Dalgıç ' + q + ' ' + g.short.toLowerCase() + ' çıkardı!' }; } return { kind:'bad', text:'Teknede ıslak bir sepet ve şaşkın bir kurbağadan başka bir şey yoktu.' }; } },
+              { label:'Geç', sub:'Kurbağayı rahat bırak', run() { return { kind:'info', text:'Batığı geride bıraktın.' }; } } ] },
+  { id:'dice', ok:S => S.cash >= 300, title:'Zar oyunu', text:'Kumarbaz: "300 koy, kazanırsan 600 al."',
+    choices:[ { label:'Oyna', sub:'Yarı yarıya', run(S) { if (rng() < 0.5) { S.cash += 300; return { kind:'good', text:'Altılar geldi! 300 deben kazandın.' }; } S.cash -= 300; return { kind:'bad', text:'Zarlar biraz fazla düzgün döndü. 300 deben kaybettin.' }; } },
+              { label:'Oynama', sub:'Akıllıca', run() { return { kind:'info', text:'Kumarbaz sana "korkak tavuk" dedi. Tavuklar zengin ölür.' }; } } ] },
+  { id:'tip', ok:S => S.cash >= 40, title:'Kayıkçının fısıltısı', text:'Yaşlı kayıkçı 40 debene bir fiyat fısıldayacak.',
+    choices:[ { label:'Dinle', sub:'40 deben', run(S) { S.cash -= 40; let best = null; CITIES.forEach((c, i) => { if (i === S.city) return; GOODS.forEach(g => { if (!deals(i, g.id) || g.craft) return; const r = S.prices[i][g.id] / (g.base * c.mult[g.id]); if (!best || r > best.r) best = { i, g, r, p:S.prices[i][g.id] }; }); }); S.seen[best.i] = S.seen[best.i] || { d:S.day, p:{}, src:'ag' }; S.seen[best.i].p[best.g.id] = Math.round(best.p); return { kind:'good', text:'"' + CITIES[best.i].name + '\'ta ' + best.g.short.toLowerCase() + ' kapış kapış gidiyor, ' + fmtN(best.p) + ' deben civarı." Fiyat hafızana eklendi.' }; } },
+              { label:'Geç', sub:'Kayıkçılar çok konuşur', run() { return { kind:'info', text:'Kayıkçı fısıltısını bir başkasına sattı.' }; } } ] },
+  { id:'hapu', ok:S => S.debt > 2500 && S.city !== 1, title:'Hapu\'nun mektubu', text:'Hapu\'dan mektup: "Biraz öde, adamlarımı göndermeyeyim."',
+    choices:[ { label:'Biraz öde', sub:'Borcun yüzde 20\'si', run(S) { const p = payDebt(S, Math.round(S.debt * 0.2)); return { kind:'info', text: p ? fmtN(p) + ' deben gönderdin. Hapu şimdilik sakin.' : 'Ödeyecek paran yoktu. Hapu bunu not etti.' }; } },
+              { label:'Mektubu yak', sub:'Sonra düşünürüm', run(S) { S.debt = Math.round(S.debt * 1.05); return { kind:'bad', text:'Hapu duydu. Borcuna yüzde 5 "gücenme faizi" ekledi.' }; } } ] }
+];
+EVENTS.push(
+  { id:'saray', ok:S => GOODS.some(g => S.inv[g.id].n >= 5), title:'Sarayın kâhyası', text:'Sarayın kâhyası: "Beş tanesine piyasanın iki katını öderim."',
+    choices:[ { label:'Sat', sub:'5 adet, iki kat fiyat', run(S) { const g = GOODS.filter(x => S.inv[x.id].n >= 5).sort((a, b) => S.prices[S.city][b.id] - S.prices[S.city][a.id])[0]; const p = Math.round(S.prices[S.city][g.id] * 2 * 5); loseGoods(S, g.id, 5); S.cash += p; return { kind:'good', text:'Kâhya 5 ' + g.short.toLowerCase() + ' için ' + fmtN(p) + ' deben saydı. Saray memnun.' }; } },
+              { label:'Geri çevir', sub:'Malım satılık değil', run() { return { kind:'info', text:'Kâhya burnunu kaldırıp gitti. Firavun bunu duymasa iyi olur.' }; } } ] },
+  { id:'kahin', ok:S => S.cash >= 120, title:'Kâhin', text:'Kâhin: "120 deben ver, bütün pazarları göreyim."',
+    choices:[ { label:'Göster', sub:'120 deben, bütün fiyatlar', run(S) { S.cash -= 120; CITIES.forEach((c, i) => { S.seen[i] = snap(S, i); }); return { kind:'good', text:'Kâhin gözlerini kapadı ve saydı. Bütün şehirlerin bugünkü fiyatları defterinde.' }; } },
+              { label:'Geç', sub:'Gelecek bilinmez', run() { return { kind:'info', text:'Kâhin omuz silkti: "Nil de bilmez zaten."' }; } } ] },
+  { id:'tapinak', ok:S => S.cash >= 150 && !S.bless, title:'Tapınak bağışı', text:'Rahipler: "Bağış yap, nehirde korunasın."',
+    choices:[ { label:'Bağış yap', sub:'150 deben, rastgele kutsama', run(S) { S.cash -= 150; const k = pick(Object.keys(BLESS)); S.bless = k; return { kind:'good', text:BLESS[k].name + ': ' + BLESS[k].desc }; } },
+              { label:'Geç', sub:'Tanrılar zaten zengin', run() { return { kind:'info', text:'Bir rahip arkandan iç geçirdi.' }; } } ] },
+  { id:'hirsiz', ok:S => GOODS.some(g => S.inv[g.id].n >= 2), title:'Gece hırsızları', text:'Limanda hırsız var; tayfa nöbet için para istiyor.',
+    choices:[ { label:'Nöbet tut', sub:'60 deben, mal güvende', run(S) { const c = Math.min(60, S.cash); S.cash -= c; return { kind:'info', text:'Tayfa sabaha kadar uyumadı. Hırsızlar başka tekneye gitti.' }; } },
+              { label:'Şansını dene', sub:'Yarı yarıya', run(S) { if (rng() < 0.5) return { kind:'good', text:'Gece sessiz geçti. Para cebinde kaldı.' }; const g = GOODS.filter(x => S.inv[x.id].n > 0).sort((a, b) => b.base - a.base)[0]; if (!g) return { kind:'info', text:'Hırsızlar boş ambara küfredip gitti.' }; const l = loseGoods(S, g.id, Math.max(1, Math.round(S.inv[g.id].n * 0.25)), true); return { kind:'bad', text:'Sabah ' + l + ' ' + g.short.toLowerCase() + ' eksikti. İz bile yok.' }; } } ] }
+);
+/* Thoth's sacred baboons raid the quay: a little tapping game decides how much they get away with */
+const ownedRaw = S => RAW.filter(g => S.inv[g.id].n > 0);
+EVENTS.push(
+  { id:'babun', ok:S => [2, 3, 4, 7].includes(S.city) && load(S) >= 6, title:'Babun baskını!', text:'Thoth\'un kutsal babunları iskeleye indi. Gözleri sandıklarında!',
+    choices:[ { label:'Kovala!', sub:'Babunlara dokun, yükünü koru', game:'baboon', run(S, x) {
+                const total = x && x.total || 10, caught = x ? x.caught : 5, miss = Math.max(0, total - caught), got = {};
+                for (let k = 0; k < miss; k++) { const o = ownedRaw(S); if (!o.length) break; const g = pick(o); loseGoods(S, g.id, 1, true); got[g.id] = (got[g.id] || 0) + 1; }
+                const lost = Object.keys(got).map(id => got[id] + ' ' + gById(id).short.toLowerCase());
+                if (!miss) { addTrust(S, S.city, 120); return { kind:'good', text:'Bir tane bile kaçamadı! Rahipler gülmekten yere yattı; tüccar sana ısındı.' }; }
+                return { kind:caught >= total * 0.7 ? 'info' : 'bad', text:caught + ' babunu kovaladın. Kaçanlar şunları kaptı: ' + (lost.join(', ') || 'hiçbir şey') + '.' }; } },
+              { label:'Meyve ver', sub:'5 hurma ya da 10 buğday · Thoth memnun kalır', ok:S => S.inv.hurma.n >= 5 || S.inv.bugday.n >= 10, run(S) {
+                if (S.inv.hurma.n >= 5) loseGoods(S, 'hurma', 5); else loseGoods(S, 'bugday', 10);
+                S.bless = S.bless || 'hapi'; addTrust(S, S.city, 80);
+                return { kind:'good', text:'Babunlar karınlarını doyurup sandıkların üstünde uyudu. Bir rahip: "Thoth seni gördü." ' + BLESS[S.bless].name + ' seninle.' }; } },
+              { label:'Görmezden gel', sub:'Belki bir şey olmaz…', run(S) { const o = ownedRaw(S); if (!o.length || rng() < 0.4) return { kind:'info', text:'Babunlar sıkılıp gitti.' }; const g = pick(o), l = loseGoods(S, g.id, Math.min(3, S.inv[g.id].n), true); return { kind:'bad', text:'Bir babun ' + l + ' ' + g.short.toLowerCase() + ' kapıp hurma ağacına çıktı.' }; } } ] }
+);
+const crisisPrice = (S, c) => Math.round(S.prices[c.city][CRISES[c.k].g]);
+const CRISIS_EV = {
+  kitlik: (S, c) => { const p = crisisPrice(S, c), q = 20, rew = Math.round(q * p * 0.95), adv = Math.round(rew * 0.3); return { title:'Tahıl kıtlığı · ' + CITIES[c.city].name, text:'Ambarlar boş, kuyruklar uzun: buğday getiren unutulmaz.',
+    choices:[
+      { label:'Teslimat sözü ver', ico:'i-scroll', gain:3, risk:2, sub:'Şimdi ' + fmtN(adv) + ' avans · 3 gün içinde ' + q + ' buğday getirirsen +' + fmtN(rew - adv) + ' · geç kalırsan avans iade ve güven kaybı', ok:S => S.orders.length < 2, run(S) { S.cash += adv; S.orders.push({ from:c.city, to:c.city, g:'bugday', q, reward:rew - adv, due:Math.min(S.days, S.day + 3), perk:null, advance:adv }); return { kind:'good', text:fmtN(adv) + ' deben avans cebinde. ' + q + ' buğdayı en geç ' + Math.min(S.days, S.day + 3) + '. gün buraya getir.' }; } },
+      { label:'Halka buğday dağıt', ico:'i-bugday', gain:2, sub:'10 buğday gider · ' + MERCHANT_NAMES[c.city] + ' sana çok ısınır, bugün satışların +%5', ok:S => S.inv.bugday.n >= 10, run(S) { loseGoods(S, 'bugday', 10); const lv = addTrust(S, c.city, 350); S.fame = { city:S.city, day:S.day, b:0.05 }; return { kind:'good', text:'Halk adını sokaklarda söylüyor. ' + MERCHANT_NAMES[c.city] + (lv ? ' artık ' + TRUST[lv].name.toLowerCase() + '.' : ' bunu unutmayacak.') }; } },
+      { label:'Kıtlıktan uzak dur', ico:'i-close', sub:'Bir şey kazanmaz, bir şey kaybetmezsin', run() { return { kind:'info', text:'Kalabalığın arasından sessizce geçtin.' }; } } ] }; },
+  cekirge: (S, c) => { const p = crisisPrice(S, c), q = 15, rew = Math.round(q * p * 0.95), adv = Math.round(rew * 0.3); return { title:'Çekirge sürüsü · ' + CITIES[c.city].name, text:'Gökyüzü karardı, tarlalarda tek yeşil yaprak kalmadı.',
+    choices:[
+      { label:'Buğday sözü ver', ico:'i-bugday', gain:3, risk:2, sub:'Şimdi ' + fmtN(adv) + ' avans · 3 gün içinde ' + q + ' buğday getirirsen +' + fmtN(rew - adv), ok:S => S.orders.length < 2, run(S) { S.cash += adv; S.orders.push({ from:c.city, to:c.city, g:'bugday', q, reward:rew - adv, due:Math.min(S.days, S.day + 3), perk:null, advance:adv }); return { kind:'good', text:fmtN(adv) + ' deben avans aldın. ' + q + ' buğdayı en geç ' + Math.min(S.days, S.day + 3) + '. gün buraya getir.' }; } },
+      { label:'Davul ve dumanla tarlaya koş', ico:'i-locust', gain:2, sub:'100 deben · çiftçiler kurtulur, ' + MERCHANT_NAMES[c.city] + ' sana çok ısınır', ok:S => S.cash >= 100, run(S) { S.cash -= 100; const lv = addTrust(S, c.city, 300); S.fame = { city:S.city, day:S.day, b:0.05 }; return { kind:'good', text:'Davullar, duman, bağıran çocuklar: sürü başka tarlaya döndü. ' + MERCHANT_NAMES[c.city] + (lv ? ' artık ' + TRUST[lv].name.toLowerCase() + '.' : ' bunu unutmayacak.') + ' Bugün satışların +%5.' }; } },
+      { label:'Çekirge kızartması sat', ico:'i-coin', gain:1, sub:'Fakir işi ama kazanç kazançtır: +60 deben', run(S) { S.cash += 60; return { kind:'info', text:'Tuzladın, kızarttın, sattın. Kimse sormadı, sen de söylemedin.' }; } } ] }; },
+  bayram: (S, c) => { const p = crisisPrice(S, c), q = 8, rew = Math.round(q * p * 0.95), adv = Math.round(rew * 0.3); return { title:'Opet bayramı · ' + CITIES[c.city].name, text:'Bayram sofraları kuruluyor, şarap testileri boş.',
+    choices:[
+      { label:'Bayram sofrasına şarap sözü ver', ico:'i-sarap', gain:3, risk:2, sub:'Şimdi ' + fmtN(adv) + ' avans · 3 gün içinde ' + q + ' şarap getirirsen +' + fmtN(rew - adv) + ' · geç kalırsan avans iade', ok:S => S.orders.length < 2, run(S) { S.cash += adv; S.orders.push({ from:c.city, to:c.city, g:'sarap', q, reward:rew - adv, due:Math.min(S.days, S.day + 3), perk:null, advance:adv }); return { kind:'good', text:fmtN(adv) + ' deben avans aldın. ' + q + ' şarabı en geç ' + Math.min(S.days, S.day + 3) + '. gün getir.' }; } },
+      { label:'Kutsal kayık alayına katıl', ico:'i-ankh', gain:1, sub:'80 deben bağış · rastgele bir kutsama ve tüccar güveni', ok:S => S.cash >= 80, run(S) { S.cash -= 80; const k = pick(Object.keys(BLESS)); S.bless = k; addTrust(S, c.city, 120); return { kind:'good', text:BLESS[k].name + ': ' + BLESS[k].desc }; } },
+      { label:'Kalabalığı izle', ico:'i-close', sub:'Bir şey kazanmaz, bir şey kaybetmezsin', run() { return { kind:'info', text:'Davullar sabaha kadar sürdü.' }; } } ] }; },
+  maden: (S, c) => { const p = Math.round(crisisPrice(S, c) * 0.85), n = Math.max(0, Math.min(15, freeCap(S), Math.floor(S.cash / Math.max(1, p)))); return { title:'Bakır bolluğu · ' + CITIES[c.city].name, text:'Madenciler iskeleye bakır yığmış; ucuza gidiyor.',
+    choices:[
+      { label:'Madencilerle toptan anlaş', ico:'i-bakir', gain:2, risk:1, sub:n + ' bakır, birimi ' + fmtN(p) + ' · ambarında ' + n + ' yer kaplar', ok:() => n > 0, run(S) { S.cash -= n * p; S.inv.bakir.n += n; S.inv.bakir.cost += n * p; return { kind:'good', text:n + ' bakır ambarda. Bakırın pahalı olduğu şehri hatırla.' }; } },
+      { label:'Haberi kayıkçılara sat', ico:'i-whisper', gain:1, sub:'+120 deben · bolluk bir gün erken biter', run(S) { S.cash += 120; (S.mods || []).forEach(m => { if (m.src === 'kriz' && m.city === c.city && m.g === 'bakir') m.until = Math.max(S.day, m.until - 1); }); c.until = Math.max(S.day, c.until - 1); return { kind:'info', text:'Kayıkçılar haberi aşağı Nil\'e taşıdı. Bolluk yakında biter.' }; } },
+      { label:'Geç', ico:'i-close', sub:'Bir şey kazanmaz, bir şey kaybetmezsin', run() { return { kind:'info', text:'Külçeler iskelede parlamaya devam etti.' }; } } ] }; }
+};
+function eventDef(S, id) {
+  if (id && String(id).startsWith('crisis:')) { const c = (S.crises || []).find(x => 'crisis:' + x.id === id); if (!c || !CRISIS_EV[c.k]) return null; const e = CRISIS_EV[c.k](S, c); e.id = id; e.crisis = c; e.ok = () => true; return e; }
+  return EVENTS.find(x => x.id === id) || null;
+}
+function pickEvent(S) { const l = EVENTS.filter(e => e.ok(S)); return l.length ? pick(l).id : null; }
+function resolveEvent(S, idx, extra) {
+  const e = eventDef(S, S.pendingEvent); S.pendingEvent = null;
+  if (!e) return null;
+  if (e.crisis) e.crisis.done = true;
+  const ch = e.choices[idx], r = e.ok(S) && ch && (!ch.ok || ch.ok(S)) ? ch.run(S, extra) : { kind:'info', text:'Fırsat kaçtı: durum değişmişti.' };
+  S.log.push({ d:S.day, t:e.title + ': ' + r.text });
+  return r;
+}
+/* a day in port when no harbour can be reached: interest runs, prices move, Sethi moves */
+function waitDay(S) {
+  if (S.over || S.day >= S.days) return null;
+  const out = [], before = S.debt;
+  if (!/^(siwa|kharga)$/.test(CITIES[S.city].id)) caravanDays(S, 1, out);
+  S.day += 1; S.debt = Math.round(S.debt * (1 + S.rate)); S.stats.interest = (S.stats.interest || 0) + (S.debt - before);
+  sethiArrive(S, out); rollPrices(S); S.seen[S.city] = snap(S, S.city);
+  if (S.debt > before) out.push({ kind:'info', title:'Faiz işledi', text:'Borcun ' + fmtN(before) + ' debenden ' + fmtN(S.debt) + ' debene çıktı.' });
+  S.log.push({ d:S.day, t:CITIES[S.city].loc + ' bir gün bekledin.' });
+  return out;
+}
+function finish(S) {
+  if (S.caravan) {
+    const hub = S.caravan.hub;
+    if (S.stash) GOODS.forEach(g => { const b = S.stash[g.id]; if (!b || !b.n) return; S.cash += Math.round(b.n * (deals(hub, g.id) ? S.prices[hub][g.id] * 0.9 : g.base * 0.5)); });
+    S.stash = null; S.caravan = null;
+  }
+  S.over = true;
+  (S.work || []).forEach(w => { S.cash += Math.round(w.n * gById(w.g).base * 0.5); }); S.work = [];
+  GOODS.forEach(g => { if (deals(S.city, g.id)) sell(S, g.id, Infinity); else if (S.inv[g.id].n) { S.cash += Math.round(S.inv[g.id].n * g.base * 0.5); S.inv[g.id] = { n:0, cost:0 }; } });
+
+  const paid = Math.min(S.cash, S.debt);
+  S.cash -= paid; S.debt -= paid;
+  const hull = Math.max(0, boatWorth(S) - 600), score = S.cash - S.debt + hull;
+  S.result = { score, hull, rank:rankOf(score), paid, debtLeft:S.debt, stats:S.stats, rival:S.rival.cash, beat:score > S.rival.cash, start:S.startWorth == null ? START_CASH - START_DEBT : S.startWorth };
+  S.result.ach = ACH.filter(a => a.ok(S, S.result)).map(a => a.id);
+  S.result.rep = S.mode === 'daily' ? 0 : Math.max(1, Math.floor(Math.max(0, score) / 1200)) + (S.result.beat ? 2 : 0) + (S.repBonus || 0);
+  S.log.push({ d:S.day, t:'Sefer bitti. Net servet: ' + fmtN(score) + ' deben.' });
+  return S;
+}
+/*ENDCORE*/

@@ -1,0 +1,18 @@
+  /* ================= boot: runs after every module file has been defined ================= */
+  if (/[?&]debug/.test(location.search)) window.__nil = { vg:() => VG, Sea, Snd, render:() => { lastScene = ''; renderAll(); }, meta, get S() { return S; }, get PZ() { return PZ; }, fn:{ showHeroPick, heroGo, heroPow, haggleDeal:typeof haggleDeal === 'function' ? haggleDeal : null, haggleAuto:typeof haggleAuto === 'function' ? haggleAuto : null, templeAutoSolve:typeof templeAutoSolve === 'function' ? templeAutoSolve : null, senetAuto:typeof senetAuto === 'function' ? senetAuto : null, baboonAuto:typeof baboonAuto === 'function' ? baboonAuto : null, haggleAuto:typeof haggleAuto === 'function' ? haggleAuto : null, showShip, showYard, showWork, showCaravan, showTavern, goTemple, pzTemple:typeof pzTemple === 'function' ? pzTemple : null, playSenet:typeof playSenet === 'function' ? playSenet : null, pzBaboon:typeof pzBaboon === 'function' ? pzBaboon : null, showArrival, showHaggle, startHaggle, showQuest, qPort, showDebt, playScene, kediVault, kediDjedi, kediGuild, baHarp, baGate, lapisScale, lapisLiar, showPrices, qGoal, closeSheet,
+    /* v28 hooks: drive the game without hunting for pixels */
+    openSpot, showTravel, showBoard, showMerchant, showHapu, say, dlgNext, dlgPick, guideIntro, guideOff, mapModel, layoutStage, dmgStage:() => dmgStage(S), hull:() => hullNow(S),
+    spots:() => Object.keys(spotsHere(S.city)).filter(k => spotsHere(S.city)[k]),
+    travelTo(i) { if (phase !== 'port' || !canGo(S, i)) return false; sel = i; if (sheetName !== 'travel') showTravel(i); else travelUpdate(); go(); if (phase === 'sea' || departing) return true; closeSheet(); return false; },
+    pick(g) { if (msel !== g) pickGood(g); return msel; },
+    buyN(g, n) { if (phase !== 'port') return 0; msel = g; qty = n == null ? Infinity : n; const b = document.querySelector('[data-buy="' + g + '"]'); const before = S.inv[g].n; trade('buy', g, b); return S.inv[g].n - before; },
+    sellN(g, n) { if (phase !== 'port') return 0; msel = g; qty = n == null ? Infinity : n; const b = document.querySelector('[data-sell="' + g + '"]'); const before = S.inv[g].n; trade('sell', g, b); return before - S.inv[g].n; },
+    repair:n => doRepair(n == null ? Infinity : n), gift:() => { const r = gift28(S); if (r) { save(); renderAll(); } return r; }, hag28, dealBuy:(g, n, u) => dealBuy(S, g, n, u), dealSell:(g, n, u) => dealSell(S, g, n, u),
+    market:on => market(on), quoteBuy:(g, n) => quoteBuy(S, g, n), hgStart, town:() => T3 ? { on:town3On(), where:k => T3.where(k) } : null, canHaggle28:g => canHaggle28(S, g),
+    vt:(t, c) => VT.tile(t, c), heroPlate, renderPlate, heroInfo, mountHero3, disposeHero3, heroImg,
+    state:() => ({ phase, sheet:sheetName, sel, msel, qty, useTS, guide:meta.guide, dlg:!!DLG }) } };
+  if (window.__nil) { try { window.__nil.V3 = typeof V3 !== 'undefined' ? V3 : null; } catch (e) {} }
+  window.claude && window.claude.hot && window.claude.hot.ready ? window.claude.hot.ready(start) : start((window.claude && window.claude.hot && window.claude.hot.data) || {});
+  pxInit();
+  /* the 3D look loads quietly after the game is on screen; 2D stays if it cannot */
+  setTimeout(() => { try { if (V3.available() && V3.pref()) V3.enable(); } catch (e) {} }, 400);

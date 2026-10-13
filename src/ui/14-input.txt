@@ -1,0 +1,177 @@
+  /* ================= input ================= */
+  const confirmA = {};
+  const NAVSND = new Set(['wait', 'oiMore', 'goMennefer', 'unlockOk', 'share', 'qScene', 'qDecline', 'pzCancel', 'pzEmpty', 'new', 'daily', 'cont', 'loadMenu', 'lonca', 'lonca2', 'recsT', 'helpT', 'helpM', 'toTitle', 'musicT', 'endBack', 'recs', 'event', 'land', 'finish', 'tutDone', 'noHints', 'rapid', 'mAuto', 'mOn', 'newAsk', 'finishAsk']);
+  ['pointerdown', 'pointerup', 'click', 'touchend', 'keydown'].forEach(ev => document.addEventListener(ev, () => Snd.unlock(), true));
+  document.addEventListener('click', e => {
+    const sp = e.target.closest && e.target.closest('[data-spot]');
+    if (sp && (sp.closest('#pscene') || sp.closest('#spots')) && $('#veil').hidden) { e.preventDefault(); openSpot(sp.dataset.spot); return; }
+    const t = e.target.closest && e.target.closest('button');
+    if (!t) { if (e.target.id === 'veil' && !sheetLock) closeSheet(); return; }
+    if (t.dataset.tile) { pickGood(t.dataset.tile); return; }
+    if (t.dataset.dlg != null) { dlgPick(+t.dataset.dlg); return; }
+    if (t.dataset.hgg) { DLG = null; closeSheet(); msel = t.dataset.hgg; renderPanel(); hag28(t.dataset.hgg); return; }
+    if (t.dataset.hag28) { hag28(msel, t.dataset.hag28); return; }
+    if (t.dataset.hgside) { if (hgSide) { hgSide.side = t.dataset.hgside; hgSide.n = hgMax(hgSide.g, hgSide.side); play('tick'); renderPanel(); } return; }
+    if (t.dataset.hgq) { if (hgSide) { const mx = hgMax(hgSide.g, hgSide.side), v = t.dataset.hgq; hgSide.n = v === 'all' ? mx : Math.max(1, Math.min(mx, Math.min(hgSide.n, mx) + +v)); play('tick'); renderPanel(); } return; }
+    if (t.dataset.pad) return;
+    if (t.dataset.audio) { Snd.unlock(); if (t.dataset.audio === 'music') Snd.setMusic(!Snd.pref.music); else { Snd.setSfx(!Snd.pref.sfx); play('click'); } paintAudio(); return; }
+    if (t.dataset.hero) { heroSel = t.dataset.hero; play('tick'); showHeroPick(heroMode); return; }
+    if (t.dataset.city) { selectCity(+t.dataset.city); return; }
+    if (t.dataset.vnode) { const [i, j] = t.dataset.vnode.split(':').map(Number); chooseNode(i, j); return; }
+    if (t.dataset.nchoice) { nodeChoose(+t.dataset.nchoice); return; }
+    if (t.dataset.hag) { play('click'); startHaggle(t.dataset.hag); return; }
+    if (t.dataset.payq) { const r = $('#payR'); if (r) { const q = t.dataset.payq; r.value = q === 'all' ? r.max : q === 'half' ? Math.round(+r.max / 2) : Math.min(+r.max, +q); play('tick'); payUpdate(); } return; }
+    if (t.dataset.pz != null) { memPress(+t.dataset.pz); return; }
+    if (t.dataset.pzs != null) { if (PZ && PZ.kind === 'scale') { const k = +t.dataset.pzs; PZ.pos[k] = (PZ.pos[k] + 1) % 3; PZ.tilt = 0; play('tick'); scaleDraw(); } return; }
+    if (t.dataset.pzpick != null) { scalePick(+t.dataset.pzpick); return; }
+    if (t.dataset.pzliar != null) { liarPick(+t.dataset.pzliar); return; }
+    if (t.dataset.pzduel != null) { duelPick(+t.dataset.pzduel); return; }
+    if (t.dataset.pzw != null) { balPress(+t.dataset.pzw, t.dataset.pos == null ? null : +t.dataset.pos); return; }
+    if (t.dataset.qriddle != null) { kediRiddle(+t.dataset.qriddle); return; }
+    if (t.dataset.buy) { trade('buy', t.dataset.buy, t); return; }
+    if (t.dataset.sell) { trade('sell', t.dataset.sell, t); return; }
+    if (t.dataset.qty) { qty = t.dataset.qty === 'Infinity' ? Infinity : +t.dataset.qty; play('click'); renderPanel(); placeTutor(); const c = document.querySelector('.abar .chip[aria-pressed="true"]'); if (c) c.focus({ preventScroll:true }); return; }
+    if (t.dataset.open) { play('click'); ({ ship:showShip, menu:showMenu, defter:showDefter, prices:showPrices, debt:showDebt, music:() => { Snd.unlock(); showMusic(); } })[t.dataset.open](); return; }
+    if (t.dataset.track) { Snd.unlock(); if (!Snd.pref.music) Snd.setMusic(true); Snd.pick(t.dataset.track); paintAudio(); updateMusic(); return; }
+    if (t.dataset.save) { if (phase === 'port') doSaveSlot(+t.dataset.save); return; }
+    if (t.dataset.load) { doLoadSlot(+t.dataset.load); return; }
+    if (t.dataset.perk) {
+      const k = t.dataset.perk, p = PERKS[k], lv = meta.lv[k] || 0, c = lv < p.max ? p.cost[lv] : null;
+      if (c == null || meta.rep < c) { play('no'); return; }
+      meta.rep -= c; meta.lv[k] = lv + 1; saveMeta(); play('build'); toast(p.name + ' alındı. Bir sonraki serbest seferinde geçerli.');
+      showLonca(sheetLock ? (S && S.over ? 'endBack' : 'toTitle') : null); return;
+    }
+    if (t.hasAttribute('data-close')) { play('click'); closeSheet(); return; }
+    if (t.dataset.boat) { const id = t.dataset.boat, q = buyBoat(S, id); if (q) { play('build'); save(); lastScene = ''; renderAll(); showShip(); toast(BOATS[id].name + ' artık senin!'); } else play('no'); return; }
+    if (t.dataset.dev) { const k = t.dataset.dev; if (makeDev(S, k)) { play('build'); save(); lastScene = ''; renderAll(); showShip(); toast(DEVS[k].name + ' takıldı.'); } else play('no'); return; }
+    if (t.dataset.dk) { carN = +t.dataset.dk; play('tick'); travelUpdate(); return; }
+    if (t.dataset.up) { if (doUp(S, t.dataset.up)) { play('build'); save(); lastScene = ''; renderAll(); showShip(); toast(UPS[t.dataset.up].name + ' yaptırdın.'); } else play('no'); return; }
+    if (t.dataset.choice) {
+      if (eventGame(+t.dataset.choice)) return;
+      const evId = S.pendingEvent, idx = +t.dataset.choice, r = resolveEvent(S, idx); save(); renderAll();
+      play(r && r.kind === 'good' ? 'good' : r && r.kind === 'bad' ? 'bad' : 'click');
+      showEventResult(evId, idx, r);
+      return;
+    }
+    if (t.dataset.act === 'heroGo') { heroGo(); return; }
+    if (t.dataset.act === 'heroInfo') { play('click'); heroInfo(); return; }
+    if (t.dataset.act === 'heroPow') { heroPow(); return; }
+    const act = t.dataset.act;
+    if (!act) return;
+    if (NAVSND.has(act)) play('click');
+    if (act === 'go') go();
+    else if (act === 'quick') { if (VG) skipVoyage(); else if (plan) { Sea.stop(); landed(quickSea(plan)); } }
+    else if (act === 'event') showEvent();
+    else if (act === 'land') landDone();
+    else if (act === 'finish') endGame();
+    else if (act === 'wait') { const out = waitDay(S); if (out) { play('click'); save(); lastScene = ''; renderAll(); toast('Bir gün geçti: ' + S.day + '. gün.'); if (!$('#veil').hidden) closeSheet(); } }
+    else if (act === 'cont') { closeSheet(); if (S.voyage) resumeVoyage(); else if (S.pendingEvent && eventDef(S, S.pendingEvent)) showEvent(); else if (!showUnlocks()) qPort(true); }
+    else if (act === 'new') { Snd.unlock(); showHeroPick('free'); }
+    else if (act === 'daily') { Snd.unlock(); showHeroPick('daily'); }
+    else if (act === 'toTitle') { departing = false; $('#port').classList.remove('depart'); if (phase === 'sea') { Sea.stop(); plan = null; VG = null; phase = 'port'; document.body.classList.remove('at-sea', 'on-map'); $('#sea').hidden = true; $('#voy').hidden = true; $('#port').hidden = false; Snd.mode('port'); lastScene = ''; renderAll(); } showTitle(); }
+    else if (act === 'loadMenu') showLoad();
+    else if (act === 'lonca') showLonca('toTitle');
+    else if (act === 'lonca2') showLonca('endBack');
+    else if (act === 'endBack') showEnd();
+    else if (act === 'recsT') showRecs(null, 'toTitle');
+    else if (act === 'helpT') showHelp('toTitle');
+    else if (act === 'helpM') showHelp();
+    else if (act === 'musicT') { Snd.unlock(); showMusic('toTitle'); }
+    else if (act === 'mNext') { Snd.unlock(); Snd.next(); updateMusic(); }
+    else if (act === 'mAuto') { Snd.setAuto(!Snd.info().auto); updateMusic(); }
+    else if (act === 'mOn') { Snd.unlock(); Snd.setMusic(!Snd.pref.music); paintAudio(); updateMusic(); }
+    else if (act === 'mSfx') { Snd.setSfx(!Snd.pref.sfx); play('click'); paintAudio(); updateMusic(); }
+    else if (act === 'mHap') { setHaptic(!haptic.on); play('click'); updateMusic(); }
+    else if (act === 'mFace') { lsSet('nil-kervanci-face3d', face3d() ? '0' : '1'); play('click'); const gf = document.querySelector('[data-act="mFace"]'); if (gf) gf.textContent = '3B yüzler (deneme): ' + (face3d() ? 'açık' : 'kapalı'); }
+    else if (act === 'm3d') { const on = !V3.pref(); T3fail = 0; const p3 = V3.setPref(on); if (!on) town3Off(); lastScene = ''; Promise.resolve(p3).then(() => { if (S && phase === 'port') { lastScene = ''; renderAll(); } }); play('click'); updateMusic(); toast(on ? '3B görünüm açık: nehir ve çöl sahneleri üç boyutlu.' : '3B görünüm kapalı.'); }
+    else if (act === 'workGet') { const k = collectWork(S); if (k) { play('coin'); save(); renderAll(); toast(k + ' ' + gName(WORKS[S.city].out) + ' ambara alındı.'); showWork(); } else play('no'); }
+    else if (act === 'workMinus') { workN = Math.max(1, workN - 1); play('tick'); showWork(); }
+    else if (act === 'workPlus') { workN = Math.min(workMax(S, S.city), workN + 1); play('tick'); showWork(); }
+    else if (act === 'workMax') { workN = workMax(S, S.city); play('tick'); showWork(); }
+    else if (act === 'workGo') { const j = startWork(S, workN); if (j) { play('build'); save(); renderAll(); toast(WORKS[S.city].who + ' işe koyuldu: ' + j.ready + '. gün ' + j.n + ' ' + gName(j.g) + '.'); showWork(); } else play('no'); }
+    else if (act === 'carGo') carGo(+t.dataset.dest);
+    else if (act === 'install') doInstall();
+    else if (act === 'shareTxt') shareResult(t);
+    else if (act === 'contra') { const o = takeContra(S); if (o) { play('chase'); toast('Mühürlü sandıklar ambarda. Medjay\'a dikkat!'); save(); lastScene = ''; renderAll(); if (sheetName === 'debt') showDebt(); } else play('no'); }
+    else if (act === 'rapid') { rapid = !rapid; play('click'); travelUpdate(); const b = document.querySelector('[data-act="rapid"]'); if (b) b.focus({ preventScroll:true }); }
+    else if (act === 'haggle') { play('click'); showHaggle(); }
+    else if (act === 'pzStart') memShow();
+    else if (act === 'pzCancel') { pzClear(); closeSheet(); }
+    else if (act === 'pzWeigh') scaleWeigh();
+    else if (act === 'pzBalGo') balStart();
+    else if (act === 'pzHint') balHint();
+    else if (act === 'pzEmpty') { if (PZ && PZ.kind === 'scale') { PZ.pos.fill(0); PZ.tilt = 0; scaleDraw(); } }
+    else if (act === 'quest') { play('click'); showQuest(); }
+    else if (act === 'board') { play('click'); showBoard(); }
+    else if (act === 'payAmt') { const r = $('#payR'); const n = r ? +r.value : 0; const p = payDebt(S, n); if (p) { play('sell'); floatAt(t, '−' + fmt(p), true); save(); renderAll(); if (!S.debt) toast('Hapu\'ya borcun kalmadı!'); showDebt(); } else play('no'); }
+    else if (act === 'goMennefer') { closeSheet(); if (phase === 'port' && canGo(S, 1)) { play('click'); showTravel(1); } }
+    else if (act === 'sethiDelay') { if (phase === 'port' && sethiDelay(S)) { play('build'); toast('Liman memuru Sethi\'yi bir gün oyalayacak.'); save(); renderAll(); showBoard(); } else play('no'); }
+    else if (act === 'unlockOk') { closeSheet(); qPort(true); }
+    else if (act === 'share') shareImage(t);
+    else if (act === 'qAccept') { const q = Q(); if (q && q.st === 'offer') { q.st = 'active'; q.step = 1; qLog('Görevi kabul ettin.'); save(); closeSheet(); renderAll(); play('good'); toast('Görev: ' + qGoal(q).t); qPort(true); } }
+    else if (act === 'qDecline') { const q = Q(); if (q) { q.st = 'declined'; save(); closeSheet(); renderAll(); } }
+    else if (act === 'qScene') { const sc = qScene(); closeSheet(); if (sc) sc(); }
+    else if (act === 'qBribe') { const q = Q(); if (q && S.cash >= 300) { S.cash -= 300; q.f.open = true; qLog('Bekçiye 300 deben verdin; kasa kendiliğinden açıldı.'); save(); renderAll(); kediVault(); } }
+    else if (act === 'qBuy') { const q = Q(); if (q && S.cash >= 900) { S.cash -= 900; q.f.won = true; qLog('Heykeli Djedi\'den 900 debene geri aldın.'); save(); renderAll(); kediDjedi(); } }
+    else if (act === 'qDuel') { const q = Q(); pzDuel({ title:'Laf düellosu · Djedi', sub:'3 tur, 2 doğru yeter', who:'Djedi', city:null, rounds:3, cb(sc) { if (sc >= 2) { q.f.won = true; qLog('Djedi\'yi laf düellosunda yendin.'); save(); kediDjedi(); } else qStory('Djedi kahkahayı bastı', 'Lafın gediğini bulamadın. Djedi: "Ya 900 deben ya da bir düello daha. Laflarımı ezberledin mi?"', 'bad', null, '<div class="row"><button class="btn go1" type="button" data-act="qDuel" data-first>Bir daha</button>' + (S.cash >= 900 ? '<button class="btn gold" type="button" data-act="qBuy">900 deben öde</button>' : '') + '<button class="btn" type="button" data-close>Sonra</button></div>'); } }); }
+    else if (act === 'hagNow') hagNow();
+    else if (act === 'facePush') facePush();
+    else if (act === 'oiMore') t.classList.toggle('open');
+    else if (act === 'faceOk') faceOk();
+    else if (act === 'noHints') { guideOff(); }
+    else if (act === 'travel') { play('click'); showTravel(); }
+    else if (act === 'talk') { play('click'); showMerchant(); }
+    else if (act === 'unpick') { msel = null; hgSide = false; play('click'); renderPanel(); placeTutor(); }
+    else if (act === 'hag28') { hag28(msel); }
+    else if (act === 'hgBack') { hgSide = false; renderPanel(); }
+    else if (act === 'hgStart') hgStart();
+    else if (act === 'dlgNext') dlgNext();
+    else if (act === 'mkOpen') { play('click'); market(true); }
+    else if (act === 'mkClose') { play('click'); market(false); }
+    else if (act === 'quipX') { t.hidden = true; }
+    else if (act === 'repair1') doRepair(1);
+    else if (act === 'repairAll') doRepair(Infinity);
+    else if (act === 'water1') { const n = buyWater(S, 1); if (n) { toast('Bir günlük su aldın.'); play('splash'); save(); renderAll(); } else play('no'); }
+    else if (act === 'guide') { closeSheet(); if (phase === 'port' && !S.over) guideIntro(true); }
+    else if (act === 'tutDone') { meta.tutDone = true; saveMeta(); renderAll(); }
+    else if (act === 'sellAll') { if (phase !== 'port' || S.over) return; let rev = 0, pr = 0, lvUp = 0; GOODS.forEach(g => { if (S.inv[g.id].n) { const r = sell(S, g.id, Infinity); rev += r.rev; pr += r.profit || 0; lvUp = r.lvUp || lvUp; } }); if (rev) { play(pr > 1500 ? 'big' : 'sell'); floatAt(t, '+' + fmt(rev) + '  (kâr ' + (pr >= 0 ? '+' : '') + fmt(pr) + ')', pr < 0); if (lvUp) { line = pickLine(); trustToast(lvUp, S.city); } save(); renderAll(); } }
+    else if (act === 'gift') { const f = giftOf(S.city), r = gift28(S); if (r) { line = f.thanks; play('good'); toast('Karşılığında: ' + r.got.join(', ') + '.'); trustToast(r.lvUp, S.city); save(); renderAll(); } }
+    else if (act === 'accept') { if (acceptOrder(S)) { play('click'); toast('Sipariş deftere yazıldı.'); save(); renderAll(); } else play('no'); }
+    else if (act === 'deliver') { const o = deliverable(S)[0]; const r = o && deliver(S, o); if (r) { play('big'); floatAt(t, '+' + fmt(r.reward)); toast(MERCHANT_NAMES[r.from] + ' siparişin için teşekkür ediyor.' + (r.perk === 'itibar' ? ' Lonca\'da +2 itibar.' : r.perk ? ' ' + BLESS[r.perk].name + ' seninle.' : '')); trustToast(r.lvUp, r.from); save(); renderAll(); } }
+    else if (act === 'pay') { const n = t.dataset.n === 'all' ? S.debt : 500; const p = payDebt(S, n); if (p) { play('sell'); floatAt(t, '−' + fmt(p), true); save(); renderAll(); if (!S.debt) toast('Hapu\'ya borcun kalmadı!'); if (sheetName === 'debt') showDebt(); } else play('no'); }
+    else if (act === 'borrow') { const p = borrow(S, 500); if (p) { play('buy'); floatAt(t, '+' + fmt(p)); save(); renderAll(); if (sheetName === 'debt') showDebt(); } else play('no'); }
+    else if (act === 'newAsk' || act === 'finishAsk') {
+      if (confirmA[act]) { confirmA[act] = false; if (act === 'newAsk') showHeroPick('free'); else { closeSheet(); endGame(); } return; }
+      confirmA[act] = true; t.textContent = 'Emin misin? Tekrar bas'; t.classList.add('red');
+      setTimeout(() => { confirmA[act] = false; }, 4000);
+    }
+  });
+  document.addEventListener('input', e => { if (e.target && e.target.id === 'payR') payUpdate(); });
+  function resumeVoyage() {
+    if (S.voyageSnap && S.voyageSnap.v) { const v = S.voyage; S = migrate(S.voyageSnap); RS = S.rs == null ? null : S.rs; S.voyage = v; S.voyageSnap = null; }
+    plan = S.voyage; closeSheet(); enterSea(); toast('Yarım kalan yolculuk baştan başlıyor.');
+  }
+  document.addEventListener('keydown', e => {
+    if (!$('#veil').hidden) {
+      if (sheetName === 'haggle' && (e.key === ' ' || e.key === 'Enter') && $('#needle') && !$('#needle').className.match(/perfect|good|miss/)) { e.preventDefault(); hagNow(); return; }
+      if (sheetName === 'pz' && PZ && PZ.kind === 'mem' && /^[1-4]$/.test(e.key)) { e.preventDefault(); memPress(+e.key - 1); return; }
+      if (sheetName === 'pz' && PZ && PZ.kind === 'bal' && /^[1-4]$/.test(e.key)) { e.preventDefault(); balPress(+e.key - 1); return; }
+      if (e.key === 'Escape' && !sheetLock) closeSheet(); return;
+    }
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === 'Escape') { if (S) showMenu(); return; }
+    if (phase !== 'port') return;
+    const spf = e.target.closest && e.target.closest('#port .pscene [data-spot]');
+    if (spf && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openSpot(spf.dataset.spot); return; }
+    if (/^[1-5]$/.test(e.key) && !(e.target.closest && e.target.closest('input'))) { selectCity(+e.key - 1); }
+  });
+  document.querySelectorAll('[data-pad]').forEach(b => {
+    const side = b.dataset.pad;
+    const on = e => { e.preventDefault(); b.classList.add('on'); if (side === 'B') Sea.boost(); else Sea.setPad(side, true); };
+    const off = () => { b.classList.remove('on'); if (side !== 'B') Sea.setPad(side, false); };
+    b.addEventListener('pointerdown', on); ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => b.addEventListener(ev, off));
+  });
+  window.addEventListener('resize', () => { if (S && phase === 'port') { renderStage(); placeTutor(); } if (VG && !$('#voy').hidden) drawVoyLines(); });
+  ['mouseover', 'focusin'].forEach(ev => document.addEventListener(ev, e => { const n = e.target.closest && e.target.closest('.vnode[data-desc]'); const d = $('#vdesc'); if (n && d) d.textContent = NODES[n.className.match(/t-(\w+)/)[1]].name + ': ' + n.dataset.desc; }));
+  Sea.init($('#sea'), k => { if (k === 'chase') Snd.mode('chase'); else if (k === 'caught' || k === 'escape') Snd.mode('sea'); play(k); buzz(k); });
+
