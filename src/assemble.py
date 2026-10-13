@@ -10,7 +10,7 @@ Layout of SRC_DIR (everything is concatenated in this order into one IIFE):
   core.txt, v8-merchants.txt, merch27.txt, v8-portrait.txt, snd.txt,
   sea/*.txt, ui/*.txt (sorted by their NN- prefix), then MODULES, then boot.txt
   CSS: css.txt + CSS_MODULES;  sprites: v8-sprites.svg + sprites27.txt
-  chars33.dat is an inert data block placed before the script.
+  chars33.dat / chars34.dat are inert data blocks placed before the script.
 A folder (ui/, sea/, v3/) is the same as one big file: its parts are joined in name order.
 """
 import os, sys
@@ -19,7 +19,7 @@ SRC = sys.argv[1] if len(sys.argv) > 1 else 'src'
 OUT = sys.argv[2] if len(sys.argv) > 2 else None
 if not os.path.isabs(SRC): SRC = os.path.join(ROOT, SRC)
 MODULES = ['art27.txt', 'art28.txt', 'chars28.txt', 'chars30.txt', 'portraits31.txt', 'v3', 'world33.txt', 'town29.txt',
-           'temple.txt', 'senet.txt', 'mini.txt', 'haggle28.txt', 'chars33.txt']
+           'temple.txt', 'senet.txt', 'mini.txt', 'haggle28.txt', 'chars33.txt', 'chars34.txt']
 CSS_MODULES = ['css27.txt', 'art27.css', 'v3.css', 'town29.css', 'temple.css', 'senet.css', 'mini.css', 'css28.txt',
                'art28.css', 'chars28.css', 'haggle28.css', 'chars33.css']
 def r(f, opt=False):
@@ -50,7 +50,7 @@ mods = ''.join('\n' + r(f, True) for f in MODULES)
 css = r('css.txt')
 extra_css = ''.join(r(f, True) for f in CSS_MODULES)
 j = css.rfind('</style>'); css = css[:j] + extra_css + '\n' + css[j:]
-out = (head + css + '\n' + sprites + '\n' + r('body.txt') + '\n' + r('chars33.dat', True) + '\n<script>\n' + pre + core + '\n' + r('v8-merchants.txt') + '\n' +
+out = (head + css + '\n' + sprites + '\n' + r('body.txt') + '\n' + r('chars33.dat', True) + r('chars34.dat', True) + '\n<script>\n' + pre + core + '\n' + r('v8-merchants.txt') + '\n' +
        r('merch27.txt', True) + '\n  let uid = 0;\n' + r('v8-portrait.txt') + '\n' + r('snd.txt') + '\n' + r('sea') + '\n' + r('ui') + mods + '\n' + r('boot.txt') + '\n})();\n</script>\n')
 a, b = (os.path.join(ROOT, OUT + '.html'), os.path.join(ROOT, OUT + '-preview.html')) if OUT else (os.path.join(ROOT, 'dist', 'nil-kervanci.html'), os.path.join(ROOT, 'dist', 'preview.html'))
 os.makedirs(os.path.dirname(a), exist_ok=True)

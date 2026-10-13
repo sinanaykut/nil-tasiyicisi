@@ -334,8 +334,9 @@
     const cp = $('#snCp');
     /* v33: Paneb as a live 3D character (CH33) when 3D is on */
     let live = false;
-    try { if (cp && typeof CH33 !== 'undefined' && CH33.on() && face3d() && CH33.has('paneb')) {
-      if (!PZ.c33 || !PZ.c33.alive) { if (!cp.firstElementChild) cp.innerHTML = snPanebSVG(o.mood); PZ.c33 = CH33.stage(cp, 'paneb', { mood:o.mood || 'neutral', frame:'face' }); try { H3.push(PZ.c33); } catch (e) {} }
+    const PB = typeof CH34 !== 'undefined' && CH34.has('paneb') ? CH34 : typeof CH33 !== 'undefined' && CH33.on() && face3d() && CH33.has('paneb') ? CH33 : null;
+    try { if (cp && PB) {
+      if (!PZ.c33 || !PZ.c33.alive) { if (!cp.firstElementChild) cp.innerHTML = snPanebSVG(o.mood); PZ.c33 = PB.stage(cp, 'paneb', { mood:o.mood || 'neutral', frame:'face', greet:false }); try { H3.push(PZ.c33); } catch (e) {} }
       if (PZ.c33) { live = true; PZ.c33.update({ mood:o.mood || 'neutral', talk:!reduce }); const h = PZ.c33, tok = PZ.tok; PZ.timers.push(setTimeout(() => { if (PZ && PZ.tok === tok) h.update({ talk:false }); }, 1800)); }
     } } catch (e) { live = false; }
     if (!live && cp && cp.dataset.mood !== (o.mood || 'neutral')) {

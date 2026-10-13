@@ -1,0 +1,354 @@
+  /* ================= chars34: CH34 - prototype character from ready-made CC0 assets (Quaternius base body + UAL clips) =================
+     One skinned GLB per character (inert base64-gzip block #c34glb, decoded on first use; ~8k tris, 65-bone UE-style rig,
+     10 baked clips) + one face atlas (inert block #c34face, lossless WebP 512x512 channel-packed sprites).
+     The face is NOT deformed: eyes, brows, mouth and nose are sprites projected onto the head in the fragment shader
+     (rest-pose x/y of the head front -> atlas cell), switched per frame (blink, visemes, mood). Irises are drawn in the
+     shader inside the eye-white mask so they can follow the pointer. Toon cel + inverted-hull ink like CH33: 2 draw calls.
+     API (same as CH33.stage):  CH34.has(key)  CH34.stage(el, key, o) -> { ready, update({mood, tell, talk, act}), react(kind), dispose(), alive }
+     Prototype: only 'paneb'. Used for Paneb whenever 3D is on (no face3d opt-in); everything else keeps CH33/2D. */
+  const CH34 = (() => {
+    let T = null, dead = false;
+    const getT = () => { if (T) return T; try { T = (typeof V3 !== 'undefined' && V3 && V3._x && V3._x.T && V3._x.T()) || window.THREE || null; } catch (e) { T = null; } return T; };
+    const X3 = () => (typeof V3 !== 'undefined' && V3 && V3._x) || null;
+    /* face layout per character: rects in rest-pose model space (x, y-up; the face looks down +z), atlas slots */
+    const SPEC = {
+      paneb: { glb:'c34glb', atlas:'c34face',
+        face:{ eye:[0.038, 1.698, 0.07, 0.035], brow:[0.042, 1.7325, 0.064, 0.032], mouth:[0, 1.624, 0.072, 0.036], nose:[0, 1.655, 0.03, 0.015] },
+        col:{ ink:'#2B1D14', iris:'#4A2A16', iris2:'#8A5530', white:'#FBF6EC', mouth:'#5A2420', teeth:'#F6F1E6', tongue:'#C9606A', brow:'#211A2A', nose:'#7E4A2C', blush:'#E07A5F' } }
+    };
+    const EYE = { open:0, half:1, closed:2, happy:3, wide:4, angry:5, sad:6, squint:7 };
+    const BROW = { neutral:8, raised:9, angry:10, sad:11, low:12, happy:13 };
+    const MOUTH = { neutral:16, smile:17, grin:18, A:19, O:20, E:21, small:22, frown:23, grit:24, surprise:25, smirk:26, sadopen:27, M:28, talkhappy:29, bigsmile:30 };
+    const NOSE = 14;
+    const slot = (v, i) => v.set((i % 4) * 0.25, Math.floor(i / 4) * 0.125);
+    const MOODS = {
+      neutral:  { eye:'open', bl:'neutral', br:'neutral', mouth:'smile', talk:['A', 'E', 'small', 'O', 'M', 'E', 'A'], blush:0.25 },
+      happy:    { eye:'squint', bl:'happy', br:'happy', mouth:'bigsmile', talk:['talkhappy', 'A', 'E', 'grin', 'small', 'talkhappy'], blush:0.6 },
+      angry:    { eye:'angry', bl:'angry', br:'angry', mouth:'frown', talk:['grit', 'A', 'E', 'small', 'grit'], blush:0.1 },
+      sad:      { eye:'sad', bl:'sad', br:'sad', mouth:'frown', talk:['sadopen', 'small', 'A', 'M'], blush:0.15 },
+      surprised:{ eye:'wide', bl:'raised', br:'raised', mouth:'surprise', talk:['O', 'A', 'surprise', 'small'], blush:0.3 },
+      thinking: { eye:'half', bl:'low', br:'raised', mouth:'smirk', talk:['small', 'E', 'M', 'A'], blush:0.2, look:[0.5, 0.45] },
+      sly:      { eye:'squint', bl:'raised', br:'neutral', mouth:'smirk', talk:['small', 'E', 'A', 'M'], blush:0.2 },
+    };
+    const MOOD_CLIP = { neutral:'idle', happy:'idle', angry:'angry', sad:'idle', surprised:'idle', thinking:'think', sly:'idle' };
+    const TELL = { sweat:{ mood:'sad' }, glance:{ mood:'neutral', glance:1 }, smile:{ mood:'happy' }, frown:{ mood:'angry' }, tap:{ mood:'neutral' },
+      arms:{ mood:'neutral', clip:'angry' }, lean:{ mood:'neutral' }, scratch:{ mood:'thinking', clip:'think' }, eyebrow:{ mood:'neutral', brow1:1 } };
+    const ONCE = { wave:1, cheer:1, shrug:1 };
+
+    const on = () => { try { return !dead && typeof V3 !== 'undefined' && V3.pref && V3.pref() && !!document.getElementById('c34glb'); } catch (e) { return false; } };
+    const has = key => !!SPEC[key] && on();
+
+    /* ---------- loading (once per character; geometry, clips and atlas stay cached) ---------- */
+    const KITS = {}, KITP = {};
+    function b64bytes(s) { const b = atob(s), n = b.length, u = new Uint8Array(n); for (let i = 0; i < n; i++) u[i] = b.charCodeAt(i); return u; }
+    function load(key) {
+      if (KITS[key]) return Promise.resolve(KITS[key]);
+      if (KITP[key]) return KITP[key];
+      const sp = SPEC[key];
+      KITP[key] = new Promise(done => {
+        const el = sp && document.getElementById(sp.glb), ea = sp && document.getElementById(sp.atlas);
+        if (!el || !ea || dead) { done(null); return; }
+        const go = () => {
+          const T0 = getT(); if (!T0) { done(null); return; }
+          let L = null; try { L = typeof c33Loader === 'function' ? new (c33Loader(T0))() : new T0.GLTFLoader(); } catch (e) { done(null); return; }
+          let bytes; try { bytes = b64bytes(el.textContent.trim()); } catch (e) { done(null); return; }
+          const gz = bytes[0] === 0x1f && bytes[1] === 0x8b;
+          if (gz && typeof DecompressionStream === 'undefined') { done(null); return; }
+          const bufP = gz ? new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer() : Promise.resolve(bytes.buffer);
+          const texP = new Promise(ok => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => ok(null); im.src = 'data:image/' + (ea.dataset.fmt || 'webp') + ';base64,' + ea.textContent.trim(); });
+          Promise.all([bufP, texP]).then(([buf, im]) => {
+            if (!im) { done(null); return; }
+            try {
+              L.parse(buf, '', g => {
+                try {
+                  let mesh = null; g.scene.traverse(o => { if (o.isSkinnedMesh && !mesh) mesh = o; });
+                  const geo = mesh.geometry;
+                  if (geo.attributes._fx) { geo.setAttribute('aFx', geo.attributes._fx); geo.deleteAttribute('_fx'); }
+                  const tex = new T0.Texture(im); tex.flipY = false; tex.generateMipmaps = true; tex.minFilter = T0.LinearMipmapLinearFilter; tex.magFilter = T0.LinearFilter;
+                  tex.anisotropy = 4; tex.needsUpdate = true;
+                  const clips = {}; g.animations.forEach(c => { clips[c.name] = c; });
+                  KITS[key] = { scene:g.scene, mesh, geo, clips, tex, sp };
+                  done(KITS[key]);
+                } catch (e) { try { console.warn('CH34 kit:', e); } catch (e2) {} done(null); }
+              }, e => { try { console.warn('CH34 parse:', e); } catch (e2) {} done(null); });
+            } catch (e) { done(null); }
+          }, () => done(null));
+        };
+        if (getT()) go();
+        else if (typeof V3 !== 'undefined' && V3.load) V3.load().then(ok => ok ? go() : done(null), () => done(null));
+        else done(null);
+      });
+      KITP[key].then(k => { if (!k) delete KITP[key]; });
+      return KITP[key];
+    }
+
+    /* ---------- materials: toon cel + face sprites, inverted-hull ink ---------- */
+    const VH = `#include <common>
+#include <skinning_pars_vertex>
+attribute vec4 aFx;
+`;
+    const VS = `
+  #include <skinbase_vertex>
+  #include <beginnormal_vertex>
+  #include <skinnormal_vertex>
+  #include <begin_vertex>
+  #include <skinning_vertex>
+`;
+    const V_BODY = VH + `varying vec3 vC; varying vec3 vN; varying vec3 vW; varying vec3 vP; varying float vFx; varying float vRz;
+void main() {` + VS + `  vC = color; vP = position; vRz = normal.z; vFx = floor(aFx.y * 16.0 + 0.5); vN = normalize(mat3(modelMatrix) * objectNormal);
+  vec4 w = modelMatrix * vec4(transformed, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w;
+}`;
+    const F_BODY = `uniform vec3 uSun, uLit, uShd, uRimDir, uRimC, uInk, uIris, uIris2, uWhite, uMouthC, uTeeth, uTongue, uBrowC, uNoseC, uBlushC;
+uniform float uSoft, uRim, uBlush; uniform sampler2D uAtlas;
+uniform vec4 uEyeR, uBrowR, uMouthR, uNoseR; uniform vec2 uEyeL, uEyeRt, uBrL, uBrRt, uMo, uNo, uLook;
+varying vec3 vC; varying vec3 vN; varying vec3 vW; varying vec3 vP; varying float vFx; varying float vRz;
+float h21(vec2 p) { return fract(sin(dot(p, vec2(41.3, 289.1))) * 43758.5); }
+vec4 cell(vec2 sl, vec2 q) { if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0); return texture2D(uAtlas, sl + q * vec2(0.25, 0.125)); }
+vec2 rq(vec4 r, float side) { vec2 q = vec2((vP.x - (side * r.x - r.z * 0.5)) / r.z, ((r.y + r.w * 0.5) - vP.y) / r.w); if (side > 0.0) q.x = 1.0 - q.x; return q; }
+void main() {
+  vec3 c = vC, n = normalize(vN);
+  if (!gl_FrontFacing) { n = -n; c *= 0.55; }
+  float fx = vFx;
+  if (fx > 0.5 && fx < 1.5) { float a = atan(vP.x, vP.z + 0.0001) * 15.0; float s = abs(fract(a) - 0.5); float b = abs(fract(vP.y * 55.0 + floor(a) * 0.37) - 0.5);
+    c *= 1.0 - 0.24 * (1.0 - smoothstep(0.05, 0.2, s)) - 0.1 * (1.0 - smoothstep(0.04, 0.1, b)); }
+  else if (fx > 1.5 && fx < 2.5) { float a = atan(vP.x, vP.z + 0.03) * 9.0; float s = abs(fract(a) - 0.5); c *= 1.0 - 0.07 * (1.0 - smoothstep(0.05, 0.3, s)); }
+  else if (fx > 2.5 && fx < 3.5) { vec2 q = vec2(atan(vP.x, vP.z) * 40.0, vP.y * 150.0); vec2 f = fract(q) - 0.5; float d = length(f); c *= 1.0 - 0.28 * smoothstep(0.32, 0.46, d); c += 0.06 * (1.0 - smoothstep(0.0, 0.18, length(f - vec2(-0.12, 0.12)))); }
+  float d = dot(n, uSun), t;
+  if (fx > 4.5 && fx < 5.5) d = d * 0.55 + 0.32;
+  t = mix(mix(0.62, 0.82, smoothstep(-uSoft, uSoft, d)), 1.0, smoothstep(0.4 - uSoft, 0.4 + uSoft, d));
+  vec3 lit = mix(uShd, uLit, (t - 0.42) / 0.58);
+  vec3 col = c * lit;
+  if (fx > 3.5 && fx < 4.5) { vec3 V = normalize(cameraPosition - vW); vec3 H = normalize(uSun + V); col += vec3(1.0, 0.92, 0.7) * smoothstep(0.82, 0.88, dot(n, H)) * 0.35; }
+  if (uRim > 0.0) { vec3 V = normalize(cameraPosition - vW); float rr = 1.0 - max(dot(n, V), 0.0); float k = smoothstep(0.52, 0.64, rr) * smoothstep(0.0, 0.35, dot(n, uRimDir)); col = mix(col, c * uRimC, k * uRim); }
+  if (fx > 4.5 && fx < 5.5 && vRz > 0.15) {
+    vec3 fl = mix(lit, vec3(1.0), 0.55);
+    float side = vP.x > 0.0 ? 1.0 : -1.0;
+    /* blush */
+    vec2 bq = vec2(abs(vP.x) - 0.052, vP.y - 1.672) / vec2(0.02, 0.011);
+    col = mix(col, uBlushC * lit, uBlush * 0.32 * (1.0 - smoothstep(0.3, 1.0, length(bq))));
+    /* nose */
+    vec4 nz = cell(uNo, rq(uNoseR, -1.0)); col = mix(col, uNoseC * lit, nz.r);
+    /* mouth */
+    vec4 m = cell(uMo, rq(uMouthR, -1.0));
+    col = mix(col, uMouthC * fl, m.g); col = mix(col, uTongue * fl, m.a); col = mix(col, uTeeth * fl, m.b); col = mix(col, uInk, m.r);
+    /* eye */
+    vec2 eq = rq(uEyeR, side);
+    vec4 e = cell(side > 0.0 ? uEyeL : uEyeRt, eq);
+    if (e.g > 0.0) {
+      vec2 p = vec2(eq.x * 2.0, eq.y);
+      vec2 ic = vec2(1.04 + uLook.x * 0.3 * (side > 0.0 ? -1.0 : 1.0), 0.56 - uLook.y * 0.14);
+      float di = length(p - ic);
+      float ir = 1.0 - smoothstep(0.27, 0.3, di);
+      float pu = 1.0 - smoothstep(0.12, 0.15, di);
+      float hl = 1.0 - smoothstep(0.05, 0.075, length(p - ic - vec2(-0.09, -0.11)));
+      vec3 ec = uWhite;
+      ec = mix(ec, mix(uIris2, uIris, smoothstep(0.75, 0.3, p.y - ic.y + 0.5)), ir);
+      ec = mix(ec, uInk * 0.6, pu * ir);
+      ec = mix(ec, vec3(1.0), hl * ir);
+      ec *= 1.0 - 0.18 * smoothstep(0.42, 0.18, eq.y);
+      col = mix(col, ec * fl, e.g);
+    }
+    col = mix(col, uInk, e.r);
+    /* brow */
+    vec4 b = cell(side > 0.0 ? uBrL : uBrRt, rq(uBrowR, side));
+    col = mix(col, uBrowC * mix(lit, vec3(1.0), 0.3), b.r);
+  }
+  gl_FragColor = vec4(col, 1.0);
+}`;
+    const V_INK = VH + `uniform float uPx; uniform vec2 uRes;
+void main() {` + VS + `  if (aFx.x < 0.05) { gl_Position = vec4(0.0, 0.0, 2.0, 0.0); return; }
+  vec4 p = projectionMatrix * modelViewMatrix * vec4(transformed, 1.0);
+  vec2 d = (projectionMatrix * vec4(mat3(modelViewMatrix) * objectNormal, 0.0)).xy;
+  p.xy += normalize(d + 1e-6) * uPx * aFx.x * 4.0 / uRes * p.w;
+  gl_Position = p;
+}`;
+    const F_INK = `uniform vec3 uInkC; void main() { gl_FragColor = vec4(uInkC, 1.0); }`;
+    function mats(T0, kit) {
+      const C = kit.sp.col, f = kit.sp.face, V2 = () => new T0.Vector2(), c = h => new T0.Color(h);
+      const r4 = a => new T0.Vector4(a[0], a[1], a[2], a[3]);
+      const U = { uSun:{ value:new T0.Vector3(-0.72, 0.62, 0.62).normalize() }, uLit:{ value:c('#FFF6E6') }, uShd:{ value:c('#A07A74') }, uSoft:{ value:0.05 }, uRim:{ value:0.8 },
+        uRimDir:{ value:new T0.Vector3(0.8, 0.4, -0.45).normalize() }, uRimC:{ value:c('#FFE3B0') }, uInk:{ value:c(C.ink) }, uInkC:{ value:c(C.ink) },
+        uIris:{ value:c(C.iris) }, uIris2:{ value:c(C.iris2) }, uWhite:{ value:c(C.white) }, uMouthC:{ value:c(C.mouth) }, uTeeth:{ value:c(C.teeth) }, uTongue:{ value:c(C.tongue) },
+        uBrowC:{ value:c(C.brow) }, uNoseC:{ value:c(C.nose) }, uBlushC:{ value:c(C.blush) }, uBlush:{ value:0.25 }, uAtlas:{ value:kit.tex },
+        uEyeR:{ value:r4(f.eye) }, uBrowR:{ value:r4(f.brow) }, uMouthR:{ value:r4(f.mouth) }, uNoseR:{ value:r4(f.nose) },
+        uEyeL:{ value:V2() }, uEyeRt:{ value:V2() }, uBrL:{ value:V2() }, uBrRt:{ value:V2() }, uMo:{ value:V2() }, uNo:{ value:slot(V2(), NOSE) }, uLook:{ value:V2() },
+        uPx:{ value:1.2 }, uRes:{ value:new T0.Vector2(800, 600) }, inkK:1.25 };
+      const body = new T0.ShaderMaterial({ uniforms:U, vertexShader:V_BODY, fragmentShader:F_BODY, vertexColors:true, side:T0.DoubleSide }); body.skinning = true;
+      const ink = new T0.ShaderMaterial({ uniforms:U, vertexShader:V_INK, fragmentShader:F_INK, side:T0.BackSide }); ink.skinning = true;
+      const v2 = new T0.Vector2();
+      const pre = rr => { const rt = rr.getRenderTarget && rr.getRenderTarget(); if (rt) v2.set(rt.width, rt.height); else rr.getDrawingBufferSize(v2); U.uRes.value.copy(v2); U.uPx.value = U.inkK * (rt ? Math.max(1, rt.width / 300) : (rr.getPixelRatio ? rr.getPixelRatio() : 1)); };
+      return { body, ink, pre, U };
+    }
+
+    /* ---------- one instance: cloned rig sharing the cached geometry ---------- */
+    function instance(T0, kit, M) {
+      const root = kit.scene.clone(true);
+      const byName = {}; root.traverse(o => { if (o.isBone) byName[o.name] = o; });
+      let mesh = null; root.traverse(o => { if (o.isSkinnedMesh && !mesh) mesh = o; });
+      const src = kit.mesh.skeleton;
+      const sk = new T0.Skeleton(src.bones.map(b => byName[b.name]), src.boneInverses.map(m => m.clone()));
+      mesh.material = M.body; mesh.bind(sk, kit.mesh.bindMatrix.clone()); mesh.frustumCulled = false;
+      const ink = new T0.SkinnedMesh(kit.geo, M.ink); ink.bind(sk, mesh.bindMatrix); ink.onBeforeRender = M.pre; ink.frustumCulled = false;
+      mesh.parent.add(ink); ink.position.copy(mesh.position); ink.quaternion.copy(mesh.quaternion); ink.scale.copy(mesh.scale);
+      const rest = ['neck_01', 'Head'].map(n => byName[n] && [byName[n], byName[n].quaternion.clone()]).filter(Boolean);
+      return { root, mesh, ink, sk, bones:byName, rest };
+    }
+
+    /* ---------- stage ---------- */
+    let STAGE = null;
+    const FR = { bust:{ top:1.86, bot:1.24, fov:17, yaw:0.3, w:0.27 }, dialog:{ top:1.9, bot:1.1, fov:18, yaw:0.28, w:0.32 }, card:{ top:1.9, bot:1.0, fov:18, yaw:0.34, w:0.34 },
+      full:{ top:1.92, bot:-0.02, fov:22, yaw:0.4, w:0.5 }, face:{ top:1.86, bot:1.5, fov:14, yaw:0.22, w:0.15 } };
+    function stage(el, key, o) {
+      o = o || {};
+      if (!el || !has(key)) return null;
+      if (STAGE && !o.multi) STAGE.dispose();
+      const h = { el, key, o, dead:false };
+      const res = { ready:null, update(q) { h.q = Object.assign(h.q || {}, q); apply(h); }, react(kind) { react(h, kind); }, dispose() { kill(h); }, get alive() { return !h.dead; }, get h() { return h; } };
+      h.api = res; STAGE = res;
+      res.ready = load(key).then(kit => { if (!kit || h.dead) return false; try { return start(h, kit); } catch (e) { try { console.warn('CH34 stage:', e, e.stack); } catch (e2) {} return false; } });
+      return res;
+    }
+    function start(h, kit) {
+      const T0 = getT(), X = X3(), el = h.el, o = h.o;
+      const M = mats(T0, kit), I = instance(T0, kit, M);
+      const sc = new T0.Scene(), cam = new T0.PerspectiveCamera(18, 1, 0.1, 30);
+      sc.add(I.root);
+      const mixer = new T0.AnimationMixer(I.root), acts = {};
+      Object.keys(kit.clips).forEach(n => { const a = mixer.clipAction(kit.clips[n]); if (ONCE[n]) { a.setLoop(T0.LoopOnce, 1); a.clampWhenFinished = true; } acts[n] = a; });
+      h.onFin = e => { if (h.dead) return; if (ONCE[e.action.getClip().name]) { h.once = null; apply(h, true); } };
+      mixer.addEventListener('finished', h.onFin);
+      Object.assign(h, { T0, M, I, sc, cam, mixer, acts, kit, t:0, last:performance.now(), fr:FR[o.frame || 'dialog'] || FR.dialog,
+        F:{ mood:'neutral', blinkT:1.5 + Math.random() * 2, blink:0, vis:null, visT:0, look:new T0.Vector2(), lookT:new T0.Vector2(), ext:0, hy:0, hp:0 },
+        q0:new T0.Quaternion(), q1:new T0.Quaternion(), e0:new T0.Euler(), qa:new T0.Quaternion() });
+      let mine = false, own = null, r = null;
+      const viewObj = { mount(cv) { el.appendChild(cv); mine = true; h.w0 = 0; }, lose() { mine = false; } };
+      h.viewObj = viewObj;
+      if (X && X.glsClaim) r = X.glsClaim(viewObj);
+      if (!r) { const cv = document.createElement('canvas'); cv.className = 'c33-cv'; r = new T0.WebGLRenderer({ canvas:cv, alpha:true, antialias:true }); r.setClearColor(0, 0); el.appendChild(cv); own = r; mine = true; }
+      h.r = r; h.own = own;
+      el.classList.add('c33-on', 'c34-on');
+      h.pm = e => { const b = el.getBoundingClientRect(); if (!b.width) return; const x = (e.clientX - b.left) / b.width * 2 - 1, y = (e.clientY - b.top) / b.height * 2 - 1; h.F.lookT.set(Math.max(-1, Math.min(1, x * 1.3)), Math.max(-1, Math.min(1, -y * 1.1 + 0.3))); h.F.ext = 1; h.lastPm = h.t; };
+      h.pd = () => react(h, 'tap');
+      window.addEventListener('pointermove', h.pm, { passive:true }); el.addEventListener('pointerdown', h.pd);
+      apply(h);
+      if (o.greet !== false) playOnce(h, 'wave');
+      mixer.update(0);
+      const tick = now => {
+        if (h.dead) return;
+        h.raf = requestAnimationFrame(tick);
+        if (!el.isConnected) { if (h.t > 0.3) kill(h); return; }
+        const dt = Math.min(0.05, (now - h.last) / 1000); if (dt < 1 / 62) return; h.last = now; h.t += dt;
+        if (document.hidden) return;
+        if (!mine && X && X.glsClaim) { if (X.GLS && X.GLS.owner && X.GLS.owner !== viewObj) return; if (!X.glsClaim(viewObj)) return; }
+        frame(h, dt);
+      };
+      h.raf = requestAnimationFrame(tick);
+      return true;
+    }
+    function fade(h, name, dur) {
+      const a = h.acts[name]; if (!a) return;
+      if (h.cur === name && a.isRunning()) return;
+      const p = h.cur && h.acts[h.cur];
+      a.reset(); a.setEffectiveWeight(1); a.play();
+      if (p && p !== a) a.crossFadeFrom(p, dur == null ? 0.3 : dur, false);
+      h.cur = name;
+    }
+    function playOnce(h, name) { if (!h.acts || !h.acts[name]) return; h.once = name; fade(h, name, 0.25); }
+    function apply(h, force) {
+      if (!h.F) return;
+      const q = Object.assign({}, h.o, h.q || {}), F = h.F;
+      let mood = q.mood || 'neutral', clip = MOOD_CLIP[mood] || 'idle';
+      F.brow1 = 0; F.glance = 0;
+      if (q.tell && TELL[q.tell]) { const tl = TELL[q.tell]; if (!q.mood || q.mood === 'neutral') mood = tl.mood; if (tl.clip) clip = tl.clip; if (tl.brow1) F.brow1 = 1; if (tl.glance) F.glance = 1; }
+      F.mood = MOODS[mood] ? mood : 'neutral';
+      F.talk = !!q.talk;
+      if (F.talk && clip === 'idle') clip = 'talk';
+      h.base = clip;
+      if (q.act) { const a = q.act; h.q.act = null; if (h.acts && h.acts[a]) { if (ONCE[a]) playOnce(h, a); else fade(h, a); } return; }
+      if (!h.once || force) fade(h, clip, force ? 0.35 : 0.3);
+    }
+    function react(h, kind) {
+      if (!h.F || !h.acts) return;
+      const k = kind === 'tap' ? ['laugh', 'wave', 'cheer', 'shrug'][(h.taps = (h.taps || 0) + 1) % 4] : kind;
+      if (k === 'laugh') { h.F.laugh = 1.6; playOnce(h, 'cheer'); return; }
+      if (k === 'angry') { h.F.flash = 'angry'; h.F.flashT = 1.6; fade(h, 'angry'); clearTimeout(h.rt); h.rt = setTimeout(() => { if (!h.dead) { h.F.flash = null; apply(h, true); } }, 1600); return; }
+      if (h.acts[k]) { if (ONCE[k]) playOnce(h, k); else fade(h, k); }
+    }
+    function face(h, dt) {
+      const F = h.F, U = h.M.U;
+      let md = MOODS[F.flash || (F.laugh > 0 ? 'happy' : F.mood)] || MOODS.neutral;
+      if (F.laugh > 0) F.laugh -= dt;
+      /* blink */
+      F.blinkT -= dt;
+      if (F.blinkT <= 0) { F.blink = 0.16; F.blinkT = 2.2 + Math.random() * 3.2; if (Math.random() < 0.18) F.blinkT = 0.25; }
+      let eye = md.eye;
+      if (F.laugh > 0) eye = 'happy';
+      if (F.blink > 0) { F.blink -= dt; const b = F.blink; eye = b > 0.11 || b < 0.04 ? (eye === 'happy' ? 'happy' : 'half') : (eye === 'happy' ? 'happy' : 'closed'); }
+      slot(U.uEyeL.value, EYE[eye]); slot(U.uEyeRt.value, EYE[eye]);
+      slot(U.uBrL.value, BROW[F.brow1 ? 'raised' : md.bl]); slot(U.uBrRt.value, BROW[md.br]);
+      /* mouth: visemes while the text types */
+      let mo = F.laugh > 0 ? 'grin' : md.mouth;
+      if (F.talk) {
+        F.visT -= dt;
+        if (F.visT <= 0 || !F.vis) { const L = md.talk; let v = L[(Math.random() * L.length) | 0]; if (v === F.vis) v = L[(L.indexOf(v) + 1) % L.length]; F.vis = v; F.visT = 0.07 + Math.random() * 0.08; }
+        mo = F.vis;
+      } else F.vis = null;
+      slot(U.uMo.value, MOUTH[mo] != null ? MOUTH[mo] : MOUTH.smile);
+      U.uBlush.value += ((F.laugh > 0 ? 0.8 : md.blush) - U.uBlush.value) * Math.min(1, dt * 4);
+      /* gaze */
+      const lk = md.look && !F.ext ? md.look : null;
+      const tx = lk ? lk[0] : F.lookT.x, ty = lk ? lk[1] : F.lookT.y;
+      F.look.x += (tx - F.look.x) * Math.min(1, dt * 9); F.look.y += (ty - F.look.y) * Math.min(1, dt * 9);
+      U.uLook.value.set(Math.max(-1, Math.min(1, F.look.x)), Math.max(-1, Math.min(1, F.look.y)));
+    }
+    /* head follows the pointer: extra rotation after the clip, split neck 35% / head 65%, about the character's up and side axes */
+    function headTurn(h, dt) {
+      const F = h.F, B = h.I.bones, T0 = h.T0;
+      F.hy += ((F.look.x * 0.38) - F.hy) * Math.min(1, dt * 5); F.hp += ((-F.look.y * 0.22 + 0.04) - F.hp) * Math.min(1, dt * 5);
+      if (h.base === 'think' || h.once === 'wave') { F.hy *= 0.9; F.hp *= 0.9; }
+      h.I.root.updateMatrixWorld(true);
+      [['neck_01', 0.35], ['Head', 0.65]].forEach(([n, k]) => {
+        const b = B[n]; if (!b || !b.parent) return;
+        b.parent.getWorldQuaternion(h.q0);
+        b.getWorldQuaternion(h.q1);
+        h.e0.set(F.hp * k, F.hy * k, 0, 'YXZ'); h.qa.setFromEuler(h.e0);
+        h.q1.premultiply(h.qa);
+        b.quaternion.copy(h.q0.invert().multiply(h.q1));
+        b.updateMatrixWorld(true);
+      });
+    }
+    function frame(h, dt) {
+      const el = h.el, r = h.r, cam = h.cam, T0 = h.T0;
+      const w = Math.max(10, el.clientWidth), hh = Math.max(10, el.clientHeight), pr = Math.min(2, window.devicePixelRatio || 1);
+      if (w !== h.w0 || hh !== h.h0 || pr !== h.pr0) { h.w0 = w; h.h0 = hh; h.pr0 = pr; r.setPixelRatio(pr); r.setSize(w, hh, false); cam.aspect = w / hh; fit(h); }
+      if (h.t - (h.lastPm || -9) > 2.5) { h.F.ext = 0; h.F.lookT.multiplyScalar(0.96); }
+      h.I.rest.forEach(([b, q]) => b.quaternion.copy(q));
+      h.mixer.update(dt);
+      face(h, dt); headTurn(h, dt);
+      const cc = r.getClearColor(new T0.Color()), ca = r.getClearAlpha();
+      r.setClearColor(0, 0); r.render(h.sc, cam); r.setClearColor(cc, ca);
+      if (!h.shown) { h.shown = true; el.classList.add('c33-ready'); }
+    }
+    function fit(h) {
+      const fr = h.fr, cam = h.cam;
+      const top = fr.top, bot = fr.bot, mid = (top + bot) / 2, half = (top - bot) / 2;
+      const fov = fr.fov, need = half / Math.tan(fov * Math.PI / 360);
+      const needW = (fr.w || 0.3) / Math.tan(fov * Math.PI / 360) / Math.max(0.3, cam.aspect);
+      const d = Math.max(need, needW);
+      cam.fov = fov; cam.position.set(Math.sin(fr.yaw) * d, mid + 0.02, Math.cos(fr.yaw) * d); cam.lookAt(0, mid, 0); cam.near = d * 0.3; cam.far = d * 3; cam.updateProjectionMatrix();
+    }
+    function kill(h) {
+      if (h.dead) return; h.dead = true; cancelAnimationFrame(h.raf); clearTimeout(h.rt);
+      window.removeEventListener('pointermove', h.pm); if (h.el) { h.el.removeEventListener('pointerdown', h.pd); h.el.classList.remove('c33-on', 'c34-on', 'c33-ready'); }
+      const X = X3();
+      if (h.viewObj && X && X.glsRelease) X.glsRelease(h.viewObj);
+      if (h.own) { try { h.own.dispose(); h.own.forceContextLoss && h.own.forceContextLoss(); } catch (e) {} if (h.own.domElement.parentNode) h.own.domElement.remove(); }
+      if (h.mixer) { h.mixer.removeEventListener('finished', h.onFin); h.mixer.stopAllAction(); h.mixer.uncacheRoot(h.I.root); }
+      if (h.M) { h.M.body.dispose(); h.M.ink.dispose(); }
+      if (h.sc && h.I) h.sc.remove(h.I.root);
+      if (STAGE === h.api) STAGE = null;
+    }
+    const info = () => { const s = STAGE && STAGE.h; return s && s.r && s.r.info ? { calls:s.r.info.render.calls, tris:s.r.info.render.triangles, clip:s.cur, mood:s.F && s.F.mood } : null; };
+    return { on, has, load, stage, info, get stageNow() { return STAGE; } };
+  })();
+  try { if (/[?&]debug/.test(location.search)) window.CH34 = CH34; } catch (e) {}

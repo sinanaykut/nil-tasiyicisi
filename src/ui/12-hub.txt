@@ -94,7 +94,9 @@
     $('#sheet').classList.add('talk28');
     /* heroes get the live 3D bust when the module is there; everyone else keeps the SVG */
     const fk = figKey(who);
-    const h33 = c33Has(fk) ? CH33.stage($('#dlgArt'), fk, { mood:opts.mood || 'neutral', tell:opts.tell || null, frame:'dialog' }) : null;
+    /* v34 prototype: Paneb from the CC0 asset pipeline (CH34) whenever 3D is on */
+    const h34 = typeof CH34 !== 'undefined' && CH34.has(fk) ? CH34.stage($('#dlgArt'), fk, { mood:opts.mood || 'neutral', tell:opts.tell || null, frame:'dialog' }) : null;
+    const h33 = h34 || (c33Has(fk) ? CH33.stage($('#dlgArt'), fk, { mood:opts.mood || 'neutral', tell:opts.tell || null, frame:'dialog' }) : null);
     if (h33) { DLG.h3 = h33; H3.push(h33); }
     else if (figHas(fk)) { DLG.h3 = null; figInto($('#dlgArt'), fk, opts.mood || 'neutral', 420, 'big'); }
     else DLG.h3 = typeof who === 'string' && /^h_/.test(who) ? mountHero3($('#dlgArt'), who.slice(2), { size:'dialog', mood:opts.mood || 'neutral', tell:opts.tell || null }) : null;
