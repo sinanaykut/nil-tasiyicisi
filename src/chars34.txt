@@ -196,7 +196,7 @@ void main() {` + VS + `  if (aFx.x < 0.05) { gl_Position = vec4(0.0, 0.0, 2.0, 0
 
     /* ---------- stage ---------- */
     let STAGE = null;
-    const FR = { bust:{ top:1.86, bot:1.24, fov:17, yaw:0.3, w:0.27 }, dialog:{ top:1.9, bot:1.1, fov:18, yaw:0.28, w:0.32 }, card:{ top:1.9, bot:1.0, fov:18, yaw:0.34, w:0.34 },
+    const FR = { bust:{ top:1.86, bot:1.24, fov:17, yaw:0.18, w:0.27 }, dialog:{ top:1.9, bot:1.1, fov:18, yaw:0.16, w:0.32 }, card:{ top:1.9, bot:1.0, fov:18, yaw:0.34, w:0.34 },
       full:{ top:1.92, bot:-0.02, fov:22, yaw:0.4, w:0.5 }, face:{ top:1.86, bot:1.5, fov:14, yaw:0.22, w:0.15 } };
     function stage(el, key, o) {
       o = o || {};
@@ -219,7 +219,7 @@ void main() {` + VS + `  if (aFx.x < 0.05) { gl_Position = vec4(0.0, 0.0, 2.0, 0
       mixer.addEventListener('finished', h.onFin);
       Object.assign(h, { T0, M, I, sc, cam, mixer, acts, kit, t:0, last:performance.now(), fr:FR[o.frame || 'dialog'] || FR.dialog,
         F:{ mood:'neutral', blinkT:1.5 + Math.random() * 2, blink:0, vis:null, visT:0, look:new T0.Vector2(), lookT:new T0.Vector2(), ext:0, hy:0, hp:0 },
-        q0:new T0.Quaternion(), q1:new T0.Quaternion(), e0:new T0.Euler(), qa:new T0.Quaternion() });
+        q0:new T0.Quaternion(), q1:new T0.Quaternion(), e0:new T0.Euler(), qa:new T0.Quaternion(), hq0:null, v0:new T0.Vector3(), v1:new T0.Vector3(), v2:new T0.Vector3(), qz:new T0.Quaternion() });
       let mine = false, own = null, r = null;
       const viewObj = { mount(cv) { el.appendChild(cv); mine = true; h.w0 = 0; }, lose() { mine = false; } };
       h.viewObj = viewObj;
@@ -302,16 +302,22 @@ void main() {` + VS + `  if (aFx.x < 0.05) { gl_Position = vec4(0.0, 0.0, 2.0, 0
       U.uLook.value.set(Math.max(-1, Math.min(1, F.look.x)), Math.max(-1, Math.min(1, F.look.y)));
     }
     /* head follows the pointer: extra rotation after the clip, split neck 35% / head 65%, about the character's up and side axes */
+    /* where the face points in the bind pose (measured: the rig's head is turned and tipped there) */
+    const HEAD_K = 0.95;
     function headTurn(h, dt) {
       const F = h.F, B = h.I.bones, T0 = h.T0;
-      F.hy += ((F.look.x * 0.38) - F.hy) * Math.min(1, dt * 5); F.hp += ((-F.look.y * 0.22 + 0.04) - F.hp) * Math.min(1, dt * 5);
+      F.hy += ((F.look.x * 0.3) - F.hy) * Math.min(1, dt * 5); F.hp += ((-F.look.y * 0.18) - F.hp) * Math.min(1, dt * 5);
       if (h.base === 'think' || h.once === 'wave') { F.hy *= 0.9; F.hp *= 0.9; }
+      h.I.root.updateMatrixWorld(true);
+      /* v34.1: the face looks at us: pull neck and head most of the way back to the bind pose (which faces front), then turn toward the camera */
+      if (!h.restM) { h.restM = new Map(); h.I.rest.forEach(([b, q]) => h.restM.set(b, q)); }
+      [['neck_01', HEAD_K], ['Head', HEAD_K]].forEach(([n, k]) => { const b = B[n], q = b && h.restM.get(b); if (q) b.quaternion.slerp(q, h.base === 'think' ? k * 0.5 : k); });
       h.I.root.updateMatrixWorld(true);
       [['neck_01', 0.35], ['Head', 0.65]].forEach(([n, k]) => {
         const b = B[n]; if (!b || !b.parent) return;
         b.parent.getWorldQuaternion(h.q0);
         b.getWorldQuaternion(h.q1);
-        h.e0.set(F.hp * k, F.hy * k, 0, 'YXZ'); h.qa.setFromEuler(h.e0);
+        h.e0.set((F.hp - 0.07) * k, (F.hy + (h.fr ? h.fr.yaw * 0.8 : 0)) * k, 0, 'YXZ'); h.qa.setFromEuler(h.e0);
         h.q1.premultiply(h.qa);
         b.quaternion.copy(h.q0.invert().multiply(h.q1));
         b.updateMatrixWorld(true);
@@ -323,6 +329,7 @@ void main() {` + VS + `  if (aFx.x < 0.05) { gl_Position = vec4(0.0, 0.0, 2.0, 0
       if (w !== h.w0 || hh !== h.h0 || pr !== h.pr0) { h.w0 = w; h.h0 = hh; h.pr0 = pr; r.setPixelRatio(pr); r.setSize(w, hh, false); cam.aspect = w / hh; fit(h); }
       if (h.t - (h.lastPm || -9) > 2.5) { h.F.ext = 0; h.F.lookT.multiplyScalar(0.96); }
       h.I.rest.forEach(([b, q]) => b.quaternion.copy(q));
+      if (!h.hq0 && h.I.bones.Head) { h.I.root.updateMatrixWorld(true); h.hq0 = new T0.Quaternion(); h.I.bones.Head.getWorldQuaternion(h.hq0); h.hq0.invert(); }
       h.mixer.update(dt);
       face(h, dt); headTurn(h, dt);
       const cc = r.getClearColor(new T0.Color()), ca = r.getClearAlpha();
