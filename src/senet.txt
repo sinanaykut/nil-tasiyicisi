@@ -111,7 +111,7 @@
     if (PZ.tut) s += '<div class="sncoach" id="snCoach"><div class="sncp" id="snCp"></div><div class="sncb"><b>Paneb</b><p id="snCoachT" aria-live="polite"></p><button class="btn go1 sm sncok" type="button" data-snok hidden>Tamam</button></div></div>';
     s += '<div class="sn ' + (vert ? 'v' : 'h') + (PZ.tut ? ' sntm' : '') + '"><div class="snbd" id="snBd">' + snBoardSVG(PZ.G) + '</div><div class="snpn">';
     const oppK = (() => { try { if (typeof CAST !== 'undefined') for (const c in CAST) if (CAST[c].name === who) return c; } catch (e) {} return null; })();
-    s += '<div class="snpl a" id="snPa"><svg viewBox="-16 -18 32 36" width="26" height="30" aria-hidden="true">' + snPieceSVG('a') + '</svg>' + (oppK ? '<span class="snav" data-k="' + oppK + '"></span>' : '') + '<b>' + esc(who) + '</b>' + dots + '</div>';
+    s += '<div class="snpl a" id="snPa"><svg viewBox="-16 -18 32 36" width="26" height="30" aria-hidden="true">' + snPieceSVG('a') + '</svg>' + (oppK ? '<span class="snav" data-k="' + oppK + '">' + CH40.icon(oppK, 'neutral') + '</span>' : '') + '<b>' + esc(who) + '</b>' + dots + '</div>';
     s += '<div class="snthrow"><div id="snStk">' + snSticksSVG(PZ.faces) + '</div><div class="snv"><b id="snV">?</b><small>1 · 4 · 5<br>bir daha</small></div></div>';
     s += '<p class="snmsg" id="snMsg" aria-live="polite"></p>';
     s += '<button class="btn go1 snact" type="button" data-snact data-first>Çubukları at</button>';
@@ -119,7 +119,6 @@
     s += '<div class="snleg"><span><svg viewBox="-14 -14 28 28" width="22" height="22">' + SN_ICON[15] + '</svg>15 dönüş</span><span><svg viewBox="-14 -14 28 28" width="22" height="22">' + SN_ICON[26] + '</svg>26 güvenli</span><span><svg viewBox="-14 -14 28 28" width="22" height="22">' + SN_ICON[27] + '</svg>27 su → 15</span><span><svg viewBox="-14 -14 28 28" width="22" height="22">' + SN_ICON[28] + '</svg>28–30 tam at</span></div>';
     s += '</div></div><div class="snfoot"><span class="muted">Tek taşa denk gelirsen yer değiştirirsiniz. Yan yana iki taş korunur.</span><button class="btn sm" type="button" data-sngive>Pes et</button></div>';
     openSheet(s, true, 'pz', !vert);
-    try { const av = document.querySelector('#snPa .snav'); if (av) figInto(av, av.dataset.k, 'neutral', 96); } catch (e) {}
     if (PZ.tut) snTutStart(); else snTurn('p');
   }
   const snT = ms => Math.max(0, Math.round(ms * (PZ ? PZ.speed : 1)));
@@ -332,18 +331,13 @@
     const c = $('#snCoach'); if (!c) return;
     c.classList.remove('old');
     const cp = $('#snCp');
-    /* v33: Paneb as a live 3D character (CH33) when 3D is on */
+    /* v40: Paneb as a live drawn character (CH40): he talks while the tip types */
     let live = false;
-    const PB = typeof GF36 !== 'undefined' && GF36.has('paneb') ? GF36 : typeof CH34 !== 'undefined' && CH34.has('paneb') ? CH34 : typeof CH33 !== 'undefined' && CH33.on() && face3d() && CH33.has('paneb') ? CH33 : null;
-    try { if (cp && PB) {
-      if (!PZ.c33 || !PZ.c33.alive) { if (!cp.firstElementChild) cp.innerHTML = snPanebSVG(o.mood); PZ.c33 = PB.stage(cp, 'paneb', { mood:o.mood || 'neutral', frame:'face', greet:false }); try { H3.push(PZ.c33); } catch (e) {} }
-      if (PZ.c33) { live = true; PZ.c33.update({ mood:o.mood || 'neutral', talk:!reduce }); const h = PZ.c33, tok = PZ.tok; PZ.timers.push(setTimeout(() => { if (PZ && PZ.tok === tok) h.update({ talk:false }); }, 1800)); }
+    try { if (cp) {
+      if (!PZ.c40 || !PZ.c40.alive) { PZ.c40 = CH40.stage(cp, 'paneb', { mood:o.mood || 'neutral', frame:'head', greet:false }); try { H3.push(PZ.c40); } catch (e) {} }
+      if (PZ.c40) { live = true; PZ.c40.update({ mood:o.mood || 'neutral', talk:!reduce }); const h = PZ.c40, tok = PZ.tok; PZ.timers.push(setTimeout(() => { if (PZ && PZ.tok === tok) h.update({ talk:false }); }, 1800)); }
     } } catch (e) { live = false; }
-    if (!live && cp && cp.dataset.mood !== (o.mood || 'neutral')) {
-      let fig = '';
-      if (typeof bustSVG === 'function') { try { fig = bustSVG('paneb', { mood:o.mood || 'neutral', talk:true, lv:0 }); } catch (e) { fig = ''; } }
-      cp.innerHTML = fig || snPanebSVG(o.mood); cp.dataset.mood = o.mood || 'neutral'; cp.classList.toggle('fb', !fig);
-    }
+    if (!live && cp && cp.dataset.mood !== (o.mood || 'neutral')) { cp.innerHTML = snPanebSVG(o.mood); cp.dataset.mood = o.mood || 'neutral'; cp.classList.add('fb'); }
     const t = $('#snCoachT'); if (t) { t.innerHTML = html; t.classList.remove('pop'); void t.offsetWidth; t.classList.add('pop'); }
     const ok = c.querySelector('[data-snok]'); if (ok) { ok.hidden = !o.ok; if (o.ok) { ok.textContent = o.ok; if (!PZ.auto) ok.focus({ preventScroll:true }); } }
     if (o.ok) PZ.tut.wait = o.end != null ? 'end' : PZ.tut.wait || 'hi';

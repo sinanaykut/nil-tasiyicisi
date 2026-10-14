@@ -28,7 +28,7 @@
   function merchHead() {
     const m = MERCHANTS[S.city], lv = trustLv(S), hb = hagB(S);
     const tags = (S.edge === S.city ? '<i class="edge" title="Sethi\'den önce vardın">+%8</i>' : '') + (hb ? '<i class="edge hagl" title="Pazarlık">%' + Math.round(hb * 100) + '</i>' : '') + (fameB(S) ? '<i class="edge" title="Tayfanın şöhreti">+%5</i>' : '');
-    return '<button type="button" class="mhd" data-act="talk" aria-label="' + esc(m.name) + ' ile konuş"><span class="pt' + (moodBoost > 0 ? ' glad' : moodBoost < 0 ? ' sour' : '') + '" data-pk="' + S.city + '">' + (figURL(String(S.city), moodBoost > 0 ? 'happy' : moodBoost < 0 ? 'angry' : 'neutral', 96, () => { const e = document.querySelector('.mhd .pt[data-pk="' + S.city + '"]'); if (e) figInto(e, String(S.city), moodBoost > 0 ? 'happy' : moodBoost < 0 ? 'angry' : 'neutral', 96); }) ? '<img class="figp" src="' + figURL(String(S.city), moodBoost > 0 ? 'happy' : moodBoost < 0 ? 'angry' : 'neutral', 96) + '" alt="">' : portrait(S.city, Math.max(0, Math.min(3, lv + moodBoost)))) + '</span><span class="mhn"><b>' + esc(m.name) + ' <i class="tl" title="' + TRUST[lv].name + '">' + hearts(lv) + '</i>' + tags + '</b><small>' + esc(line) + '</small></span><span class="mhk">' + ico('i-whisper', 18) + '<em>Konuş</em></span></button>';
+    return '<button type="button" class="mhd" data-act="talk" aria-label="' + esc(m.name) + ' ile konuş"><span class="pt' + (moodBoost > 0 ? ' glad' : moodBoost < 0 ? ' sour' : '') + '" data-pk="' + S.city + '">' + (CH40.icon(S.city, moodBoost > 0 ? 'happy' : moodBoost < 0 || hgMad(S) ? 'angry' : 'neutral') || portrait(S.city, Math.max(0, Math.min(3, lv + moodBoost)))) + '</span><span class="mhn"><b>' + esc(m.name) + ' <i class="tl" title="' + TRUST[lv].name + '">' + hearts(lv) + '</i>' + tags + '</b><small>' + esc(line) + '</small></span><span class="mhk">' + ico('i-whisper', 18) + '<em>Konuş</em></span></button>';
   }
   /* the action bar: what you can do with the good you tapped */
   function abarHtml() {
@@ -74,7 +74,7 @@
   }
   function bustHtml(who, o) {
     o = o || {};
-    if (typeof bustSVG === 'function') { try { const h = bustSVG(who, o); if (h) return h; } catch (e) {} }
+    const h = CH40.svg(who, { mood:o.mood, tell:o.tell }); if (h) return h;
     const idx = typeof who === 'number' ? who : FACE[who];
     if (who === 'ba') return '<div class="bustfb">' + baFace() + '</div>';
     return '<div class="bustfb' + (o.mood === 'angry' || o.mood === 'sad' ? ' sour' : o.mood === 'happy' ? ' glad' : '') + '">' + portrait(idx == null ? FACE.paneb : idx, o.lv != null ? o.lv : o.mood === 'happy' ? 3 : o.mood === 'angry' ? 0 : 1) + '</div>';
@@ -86,25 +86,18 @@
     if (DLG && DLG.tm) clearInterval(DLG.tm);
     DLG = { who, lines:[].concat(lines || []).filter(Boolean), i:0, o:opts, tm:0, typing:false };
     const nm = whoName(who);
-    const s = '<div class="dlg' + (typeof who === 'number' ? ' m' : ' c-' + who) + '"><div class="dlg-art" id="dlgArt">' + bustHtml(who, { mood:opts.mood || 'neutral', tell:opts.tell || null, lv:opts.lv, talk:false }) + '</div>' +
+    const s = '<div class="dlg' + (typeof who === 'number' ? ' m' : ' c-' + who) + '"><div class="dlg-art" id="dlgArt">' + (CH40.has(who) ? '' : bustHtml(who, { mood:opts.mood || 'neutral', tell:opts.tell || null, lv:opts.lv, talk:false })) + '</div>' +
       '<div class="dlg-side"><div class="dlg-np"><b id="shTitle">' + esc(nm[0]) + '</b><small>' + esc(opts.sub || nm[1]) + '</small></div>' +
       '<button type="button" class="dlg-box" data-act="dlgNext" aria-live="polite"><span id="dlgTxt"></span><i class="dlg-more" aria-hidden="true">▼</i></button>' +
       '<div class="dlg-ch" id="dlgCh"></div><div class="dlg-x" id="dlgX"></div></div>' + (opts.lock ? '' : xBtn) + '</div>';
     openSheet(s, !!opts.lock, 'say', true);
     $('#sheet').classList.add('talk28');
-    /* heroes get the live 3D bust when the module is there; everyone else keeps the SVG */
-    const fk = figKey(who);
-    /* v34 prototype: Paneb from the CC0 asset pipeline (CH34) whenever 3D is on */
-    /* v36: owner-made illustrated faces come first */
-    const h36 = typeof GF36 !== 'undefined' && GF36.has(fk) ? GF36.stage($('#dlgArt'), fk, { mood:opts.mood || 'neutral', frame:'dialog' }) : null;
-    const h34 = h36 || (typeof CH34 !== 'undefined' && CH34.has(fk) ? CH34.stage($('#dlgArt'), fk, { mood:opts.mood || 'neutral', tell:opts.tell || null, frame:'dialog' }) : null);
-    const h33 = h34 || (c33Has(fk) ? CH33.stage($('#dlgArt'), fk, { mood:opts.mood || 'neutral', tell:opts.tell || null, frame:'dialog' }) : null);
-    if (h33) { DLG.h3 = h33; H3.push(h33); }
-    else if (figHas(fk)) { DLG.h3 = null; figInto($('#dlgArt'), fk, opts.mood || 'neutral', 420, 'big'); }
-    else DLG.h3 = typeof who === 'string' && /^h_/.test(who) ? mountHero3($('#dlgArt'), who.slice(2), { size:'dialog', mood:opts.mood || 'neutral', tell:opts.tell || null }) : null;
+    /* v40: everyone is a code-drawn character that breathes, blinks and talks (CH40) */
+    DLG.h3 = CH40.stage($('#dlgArt'), who, { mood:opts.mood || 'neutral', tell:opts.tell || null, frame:'bust' });
+    if (DLG.h3) H3.push(DLG.h3);
     dlgLine();
   }
-  function dlgTalk(on) { const a = $('#dlgArt'); if (!a) return; const b = a.querySelector('.bust') || a.firstElementChild; if (b) b.classList.toggle('talk', on); if (DLG && DLG.h3) { try { DLG.h3.update && DLG.h3.update({ talk:on }); } catch (e) {} } }
+  function dlgTalk(on) { if (DLG && DLG.h3) { try { DLG.h3.update({ talk:on }); } catch (e) {} } }
   function dlgLine() {
     if (!DLG) return;
     const el = $('#dlgTxt'); if (!el) return;
@@ -146,7 +139,7 @@
     if (!DLG || sheetName !== 'say') return;
     DLG.lines = [].concat(lines); DLG.i = 0; if (opts) Object.assign(DLG.o, opts);
     if (opts && opts.sub) { const n = document.querySelector('.dlg-np small'); if (n) n.textContent = opts.sub; }
-    if (opts && (opts.mood || opts.tell !== undefined)) { if (DLG.h3) { try { DLG.h3.update && DLG.h3.update({ mood:DLG.o.mood || 'neutral', tell:DLG.o.tell || null }); } catch (e) {} } else { const a = $('#dlgArt'); if (a && !a.classList.contains('fig')) a.innerHTML = bustHtml(DLG.who, { mood:DLG.o.mood || 'neutral', tell:DLG.o.tell || null, lv:DLG.o.lv }); else if (a) figInto(a, figKey(DLG.who), DLG.o.mood || 'neutral', 420, 'big'); } }
+    if (opts && (opts.mood || opts.tell !== undefined)) { if (DLG.h3) { try { DLG.h3.update({ mood:DLG.o.mood || 'neutral', tell:DLG.o.tell || null }); } catch (e) {} } else { const a = $('#dlgArt'); if (a) a.innerHTML = bustHtml(DLG.who, { mood:DLG.o.mood || 'neutral', tell:DLG.o.tell || null }); } }
     dlgLine();
   }
 
@@ -216,7 +209,7 @@
     return null;
   }
   /* Paneb's line inside a sheet (the travel map), when the coach bubble cannot show */
-  function coachHtml(text) { return '<div class="coach"><span class="cf">' + ((typeof GF36 !== 'undefined' && GF36.icon('paneb')) || portrait(FACE.paneb, 3)) + '</span><p>' + esc(text) + '</p></div>'; }
+  function coachHtml(text) { return '<div class="coach"><span class="cf">' + faceOf('paneb', 'happy') + '</span><p>' + esc(text) + '</p></div>'; }
   function placeTutor() {
     document.querySelectorAll('.tut-target').forEach(e => e.classList.remove('tut-target'));
     const box = $('#tut'); if (!box) return;
@@ -227,7 +220,7 @@
     if (!st || !st.el) { box.hidden = true; return; }
     st.el.classList.add('tut-target');
     /* the same tip is not re-drawn on every render (no flicker, no portrait rebuild) */
-    if (box.dataset.k !== st.text || !box.firstChild) { box.dataset.k = st.text; box.innerHTML = '<span class="cf">' + ((typeof GF36 !== 'undefined' && GF36.icon('paneb')) || portrait(FACE.paneb, 3)) + '</span><div><span class="tn">Paneb</span><p>' + esc(st.text) + '</p><button class="chip" type="button" data-act="noHints">Rehberi kapat</button></div>'; }
+    if (box.dataset.k !== st.text || !box.firstChild) { box.dataset.k = st.text; box.innerHTML = '<span class="cf">' + faceOf('paneb', 'happy') + '</span><div><span class="tn">Paneb</span><p>' + esc(st.text) + '</p><button class="chip" type="button" data-act="noHints">Rehberi kapat</button></div>'; }
     box.hidden = false;
     const r = st.el.getBoundingClientRect();
     /* phones: the guide docks as a slim strip at the top or bottom edge, on the side away from what you must tap */

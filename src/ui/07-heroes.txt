@@ -1,76 +1,10 @@
   /* ================= heroes: pick one at the start, carry them on a Hearthstone-style plate ================= */
   let heroMode = 'free', heroSel = null;
-  const heroPic = (k, px, o) => typeof heroAvatar === 'function' && heroAvatar('h_' + k, px, o) || '<span class="hav-fb" style="width:' + px + 'px;height:' + px + 'px">' + esc(HEROES[k].name[0]) + '</span>';
-  /* v30: FIG.portrait (3D head and shoulders, async data URL), cached; the caller shows the SVG until it arrives */
-  const figC = {};
-  const figKey = who => typeof who === 'number' ? String(who) : String(who);
-  /* v31: the rendered portraits (portraitURL) come first, then FIG's live render, then the SVG the caller already shows */
-  const figF = key => { try { return typeof FIG !== 'undefined' && FIG && typeof FIG.portrait === 'function' && (!FIG.keys || [].concat(FIG.keys).map(String).includes(key)); } catch (e) { return false; } };
-  const figHas = key => typeof portraitURL === 'function' || figF(key);
-  const figFIG = (key, mood, size) => { if (!figF(key)) return null; try { return FIG.portrait(key, { mood, size }); } catch (e) { return null; } };
-  /* v33: CH33 renders avatars from the rigged 3D models (same models as the live stages); the older images stay as the 3D-off fallback */
-  /* close-up faces from the rigged models are an opt-in trial (menu); the Blender portraits stay the default */
-  const c33Has = key => { try { return face3d() && typeof CH33 !== 'undefined' && CH33.on() && CH33.has(key); } catch (e) { return false; } };
-  function figURL(key, mood, size, then) {
-    if (c33Has(key)) {
-      const o3 = { mood, size:Math.min(360, size), frame:size >= 300 ? 'bust' : 'face' }, u3 = CH33.snapSync(key, o3);
-      if (u3) return u3;
-      CH33.snap(key, o3).then(u => { if (u && then) then(u); }, () => {});
-    }
-    if (!figHas(key)) return null;
-    const ck = key + '|' + mood + '|' + size, v = figC[ck];
-    if (typeof v === 'string') return v;
-    if (v === false) return null;
-    if (!v) {
-      let pr = null;
-      try { if (typeof portraitURL === 'function') pr = portraitURL(key, mood); } catch (e) { pr = null; }
-      if (typeof pr === 'string' && pr) { figC[ck] = pr; return pr; }
-      if (pr && typeof pr.then === 'function') pr = pr.then(u => typeof u === 'string' && u ? u : figFIG(key, mood, size), () => figFIG(key, mood, size));
-      else pr = figFIG(key, mood, size);
-      if (!pr || typeof pr.then !== 'function') { figC[ck] = typeof pr === 'string' && pr ? pr : false; return figC[ck] || null; }
-      figC[ck] = pr; pr.then(u => { figC[ck] = typeof u === 'string' && u ? u : false; }, () => { figC[ck] = false; }); }
-    if (then) Promise.resolve(figC[ck]).then(() => { if (typeof figC[ck] === 'string') then(figC[ck]); }, () => {});
-    return null;
-  }
-  /* put a FIG portrait into an element once it is ready (keeps whatever is there until then) */
-  function figInto(el, key, mood, size, cls) {
-    if (!el) return;
-    const put = u => { if (!document.body.contains(el)) return; el.innerHTML = '<img class="figp' + (cls ? ' ' + cls : '') + '" src="' + u + '" alt="" draggable="false">'; el.classList.add('fig'); };
-    const u = figURL(key, mood, size, put); if (u) put(u);
-  }
-  /* the 3D bust snapshot (V3.heroSnapshot → data URL, maybe async) when it exists, else the SVG badge */
-  const snapC = {};
-  function heroImg(k, px, o) {
-    const key = 'h_' + k, mood = (o && o.mood) || 'neutral', ck = key + '|' + px + '|' + mood;
-    const fu = figURL(key, mood, Math.max(96, px * 2), u => swapSnaps(ck, u, px));
-    if (fu) return '<img class="hav3" src="' + fu + '" width="' + px + '" height="' + px + '" alt="" draggable="false" data-snap="' + esc(ck) + '">';
-    let url = snapC[ck];
-    if (typeof url !== 'string' && !(url && typeof url.then === 'function')) {
-      url = null;
-      try {
-        if (!figHas(key) && typeof V3 !== 'undefined' && typeof V3.heroSnapshot === 'function') {
-          const r = V3.heroSnapshot(key, px, Object.assign({ mood }, o || {}));
-          if (r && typeof r.then === 'function') { snapC[ck] = r; r.then(u => { snapC[ck] = typeof u === 'string' && u ? u : undefined; if (snapC[ck]) swapSnaps(ck, snapC[ck], px); }, () => { snapC[ck] = undefined; }); }
-          else if (typeof r === 'string' && r) snapC[ck] = url = r;
-        }
-      } catch (e) { url = null; }
-    }
-    const img = typeof url === 'string' ? url : null;
-    if (img) return '<img class="hav3" src="' + img + '" width="' + px + '" height="' + px + '" alt="" draggable="false" data-snap="' + esc(ck) + '">';
-    return '<span class="havw" data-snap="' + esc(ck) + '">' + heroPic(k, px, o) + '</span>';
-  }
-  function swapSnaps(ck, u, px) { document.querySelectorAll('img.hav3[data-snap="' + ck.replace(/"/g, '') + '"]').forEach(el => { if (el.src !== u) el.src = u; }); document.querySelectorAll('.havw[data-snap="' + ck.replace(/"/g, '') + '"]').forEach(el => { el.outerHTML = '<img class="hav3" src="' + u + '" width="' + px + '" height="' + px + '" alt="" draggable="false" data-snap="' + esc(ck) + '">'; }); }
-  /* live 3D busts (V3.hero) mounted into the hero cards and the hero dialogue; disposed with the sheet */
+  /* v40: heroes are code-drawn characters (CH40): a round face on the HUD plate, a bust on the pick cards */
+  const heroPic = (k, px, o) => '<span class="havw hav40" style="width:' + px + 'px;height:' + px + 'px">' + (CH40.icon('h_' + k, (o && o.mood) || 'neutral') || '<b>' + esc(HEROES[k].name[0]) + '</b>') + '</span>';
+  const heroImg = (k, px, o) => heroPic(k, px, o);
+  /* live character handles (dialogue, haggle, Senet coach, hero pick) go away with the sheet */
   let H3 = [];
-  function mountHero3(el, k, o) {
-    if (!el || typeof V3 === 'undefined' || typeof V3.hero !== 'function') return null;
-    let h = null; try { h = V3.hero(el, 'h_' + k, o || {}); } catch (e) { h = null; }
-    if (!h) return null;
-    H3.push(h); el.classList.add('v3h0');
-    const on = () => { if (H3.includes(h)) el.classList.add('v3h'); };
-    if (h.ready && typeof h.ready.then === 'function') h.ready.then(ok => { if (ok !== false) on(); }, () => {}); else on();
-    return h;
-  }
   function disposeHero3() { H3.forEach(h => { try { h.dispose && h.dispose(); } catch (e) {} }); H3 = []; }
   function showHeroPick(mode) {
     heroMode = mode; heroSel = heroSel || (meta.hero && HEROES[meta.hero] ? meta.hero : 'neferet');
@@ -78,14 +12,16 @@
     let s = '<div class="sh-h"><h2 id="shTitle">Kahramanını seç<small>' + (mode === 'daily' ? 'Günün seferi' : 'Yeni sefer') + ' · ' + DAYS + ' gün</small></h2>' + (ongoing() ? xBtn : backBtn('toTitle')) + '</div><div class="heroes">';
     HERO_IDS.forEach(k => {
       const h = HEROES[k], on = k === heroSel, col = typeof CAST !== 'undefined' && CAST['h_' + k] ? CAST['h_' + k].color : '#D9A43A';
-      const big = typeof bustSVG === 'function' ? bustSVG('h_' + k, { mood:on ? 'happy' : 'neutral', lv:on ? 2 : 0, counter:false }) : '';
+      const big = CH40.svg('h_' + k, { mood:on ? 'happy' : 'neutral', frame:'card' });
       s += '<button type="button" class="hero' + (on ? ' on' : '') + '" data-hero="' + k + '" style="--hc:' + col + '" aria-pressed="' + on + '">' +
         '<span class="hbust" data-hb="' + k + '">' + (big || heroPic(k, 96)) + '</span><b>' + esc(h.name) + '</b><small>' + esc(h.title) + '</small>' +
         '<span class="hp1">' + ico('i-heart', 14) + esc(h.passive) + '</span><span class="hp2"><em>' + esc(h.power) + '</em>' + esc(h.pdesc) + '</span></button>';
     });
     s += '</div><div class="row"><button class="btn go1 wide" type="button" data-act="heroGo" data-first>' + esc(HEROES[heroSel].name) + ' ile başla</button></div>';
     openSheet(s, true, 'hero', true);
-    HERO_IDS.forEach(k => { const el = document.querySelector('#sheet .hbust[data-hb="' + k + '"]'); if (k === heroSel && c33Has('h_' + k)) { const h3 = CH33.stage(el, 'h_' + k, { mood:'happy', frame:'card' }); if (h3) { H3.push(h3); return; } } if (figHas('h_' + k) || c33Has('h_' + k)) figInto(el, 'h_' + k, k === heroSel ? 'happy' : 'neutral', 320, 'card'); else mountHero3(el, k, { size:'card', mood:k === heroSel ? 'happy' : 'neutral', selected:k === heroSel }); });
+    /* the chosen hero breathes and blinks */
+    const el = document.querySelector('#sheet .hbust[data-hb="' + heroSel + '"]'), h = el && CH40.stage(el, 'h_' + heroSel, { mood:'happy', frame:'card', greet:false });
+    if (h) H3.push(h);
   }
   function heroGo() {
     if (CU.busy) return;

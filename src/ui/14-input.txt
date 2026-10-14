@@ -91,7 +91,6 @@
     else if (act === 'mOn') { Snd.unlock(); Snd.setMusic(!Snd.pref.music); paintAudio(); updateMusic(); }
     else if (act === 'mSfx') { Snd.setSfx(!Snd.pref.sfx); play('click'); paintAudio(); updateMusic(); }
     else if (act === 'mHap') { setHaptic(!haptic.on); play('click'); updateMusic(); }
-    else if (act === 'mFace') { lsSet('nil-kervanci-face3d', face3d() ? '0' : '1'); play('click'); const gf = document.querySelector('[data-act="mFace"]'); if (gf) gf.textContent = '3B yüzler (deneme): ' + (face3d() ? 'açık' : 'kapalı'); }
     else if (act === 'm3d') { const on = !V3.pref(); T3fail = 0; const p3 = V3.setPref(on); if (!on) town3Off(); lastScene = ''; Promise.resolve(p3).then(() => { if (S && phase === 'port') { lastScene = ''; renderAll(); } }); play('click'); updateMusic(); toast(on ? '3B görünüm açık: nehir ve çöl sahneleri üç boyutlu.' : '3B görünüm kapalı.'); }
     else if (act === 'workGet') { const k = collectWork(S); if (k) { play('coin'); save(); renderAll(); toast(k + ' ' + gName(WORKS[S.city].out) + ' ambara alındı.'); showWork(); } else play('no'); }
     else if (act === 'workMinus') { workN = Math.max(1, workN - 1); play('tick'); showWork(); }

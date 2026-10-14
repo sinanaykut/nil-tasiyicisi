@@ -1,0 +1,74 @@
+/* ===== v40 code-drawn characters (chars40.txt) ===== */
+svg.c40{display:block;overflow:hidden}
+svg.c40.f-bust{height:100%;width:auto;max-width:100%}
+svg.c40.f-card,svg.c40.f-face{width:100%;height:100%}
+.c40s{position:absolute;inset:0;overflow:hidden;touch-action:manipulation;cursor:pointer;background:radial-gradient(110% 80% at 50% 26%,color-mix(in srgb,var(--c40bg) 60%,#FFF8E6) 0,var(--c40bg) 60%,color-mix(in srgb,var(--c40bg) 78%,#7A4A2A) 100%)}
+.c40s.face{border-radius:inherit;background:var(--c40bg)}
+.c40l{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center}
+.c40s.face .c40l,.c40s.card .c40l{align-items:stretch}
+.c40l.in{animation:c40in .2s ease-out}
+.c40s .c40b{transform-box:view-box;transform-origin:200px 480px;animation:c40br 4.4s ease-in-out var(--bd,0s) infinite}
+.c40s .c40h{transform-box:view-box;transform-origin:200px 330px;animation:c40hd 7.5s ease-in-out var(--bd,0s) infinite}
+.c40s .c40bl{opacity:0;animation:c40bk var(--bk,4.2s) step-end var(--bd,0s) infinite}
+.c40s .c40tl{transform-box:fill-box;transform-origin:100% 0;animation:c40tl 3s ease-in-out infinite}
+.c40s .c40tl.b{animation-duration:3.6s;animation-delay:-1s}
+.c40s .c40ct{transform-box:fill-box;transform-origin:0 100%;animation:c40tl 2.6s ease-in-out infinite}
+.c40 .m1,.c40 .m2{opacity:0}
+.c40s.talk .m0{animation:c40t0 .46s step-end infinite}
+.c40s.talk .m1{animation:c40t1 .46s step-end infinite}
+.c40s.talk .m2{animation:c40t2 .46s step-end infinite}
+.c40s.talk .c40h{animation:c40nod .92s ease-in-out infinite}
+.c40s.enter .c40l{animation:c40en .42s cubic-bezier(.2,.9,.3,1.15)}
+.c40s.hop .c40b{animation:c40hop .5s cubic-bezier(.3,1.6,.5,1),c40br 4.4s ease-in-out .5s infinite}
+.c40s.shake .c40b{animation:c40sk .38s ease,c40br 4.4s ease-in-out .38s infinite}
+.c40s.shrug .c40b{animation:c40sh .7s ease-in-out,c40br 4.4s ease-in-out .7s infinite}
+.c40s.pop .c40b{animation:c40pp .32s ease-out,c40br 4.4s ease-in-out .32s infinite}
+/* tells: a small loop that draws the eye to what the face says */
+.c40s.t-sweat .c40sw{transform-box:fill-box;animation:c40dr 1.8s ease-in infinite}
+.c40s.t-sweat .c40sw.b{animation-delay:.6s}.c40s.t-sweat .c40sw.c{animation-delay:1.2s}
+.c40s.t-sweat .c40shn{animation:c40fl 1.2s ease-in-out infinite}
+.c40s.t-glance .c40ir{animation:c40gl 2.8s ease-in-out infinite}
+.c40s.t-tap .c40f{transform-box:fill-box;transform-origin:0 50%;animation:c40tp .5s ease-in-out infinite}
+.c40s.t-tap .c40f.f1{animation-delay:.08s}.c40s.t-tap .c40f.f2{animation-delay:.16s}.c40s.t-tap .c40f.f3{animation-delay:.24s}
+.c40s.t-tap .c40tm{animation:c40fl .5s step-end infinite}
+.c40s.t-arms .c40ar{animation:c40hf 3s ease-in-out infinite}
+.c40s.t-scratch .c40sc{transform-box:view-box;transform-origin:40px 420px;animation:c40scr .45s ease-in-out infinite}
+.c40s.t-scratch .c40sm{animation:c40fl .45s step-end infinite}
+.c40s.t-smile .m0,.c40s.t-eyebrow .c40h{animation-duration:2.4s}
+@keyframes c40br{50%{transform:translateY(-1.6px) scaleY(1.006)}}
+@keyframes c40hd{0%,100%{transform:rotate(0)}30%{transform:rotate(.8deg)}70%{transform:rotate(-.7deg)}}
+@keyframes c40nod{0%,100%{transform:rotate(0) translateY(0)}50%{transform:rotate(.5deg) translateY(1.4px)}}
+@keyframes c40bk{0%{opacity:0}95%{opacity:1}98%{opacity:0}}
+@keyframes c40tl{0%,100%{transform:rotate(0)}50%{transform:rotate(6deg)}}
+@keyframes c40t0{0%{opacity:0}55%{opacity:1}70%{opacity:0}90%{opacity:1}}
+@keyframes c40t1{0%{opacity:1}30%{opacity:0}70%{opacity:1}90%{opacity:0}}
+@keyframes c40t2{0%{opacity:0}30%{opacity:1}55%{opacity:0}}
+@keyframes c40in{from{opacity:0}}
+@keyframes c40en{from{transform:translateY(16px);opacity:0}}
+@keyframes c40hop{35%{transform:translateY(-9px) scale(1.015)}70%{transform:translateY(1px)}}
+@keyframes c40sk{20%{transform:translateX(-6px)}45%{transform:translateX(5px)}70%{transform:translateX(-3px)}}
+@keyframes c40sh{40%{transform:translateY(-6px)}}
+@keyframes c40pp{40%{transform:scale(1.02)}}
+@keyframes c40dr{0%{transform:translateY(-4px);opacity:0}15%{opacity:1}75%{transform:translateY(18px);opacity:1}100%{transform:translateY(26px);opacity:0}}
+@keyframes c40fl{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes c40gl{0%,15%,52%,64%,100%{transform:translateX(0)}24%,44%,72%,90%{transform:translateX(-14px)}}
+@keyframes c40tp{0%,100%{transform:translateY(0)}40%{transform:translateY(-5px)}}
+@keyframes c40hf{0%,70%,100%{transform:translateY(0)}82%{transform:translateY(-4px)}}
+@keyframes c40scr{0%,100%{transform:rotate(0)}50%{transform:rotate(-1.6deg)}}
+@media (prefers-reduced-motion: reduce){ .c40s *,.c40s .c40l,.c40s.talk *{animation:none!important} .c40s .c40bl{opacity:0} }
+/* small faces in rings and badges */
+.c40i{display:block;width:100%;height:100%;border-radius:inherit}
+/* where the characters sit */
+.dlg-art:has(.c40s){background:none}
+.c40s.head{border-radius:inherit}
+.hav40{display:block;border-radius:50%;overflow:hidden;border:2px solid var(--ink,#2B1D14);background:#F3E2B8;box-sizing:border-box;flex:none}
+.hav40 svg{width:100%!important;height:100%!important;display:block}
+.hav40 b{display:grid;place-items:center;height:100%;font:700 18px Cinzel,serif}
+.hero .hbust svg.c40{width:100%;height:100%}
+.hero .hbust{position:relative}
+.pt svg.c40,.cf svg.c40,.qa svg.c40,.snav svg.c40{width:100%;height:100%;display:block}
+.hgstage.shk .c40s{animation:shake .35s ease}
+.snpl .snav{display:inline-block;width:30px;height:30px;border-radius:50%;overflow:hidden;border:2px solid var(--ink,#2B1D14);vertical-align:middle;margin:0 4px;background:#F3E2B8;flex:none}
+.sncp{position:relative}
+.c40s svg.c40.f-bust{overflow:visible}
+.pt.endf{width:44px;height:44px;border-radius:50%;overflow:hidden;border:2px solid var(--ink,#2B1D14);flex:none;background:#F3E2B8}

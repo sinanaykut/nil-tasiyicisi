@@ -70,7 +70,7 @@
     const has = ongoing();
     if (S && phase === 'port') { lastScene = ''; try { renderStage(); } catch (e) {} }
     const btn = (act, label, sub, cls) => '<button class="mm-b ' + (cls || '') + '" type="button" data-act="' + act + '"><b>' + label + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</button>';
-    const logo = (() => { try { const L = typeof PORTRAITS !== 'undefined' && PORTRAITS && PORTRAITS._logo; return typeof L === 'string' && L ? L : L && L.src ? L.src : null; } catch (e) { return null; } })();
+    const logo = typeof TITLE_LOGO === 'string' && TITLE_LOGO ? TITLE_LOGO : null;
     /* the market panel and any guide bubble leave the scene behind the title */
     if (mkOn) market(false);
     openSheet('<div class="title-art t31">' + (logo ? '<div class="logo-wrap"><img class="logo-img" src="' + logo + '" alt=""><h2 class="logo-name" id="shTitle">Nil Kervancısı</h2></div><small class="logo-sub">Kısa, sert, tuzlu bir ticaret seferi</small>' : '<div class="logo-plate"><h2 id="shTitle">Nil Kervancısı</h2><small>Kısa, sert, tuzlu bir ticaret seferi</small></div>') + '</div>' +
@@ -96,7 +96,7 @@
     s += '<div class="mplay"><span class="eq" aria-hidden="true"><i></i><i></i><i></i></span><div><small>Şimdi çalıyor</small><b id="mNow"></b></div><button class="btn sm gold" type="button" data-act="mNext">Sonraki parça ⏭</button></div>';
     s += '<div class="tracks">' + inf.tracks.filter(t => t.id !== 'sail').map(t => '<button class="trk" type="button" data-track="' + t.id + '"><b>' + esc(t.name) + '</b><small>' + esc(t.desc) + '</small><span class="ts"></span></button>').join('') + '</div>';
     s += '<p class="muted" style="margin:0">Seçtiğin parça limanda çalar. Nehirde "Yelkenler Açık" çalar; biri peşine düşünce davullar ve nefesliler girer.</p>';
-    s += '<p class="muted" id="mDiag" style="margin:0;font-size:11.5px"></p><div class="row"><button class="btn sm" type="button" data-act="mAuto"></button><button class="btn sm" type="button" data-act="mOn"></button><button class="btn sm" type="button" data-act="mSfx"></button>' + (haptic.can ? '<button class="btn sm" type="button" data-act="mHap"></button>' : '') + (V3.available() ? '<button class="btn sm" type="button" data-act="m3d"></button><button class="btn sm" type="button" data-act="mFace"></button>' : '') + '</div><div id="installSlot">' + installHtml() + '</div>';
+    s += '<p class="muted" id="mDiag" style="margin:0;font-size:11.5px"></p><div class="row"><button class="btn sm" type="button" data-act="mAuto"></button><button class="btn sm" type="button" data-act="mOn"></button><button class="btn sm" type="button" data-act="mSfx"></button>' + (haptic.can ? '<button class="btn sm" type="button" data-act="mHap"></button>' : '') + (V3.available() ? '<button class="btn sm" type="button" data-act="m3d"></button>' : '') + '</div><div id="installSlot">' + installHtml() + '</div>';
     openSheet(s, !!back, 'music');
     updateMusic();
   }
@@ -116,7 +116,6 @@
     const f = document.querySelector('[data-act="mSfx"]'); if (f) f.textContent = 'Efektler: ' + (Snd.pref.sfx ? 'açık' : 'kapalı');
     const hp = document.querySelector('[data-act="mHap"]'); if (hp) hp.textContent = 'Titreşim: ' + (haptic.on ? 'açık' : 'kapalı');
     const g3 = document.querySelector('[data-act="m3d"]'); if (g3) g3.textContent = '3B görünüm: ' + (V3.pref() ? 'açık' : 'kapalı');
-    const gf = document.querySelector('[data-act="mFace"]'); if (gf) gf.textContent = '3B yüzler (deneme): ' + (face3d() ? 'açık' : 'kapalı');
     const dg = $('#mDiag'); if (dg) dg.textContent = 'Ses motoru: ' + ({ none:'başlamadı', suspended:'bekliyor', running:'çalışıyor', closed:'kapalı' }[inf.ac] || inf.ac) + ' · hazır parça: ' + inf.tracks.filter(t => t.ready).length + '/' + inf.tracks.length + (inf.err ? ' · hata: ' + inf.err : '');
   }
   Snd.onChange = () => { updateMusic(); titleMusicNote(); };
@@ -236,7 +235,7 @@
     const r = S.result, st = r.stats;
     let s = '<div class="sh-h"><h2 id="shTitle">Sefer bitti<small>' + (S.mode === 'daily' ? 'Günün seferi · ' : '') + S.day + '. gün, ' + esc(CITIES[S.city].name) + '</small></h2></div>' +
       '<div class="score"><div class="big"><span data-count="' + r.score + '" data-pre="">' + fmt(r.score) + '</span> deben</div><div class="rk">' + esc(r.rank) + '</div></div>' +
-      '<div class="oi ' + (r.beat ? 'good' : 'bad') + '"><span class="dot"></span><div><b>' + (r.beat ? 'Sethi\'yi geçtin!' : 'Sethi bu sefer önde') + '</b><p>Sethi ' + fmt(r.rival) + ' deben ile döndü.</p></div></div>' +
+      '<div class="oi ' + (r.beat ? 'good' : 'bad') + '"><span class="pt endf">' + faceOf('sethi', r.beat ? 'angry' : 'laugh') + '</span><div><b>' + (r.beat ? 'Sethi\'yi geçtin!' : 'Sethi bu sefer önde') + '</b><p>Sethi ' + fmt(r.rival) + ' deben ile döndü.</p></div></div>' +
       '<p class="muted" style="margin:0;text-align:center">' + (r.debtLeft > 0 ? 'Borcun tam kapanmadı: Hapu ' + fmt(r.debtLeft) + ' deben alacaklı.' : 'Kalan mal satıldı, Hapu\'ya ' + fmt(r.paid) + ' deben ödendi.') + '</p>' +
       '<div class="grid2 g5"><div class="kv"><small>Yolculuk</small><b>' + st.trips + '</b></div><div class="kv"><small>Kusursuz</small><b>' + st.perfect + '</b></div><div class="kv"><small>Kaçış</small><b>' + st.escapes + '</b></div><div class="kv"><small>Sipariş</small><b>' + st.orders + '</b></div><div class="kv"><small>Kıl payı</small><b>' + (st.near || 0) + '</b></div></div>';
     const bt = st.best, st0 = r.start == null ? -300 : r.start;

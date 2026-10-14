@@ -14,9 +14,7 @@
      API  CH33.on()                         3D characters usable (WebGL + kit)
           CH33.load() -> Promise<bool>      decode + parse the kit (once)
           CH33.has(key)                     a recipe exists (hero / merchant 0..7 / CAST key / priest guard scribe folk)
-          CH33.stage(el, key, o) -> handle  live character in a DOM box on the shared renderer: o = { mood, tell, frame:'bust'|'card'|'full', bg }
-                                            handle.update({ mood, tell, talk, act }), handle.react(kind), handle.dispose(), handle.ready
-          CH33.snap(key, { mood, size, bg }) -> Promise<dataURL>   cached avatar rendered from the same model
+          (v40: the close-up stages and snapshot avatars were removed; close-ups are the code-drawn SVG characters of chars40)
           FIG.build / FIG.animate / FIG.link / FIG.keys are re-pointed here (town people), the old chars30 figure is the fallback. */
   const CH33 = (() => {
     let T = null, KIT = null, kitP = null, dead = false;
@@ -419,7 +417,6 @@ void main() {` + VS + `  if (aFx.x < 0.1) { gl_Position = vec4(0.0, 0.0, 2.0, 0.
       const pre = rr => { const rt = rr.getRenderTarget && rr.getRenderTarget(); if (rt) v2.set(rt.width, rt.height); else rr.getDrawingBufferSize(v2); U.uRes.value.copy(v2); U.uPx.value = U.inkK * (rt ? Math.max(1, rt.width / 300) : (rr.getPixelRatio ? rr.getPixelRatio() : 1)); };
       return { body, ink, pre, U };
     }
-    function stageLight(U) { U.uSoft.value = 0.05; U.uRim.value = 0.8; U.uShd.value.set('#A07A74'); U.uLit.value.set('#FFF6E6'); U.uSun.value.set(-0.72, 0.62, 0.62).normalize(); U.uRimDir.value.set(0.8, 0.4, -0.45).normalize(); }
     let TOWN = null;      // shared town materials (linked to the town's light)
     function townMats() { if (!TOWN) TOWN = mats(mkU(getT())); return TOWN; }
 
@@ -605,166 +602,6 @@ void main() {` + VS + `  if (aFx.x < 0.1) { gl_Position = vec4(0.0, 0.0, 2.0, 0.
       if (st.lod === 0 && !st.noFace) { face(st, dt || 0.033, t); }
     }
 
-    /* ---------- the stage: one live character in a DOM box ---------- */
-    let STAGE = null;
-    const FR = { bust:{ top:1.82, bot:1.22, fov:17, yaw:0.32, w:0.26 }, dialog:{ top:1.84, bot:1.1, fov:18, yaw:0.3, w:0.3 }, card:{ top:1.86, bot:1.02, fov:18, yaw:0.36, w:0.32 }, full:{ top:1.86, bot:-0.02, fov:22, yaw:0.42, w:0.45 }, face:{ top:1.84, bot:1.42, fov:14, yaw:0.26, w:0.16 } };
-    function stage(el, key, o) {
-      o = o || {};
-      if (!el || !on3()) return null;
-      if (STAGE && !o.multi) STAGE.dispose();
-      const h = { el, key, o, dead:false, ready:null };
-      const res = { ready:null, update(q) { h.q = Object.assign(h.q || {}, q); apply(h); }, react(kind) { react(h, kind); }, dispose() { kill(h); }, get alive() { return !h.dead; } };
-      h.api = res; STAGE = res;
-      res.ready = load().then(ok => { if (!ok || h.dead) return false; try { return start(h); } catch (e) { try { console.warn('CH33 stage:', e, e.stack); } catch (e2) {} return false; } });
-      return res;
-    }
-    function start(h) {
-      const T0 = getT(), X = X3(), el = h.el, o = h.o;
-      const U = mkU(T0); stageLight(U); U.inkK = 1.25;
-      const M = mats(U), g = instance(h.key, { mats:M });
-      if (!g) return false;
-      const st = g.userData.c33; st.headFollow = true;
-      const sc = new T0.Scene(), cam = new T0.PerspectiveCamera(18, 1, 0.1, 30);
-      sc.add(g);
-      h.T0 = T0; h.g = g; h.st = st; h.sc = sc; h.cam = cam; h.M = M; h.t = 0; h.last = performance.now();
-      const fr = FR[o.frame || 'dialog'] || FR.dialog; h.fr = fr;
-      let mine = false, own = null, r = null;
-      const viewObj = { mount(cv) { el.appendChild(cv); mine = true; h.w0 = 0; }, lose() { mine = false; } };
-      h.viewObj = viewObj;
-      if (X && X.glsClaim) { r = X.glsClaim(viewObj); }
-      if (!r) { const cv = document.createElement('canvas'); cv.className = 'c33-cv'; r = new T0.WebGLRenderer({ canvas:cv, alpha:true, antialias:true }); r.setClearColor(0, 0); el.appendChild(cv); own = r; mine = true; }
-      h.r = r; h.own = own; h.isMine = () => mine;
-      el.classList.add('c33-on');
-      // pointer: gaze + taps
-      h.pm = e => { const b = el.getBoundingClientRect(); if (!b.width) return; const x = (e.clientX - b.left) / b.width * 2 - 1, y = (e.clientY - b.top) / b.height * 2 - 1; st.face.lookT[0] = Math.max(-1, Math.min(1, x * 1.3)); st.face.lookT[1] = Math.max(-1, Math.min(1, -y * 1.1 + 0.25)); st.face.ext = 1; h.lastPm = h.t; };
-      h.pd = e => { react(h, 'tap'); };
-      window.addEventListener('pointermove', h.pm, { passive:true }); el.addEventListener('pointerdown', h.pd);
-      apply(h);
-      const tick = now => {
-        if (h.dead) return;
-        h.raf = requestAnimationFrame(tick);
-        if (!el.isConnected) { if (h.t > 0.3) kill(h); return; }
-        const dt = Math.min(0.05, (now - h.last) / 1000); if (dt < 1 / 62) return; h.last = now; h.t += dt;
-        if (document.hidden) return;
-        if (!mine && X && X.glsClaim) { if (X.GLS && X.GLS.owner && X.GLS.owner !== viewObj) return; if (!X.glsClaim(viewObj)) return; }
-        frame(h, dt);
-      };
-      h.raf = requestAnimationFrame(tick);
-      return true;
-    }
-    function frame(h, dt) {
-      const el = h.el, r = h.r, st = h.st, cam = h.cam, T0 = h.T0;
-      const w = Math.max(10, el.clientWidth), hh = Math.max(10, el.clientHeight), pr = Math.min(2, window.devicePixelRatio || 1);
-      if (w !== h.w0 || hh !== h.h0 || pr !== h.pr0) { h.w0 = w; h.h0 = hh; h.pr0 = pr; r.setPixelRatio(pr); r.setSize(w, hh, false); cam.aspect = w / hh; fit(h); }
-      if (h.t - (h.lastPm || -9) > 2.5) { st.face.ext = 0; st.face.lookT[0] *= 0.96; st.face.lookT[1] *= 0.96; }
-      pose(st, dt); face(st, dt, h.t);
-      h.g.updateMatrixWorld(true);
-      const cc = r.getClearColor(new T0.Color()), ca = r.getClearAlpha();
-      r.setClearColor(0, 0); r.render(h.sc, cam); r.setClearColor(cc, ca);
-      if (!h.shown) { h.shown = true; h.el.classList.add('c33-ready'); }
-    }
-    function fit(h) {
-      const fr = h.fr, cam = h.cam, sc = (h.st.rc.scale || 1) * (h.st.rc.kid ? 0.6 : 1);
-      const top = fr.top * sc, bot = fr.bot * sc, mid = (top + bot) / 2, half = (top - bot) / 2;
-      let fov = fr.fov; const need = half / Math.tan(fov * Math.PI / 360);
-      const wHalf = (fr.w || 0.3) * sc, needW = wHalf / Math.tan(fov * Math.PI / 360) / Math.max(0.3, cam.aspect);
-      const d = Math.max(need, needW);
-      cam.fov = fov; cam.position.set(Math.sin(fr.yaw) * d, mid + 0.02, Math.cos(fr.yaw) * d); cam.lookAt(0, mid, 0); cam.near = d * 0.3; cam.far = d * 3; cam.updateProjectionMatrix();
-      h.g.scale.setScalar(sc);
-    }
-    function apply(h) {
-      const st = h.st; if (!st) return;
-      const q = Object.assign({}, h.o, h.q || {}), F = st.face;
-      let mood = q.mood || F.base, clip = MOOD_CLIP[mood] || 'idle';
-      F.glance = 0; F.brow1 = 0;
-      if (q.tell && TELL[q.tell]) { const tl = TELL[q.tell]; if (!q.mood || q.mood === 'neutral') mood = tl.mood; if (tl.clip) clip = tl.clip; if (tl.glance) F.glance = 1; if (tl.brow1) F.brow1 = 1; }
-      if (mood === 'neutral' && st.rc.sly) mood = 'sly';
-      F.mood = MOODS[mood] ? mood : 'neutral';
-      F.talk = q.talk ? 1 : 0;
-      if (q.talk && clip === 'idle') clip = 'talk';
-      if (q.act) { play(st, q.act); st.after = clip; h.q.act = null; return; }
-      if (!ONESHOT[st.clip] || !st.after) play(st, clip); else st.after = clip;
-    }
-    function react(h, kind) {
-      const st = h.st; if (!st) return;
-      const F = st.face;
-      const pickA = kind === 'tap' ? ['greet', 'laugh', 'wave', 'shrug'][(h.taps = (h.taps || 0) + 1) % 4] : kind;
-      const back = st.clip && !ONESHOT[st.clip] ? st.clip : 'idle';
-      if (pickA === 'laugh') { const m = F.mood; F.mood = 'happy'; play(st, 'laugh'); clearTimeout(h.rt); h.rt = setTimeout(() => { if (!h.dead) { F.mood = m; apply(h); } }, 1600); return; }
-      if (pickA === 'wave') { play(st, 'wave'); clearTimeout(h.rt); h.rt = setTimeout(() => { if (!h.dead) apply(h); }, 1700); return; }
-      if (pickA === 'angry') { F.mood = 'angry'; play(st, 'angry'); clearTimeout(h.rt); h.rt = setTimeout(() => { if (!h.dead) apply(h); }, 1500); return; }
-      if (KIT.clips[pickA]) { play(st, pickA); st.after = back; }
-    }
-    function kill(h) {
-      if (h.dead) return; h.dead = true; cancelAnimationFrame(h.raf); clearTimeout(h.rt);
-      window.removeEventListener('pointermove', h.pm); if (h.el) { h.el.removeEventListener('pointerdown', h.pd); h.el.classList.remove('c33-on', 'c33-ready'); }
-      const X = X3();
-      if (h.viewObj && X && X.glsRelease) X.glsRelease(h.viewObj);
-      if (h.own) { try { h.own.dispose(); h.own.forceContextLoss && h.own.forceContextLoss(); } catch (e) {} if (h.own.domElement.parentNode) h.own.domElement.remove(); }
-      if (h.M) { h.M.body.dispose(); h.M.ink.dispose(); }
-      if (h.g) disposeInst(h.g);
-      if (STAGE === h.api) STAGE = null;
-    }
-
-    /* ---------- snapshots for small avatars (same model, same face rig) ---------- */
-    const SNAP = new Map(); let snapQ = Promise.resolve();
-    function snap(key, o) {
-      o = o || {};
-      const mood = o.mood || 'neutral', size = o.size || 128, fr = o.frame || 'face', ck = key + '|' + mood + '|' + size + '|' + fr + '|' + (o.bg || '');
-      if (SNAP.has(ck)) return SNAP.get(ck);
-      const p = load().then(ok => { if (!ok) throw new Error('no kit'); return (snapQ = snapQ.then(() => snapNow(key, mood, size, fr, o), () => snapNow(key, mood, size, fr, o))); });
-      SNAP.set(ck, p); p.then(u => { SNAP.set(ck, Promise.resolve(u)); SNAPS.set(ck, u); }, () => SNAP.delete(ck));
-      return p;
-    }
-    const SNAPS = new Map();
-    const snapSync = (key, o) => { o = o || {}; return SNAPS.get(key + '|' + (o.mood || 'neutral') + '|' + (o.size || 128) + '|' + (o.frame || 'face') + '|' + (o.bg || '')) || null; };
-    let SNAPM = null;
-    function snapNow(key, mood, size, frn, o) {
-      return new Promise((res, rej) => {
-        const T0 = getT(), X = X3();
-        if (!SNAPM) { const U = mkU(T0); stageLight(U); U.inkK = 1.1; SNAPM = mats(U); }
-        const g = instance(key, { mats:SNAPM }); if (!g) { rej(new Error('no recipe')); return; }
-        const st = g.userData.c33, F = st.face, sc = new T0.Scene(); sc.add(g);
-        F.mood = MOODS[mood] ? mood : 'neutral'; if (mood === 'neutral' && st.rc.sly) F.mood = 'sly';
-        F.cur = Object.assign({}, MOODS[F.mood]); F.nextB = 99;
-        const clip = { thinking:'think' }[mood] || 'idle';
-        if (!FACEB) FACEB = KIT.bones.map(b => /^(jaw|eye|lid|brow|mouth)/.test(b.name) ? 1 : 0);
-        sampleInto(st, clip, 0.35, 1, true);
-        if (mood === 'thinking') { F.look = [0.4, 0.3]; F.lookT = [0.4, 0.3]; } else { F.look = [0.15, 0.05]; F.lookT = [0.15, 0.05]; }
-        if (mood === 'happy' || mood === 'surprised') F.cur.op = (F.cur.op || 0) + 0.12;
-        face(st, 0.016, 0);
-        const tilt = { happy:-0.1, angry:0.1, sad:0.16, surprised:-0.08 }[mood] || 0;
-        if (tilt) rotW(st, 'head', 1, 0, 0, tilt);
-        if (mood === 'happy') rotW(st, 'head', 0, 0, 1, -0.06);
-        const fr = FR[frn] || FR.face, s = (st.rc.scale || 1) * (st.rc.kid ? 0.6 : 1);
-        g.scale.setScalar(s); g.updateMatrixWorld(true);
-        const cam = new T0.PerspectiveCamera(fr.fov, 1, 0.1, 30), top = fr.top * s, bot = fr.bot * s, mid = (top + bot) / 2, d = (top - bot) / 2 / Math.tan(fr.fov * Math.PI / 360);
-        cam.position.set(Math.sin(fr.yaw) * d, mid + 0.02, Math.cos(fr.yaw) * d); cam.lookAt(0, mid, 0);
-        let url = null;
-        try { url = X && X.snap ? X.snap(sc, cam, size * 1.5, size * 1.5) : null; } catch (e) { url = null; }
-        disposeInst(g);
-        if (!url) { rej(new Error('snap failed')); return; }
-        const img = new Image();
-        img.onload = () => {
-          const c = document.createElement('canvas'); c.width = c.height = size; const x = c.getContext('2d');
-          if (o.bg !== 'none') paintBg(x, size, o.bg || st.rc.bg || '#F3E2B8');
-          x.imageSmoothingQuality = 'high'; x.drawImage(img, 0, 0, size, size);
-          let u = ''; try { u = c.toDataURL('image/webp', 0.9); } catch (e) { u = ''; } if (!/^data:image\/webp/.test(u)) u = c.toDataURL('image/png');
-          res(u);
-        };
-        img.onerror = () => rej(new Error('img'));
-        img.src = url;
-      });
-    }
-    function paintBg(x, n, col) {
-      const T0 = getT(), c = new T0.Color(col), hsl = {}; c.getHSL(hsl);
-      const tone = (l, a) => 'hsla(' + Math.round(hsl.h * 360) + ',' + Math.round(hsl.s * 100) + '%,' + Math.round(l * 100) + '%,' + a + ')';
-      const gr = x.createLinearGradient(0, 0, 0, n); gr.addColorStop(0, tone(Math.min(0.93, hsl.l + 0.1), 1)); gr.addColorStop(1, tone(Math.max(0.5, hsl.l - 0.1), 1));
-      x.fillStyle = gr; x.fillRect(0, 0, n, n);
-      const sun = x.createRadialGradient(n * 0.32, n * 0.3, 0, n * 0.32, n * 0.3, n * 0.6); sun.addColorStop(0, 'rgba(255,246,220,.85)'); sun.addColorStop(1, 'rgba(255,240,205,0)');
-      x.fillStyle = sun; x.fillRect(0, 0, n, n);
-    }
-
     /* ---------- FIG: keep the chars30 implementation as the fallback, point the API here ---------- */
     const FIG0 = {};
     try { if (typeof FIG !== 'undefined' && FIG) { FIG0.build = FIG.build; FIG0.animate = FIG.animate; FIG0.link = FIG.link; FIG0.portrait = FIG.portrait;
@@ -774,7 +611,7 @@ void main() {` + VS + `  if (aFx.x < 0.1) { gl_Position = vec4(0.0, 0.0, 2.0, 0.
       FIG.keys = KEYS.slice(); FIG.onReady = f => { if (KIT) f(); else onTown.add(f); };
     } } catch (e) {}
 
-    return { on:on3, load, has, stage, snap, snapSync, keys:KEYS, recipe, get kit() { return KIT; }, get stageNow() { return STAGE; },
+    return { on:on3, load, has, keys:KEYS, recipe, get kit() { return KIT; },
       _dbg:{ instance, assemble, pose, face, play, sampleInto, partList, MOODS } };
   })();
   try { if (/[?&]debug/.test(location.search)) window.CH33 = CH33; } catch (e) {}

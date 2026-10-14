@@ -21,4 +21,4 @@
 - Three.js r128 from cdnjs only; one shared WebGL renderer (V3 GLS claim/release). Dispose everything; no allocations per frame; town 30 fps, others ≤ 60.
 - Large binary assets go in inert `<script type="application/octet-stream">` blocks decoded lazily (see `src/chars33.dat`).
 - 3D off (`localStorage['nil-kervanci-3d']='0'`) must keep working with the 2D/portrait fallbacks.
-- Close-up 3D faces (CH33) are an opt-in menu trial (`nil-kervanci-face3d`); the Blender portraits (`src/portraits31.txt`) are the default.
+- Close-up characters are code-drawn SVG (CH40 in `src/chars40.txt` + `chars40.css`): one rig, a recipe per character, 12 expressions + haggle tells, CSS-only life. They are the only close-up path in 3D and 2D modes; the town walkers stay 3D (chars33 + chars33.dat).

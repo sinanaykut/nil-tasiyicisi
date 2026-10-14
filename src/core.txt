@@ -1,4 +1,3 @@
-const face3d = () => lsGet('nil-kervanci-face3d') === '1';
 /*CORE*/
 let RS = null;
 let rng = () => {

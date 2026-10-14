@@ -29,7 +29,7 @@
     { name:'Kaptan Weni', look:{ skin:'#8E5236', hair:'#1B1420', wig:'cap', band:'#2BA59A', bg:'#D3ECEA', c1:'#FBF3DF', c2:'#2BA59A', beard:true, ear:true }, lines:[] }
   );
   Object.assign(FACE, { paneb:FACE0 + 4, sethi:FACE0 + 5, tv0:FACE0 + 6, tv1:FACE0 + 7, tv3:FACE0 + 8, tv4:FACE0 + 9, tv7:FACE0 + 10 });
-  const faceOf = who => who === 'ba' ? baFace() : (typeof GF36 !== 'undefined' && GF36.icon(who)) || portrait(FACE[who], who === 'hapu' ? 1 : 3);
+  const faceOf = (who, mood) => who === 'ba' ? baFace() : CH40.icon(who, mood || (who === 'hapu' ? 'neutral' : 'happy')) || portrait(FACE[who], 3);
 
   /* a painted banner for a card: sky, water, a big emblem and a couple of figures */
   const MOOD = { day:['#8FC6D6', '#F3E2B8', '#2F7090', '#FFE7A8'], night:['#141A33', '#3A4A72', '#0E1A33', '#F5EBC8'], danger:['#E9A866', '#F6E3B4', '#8F2F21', '#FFE2A0'], gold:['#F2C65A', '#FBF3DF', '#B98A1E', '#FFF3C4'], water:['#5FA0AC', '#CBE6DC', '#174C78', '#FFE7A8'], green:['#9FD39A', '#E3F1DA', '#2F5D46', '#FFE7A8'] };
@@ -167,7 +167,7 @@
   function showDebt() {
     const here = S.city === 1, canPay = here && phase === 'port' && !S.over && S.debt > 0 && S.cash > 0;
     const left = S.days - S.day, max = Math.min(S.cash, S.debt), def = max;
-    let s = '<div class="sh-h"><span class="pt big" id="hapuPt">' + (figURL('hapu', 'neutral', 128) ? '<img class="figp" src="' + figURL('hapu', 'neutral', 128) + '" alt="">' : faceOf('hapu')) + '</span><h2 id="shTitle">Tefeci Hapu<small>' + (here ? 'Mennefer\'deki evinde, hesap defteri açık' : 'Hapu Mennefer\'de oturur · sen ' + esc(CITIES[S.city].loc + ({ a:'sın', ı:'sın', o:'sun', u:'sun', e:'sin', i:'sin', ö:'sün', ü:'sün' }[(CITIES[S.city].loc.match(/[aıoueiöü](?=[^aıoueiöü]*$)/) || ['a'])[0]] || 'sin'))) + '</small></h2>' + xBtn + '</div>';
+    let s = '<div class="sh-h"><span class="pt big" id="hapuPt">' + faceOf('hapu', S.debt > DANGER_DEBT ? 'angry' : 'neutral') + '</span><h2 id="shTitle">Tefeci Hapu<small>' + (here ? 'Mennefer\'deki evinde, hesap defteri açık' : 'Hapu Mennefer\'de oturur · sen ' + esc(CITIES[S.city].loc + ({ a:'sın', ı:'sın', o:'sun', u:'sun', e:'sin', i:'sin', ö:'sün', ü:'sün' }[(CITIES[S.city].loc.match(/[aıoueiöü](?=[^aıoueiöü]*$)/) || ['a'])[0]] || 'sin'))) + '</small></h2>' + xBtn + '</div>';
     s += '<div class="grid3"><div class="kv"><small>Borç</small><b>' + fmt(S.debt) + '</b></div><div class="kv"><small>Günlük faiz</small><b>%' + String(+(S.rate * 100).toFixed(1)).replace('.', ',') + (S.debt ? ' · ' + fmt(Math.round(S.debt * S.rate)) : '') + '</b></div><div class="kv"><small>Sefer sonunda</small><b>' + fmt(Math.round(S.debt * Math.pow(1 + S.rate, left))) + '</b></div></div>';
     s += debtGauge(canPay ? S.debt - def : null);
     if (S.debt > DANGER_DEBT) s += '<p class="warnl">Borcun 3.500\'ün üstünde: Hapu\'nun adamları nehirde peşine düşer.</p>';
@@ -186,7 +186,7 @@
     if (cj) s += '<h3 class="sh-sec">Kaçak iş</h3>' + cj;
     else if (S.debt > 0 && !S.contraDone && !S.over && has(S, 'contra')) s += '<p class="muted" style="margin:0">Borcunu tamamen kapatırsan Hapu sana kârlı ama tehlikeli bir iş teklif eder.</p>';
     else if (!S.debt && !S.contraDone && !S.over && !here && has(S, 'contra')) s += '<p class="muted" style="margin:0">Borcun kapandı. Mennefer\'e uğrarsan Hapu\'nun sana bir teklifi olacak.</p>';
-    openSheet(s, false, 'debt'); figInto($('#hapuPt'), 'hapu', 'neutral', 128);
+    openSheet(s, false, 'debt');
     payUpdate();
   }
   /* a tiny Nile with Mennefer lit up, for the locked ledger */
