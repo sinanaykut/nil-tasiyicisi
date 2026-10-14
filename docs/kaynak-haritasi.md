@@ -152,6 +152,20 @@ tap = forearm on the counter + drumming hand, arms = forearms folded (clipped to
 Road `ruin` nodes open the tomb seal (no light puzzle). chars33: the carry clip raises the left arm, so only head loads and
 the shoulder jar use it; sack carriers and empty-handed walkers walk. Images: docs/qa43.
 
+v45 travel map & caravan stop (`ui/13-hub-sheets.txt`, `ui/05-actions.txt`, `ui/12-hub.txt`, `v3/05-map-table-2.txt`, `town29.txt`, `art28.txt`, `map45.css`):
+every town is always on the map (3D and 2D), the desert towns too (before the caravans open, from any town, with contraband): `mapModel()`
+sends all cities, a far one with `why` (short reason) and `via` (`carVia`: "Mennefer'den · 3 gün"); desert roads are always drawn (`shut`
+= paler before they open). Any town but the current one can be selected (`selectCity`): a town you cannot reach shows `farCard(i)`
+(why not, the caravan hub and days, cheap/dear goods, orders, and an "Önce Mennefer'e git" button for the first leg, `wayTo(i)`);
+the empty travel card lists unreachable desert towns in a "Kervanla" group; the 2D map draws the whole way (river to the hub + caravan) pale.
+3D plaques (`labHtml`): from afar (tier 0) the name only (a far desert town adds "🐪 Mennefer'den"), days at mid zoom, prices close up;
+the chosen town alone is a bubble (days · risk, cheap/dear goods, marks) and the separate route chip is gone. Tokens are smaller from afar
+(`TSC()` 0.8 / 0.9 / 1 by tier; life parts, rings, hit and label geometry follow `o.g.scale`); a plaque pushed away from its token gets a
+leader line (`.v3m-ll`). Caravan hubs (Mennefer, Abidos, Vaset) have a 'caravan' spot ("Kervan durağı", `spotsHere().caravan` when
+desert travel is open): 3D town `CARHUB`/`CARSP` (three pack donkeys, a driver and jars on the quay south of the hero, dynamic parts),
+2D `townScene` (two donkeys at the quay's west end); `openSpot('caravan')` opens the travel card on the hub's desert town (`carDest`).
+Images: docs/qa45-harita.
+
 ## Music (v44)
 - `snd-syn.txt` — `NilSynth()`: self-contained music synthesiser (its source text is also the render Worker's body, so it must not use game names). Instruments (Karplus-Strong oud/bass, modal harp/kanun, ney/reed wind phrases, wavetable drones/choir, modal darbuka/bendir/tabl/riq/sistrum/zills/bowl), buses + EQ, ping-pong echo, half-rate FFT convolution reverb, master compressor + soft ceiling, the six compositions (`composeMenu/Port/Bazaar/Temple/Sail/Chase`) and `TRACKS` (tempo, bars, reverb, measured bus gains and loudness trims). `job(name)` renders in steps (`step(ms)`), `onSeg` streams 1 s segments.
 - `snd.txt` — `Snd`: Worker (or main-thread slices) renderer, streaming first playback, IndexedDB cache (`MUSIC_VER`, bump it whenever the music changes), at most 3 decoded tunes (LRU), crossfades by mode, effects.

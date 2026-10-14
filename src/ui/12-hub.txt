@@ -272,9 +272,11 @@
   };
 
   /* ---------- places in the picture ---------- */
-  const SPOT_NAME = { market:'Pazar', ship:'Tekne · yola çık', temple:'Tapınak', tavern:'Meyhane', work:'Atölye', yard:'Tersane', hapu:'Hapu\'nun evi', board:'Sipariş panosu', well:'Kuyu' };
-  const SPOT_ICO = { market:'i-stall', ship:'i-boat', temple:'i-temple', tavern:'i-senet', work:'i-workshop', yard:'i-anchor', hapu:'i-coin', board:'i-scroll', well:'i-water' };
-  function spotsHere(ci) { const job = workAt(S, ci); return { market:true, ship:true, temple:TEMPLES[ci] != null, tavern:TAVERN[ci] != null, work:!!WORKS[ci] && (has(S, 'atolye') || !!job), yard:isRiver(ci), hapu:ci === 1, board:true, well:/^(siwa|kharga)$/.test(CITIES[ci].id) }; }
+  const SPOT_NAME = { market:'Pazar', ship:'Tekne · yola çık', temple:'Tapınak', tavern:'Meyhane', work:'Atölye', yard:'Tersane', hapu:'Hapu\'nun evi', board:'Sipariş panosu', well:'Kuyu', caravan:'Kervan durağı' };
+  const SPOT_ICO = { market:'i-stall', ship:'i-boat', temple:'i-temple', tavern:'i-senet', work:'i-workshop', yard:'i-anchor', hapu:'i-coin', board:'i-scroll', well:'i-water', caravan:'i-donkey' };
+  /* v45 (owner: "if a caravan can leave from the town, it should be in the town with its own menu"): the desert town a hub's caravan goes to */
+  const carDest = ci => { const i = CITIES.findIndex(c => !c.river && c.hub === ci); return i < 0 ? null : i; };
+  function spotsHere(ci) { const job = workAt(S, ci); return { market:true, ship:true, temple:TEMPLES[ci] != null, tavern:TAVERN[ci] != null, work:!!WORKS[ci] && (has(S, 'atolye') || !!job), yard:isRiver(ci), hapu:ci === 1, board:true, well:/^(siwa|kharga)$/.test(CITIES[ci].id), caravan:isRiver(ci) && carDest(ci) != null && has(S, 'desert') }; }
   function boardCount() {
     if (S.over) return 0;
     let n = deliverable(S).length + (S.offers[S.city] && S.orders.length < 2 ? 1 : 0) + (canContra(S) && contraOffer(S) ? 1 : 0);
@@ -373,6 +375,7 @@
     tapFx(k); play('click'); buzz('pick');
     if (k === 'market') { if (isPhone()) { market(true); if (guide().step === 'market') { guideTo('buy'); placeTutor(); } } else showMerchant(); }
     else if (k === 'ship') { if (guide().step === 'ship') guideTo('city'); showTravel(); }
+    else if (k === 'caravan') showTravel(carDest(S.city));   /* the caravan card: donkeys, water, the desert town (or why not now) */
     else if (k === 'temple') { if (!canTemple(S)) { toast(S.temple[S.city] ? 'Bu tapınağın bilmecesini zaten gördün.' : 'Tapınak şu an kapalı.'); return true; } guideOnce('temple', PANEB.temple, goTemple); }
     else if (k === 'tavern') showTavern();
     else if (k === 'work') guideOnce('work', PANEB.work, showWork);
