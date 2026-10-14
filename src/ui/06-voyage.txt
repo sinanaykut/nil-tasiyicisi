@@ -62,7 +62,7 @@
     }
     return { plan:p, layers, layer:0, picks:[], hp:p.hp, maxhp:Math.max(p.hp, p.hpMax || p.hp), extra:0, bonus:0, morale:S.qPerk === 'ba' ? 5 : 3, prophecy:null, torn:false, scout:false, revealAll:easy, easy, shortcut:false, seedN:0, scene:null,
       chaseDone:!p.chaser, raceDone:!p.rival || p.terrain === 'desert', log:[],
-      acc:{ hits:0, coins:0, crates:0, overboard:0, near:0, nearCoins:0, maxCombo:0, caught:false, escaped:!!p.chaser, beatRival:false, spotted:false, notes:[] } };
+      acc:{ hits:0, coins:0, crates:0, got:{}, left:0, overboard:0, near:0, nearCoins:0, maxCombo:0, caught:false, escaped:!!p.chaser, beatRival:false, spotted:false, notes:[] } };
   }
   const curNode = () => VG.layer > 0 && VG.picks[VG.layer - 1] != null ? VG.layers[VG.layer - 1][VG.picks[VG.layer - 1]] : null;
   const curPick = () => VG.picks[VG.layer] != null ? VG.layers[VG.layer][VG.picks[VG.layer]] : null;
@@ -351,6 +351,9 @@
       season:p.season, day:S.day + Math.min(VG.layer, VG.layers.length - 1), seed:(p.seed + 7919 * (++VG.seedN)) | 0, dest:p.dest, from:p.from, bless:p.bless, contra:p.contra, chaser:p.chaser, val:p.val, final, rich:nodeT === 'treasure', special:nodeT === 'wreck' && VG.sceneQ && qVoyage() === 'dive' ? 'lute' : null,
       boat:S.boat, dev:Object.assign({}, S.dev, VG.acc.ramUsed ? { burun:false } : {}), dmg:p.terrain === 'desert' ? 0 : (VG.hp >= VG.maxhp ? 0 : VG.hp / VG.maxhp >= 0.7 ? 1 : VG.hp / VG.maxhp >= 0.4 ? 2 : 3), terrain:p.terrain, donkeys:S.caravan ? S.caravan.donkeys : 0,
       label:kind === 'race' ? CITIES[p.dest].name + ' önünde' : nodeT === 'forgers' ? 'Kalpazan iskelesi' : (Math.min(VG.layer, VG.layers.length - 1) + 1) + '. gün' };
+    /* v45: crates go into the hold the moment they are picked up, only if there is room (the scene asks first) */
+    const acc = VG.acc;
+    o.cargo = { room:() => Math.max(0, freeCap(S)), take() { const t = crateTake(S); if (t) acc.got[t.g] = (acc.got[t.g] || 0) + t.q; return t ? { g:t.g, q:t.q, txt:'+' + t.q + ' ' + gName(t.g) } : null; } };
     VG.bonus = 0;
     VG.scene = kind; VG.sceneNode = nodeT || kind; if ($('#tut')) $('#tut').hidden = true;
     $('#voy').hidden = true; $('#sea').hidden = false; document.body.classList.remove('on-map'); enterFx($('#sea'));
@@ -364,6 +367,7 @@
     if (!VG) return;
     const a = VG.acc, nodeT = VG.sceneNode; VG.scene = null;
     VG.hp = res.hp; a.hits += res.hits; a.coins += res.coins; a.crates += res.crates; a.overboard += res.overboard || 0;
+    if (res.left) { a.left += res.left; vnote('Ambar dolu: ' + res.left + ' ' + (VG.plan.terrain === 'desert' ? 'yük denki' : res.left === 1 && kind === 'dive' ? 'küp' : 'sandık') + ' geride kaldı.', 'bad'); }
     if (res.water && S.caravan) { S.caravan.water += res.water; vnote(res.water + ' su tulumu buldun: +' + res.water + ' günlük su.', 'good'); }
     if (res.ramUsed) a.ramUsed = true;
     if (res.special === 'lute') { const q = Q(); if (q && q.id === 'ba' && q.step === 1) { q.step = 2; qLog('Batıktan Hesy\'nin udunu çıkardın. Ba kuşu sevinçle ötüyor.'); vnote('Hesy\'nin udu ambarda! Şarkıyı hatırlamak için Vaset\'teki arpçıya git.', 'good'); } } a.near += res.near || 0; a.nearCoins += res.nearCoins || 0; a.maxCombo = Math.max(a.maxCombo, res.maxCombo || 0);
@@ -389,7 +393,7 @@
   }
   function endVoyage(quick) {
     const a = VG.acc;
-    const res = { path:VG.picks.map((j, i) => VG.layers[i] && VG.layers[i][j] ? VG.layers[i][j].t : null).filter(Boolean), hp:Math.max(0, VG.hp), hits:a.hits, wreck:VG.hp <= 0, caught:a.caught, escaped:a.escaped && !!VG.plan.chaser, coins:a.coins, crates:a.crates, overboard:a.overboard, prophecy:VG.prophecy, near:a.near, nearCoins:a.nearCoins, maxCombo:a.maxCombo, beatRival:a.beatRival, spotted:a.spotted, notes:a.notes, quick:!!quick, ramUsed:!!a.ramUsed };
+    const res = { path:VG.picks.map((j, i) => VG.layers[i] && VG.layers[i][j] ? VG.layers[i][j].t : null).filter(Boolean), hp:Math.max(0, VG.hp), hits:a.hits, wreck:VG.hp <= 0, caught:a.caught, escaped:a.escaped && !!VG.plan.chaser, coins:a.coins, crates:a.crates, got:a.got, left:0, overboard:a.overboard, prophecy:VG.prophecy, near:a.near, nearCoins:a.nearCoins, maxCombo:a.maxCombo, beatRival:a.beatRival, spotted:a.spotted, notes:a.notes, quick:!!quick, ramUsed:!!a.ramUsed };
     VG = null; heroOverlay(false);
     landed(res);
   }
@@ -441,7 +445,7 @@
       const K = S.caravan, add = 2;
       s += '<p class="ntext">Hurmalıkların arasında taş bir kuyu. Eşekler suyu kokladı bile.</p>';
       ch.push({ label:'Tulumları doldur', ico:'i-water', gain:3, sub:'+' + add + ' günlük su · eşekler dinlenir (güç +1)', run() { if (K) K.water += add; VG.hp = Math.min(VG.maxhp, VG.hp + 1); setMorale(1); return 'Tulumlar doldu: +' + add + ' günlük su.'; } });
-      if (S.inv.hurma) ch.push({ label:'Hurma topla', ico:'i-hurma', gain:1, sub:'Ambarına 6 hurma (yer varsa)', run() { const k = addGoods(S, 'hurma', 6); return k ? k + ' hurma topladın.' : 'Heybelerde yer yoktu.'; } });
+      if (S.inv.hurma) ch.push({ label:'Hurma topla', ico:'i-hurma', gain:1, sub:'Ambarına 6 hurma' + (freeCap(S) < 6 ? ' · heybelerde ' + Math.max(0, freeCap(S)) + ' yer var' : ''), run() { const k = addGoods(S, 'hurma', 6); return k ? k + ' hurma topladın.' + (k < 6 ? ' Heybeler doldu: ' + (6 - k) + ' hurma ağaçta kaldı.' : '') : { t:'Heybelerde yer yoktu: hurmalar ağaçta kaldı.', kind:'info' }; } });
     } else if (t === 'mirage') {
       const K = S.caravan;
       s += '<p class="ntext">Ufukta bir göl titriyor. Rehber kaşlarını çattı: "Göller kum üstünde yürümez."</p>';
@@ -502,7 +506,10 @@
   /* the coffin: take a little in peace, or everything and risk the curse */
   function tombCoffin() {
     const dz = TL.dz, r = vRng(VG.plan.seed + VG.layer * 37 + 11), curse = r() < 0.4, big = dz ? 'lapis' : 'kitap';
-    const loot = (g, n) => { const k = addGoods(S, g, n), rest = n - k; const nm = g === 'kitap' ? 'Ölüler Kitabı' : gById(g).name.toLocaleLowerCase('tr'); let t = k ? k + ' ' + nm : ''; if (rest > 0) { const c = Math.round(rest * gById(g).base * 0.5); S.cash += c; t += (t ? ', ' : '') + 'ambarda yer olmadığı için ' + rest + ' ' + gName(g) + ' yerine ' + fmt(c) + ' deben (bekçiye sattın)'; } return t; };
+    /* v45: what does not fit in the hold stays in the tomb (the coins are always yours) */
+    const left = [], loot = (g, n) => { const k = addGoods(S, g, n), rest = n - k; const nm = g === 'kitap' ? 'Ölüler Kitabı' : gById(g).name.toLocaleLowerCase('tr'); if (rest > 0) left.push(rest + ' ' + gName(g)); return k ? k + ' ' + nm : ''; };
+    const fullTxt = () => left.length ? ' Ambar dolu: ' + left.join(', ') + ' lahitte kaldı.' : '';
+    const roomTxt = n => freeCap(S) < n ? ' · ambarda ' + Math.max(0, freeCap(S)) + ' yer var' : '';
     let s = '<div class="sh-h"><span class="vm big t-' + (dz ? 'dtomb' : 'tomb') + '">' + ico('i-chest', 30) + '</span><h2 id="shTitle">Mühür açıldı!<small>' + esc(NODES[dz ? 'dtomb' : 'tomb'].name) + '</small></h2></div>';
     /* a gilded anthropoid coffin in a dark chamber, its lid slid aside, light coming out; amulets and a papyrus beside it */
     const cof = 'M44 62q0-24 28-27h26q12 0 18 7h62q22 0 30 10l10 10-10 10q-8 10-30 10h-62q-6 7-18 7H72q-28-3-28-27z';
@@ -526,10 +533,10 @@
       '</svg></div>';
     s += '<p class="ntext">Kapak gıcırdayarak kaydı. Yaldızlı bir lahit; çevresinde fayans muskalar ve ' + (dz ? 'mavi lapis bir bok böceği' : 'mühürlü papirüs tomarları') + '. Duvardaki yazı yeniden gözüne çarpıyor: "Huzurumu bozanın yolu kararsın."</p>';
     nodeChoices = [
-      { label:'Bir muska al, gerisine dokunma', ico:'i-muska', gain:1, sub:'1 fayans muska + 80 deben · lanet yok', run() { S.cash += 80; const t = loot('muska', 1); S.stats.tombs = (S.stats.tombs || 0) + 1; setMorale(1); return { t:'Saygıyla eğilip ' + (t || 'bir muska') + ' ve 80 deben aldın. Tayfa rahatladı: moral +1.', kind:'good' }; } },
-      { label:'Hepsini yükle', ico:'i-chest', gain:3, risk:2, sub:'2 muska + 1 ' + (dz ? 'lapis' : 'Ölüler Kitabı') + ' + 220 deben · lanet tutabilir: gövde −1, moral −2', run() {
-        S.cash += 220; const a = loot('muska', 2), b = loot(big, 1); S.stats.tombs = (S.stats.tombs || 0) + 1;
-        let t = 'Lahdi boşalttın: ' + [a, b].filter(Boolean).join(', ') + ' ve 220 deben.';
+      { label:'Bir muska al, gerisine dokunma', ico:'i-muska', gain:1, sub:'1 fayans muska + 80 deben · lanet yok' + roomTxt(1), run() { S.cash += 80; const t = loot('muska', 1); S.stats.tombs = (S.stats.tombs || 0) + 1; setMorale(1); return { t:'Saygıyla eğilip ' + (t ? t + ' ve ' : '') + '80 deben aldın. Tayfa rahatladı: moral +1.' + fullTxt(), kind:'good' }; } },
+      { label:'Hepsini yükle', ico:'i-chest', gain:3, risk:2, sub:'2 muska + 1 ' + (dz ? 'lapis' : 'Ölüler Kitabı') + ' + 220 deben · lanet tutabilir: gövde −1, moral −2' + roomTxt(3), run() {
+        S.cash += 220; const b = loot(big, 1), a = loot('muska', 2); S.stats.tombs = (S.stats.tombs || 0) + 1;
+        let t = 'Lahdi boşalttın: ' + [b, a].filter(Boolean).concat(['220 deben']).join(', ') + '.' + fullTxt();
         if (curse) { VG.hp = Math.max(1, VG.hp - 1); setMorale(-2); t += ' Ama dışarı çıkınca rüzgâr döndü: lanet! ' + (VG.plan.terrain === 'desert' ? 'Bir eşek topalladı' : 'Tekne bir kayaya sürttü') + ' (−1), tayfa korkudan titriyor (moral −2).'; return { t, kind:'bad' }; }
         return { t:t + ' Lanet bu sefer tutmadı.', kind:'good' };
       } }

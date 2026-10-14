@@ -151,6 +151,15 @@ scratch = arm raised behind the head (drawn in the back layer, `scratchBack`) wi
 tap = forearm on the counter + drumming hand, arms = forearms folded (clipped to the body), thinking = fist under the chin.
 Road `ruin` nodes open the tomb seal (no light puzzle). chars33: the carry clip raises the left arm, so only head loads and
 the shoulder jar use it; sack carriers and empty-handed walkers walk. Images: docs/qa43.
+v45 economy & hold (`core.txt`, `ui/12-hub.txt`, `ui/06-voyage.txt`, `sea/01,03,06`, `css28.txt` tail): merchant storerooms persist per run —
+`S.stockBase` (usual shelf), `S.stock` (now), `stockMax(S, i, g)` = base + `ROOM[g]` × city appetite (`stockWant`), `stockRoom(S, g)`;
+selling adds to the stock, `quoteSell`/`dealSell` stop at the max (reason `'full'`, "depo dolu" on tiles, sell button, haggle hint);
+`stockDay` drifts every shelf 45%/day back to its base, `stockMods` applies crisis/Sethi shortages and gluts; `finish()` sells with
+`force` (end-of-run sale ignores storerooms). Voyage goods respect free hold space: `crateTake(S)` loads a crate at pickup through
+the scene hook `o.cargo` ({ room(), take() }); a full hold leaves crates/amphorae behind (`res.left`, "Ambar dolu: N sandık geride
+kaldı"), coins and blessings still count; tomb/oasis/events report what stayed behind. Wreck dive: the hull is solid (`dive.hull`
+wall segments, `move` with sub-steps and slide, `inHull`, `way` routes through the one gap in the deck; touch steering follows `way`;
+bumps cost a little breath; eels only reach their side of the hull). Hold card (`holdHtml`, `.hbody` → `showHold()` list sheet).
 
 ## Music (v44)
 - `snd-syn.txt` — `NilSynth()`: self-contained music synthesiser (its source text is also the render Worker's body, so it must not use game names). Instruments (Karplus-Strong oud/bass, modal harp/kanun, ney/reed wind phrases, wavetable drones/choir, modal darbuka/bendir/tabl/riq/sistrum/zills/bowl), buses + EQ, ping-pong echo, half-rate FFT convolution reverb, master compressor + soft ceiling, the six compositions (`composeMenu/Port/Bazaar/Temple/Sail/Chase`) and `TRACKS` (tempo, bars, reverb, measured bus gains and loudness trims). `job(name)` renders in steps (`step(ms)`), `onSeg` streams 1 s segments.

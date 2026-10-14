@@ -51,7 +51,7 @@ function migrate(S) {
   S.stats = Object.assign({ near:0, haggles:0, rapids:0, interest:0, lostVal:0, best:null, river:0 }, S.stats);
   if (S.bless === undefined) S.bless = null;
   if (S.haggle === undefined) S.haggle = null;
-  if (!S.stock) genStock(S);
+  if (!S.stock || !S.stockBase) genStock(S);
   if (S.contra === undefined) S.contra = null;
   if (S.fame === undefined) S.fame = null;
   if (S.quest === undefined) S.quest = null;
@@ -73,7 +73,7 @@ function migrate(S) {
   while (S.trust.length < CITIES.length) S.trust.push(0);
   while (S.gifted.length < CITIES.length) S.gifted.push(false);
   if (!S.prices || S.prices.length < CITIES.length || GOODS.some(g => S.prices[0][g.id] == null)) { const keep = S.news; rollPrices(S); S.news = keep || []; }
-  if (!S.stock || S.stock.length < CITIES.length) genStock(S);
+  if (!S.stock || !S.stockBase || S.stock.length < CITIES.length) genStock(S);
   if (S.rival && S.rival.plan === undefined && !S.over) { S.rival.plan = null; sethiPlan(S, S.rival.city == null ? 3 : S.rival.city, S.day); }
   return S;
 }
@@ -203,8 +203,46 @@ const load = S => invLoad(S.inv) + (S.contra ? CONTRA : 0) + (S.quest && S.quest
 const cap = S => S.caravan ? Math.min(S.caravan.donkeys * DONKEY, boatCap(S) - stashLoad(S)) : boatCap(S);
 /* each market only has so much of each good; valuable goods are scarce, so the hold is filled with a mix */
 const STOCK = { bugday:120, papirus:90, hurma:110, sarap:55, tuz:70, bakir:32, sedir:18, tutsu:10, lapis:8, muska:0, kitap:0, kyphi:0 };
+/* v45: the merchant's storeroom. Each good has a usual shelf (S.stockBase, fixed per run) and a storeroom limit (stockMax):
+   what you sell goes into it, and when it is full he buys no more of that good. Day by day the shelf drifts back to its
+   usual level (he sells your goods on, or restocks), crises and Sethi empty or fill it for a while. */
+const ROOM = { bugday:80, papirus:56, hurma:66, sarap:36, tuz:44, bakir:22, sedir:13, tutsu:8, lapis:6, muska:16, kitap:9, kyphi:8 };
+const stockFac = (g, m) => m < 0.6 ? (g.base > 500 ? 1.3 : 2.2) : m < 0.9 ? 1.5 : m > 1.1 ? 0.7 : 1;
+/* how much more a city takes in than it keeps: a city that pays well for a good has a big appetite for it */
+const stockWant = m => m >= 1.25 ? 1.7 : m >= 1.05 ? 1.3 : m >= 0.9 ? 1 : 0.6;
+function stockMax(S, i, gid) {
+  const m = CITIES[i].mult[gid]; if (m == null) return 0;
+  const base = S.stockBase ? S.stockBase[i][gid] : 0;
+  let k = 1; (S.mods || []).forEach(md => { if (md.city === i && md.stock > 1 && (!md.g || md.g === gid) && S.day >= md.from && S.day <= md.until) k = Math.max(k, md.stock); });
+  return Math.round((base + ROOM[gid] * stockWant(m)) * k);
+}
+/* how many more units of a good this merchant takes in today */
+const stockRoom = (S, gid, i) => { i = i == null ? S.city : i; return S.stock ? Math.max(0, stockMax(S, i, gid) - S.stock[i][gid]) : Infinity; };
 function genStock(S) {
-  S.stock = CITIES.map(c => { const o = {}; GOODS.forEach(g => { const m = c.mult[g.id]; o[g.id] = m == null || !STOCK[g.id] ? 0 : Math.max(2, Math.round(STOCK[g.id] * (0.6 + rng() * 0.7) * (m < 0.6 ? (g.base > 500 ? 1.3 : 2.2) : m < 0.9 ? 1.5 : m > 1.1 ? 0.7 : 1))); }); return o; });
+  S.stockBase = CITIES.map(c => { const o = {}; GOODS.forEach(g => { const m = c.mult[g.id]; o[g.id] = m == null || !STOCK[g.id] ? 0 : Math.max(3, Math.round(STOCK[g.id] * (0.75 + rng() * 0.5) * stockFac(g, m))); }); return o; });
+  S.stock = S.stockBase.map(o => Object.assign({}, o));
+  stockMods(S);
+}
+/* a day passes: every shelf moves part of the way back to its usual level */
+function stockDay(S) {
+  if (!S.stockBase) { genStock(S); return; }
+  CITIES.forEach((c, i) => GOODS.forEach(g => {
+    if (c.mult[g.id] == null) { S.stock[i][g.id] = 0; return; }
+    const cur = S.stock[i][g.id], tgt = S.stockBase[i][g.id] * (0.9 + rng() * 0.2), d = tgt - cur;
+    S.stock[i][g.id] = Math.max(0, Math.min(stockMax(S, i, g.id), Math.round(cur + d * 0.45 + (d > 0 ? 0.5 : -0.5) * (Math.abs(d) > 1 ? 1 : 0))));
+  }));
+  stockMods(S);
+}
+/* crises and Sethi: a shortage empties the shelf at once, a glut fills it */
+function stockMods(S) {
+  (S.mods || []).forEach(m => {
+    if (m.stock == null || S.day < m.from || S.day > m.until) return;
+    (m.g ? [m.g] : GOODS.map(g => g.id)).filter(g => deals(m.city, g)).forEach(g => {
+      const t = Math.round(S.stockBase[m.city][g] * m.stock), cur = S.stock[m.city][g];
+      if (m.stock < 1 && cur > t) S.stock[m.city][g] = Math.max(1, t);
+      if (m.stock > 1 && cur < t) S.stock[m.city][g] = Math.min(stockMax(S, m.city, g), t);
+    });
+  });
 }
 const freeCap = S => cap(S) - load(S);
 /* river distance; off-river cities are reached from their hub only */
@@ -277,7 +315,7 @@ function genCrises(S) {
 function applyMods(S) {
   (S.mods || []).forEach(m => {
     if (S.day < m.from || S.day > m.until) return;
-    (m.g ? [m.g] : GOODS.map(g => g.id)).filter(g => deals(m.city, g)).forEach(g => { S.prices[m.city][g] = Math.max(2, S.prices[m.city][g] * m.mult); if (S.stock && m.stock != null) S.stock[m.city][g] = Math.max(1, Math.round(S.stock[m.city][g] * m.stock)); });
+    (m.g ? [m.g] : GOODS.map(g => g.id)).filter(g => deals(m.city, g)).forEach(g => { S.prices[m.city][g] = Math.max(2, S.prices[m.city][g] * m.mult); });
   });
   if (S.mods) S.mods = S.mods.filter(m => m.until >= S.day);
 }
@@ -343,7 +381,7 @@ function newGame(opts) {
   S.offers[1] = makeOrder(S, 1);
   if (has(S, 'crisis')) genCrises(S);
   sethiPlan(S, 3, 1);
-  applyMods(S); S.seen[1] = snap(S, 1);
+  applyMods(S); stockMods(S); S.seen[1] = snap(S, 1);
   S.startWorth = S.cash - S.debt;
   S.log.push({ d:1, t:'Tefeci Hapu sana ' + fmtN(START_DEBT) + ' deben borç verdi. Faiz günlük yüzde ' + String(+(S.rate * 100).toFixed(1)).replace('.', ',') + '. Sefer ' + S.days + ' gün sürüyor.' });
   S.rs = RS;
@@ -369,7 +407,7 @@ function rollPrices(S) {
       S.news.push({ city:i, g:g.id, up });
     }
   });
-  genStock(S);
+  if (!S.stock || !S.stockBase) genStock(S); else stockDay(S);
   applyMods(S);
 }
 /* goods bought in this market today cannot be sold back here for a profit or for trust */
@@ -390,24 +428,29 @@ function quoteBuy(S, g, q) {
   }
   return { n, cost, reason, p };
 }
-function quoteSell(S, g, q) {
+/* force: the end-of-run sale (the treasury takes everything, the storeroom does not matter) */
+function quoteSell(S, g, q, force) {
   if (!deals(S.city, g)) return { n:0, rev:0, p:S.prices[S.city][g], reason:'market' };
-  q = Math.min(q, S.inv[g].n);
+  const held = S.inv[g].n, room = force ? Infinity : stockRoom(S, g);
+  let reason = !held ? 'none' : '';
+  q = Math.min(q, held);
+  if (q > room) { q = room; reason = 'full'; }
   let n = 0, rev = 0, p = S.prices[S.city][g];
   const k = 1 + sellBonus(S), cap = sameDayCap(S, g);
   while (n < q) { rev += cap ? Math.min(cap, Math.round(p * k)) : Math.round(p * k); n++; p *= 1 - IMPACT; }
-  return { n, rev, p, flip:!!cap };
+  return { n, rev, p, flip:!!cap, reason, room };
 }
 function buy(S, g, q) {
   const r = quoteBuy(S, g, q);
   if (r.n > 0) { S.cash -= r.cost; S.inv[g].n += r.n; S.inv[g].cost += r.cost; S.prices[S.city][g] = r.p; if (S.stock) S.stock[S.city][g] -= r.n; noteBuy(S, g, r.n); r.lvUp = addTrust(S, S.city, r.cost / 70); }
   return r;
 }
-function sell(S, g, q) {
+function sell(S, g, q, force) {
   const it = S.inv[g], avg = it.n ? it.cost / it.n : 0;
-  const r = quoteSell(S, g, q);
+  const r = quoteSell(S, g, q, force);
   if (r.n > 0) {
     it.cost = Math.max(0, it.cost - avg * r.n); it.n -= r.n;
+    if (S.stock && !force) S.stock[S.city][g] += r.n;
     if (it.n === 0) it.cost = 0;
     S.cash += r.rev; S.prices[S.city][g] = r.p;
     r.profit = Math.round(r.rev - avg * r.n);
@@ -431,6 +474,17 @@ function loseFrac(S, frac) {
   return lost;
 }
 function addGoods(S, g, q) { const k = Math.min(q, Math.max(0, freeCap(S))); S.inv[g].n += k; return k; }
+/* v45: a crate found on the way. It goes into the hold only if there is room: a crate that fits whole is preferred,
+   with little room left the most valuable goods are taken first, with none left it stays behind. Coins are not cargo. */
+const CRATE_GOODS = () => GOODS.slice(0, 5).map(g => ({ g:g.id, q:Math.max(1, Math.round(180 / g.base)) }));
+function crateTake(S) {
+  const room = Math.max(0, freeCap(S)); if (room <= 0) return null;
+  const all = CRATE_GOODS(), fit = all.filter(o => o.q <= room);
+  const o = fit.length ? pick(fit) : all.sort((a, b) => gById(b.g).base - gById(a.g).base)[0];
+  const k = addGoods(S, o.g, o.q);
+  return k ? { g:o.g, q:k, rest:o.q - k } : null;
+}
+const goodsList = got => Object.keys(got || {}).filter(id => got[id] > 0).map(id => got[id] + ' ' + gById(id).short.toLowerCase());
 function addTrust(S, i, a) {
   const before = trustLv(S, i); S.trust[i] = Math.max(0, S.trust[i] + a); const after = trustLv(S, i);
   if (after > before) { S.log.push({ d:S.day, t:MERCHANT_NAMES[i] + ' artık ' + TRUST[after].name.toLowerCase() + '.' }); return after; }
@@ -502,13 +556,14 @@ function dealBuy(S, g, n, unit) {
 }
 function dealSell(S, g, n, unit) {
   if (!deals(S.city, g) || S.over) return { n:0, rev:0, reason:'market' };
-  const it = S.inv[g], avg = it.n ? it.cost / it.n : 0, k = Math.max(0, Math.min(n | 0, it.n)); unit = Math.max(1, Math.floor(unit + 1e-6));
-  if (!k) return { n:0, rev:0 };
+  const it = S.inv[g], avg = it.n ? it.cost / it.n : 0, room = stockRoom(S, g), k = Math.max(0, Math.min(n | 0, it.n, room)); unit = Math.max(1, Math.floor(unit + 1e-6));
+  const reason = k < Math.min(n | 0, it.n) ? 'full' : '';
+  if (!k) return { n:0, rev:0, reason };
   const cap = sameDayCap(S, g); if (cap) unit = Math.min(unit, cap);
   const rev = k * unit;
   it.cost = Math.max(0, it.cost - avg * k); it.n -= k; if (!it.n) it.cost = 0;
-  S.cash += rev; S.prices[S.city][g] *= Math.pow(1 - IMPACT, k);
-  const r = { n:k, rev, unit, profit:Math.round(rev - avg * k) };
+  S.cash += rev; S.prices[S.city][g] *= Math.pow(1 - IMPACT, k); if (S.stock) S.stock[S.city][g] += k;
+  const r = { n:k, rev, unit, reason, profit:Math.round(rev - avg * k) };
   if (!S.stats.best || r.profit > S.stats.best.p) S.stats.best = { p:r.profit, g, city:S.city, d:S.day };
   if (!cap) r.lvUp = addTrust(S, S.city, rev / 35);
   else S.trust[S.city] = Math.max(0, S.trust[S.city] - rev / 70);
@@ -765,13 +820,16 @@ function applySea(S, plan, res) {
   }
   if (res.notes) res.notes.forEach(n => out.push(n));
   if (res.coins) { S.cash += res.coins; } S.stats.river = (S.stats.river || 0) + (res.coins || 0) + (res.nearCoins || 0);
-  if (res.crates) {
-    const gotBy = {};
-    for (let k = 0; k < res.crates; k++) { const g = pick(GOODS.slice(0, 5)), q = addGoods(S, g.id, Math.max(1, Math.round(180 / g.base))); if (q) gotBy[g.id] = (gotBy[g.id] || 0) + q; }
-    const got = Object.keys(gotBy).map(id => gotBy[id] + ' ' + gById(id).short.toLowerCase());
-    S.stats.crates += res.crates;
+  /* crates are loaded when they are picked up (res.got); an older result only carries a count and is loaded here */
+  let left = res.left || 0;
+  if (res.crates || res.got) {
+    let gotBy = res.got;
+    if (!gotBy) { gotBy = {}; for (let k = 0; k < res.crates; k++) { const t = crateTake(S); if (t) gotBy[t.g] = (gotBy[t.g] || 0) + t.q; else left++; } }
+    const got = goodsList(gotBy);
+    S.stats.crates += res.crates || 0;
     if (got.length || res.coins) out.push({ kind:'good', title:dz ? 'Yolda bulduğun' : 'Nehirden topladıkların', text:(got.length ? got.join(', ') : '') + (res.coins ? (got.length ? ' ve ' : '') + fmtN(res.coins) + ' deben' : '') + '.' });
   } else if (res.coins) out.push({ kind:'good', title:dz ? 'Yolda bulduğun' : 'Nehirden topladıkların', text:fmtN(res.coins) + ' deben.' });
+  if (left > 0) out.push({ kind:'bad', title:'Ambar dolu', text:left + ' ' + (dz ? 'yük denki' : 'sandık') + ' geride kaldı: ' + (dz ? 'eşeklerde' : 'ambarda') + ' yer yoktu. Para ve kutsamalar yine de senin.' });
   if (res.water && S.caravan) { S.caravan.water += res.water; out.push({ kind:'good', title:'Su tulumları', text:res.water + ' tulum su buldun: ' + res.water + ' gün daha dayanırsın.' }); }
   if (res.ramUsed) out.push({ kind:'good', title:'Bakır mahmuz', text:'İlk darbeyi bakır burun karşıladı.' });
   return out;
@@ -838,7 +896,7 @@ const EVENTS = [
     choices:[ { label:'Öde', sub:'Paranın yüzde 10\'u', run(S) { const t = Math.round(S.cash * 0.1); S.cash -= t; return { kind:'info', text:fmtN(t) + ' deben ödedin. Memur seni deftere "uslu" diye yazdı.' }; } },
               { label:'Pazarlık et', sub:'Yarı yarıya şans', run(S) { if (rng() < 0.5) { const t = Math.round(S.cash * 0.03); S.cash -= t; return { kind:'good', text:'Memur güldü, sadece ' + fmtN(t) + ' deben aldı.' }; } const t = Math.round(S.cash * 0.2); S.cash -= t; return { kind:'bad', text:'Memur kızdı. Cezalı vergi: ' + fmtN(t) + ' deben.' }; } } ] },
   { id:'wreck', ok:S => S.cash >= 150 && freeCap(S) >= 3, title:'Batık tekne', text:'Kıyıda batık bir tekne; bir dalgıç 150 debene bakar.',
-    choices:[ { label:'Dalgıç tut', sub:'150 deben, içinde ne var bilinmez', run(S) { S.cash -= 150; if (rng() < 0.6) { const g = pick(GOODS.slice(1, 5)), q = addGoods(S, g.id, Math.max(1, Math.round(500 / g.base))); return { kind:'good', text:'Dalgıç ' + q + ' ' + g.short.toLowerCase() + ' çıkardı!' }; } return { kind:'bad', text:'Teknede ıslak bir sepet ve şaşkın bir kurbağadan başka bir şey yoktu.' }; } },
+    choices:[ { label:'Dalgıç tut', sub:'150 deben, içinde ne var bilinmez', run(S) { S.cash -= 150; if (rng() < 0.6) { const g = pick(GOODS.slice(1, 5)), want = Math.max(1, Math.round(500 / g.base)), q = addGoods(S, g.id, want); return { kind:'good', text:'Dalgıç ' + q + ' ' + g.short.toLowerCase() + ' çıkardı!' + (want > q ? ' Ambar dolu: ' + (want - q) + ' ' + g.short.toLowerCase() + ' kıyıda kaldı.' : '') }; } return { kind:'bad', text:'Teknede ıslak bir sepet ve şaşkın bir kurbağadan başka bir şey yoktu.' }; } },
               { label:'Geç', sub:'Kurbağayı rahat bırak', run() { return { kind:'info', text:'Batığı geride bıraktın.' }; } } ] },
   { id:'dice', ok:S => S.cash >= 300, title:'Zar oyunu', text:'Kumarbaz: "300 koy, kazanırsan 600 al."',
     choices:[ { label:'Oyna', sub:'Yarı yarıya', run(S) { if (rng() < 0.5) { S.cash += 300; return { kind:'good', text:'Altılar geldi! 300 deben kazandın.' }; } S.cash -= 300; return { kind:'bad', text:'Zarlar biraz fazla düzgün döndü. 300 deben kaybettin.' }; } },
@@ -938,7 +996,7 @@ function finish(S) {
   }
   S.over = true;
   (S.work || []).forEach(w => { S.cash += Math.round(w.n * gById(w.g).base * 0.5); }); S.work = [];
-  GOODS.forEach(g => { if (deals(S.city, g.id)) sell(S, g.id, Infinity); else if (S.inv[g.id].n) { S.cash += Math.round(S.inv[g.id].n * g.base * 0.5); S.inv[g.id] = { n:0, cost:0 }; } });
+  GOODS.forEach(g => { if (deals(S.city, g.id)) sell(S, g.id, Infinity, true); else if (S.inv[g.id].n) { S.cash += Math.round(S.inv[g.id].n * g.base * 0.5); S.inv[g.id] = { n:0, cost:0 }; } });
 
   const paid = Math.min(S.cash, S.debt);
   S.cash -= paid; S.debt -= paid;

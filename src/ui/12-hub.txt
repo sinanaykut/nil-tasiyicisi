@@ -10,15 +10,16 @@
   const shown28 = gid => deals(S.city, gid) || S.inv[gid].n > 0;
   const TAGW = { steal:'Kelepir', cheap:'Ucuz', ok:'Olağan', dear:'Pahalı', boom:'Fırladı' }, TAGA = { steal:'⇊', cheap:'↓', ok:'', dear:'↑', boom:'⇈' };
   function priceTag(g, p) { const r = p / g.base; return r < 0.55 ? 'steal' : r < 0.82 ? 'cheap' : r > 1.9 ? 'boom' : r > 1.25 ? 'dear' : 'ok'; }
-  function dots5(gid, stk) { const full = Math.max(1, STOCK[gid]), n = stk >= 99 ? 5 : Math.min(5, Math.ceil(5 * stk / full)); return Array.from({ length:5 }, (_, k) => '<i' + (k < n ? ' class="on"' : '') + '></i>').join(''); }
+  /* v45: five dots = how full the merchant's storeroom is for this good (all five: he takes no more of it) */
+  function dots5(gid, stk, mx) { const n = stk >= 99 && !mx ? 5 : Math.min(5, Math.ceil(5 * stk / Math.max(1, mx || STOCK[gid]))); return Array.from({ length:5 }, (_, k) => '<i' + (k < n ? ' class="on"' : '') + '></i>').join(''); }
   function tileHtml(g) {
     const it = S.inv[g.id], on = msel === g.id, held = it.n ? '<i class="held" title="Elindeki">' + it.n + '</i>' : '';
     if (!deals(S.city, g.id)) return '<button type="button" class="tile off' + (on ? ' sel' : '') + '" data-tile="' + g.id + '" aria-pressed="' + on + '" aria-label="' + esc(g.name) + ': burada alınıp satılmaz">' + held + '<span class="ti">' + gIco(g.id, 28) + '</span><b class="tn">' + esc(g.short) + '</b><span class="tp no">satılmaz</span></button>';
-    const p = Math.round(S.prices[S.city][g.id]), tg = priceTag(g, p), stk = S.stock ? S.stock[S.city][g.id] : 99, show = g.craft ? Math.round(p * (1 + sellBonus(S))) : Math.round(p * (1 - buyDisc(S)));
+    const p = Math.round(S.prices[S.city][g.id]), tg = priceTag(g, p), stk = S.stock ? S.stock[S.city][g.id] : 99, mx = S.stock ? stockMax(S, S.city, g.id) : 0, full = !!S.stock && stk >= mx, show = g.craft ? Math.round(p * (1 + sellBonus(S))) : Math.round(p * (1 - buyDisc(S)));
     const hot = (S.mods || []).some(m => m.city === S.city && (!m.g || m.g === g.id) && S.day >= m.from && S.day <= m.until);
-    return '<button type="button" class="tile t-' + tg + (g.craft ? ' sellonly' : '') + (on ? ' sel' : '') + (it.n ? ' have' : '') + '" data-tile="' + g.id + '" aria-pressed="' + on + '" aria-label="' + esc(g.name) + ', ' + fmt(show) + ' deben, ' + TAGW[tg] + (it.n ? ', elinde ' + it.n : '') + '" title="' + esc(priceWhy(g, p)) + '">' + held + (hot ? '<i class="hot" title="Sethi ya da kriz">!</i>' : '') +
+    return '<button type="button" class="tile t-' + tg + (g.craft ? ' sellonly' : '') + (on ? ' sel' : '') + (it.n ? ' have' : '') + (full ? ' full' : '') + '" data-tile="' + g.id + '" aria-pressed="' + on + '" aria-label="' + esc(g.name) + ', ' + fmt(show) + ' deben, ' + TAGW[tg] + (it.n ? ', elinde ' + it.n : '') + (full ? ', tüccarın deposu dolu' : '') + '" title="' + esc(priceWhy(g, p)) + '">' + held + (hot ? '<i class="hot" title="Sethi ya da kriz">!</i>' : '') +
       '<span class="ti">' + gIco(g.id, 28) + '</span><b class="tn">' + esc(g.short) + '</b><span class="tp ' + tg + '">' + fmt(show) + (TAGA[tg] ? '<em>' + TAGA[tg] + '</em>' : '') + '</span>' +
-      (g.craft ? '<span class="tdots craft" title="Bu tüccar atölye malını satın alır, satmaz">yalnız satış</span>' : '<span class="tdots' + (stk < 6 ? ' low' : '') + '" title="Tezgâhta kalan: ' + stk + '">' + dots5(g.id, stk) + '</span>') + '</button>';
+      (full ? '<span class="tdots fullx" title="Tüccarın deposu dolu: bu malı bugün almaz">depo dolu</span>' : g.craft ? '<span class="tdots craft" title="Bu tüccar atölye malını satın alır, satmaz">yalnız satış</span>' : '<span class="tdots' + (stk < 6 ? ' low' : '') + '" title="Tüccarın deposu: ' + stk + ' / ' + mx + '">' + dots5(g.id, stk, mx) + '</span>') + '</button>';
   }
   function marketHtml() {
     let s = '<div class="mgrid" id="mgrid">';
@@ -44,6 +45,8 @@
     const sp = S.rival.plan, notes = [];
     if (sp && sp.to === S.city && sp.g === g.id && S.day < sp.arrive) notes.push('Sethi ' + sp.arrive + '. gün buraya boşaltacak');
     (S.mods || []).forEach(m => { if (m.city !== S.city || (m.g && m.g !== g.id) || S.day < m.from || S.day > m.until) return; notes.push(m.src === 'sethi' ? (m.mult < 1 ? 'Sethi boşalttı: ' + m.until + '. güne kadar ucuz' : 'Sethi topladı: ' + m.until + '. güne kadar kıt') : 'Kriz: ' + m.until + '. güne kadar ' + (m.mult > 1 ? 'pahalı' : 'ucuz')); });
+    const room = dl && S.stock ? stockRoom(S, g.id) : Infinity;
+    if (dl && it.n && room < it.n) notes.unshift(room ? 'Tüccarın deposunda ' + room + ' ' + g.short.toLowerCase() + ' yeri kaldı' : 'Tüccarın deposu dolu: bu malı almaz');
     const info = [dl ? '<em class="tw ' + tg + '">' + TAGW[tg] + '</em>' : '', it.n ? 'Elinde ' + it.n + ' · ort. ' + fmt(avg) : 'Elinde yok', b ? cIco(b.i, 12) + fmt(b.p) + '↗' : ''].filter(Boolean).map(x => '<span class="abi">' + x + '</span>').join('\u00a0· ') + (notes.length ? '<span class="abw">⚠ ' + esc(notes[0]) + '</span>' : '');
     let s = '<div class="ab1"><span class="abg">' + gIco(g.id, 30) + '<span><b>' + esc(g.short) + '</b><small>' + info + '</small></span></span>' +
       (dl ? '<span class="chips" role="group" aria-label="Miktar">' + [[1, '1'], [10, '10'], [Infinity, 'Hepsi']].map(([q, l]) => '<button type="button" class="chip" data-qty="' + q + '" aria-pressed="' + (qty === q) + '">' + l + '</button>').join('') + '</span>' : '') +
@@ -55,7 +58,7 @@
     if (!CITIES.some((c, i) => canGo(S, i))) s += '<div class="ab3">' + (S.day < S.days ? '<button type="button" class="btn sm" data-act="wait">Bir gün bekle</button>' : '') + '<button type="button" class="btn gold" data-act="finish">Seferi bitir</button></div>';
     return s + '<div class="ab2">' +
       '<button type="button" class="btn buy" data-buy="' + g.id + '"' + (qb.n ? '' : ' disabled') + ' aria-label="' + esc(g.name) + ' al"><b>Al' + (qb.n ? ' ' + qb.n : '') + '</b><small>' + (qb.n ? '−' + fmt(qb.cost) : g.craft ? 'satmaz' : qb.reason === 'cap' ? 'ambar dolu' : qb.reason === 'stock' ? 'tezgâh boş' : 'para yok') + '</small></button>' +
-      '<button type="button" class="btn sell" data-sell="' + g.id + '"' + (qs.n ? '' : ' disabled') + ' aria-label="' + esc(g.name) + ' sat"><b>Sat' + (qs.n ? ' ' + qs.n : '') + '</b><small>' + (qs.n ? '+' + fmt(qs.rev) : 'elinde yok') + '</small></button>' +
+      '<button type="button" class="btn sell" data-sell="' + g.id + '"' + (qs.n ? '' : ' disabled') + ' aria-label="' + esc(g.name) + ' sat"><b>Sat' + (qs.n ? ' ' + qs.n : '') + '</b><small>' + (qs.n ? '+' + fmt(qs.rev) : qs.reason === 'full' ? 'depo dolu' : 'elinde yok') + '</small></button>' +
       '<button type="button" class="btn hag" data-act="hag28"' + (hgOk && (qb.n || qs.n) ? '' : ' disabled') + ' title="Bu mal için tüccarla pazarlık et">' + ico('i-whisper', 18) + '<b>' + (why || 'Pazarlık') + '</b></button></div>';
   }
   function pickGood(gid) {
@@ -330,12 +333,42 @@
     placeHold(ship ? { left:ship.left - sr.left, top:ship.top - sr.top, right:ship.right - sr.left, bottom:ship.bottom - sr.top } : null, sr);
   }
   /* the hold, right next to the ship (or the donkeys) */
+  /* v45: the hold card: big goods icons with counts (the bulkiest first, '+N' for the rest), a fill bar, tap for the full list */
   function holdHtml() {
-    const L = load(S), C = cap(S), K = !isRiver(S.city) && S.caravan, items = GOODS.filter(g => S.inv[g.id].n > 0);
-    const chips = (S.contra ? '<span class="hc contra" title="Hapu\'nun mühürlü sandıkları">' + ico('i-chest', 16) + '<b>' + CONTRA + '</b></span>' : '') + items.slice(0, 6).map(g => '<span class="hc" title="' + esc(g.name) + '">' + gIco(g.id, 16) + '<b>' + S.inv[g.id].n + '</b></span>').join('') + (items.length > 6 ? '<span class="hc more">+' + (items.length - 6) + '</span>' : '');
-    let s = '<div class="hh"><b>' + (K ? ico('i-donkey', 15) + 'Kervan' : ico('i-chest', 15) + 'Ambar') + '</b><span>' + L + '/' + C + '</span></div><i class="hbar"><em style="width:' + Math.round(Math.min(1, L / Math.max(1, C)) * 100) + '%"></em></i>';
+    const L = load(S), C = cap(S), K = !isRiver(S.city) && S.caravan, items = GOODS.filter(g => S.inv[g.id].n > 0).sort((a, b) => S.inv[b.id].n - S.inv[a.id].n || b.base - a.base);
+    const extra = (S.contra ? 1 : 0) + (S.quest && S.quest.cargo ? 1 : 0), room = 5 - extra, shown = items.length > room ? room - 1 : room;
+    const chips = (S.contra ? '<span class="hc contra" title="Hapu\'nun mühürlü sandıkları">' + ico('i-chest', 22) + '<b>' + CONTRA + '</b></span>' : '') + (S.quest && S.quest.cargo ? '<span class="hc quest" title="Görev yükü">' + ico('i-scroll', 22) + '<b>' + S.quest.cargo + '</b></span>' : '') +
+      items.slice(0, shown).map(g => '<span class="hc" title="' + esc(g.name) + ': ' + S.inv[g.id].n + '">' + gIco(g.id, 24) + '<b>' + S.inv[g.id].n + '</b></span>').join('') + (items.length > shown ? '<span class="hc more" title="' + esc(items.slice(shown).map(g => S.inv[g.id].n + ' ' + g.short).join(', ')) + '">+' + (items.length - shown) + '</span>' : '');
+    const f = Math.min(1, L / Math.max(1, C)), lv = L >= C ? 'full' : f >= 0.8 ? 'hi' : '';
+    let s = '<button type="button" class="hbody" data-act="holdList" aria-label="' + (K ? 'Kervan' : 'Ambar') + ': ' + L + ' / ' + C + ' dolu. Listeyi aç">' +
+      '<span class="hh"><b>' + (K ? ico('i-donkey', 18) + 'Kervan' : ico('i-chest', 18) + 'Ambar') + '</b><span class="hn ' + lv + '">' + L + '<small>/' + C + '</small></span><i class="hmore" aria-hidden="true">›</i></span>' +
+      '<i class="hbar ' + lv + '"><em style="width:' + Math.round(f * 100) + '%"></em></i>' +
+      (chips ? '<span class="hcs">' + chips + '</span>' : '<span class="hcs empty">Ambar boş · pazardan mal al</span>') + '</button>';
     if (K) { s += '<div class="hw" title="Günlük su">' + Array.from({ length:Math.min(8, K.water) }, () => ico('i-water', 13)).join('') + '<b>' + K.water + ' gün su</b>' + (/^(siwa|kharga)$/.test(CITIES[S.city].id) ? '' : '<button type="button" class="hbtn" data-act="water1"' + (S.cash >= K.donkeys * WATER_COST ? '' : ' disabled') + '>+1 · ' + K.donkeys * WATER_COST + '</button>') + '</div>'; }
-    return s + (chips ? '<div class="hcs">' + chips + '</div>' : '<div class="hcs empty">boş</div>');
+    return s;
+  }
+  /* the full hold list: every good with its count, what you paid and what it fetches here */
+  function showHold() {
+    if (!S || phase !== 'port') return;
+    const L = load(S), C = cap(S), K = !isRiver(S.city) && S.caravan, items = GOODS.filter(g => S.inv[g.id].n > 0).sort((a, b) => S.inv[b.id].n * b.base - S.inv[a.id].n * a.base);
+    const row = (icon, name, n, sub, val) => '<li><span class="hli">' + icon + '</span><span class="hln"><b>' + name + '</b><small>' + sub + '</small></span><b class="hlc">' + n + '</b><span class="hlv">' + val + '</span></li>';
+    let tot = 0;
+    const rows = items.map(g => {
+      const it = S.inv[g.id], avg = it.n ? Math.round(it.cost / it.n) : 0, dl = deals(S.city, g.id), q = dl ? quoteSell(S, g.id, it.n) : null;
+      if (q) tot += q.rev;
+      const val = !dl ? '<em class="no">burada satılmaz</em>' : !q.n ? '<em class="no">depo dolu</em>' : '<em>+' + fmt(q.rev) + '</em><small>' + (q.n < it.n ? q.n + ' tanesi satılır' : 'burada satış') + '</small>';
+      return row(gIco(g.id, 28), esc(g.name), it.n, avg ? 'ort. ' + fmt(avg) + ' deben' : 'yoldan buldun', val);
+    });
+    if (S.contra) rows.unshift(row(ico('i-chest', 26), 'Hapu\'nun sandıkları', CONTRA, CITIES[S.contra.to].dat + ' · ' + S.contra.due + '. güne kadar', '<em>' + fmt(S.contra.reward) + '</em>'));
+    if (S.quest && S.quest.cargo) rows.unshift(row(ico('i-scroll', 26), 'Görev yükü', S.quest.cargo, 'satılmaz', ''));
+    const f = Math.min(1, L / Math.max(1, C));
+    let s = '<div class="sh-h"><span class="pt big wk">' + ico(K ? 'i-donkey' : 'i-chest', 32) + '</span><h2 id="shTitle">' + (K ? 'Kervan yükü' : 'Ambar') + '<small>' + L + ' / ' + C + ' dolu · ' + Math.max(0, C - L) + ' boş yer</small></h2>' + xBtn + '</div>';
+    s += '<i class="hbar big ' + (L >= C ? 'full' : f >= 0.8 ? 'hi' : '') + '"><em style="width:' + Math.round(f * 100) + '%"></em></i>';
+    s += rows.length ? '<ul class="hlist">' + rows.join('') + '</ul>' : '<p class="muted">Ambar boş. Pazarda ucuz bir mala dokun, "Al"a bas.</p>';
+    if (tot) s += '<p class="hltot">' + esc(CITIES[S.city].loc) + ' hepsini satarsan: <b>' + fmt(tot) + ' deben</b></p>';
+    if (L >= C) s += '<p class="hlnote">Ambar dolu: yolda bulduğun sandıklar geride kalır, yalnız para ve kutsamalar alınır.</p>';
+    s += '<div class="choices one"><button type="button" class="btn go1" data-act="holdMarket"' + (spotsHere(S.city).market ? '' : ' disabled') + '>' + ico('i-stall', 18) + '<span>Pazara git</span></button></div>';
+    openSheet(s, false, 'hold');
   }
   function renderHold() { const el = $('#hold'); if (!el || !S) return; el.innerHTML = holdHtml(); }
   function placeHold(r, sr) {

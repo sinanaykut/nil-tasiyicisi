@@ -168,6 +168,14 @@
       st.streamY = y + (st.race ? rnd(700, 1000) : rnd(700, 1200));
     }
     function floatText(x, y, txt, col) { st.texts.push({ x, y, txt, col:col || '#FFF8EC', life:1, max:1 }); }
+    /* v45: a crate goes straight into the hold through the game's hook; with the hold full it stays behind (st.left) */
+    const cargoRoom = () => st && st.plan && st.plan.cargo ? st.plan.cargo.room() : 99;
+    function cargoTake() {
+      const c = st.plan && st.plan.cargo;
+      if (!c) { st.crates++; return { txt:'' }; }
+      const t = c.take(); if (t) st.crates++; else st.left = (st.left || 0) + 1;
+      return t;
+    }
     const sx = (u, y) => centerX(y) + u * halfW();
     const sy = y => boatY() - (y - st.dist);
     function hit(cause) {
@@ -269,7 +277,11 @@
       st.picks = st.picks.filter(p => {
         const px = sx(p.u, p.y), py = sy(p.y);
         if (Math.hypot(bx - px, (by - 8) - py) < p.r + st.br + 3) {
-          if (p.k === 'crate' || p.k === 'cache') { st.crates++; floatText(px, py - 20, p.k === 'cache' ? 'Kaçakçı zulası!' : st.desert ? 'Yük denki!' : 'Sandık!', '#FFF8EC'); }
+          if (p.k === 'crate' || p.k === 'cache') {
+            /* a full hold: the crate bumps off the hull and floats on */
+            if (cargoRoom() <= 0) { if (!p.full) { p.full = true; st.left = (st.left || 0) + 1; floatText(px, py - 20, st.desert ? 'Heybeler dolu!' : 'Ambar dolu!', '#FFB4A0'); sfx('no'); } return p.y > st.dist - H * 0.4; }
+            const t = cargoTake(); floatText(px, py - 20, (p.k === 'cache' ? 'Kaçakçı zulası!' : st.desert ? 'Yük denki!' : 'Sandık!') + (t && t.txt ? ' ' + t.txt : ''), '#FFF8EC');
+          }
           if (p.k === 'coin') { const c = Math.round(rnd(30, 90) * (1 + Math.min(1, st.combo * 0.2))); st.coins += c; floatText(px, py - 20, '+' + c + ' deben', '#F2C65A'); }
           if (p.k === 'lotus') { st.charges = Math.min(st.maxc, st.charges + 1); flash('Kürek hamlesi doldu'); }
           if (p.k === 'date') { st.charges = Math.min(st.maxc, st.charges + 1); flash('Hurma! Koş hamlesi doldu'); }
@@ -349,10 +361,10 @@
     function finish() {
       if (st.end) return;
       st.end = true;
-      const res = { kind:st.kind, hp:Math.max(0, st.hp), hits:st.hits, wreck:st.wreck, caught:st.caught, escaped:!!st.chaser && !st.caught, coins:st.coins, crates:st.crates, near:st.near, nearCoins:st.nearCoins, maxCombo:st.maxCombo || 0, spotted:st.spotted, beat:!!st.beat, goods:st.goods || null, overboard:st.lost || 0, special:st.special || null, water:st.water || 0, ramUsed:!!st.ramUsed };
+      const res = { kind:st.kind, hp:Math.max(0, st.hp), hits:st.hits, wreck:st.wreck, caught:st.caught, escaped:!!st.chaser && !st.caught, coins:st.coins, crates:st.crates, near:st.near, nearCoins:st.nearCoins, maxCombo:st.maxCombo || 0, spotted:st.spotted, beat:!!st.beat, goods:st.goods || null, overboard:st.lost || 0, left:st.left || 0, special:st.special || null, water:st.water || 0, ramUsed:!!st.ramUsed };
       /* v28 race details: margin in boat lengths (>0 = we won), photo finish, drum strokes, Sethi's knocks */
       if (st.race) { const r = st.race, rv = st.rival; res.race = { margin:Math.round(r.margin * 10) / 10, photo:r.photo, onBeat:r.onBeat, offBeat:r.offBeat, draft:Math.round(r.draftT * 10) / 10, wake:Math.round(r.wakeT * 10) / 10, swaps:r.swaps, rivalHits:rv.hits, rivalBoosts:rv.boosts, time:Math.round((r.tP != null ? r.tP : st.t) * 10) / 10 }; }
-      if (st.kind === 'dive') res.dive = { banked:st.banked, blackouts:st.blackouts, items:st.items.length, bites:st.bites || 0 };
+      if (st.kind === 'dive') { const full = st.items.filter(i => !i.banked && i.full).length; if (full) res.left = (res.left || 0) + full; res.dive = { banked:st.banked, blackouts:st.blackouts, items:st.items.length, bites:st.bites || 0, bumps:st.bumps || 0 }; }
       const mine = st, fire = () => { if (st !== mine) return; if (paused) { setTimeout(fire, 200); return; } const cb = done; stop(); if (cb) cb(res); };
       setTimeout(fire, st.wreck ? 900 : st.race ? 250 : 500);
     }
