@@ -2,10 +2,11 @@
 
 ## Nasıl kullanılır
 1. **Ortak tarz cümlesini hiç değiştirme.** Bütün karakterlerin aynı elden çıkmış gibi görünmesi buna bağlı.
-2. **Önce düz ifadeyi üret.** Beğendiğin resmi Gemini'ye geri ver ve altındaki "ızgara" isteğini yaz. Paneb'de olduğu gibi tek resimde 4 sütun × 2 satır olsun.
+2. **Önce düz ifadeyi üret.** Beğendiğin resmi Gemini'ye geri ver ve altındaki "ızgara" isteğini yaz. Paneb'de olduğu gibi tek resimde 4 sütun × 3 satır olsun.
 3. **Sıra hep aynı olsun.**
-   - Üst satır: düz, gülümseyen, kahkaha (göz kırpan), kızgın
-   - Alt satır: şaşkın, düşünceli (eli çenesinde), konuşurken (ağız açık), gözleri kapalı
+   - 1. satır: düz, gülümseyen, kahkaha (göz kırpan), kızgın
+   - 2. satır: şaşkın, düşünceli (eli çenesinde), üzgün, gözleri kapalı
+   - 3. satır: konuşurken düz, konuşurken gülümseyen, konuşurken kızgın, konuşurken şaşkın
 4. **Yan karakterler** için 1 satır, 3 resim yeterli: düz, gülümseyen, kızgın.
 5. Resimleri buraya yüklerken karakterin adını yaz. Gerisini (kırpma, hizalama, sıkıştırma, oyuna yerleştirme) ben yaparım.
 
@@ -13,14 +14,14 @@
 > Stylized 2D game character portrait, warm hand-painted illustration with clean dark ink outlines and soft cel shading, adult, attractive, ancient Egypt, same art style as a cozy trading game. Bust shot from chest up, centered, facing the viewer, plain flat beige background (#F3E2B8), no text, no frame, no shadow on background.
 
 ## Izgara isteği (düz resim beğenildikten sonra)
-> Using this exact character, create one image with a 4 by 2 grid of the same bust portrait, same outfit, same framing, same background, equal cells with no borders. Top row left to right: neutral, happy smile, laughing with a wink, angry. Bottom row left to right: surprised, thinking with hand on chin, talking with mouth open, eyes closed (blinking).
+> Using this exact character, create one large image (at least 2048 pixels wide) with a 4 by 3 grid of the same bust portrait, all cells exactly the same size, scale and framing, same outfit and background, no borders. Row 1: neutral, happy smile, laughing with a wink, angry. Row 2: surprised, thinking with hand on chin, sad, eyes closed (blinking). Row 3: talking with mouth open (neutral), talking with mouth open while smiling, talking with mouth open while angry, talking with mouth open while surprised.
 
 Yan karakterler için:
 > Using this exact character, create one image with 3 equal cells side by side, same bust portrait, same outfit, framing and background: neutral, happy smile, angry.
 
 ---
 
-## Ana karakterler (8 ifade)
+## Ana karakterler (12 ifade)
 
 **Kahramanlar**
 - **Ahmose, eski Medjay (kolluk askeri):** Egyptian man in his late thirties, broad shoulders, short-cropped black hair, a thin scar on one cheek, calm and protective look, simple white linen shendyt, leather chest strap, bronze armband, small eye-of-Horus amulet.
