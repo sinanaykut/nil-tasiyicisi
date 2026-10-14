@@ -162,6 +162,13 @@
         parts[nm] = p;
       });
       if (!skel) throw new Error('no skeleton');
+      /* v42: the kit's low body (town LOD) lost its whole left arm in the decimation (x stops at the left shoulder):
+         every town walker was one-armed. A lopsided low body is replaced by the full body (+~570 triangles a person). */
+      ['body_lo', 'head_lo'].forEach(nm => {
+        const lo = parts[nm], hi = parts[nm.replace('_lo', '')]; if (!lo || !hi) return;
+        let a = 0, b = 0; for (let i = 0; i < lo.n; i++) { const x = lo.pos[i * 3]; if (x > a) a = x; if (x < b) b = x; }
+        if (a < -b * 0.8 || -b < a * 0.8) parts[nm] = hi;
+      });
       const bones = skel.bones.map((b, i) => ({ name:b.name, parent:skel.bones.indexOf(b.parent), pos:b.position.toArray(), quat:b.quaternion.toArray(), scl:b.scale.toArray(), world:b.matrixWorld.clone() }));
       const bi = {}; bones.forEach((b, i) => { bi[b.name] = i; });
       /* clips -> uniform pose tables (quaternion per bone per frame) */
@@ -231,6 +238,9 @@
       if (bodyP) {
         const hid = new Uint8Array(bodyP.n); let any = false;
         list.forEach(p => { const h = p.hide && p.hide[bodyP.name]; if (h) { any = true; for (const i of h) hid[i] = 1; } });
+        /* v42: the kit's hide lists miss most of the legs under long clothes (thighs poked through dresses in the walk) */
+        const LONG = { dress:0.14, robe:0.13, kilt_long:0.46, kilt:0.64 };
+        list.forEach(p => { const y0 = LONG[p.name]; if (y0 == null) return; any = true; const Q = bodyP.pos; for (let i = 0; i < bodyP.n; i++) { const y = Q[i * 3 + 1]; if (y > y0 && y < 0.98 && Math.abs(Q[i * 3]) < 0.2) hid[i] = 1; } });
         if (any) { const I0 = bodyP.idx, keep = []; for (let j = 0; j < I0.length; j += 3) if (!(hid[I0[j]] && hid[I0[j + 1]] && hid[I0[j + 2]])) keep.push(I0[j], I0[j + 1], I0[j + 2]); bodyIdx = Uint32Array.from(keep); }
       }
       const shells = [];
@@ -473,6 +483,8 @@ void main() {` + VS + `  if (aFx.x < 0.1) { gl_Position = vec4(0.0, 0.0, 2.0, 0.
       if (first) hp.set(rr[0] + px, rr[1] + py, rr[2] + pz);
       else hp.set(hp.x + (rr[0] + px - hp.x) * w, hp.y + (rr[1] + py - hp.y) * w, hp.z + (rr[2] + pz - hp.z) * w);
     }
+    /* v42: arms a little away from the body, so the swinging forearms clear dresses, robes and kilts */
+    function splay(st) { const a = st.rc && (st.rc.f || /robe|dress|kilt_long/.test((st.rc.clothes || []).join(' '))) ? 0.13 : 0.07; rotW(st, 'uarmL', 0, 0, 1, a); rotW(st, 'uarmR', 0, 0, 1, -a); }
     const ONESHOT = { bow:1, greet:1, shrug:1 };
     let FACEB = null;
     function play(st, name, now) {
@@ -600,7 +612,7 @@ void main() {` + VS + `  if (aFx.x < 0.1) { gl_Position = vec4(0.0, 0.0, 2.0, 0.
       if (st.clip !== want) { st.clip = want; st.prev = null; }
       const dt = st.lastT == null ? 0 : Math.max(0, Math.min(0.1, t - st.lastT)); st.lastT = t;
       st.clipT = t * (want === 'walk' || want === 'carry' ? 0.8 : 1);
-      sampleInto(st, want, st.clipT, 1, true);
+      sampleInto(st, want, st.clipT, 1, true); splay(st);
       if (st.lod === 0 && !st.noFace) { face(st, dt || 0.033, t); }
     }
 
@@ -614,7 +626,7 @@ void main() {` + VS + `  if (aFx.x < 0.1) { gl_Position = vec4(0.0, 0.0, 2.0, 0.
     } } catch (e) {}
 
     return { on:on3, load, has, keys:KEYS, recipe, get kit() { return KIT; },
-      _dbg:{ instance, assemble, pose, face, play, sampleInto, partList, MOODS } };
+      _dbg:{ instance, assemble, pose, face, play, sampleInto, splay, partList, MOODS } };
   })();
   try { if (/[?&]debug/.test(location.search)) window.CH33 = CH33; } catch (e) {}
   /* warm the kit shortly after start when 3D is on, so the first dialogue opens without a decode pause */

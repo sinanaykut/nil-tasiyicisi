@@ -64,13 +64,14 @@
       lapis:[['g', 3], ['#2350A8', 11, 'bead', '#3C6CC8'], ['g', 5], ['#2350A8', 11, 'bead', '#3C6CC8'], ['g', 12, 'drop']],
       copper:[['#C9733E', 5], ['#2C6BA6', 9, 'seg'], ['#C9733E', 8], ['#2C6BA6', 8, 'seg'], ['#C9733E', 11, 'drop']],
       teal:[['g', 4], ['t', 10, 'seg'], ['g', 5], ['#3E8E5A', 9, 'seg'], ['g', 11, 'drop']],
-      small:[['g', 3], ['t', 8, 'seg'], ['r', 7, 'bead', '#2F5FB3'], ['g', 9, 'drop']]
+      small:[['g', 3], ['t', 8, 'seg'], ['r', 7, 'bead', '#2F5FB3'], ['g', 9, 'drop']],
+      carnelian:[['g', 5], ['r', 9, 'bead', '#E07A4A'], ['g', 6], ['r', 8, 'seg'], ['g', 5], ['r', 12, 'drop']]
     };
     const REC = {
       paneb:{ sex:'m', sk:'#B8733F', hair:{ s:'bob', c:HAIR, band:{ k:'tie', c:'#C8352A' } }, iris:'#5A3418', nose:'long', col:U(ROWS.paneb), cl:{ k:'bare' }, x:['armband'], bg:'#F3E2B8', fwk:0.97, jwk:1.04, nwk:1.08, cyd:5, myd:2, es:0.94, base:{ m:'smile' } },
       h_ahmose:{ sex:'m', age:0.25, sk:'#9A5E36', hair:{ s:'crop', c:HAIR }, iris:'#3E2414', nose:'broad', beard:{ s:'stub', c:HAIR }, col:{ k:'cord', amulet:'horus' }, cl:{ k:'straps', c:'#7A4A2A' }, x:['scar', 'armband'], base:{ br:[2, 0, 2, 0], m:'rest' }, bg:'#E8D3A6', fwk:1.04, jwk:1.12, nwk:1.12, swk:1.04 },
-      h_neferet:{ sex:'f', sk:'#C58A5A', jwk:0.9, cwk:0.85, es:1.05, hair:{ s:'braids', c:HAIR, band:{ k:'gold' } }, iris:'#5A3418', nose:'small', lip:'#A9473C', ear:{ k:'hoop', c:GOLD }, col:U(ROWS.red), cl:{ k:'dress', c:'#F4ECDC' }, base:{ m:'smile' }, bg:'#F2D2BC' },
-      h_sitre:{ sex:'f', sk:'#B97A4C', hair:{ s:'shoulder', c:'#1C1826', band:{ k:'flat', c:'#2C6BA6' } }, iris:'#3E2A1C', nose:'small', lip:'#94463A', ear:{ k:'stud', c:'#2BA59A' }, col:{ k:'beads', c:'#2BA59A', c2:GOLD }, cl:{ k:'dress', c:'#F6F1E4' }, x:['pen'], bg:'#CFE6DD', es:0.95, fwk:0.94, jwk:0.92, cyd:7, base:{ m:'flat', br:[1, 1, 1, 1] } },
+      h_neferet:{ sex:'f', age:0, shadow:'#C0862E', kohl:1.15, sk:'#D29C68', fwk:1.02, jwk:0.96, cwk:1, cyd:-3, jyd:-2, ck:0.5, jsq:0, es:1.1, ew:1.02, eh:1.12, etl:0.6, barch:1.35, lipf:1.3, mwk:1.08, hair:{ s:'braids', c:'#1A1420', c2:'#6A5A80', rings:7, band:{ k:'gold' } }, iris:'#6A3E1C', nose:'small', lip:'#B8473A', col:U(ROWS.carnelian), cl:{ k:'dress', c:'#B8352A', c2:GOLD }, x:['armband', 'mole'], base:{ m:'smile' }, bg:'#F2D2BC' },
+      h_sitre:{ sex:'f', age:0.12, shadow:'#2C6BA6', sk:'#A0683F', fwk:0.9, jwk:0.84, cwk:0.72, cyd:11, jyd:6, ck:0.75, ckyd:-5, jsq:0.1, es:0.96, ew:1.08, eh:0.8, etl:1.8, hood:0.25, barch:0.3, bthk:1.2, blen:1.06, lipf:0.78, mwk:0.9, nwk:0.92, nl:3, hair:{ s:'shoulder', c:'#1B1A2C', band:{ k:'ribbon', c:'#2C6BA6' } }, iris:'#3A2616', nose:'pointed', lip:'#8A4034', ear:{ k:'stud', c:'#2BA59A' }, col:{ k:'beads', c:'#2BA59A', c2:'#F2ECDD' }, cl:{ k:'dress', c:'#F6F1E4', c2:'#2C6BA6' }, x:['pen', 'sash'], sashc:'#2C6BA6', bg:'#CFE6DD', base:{ m:'flat', br:[2, 0, 2, 0], sq:0.12 } },
       h_bakenre:{ sex:'m', age:-0.2, sk:'#9C5A30', hair:{ s:'curly', c:'#1A1418' }, iris:'#4A2C16', nose:'button', col:{ k:'cord', amulet:'fish' }, cl:{ k:'bare' }, base:{ m:'smile' }, bg:'#CFE2EE', fwk:0.95, jwk:0.92, swk:0.95, nwk:0.92, es:1.04 },
       hapu:{ sex:'m', age:0.75, fat:1, fwk:1.12, jwk:1.12, top:76, es:0.9, sk:'#B47A52', hair:{ s:'bald' }, brow:'#3A2E2A', iris:'#3A2414', nose:'hook', col:{ k:'gold' }, cl:{ k:'robe', c:'#F2EADA', c2:'#6E3F86' }, x:['dchin'], ear:{ k:'hoop', c:GOLD }, base:{ o:-0.3, m:'smirk', br:[2, -3, -3, -5], sq:0.3 }, bg:'#EBCDB9' },
       sethi:{ sex:'m', age:0.1, sk:'#C08458', hair:{ s:'longbob', c:'#16121C', band:{ k:'flat', c:'#2E7D4F' } }, iris:'#3A2A18', nose:'long', beard:{ s:'mustache', c:'#16121C' }, ear:{ k:'stud', c:GOLD }, col:U(ROWS.green), cl:{ k:'robe', c:'#F6F0E2', c2:'#2E7D4F' }, base:{ o:-0.12, m:'smirk', br:[0, -2, -3, -3] }, bg:'#D2E6D2', fwk:0.96 },
@@ -95,6 +96,37 @@
       scribe:{ sex:'m', age:0.2, sk:'#C79264', hair:{ s:'shortwig', c:'#201A24' }, iris:'#3A2414', nose:'small', col:{ k:'beads', c:'#2C6BA6', c2:GOLD }, cl:{ k:'robe', c:'#F6F1E4', c2:'#2C6BA6' }, x:['pen'], bg:'#DDF0F2', fwk:0.94 },
       folk:{ sex:'m', age:0.3, sk:'#AE7448', hair:{ s:'crop', c:HAIR }, iris:'#3A2414', nose:'std', beard:{ s:'stub', c:HAIR }, col:{ k:'cord', amulet:'stone' }, cl:{ k:'bare' }, bg:'#EAD9B4' }
     };
+
+    /* v42 face shapes per character: ck cheekbones, jsq square jaw, ew/eh eye width/height, etl eye tilt, hood heavy lids,
+       barch brow arch, bthk brow weight, blen brow length, lipf lip fullness, nl nose length, nwd nose width, ssl shoulder slope */
+    const SHAPE = {
+      0:{ shadow:'#5A8E7A', ck:0.3, jsq:0.3, eh:0.92, hood:0.3, barch:0.8, lipf:1.05, ssl:0.8 },
+      1:{ kohl:0.35, ck:0.6, jsq:0.35, eh:0.84, hood:0.5, barch:0.4, bthk:1.3, nl:3, lipf:0.8, swk:0.92, ssl:0.6 },
+      2:{ shadow:'#3E8E7A', ck:0.45, jsq:0, es:1.04, eh:1.05, etl:1.3, barch:1.15, lipf:1.15, x:['papyrus', 'lotus'] },
+      3:{ kohl:0.6, ck:0.1, jsq:0.75, es:0.95, eh:0.88, barch:0.3, bthk:1.3, nwd:1.1, lipf:1.2 },
+      4:{ shadow:'#3E6CC8', ck:0.75, jsq:0.05, es:1.08, eh:1.06, etl:0.9, barch:1.1, lipf:1.45, nwd:0.95, cyd:8 },
+      5:{ kohl:0.4, ck:0.6, jsq:0.4, eh:0.82, hood:0.45, barch:0.2, bthk:1.25, nl:4, fwk:0.94, cyd:6, jyd:6, ssl:0.6, swk:0.94 },
+      6:{ shadow:'#7A6A3A', kohl:0.8, ck:0.35, jsq:0.45, eh:0.9, hood:0.35, barch:0.7, lipf:0.95, hair:{ s:'braids', c:'#3A3236', c2:'#9A928A', n:4, bw:12.5, y2:356, bead:'#B5622F', band:{ k:'palm' } } },
+      7:{ kohl:0.8, ck:0.85, jsq:0.6, cyd:6, eh:0.95, etl:-0.5, barch:0.5, lipf:1.3, swk:1.05 },
+      paneb:{ ck:0.3, jsq:0.45 },
+      h_ahmose:{ kohl:0.75, ck:0.5, jsq:0.95, eh:0.88, hood:0.2, barch:0.15, bthk:1.25, nwk:1.18, swk:1.1, ssl:-0.3 },
+      h_bakenre:{ kohl:0.6, ck:0.1, jsq:0, es:1.12, eh:1.1, barch:0.9, swk:0.9, ssl:0.5, nwk:0.86 },
+      hapu:{ kohl:0.7, ck:0, eh:0.78, hood:0.55, etl:-0.8, barch:0.5, lipf:0.9, mwk:1.1 },
+      sethi:{ shadow:'#3E8E5A', ck:0.85, jsq:0.55, cyd:4, eh:0.82, etl:1.7, hood:0.1, barch:1.05, nwd:0.9, lipf:0.85, jwk:0.9 },
+      merenre:{ ck:0.5, jsq:0.35, barch:0.7, lipf:0.9, edk:0.95 },
+      djedi:{ shadow:'#C0862E', ck:0.7, jsq:0.3, eh:0.92, etl:1.2, barch:0.9, lipf:1.05, cwk:0.85 },
+      nakht:{ kohl:0.8, ck:0.4, jsq:0.8, hood:0.5, eh:0.82, barch:0.3, bthk:1.3, cyd:4 },
+      tv0:{ kohl:0.35, ck:0.2, hood:0.5, eh:0.8, barch:0.5 },
+      tv1:{ kohl:0.45, ck:0.4, jsq:1, eh:0.85, barch:0.2, bthk:1.4, nwd:1.15 },
+      tv3:{ kohl:0.3, ck:0.65, jsq:0.3, eh:0.9, hood:0.3, barch:0.5, nl:3, cyd:6, jyd:4, swk:0.94 },
+      tv4:{ shadow:'#C8562E', ck:0.55, jsq:0, es:1.08, eh:1.12, lipf:1.35, nwd:0.92 },
+      tv7:{ kohl:0.5, ck:0.5, jsq:0.6, eh:0.8, hood:0.3, barch:0.4, bthk:1.2 },
+      guard:{ kohl:0.7, ck:0.45, jsq:0.85, eh:0.92, barch:0.25, bthk:1.2, swk:1.08, nwk:1.15, ssl:-0.3 },
+      priest:{ kohl:0.9, ck:0.55, jsq:0.3, eh:0.85, hood:0.25, barch:0.8, lipf:0.9, cyd:6, jyd:3 },
+      scribe:{ ck:0.3, jsq:0.3, es:1.04, eh:1.02, barch:0.8, jwk:0.9, swk:0.94 },
+      folk:{ kohl:0.45, ck:0.35, jsq:0.55, eh:0.95, barch:0.5, nwd:1.05 }
+    };
+    for (const k in SHAPE) if (REC[k]) Object.assign(REC[k], SHAPE[k]);
 
     /* ---------------- expressions ----------------
        br [inner L, outer L, inner R, outer R] brow offsets (+ down), o eye opening, sq lower lid squint, look iris offset,
@@ -146,26 +178,42 @@
       g.cw = (fem ? 11 : 19) * (Rc.cwk || 1) + fat * 7;
       g.cy = (fem ? 289 : 297) + fat * 6 + (Rc.cyd || 0);
       g.top = Rc.top || 64;
-      g.ey = 189 + (Rc.eyd || 0); g.edx = fem ? 31.5 : 33; g.es = (fem ? 1.2 : 1.13) * (Rc.es || 1);
-      g.by = 167;
-      g.ny = 232;
+      g.ey = 189 + (Rc.eyd || 0); g.edx = (fem ? 31.5 : 33) * (Rc.edk || 1); g.es = (fem ? 1.2 : 1.13) * (Rc.es || 1);
+      g.by = 167 + (Rc.byd || 0);
+      g.ny = 232 + (Rc.nl || 0);
       g.my = (fem ? 258 : 262) + fat * 3 + (Rc.myd || 0); g.mw = (fem ? 17 : 20) * (Rc.mwk || 1) + fat * 3;
       g.nw = (fem ? 24 : 34) * (Rc.nwk || 1) + fat * 9;
       g.sw = (fem ? 150 : 180) * (Rc.swk || 1) + fat * 12;
       g.ccy = 306;
+      /* v42 face and body shape: cheekbones, jaw corner, temples, eye shape, brows, lips, shoulders */
+      g.ck = Rc.ck != null ? Rc.ck : fem ? 0.35 : 0.25;            // cheekbone prominence 0..1
+      g.jsq = Rc.jsq != null ? Rc.jsq : fem ? 0.15 : 0.5;          // square jaw 0..1
+      g.cky = 204 + (Rc.ckyd || 0);
+      g.ew = Rc.ew || 1; g.eh = Rc.eh || 1; g.etl = Rc.etl || 0; g.hood = Rc.hood || 0;
+      g.barch = Rc.barch != null ? Rc.barch : fem ? 1 : 0.6; g.blen = Rc.blen || 1;
+      g.lipf = Rc.lipf || 1;
+      g.ssl = Rc.ssl != null ? Rc.ssl : fem ? 1 : 0;                // shoulder slope
       return g;
     }
     const facePath = g => {
-      const { fw, jw, jy, cw, cy, top } = g;
-      return 'M' + R(fw - 3) + ',150 C' + R(fw + 1) + ',172 ' + R(fw + 1) + ',196 ' + R(fw - 2) + ',212 C' + R(fw - 6) + ',236 ' + R(jw + 6) + ',' + f(jy - 12) + ' ' + R(jw) + ',' + f(jy) +
-        ' C' + R(jw - 8) + ',' + f(jy + 18) + ' ' + R(cw + 14) + ',' + f(cy - 5) + ' ' + R(cw) + ',' + f(cy - 1) + ' Q' + C + ',' + f(cy + 3) + ' ' + L(cw) + ',' + f(cy - 1) +
-        ' C' + L(cw + 14) + ',' + f(cy - 5) + ' ' + L(jw - 8) + ',' + f(jy + 18) + ' ' + L(jw) + ',' + f(jy) + ' C' + L(jw + 6) + ',' + f(jy - 12) + ' ' + L(fw - 6) + ',236 ' + L(fw - 2) + ',212' +
-        ' C' + L(fw + 1) + ',196 ' + L(fw + 1) + ',172 ' + L(fw - 3) + ',150 C' + L(fw) + ',108 ' + L(fw * 0.6) + ',' + top + ' ' + C + ',' + top + ' C' + R(fw * 0.6) + ',' + top + ' ' + R(fw) + ',108 ' + R(fw - 3) + ',150 Z';
+      const { fw, jw, jy, cw, cy, top, ck, jsq, cky } = g;
+      /* temple -> cheekbone -> (one smooth sweep) -> jaw corner -> chin */
+      const fc = fw + ck * 4 - 1;
+      const c1 = [fc - 0.5, cky + 16 + jsq * 4], c2 = [jw + 8 + jsq * 6 - ck * 3, jy - 18 + jsq * 6];
+      return 'M' + R(fw - 3) + ',150 C' + R(fw + 1) + ',166 ' + R(fc) + ',' + f(cky - 22) + ' ' + R(fc) + ',' + f(cky) +
+        ' C' + R(c1[0]) + ',' + f(c1[1]) + ' ' + R(c2[0]) + ',' + f(c2[1]) + ' ' + R(jw) + ',' + f(jy) +
+        ' C' + R(jw - 8 + jsq * 7) + ',' + f(jy + 16 + jsq * 5) + ' ' + R(cw + 14 - jsq * 3) + ',' + f(cy - 5) + ' ' + R(cw) + ',' + f(cy - 1) +
+        ' Q' + C + ',' + f(cy + 3) + ' ' + L(cw) + ',' + f(cy - 1) +
+        ' C' + L(cw + 14 - jsq * 3) + ',' + f(cy - 5) + ' ' + L(jw - 8 + jsq * 7) + ',' + f(jy + 16 + jsq * 5) + ' ' + L(jw) + ',' + f(jy) +
+        ' C' + L(c2[0]) + ',' + f(c2[1]) + ' ' + L(c1[0]) + ',' + f(c1[1]) + ' ' + L(fc) + ',' + f(cky) +
+        ' C' + L(fc) + ',' + f(cky - 22) + ' ' + L(fw + 1) + ',166 ' + L(fw - 3) + ',150' +
+        ' C' + L(fw) + ',108 ' + L(fw * 0.6) + ',' + top + ' ' + C + ',' + top + ' C' + R(fw * 0.6) + ',' + top + ' ' + R(fw) + ',108 ' + R(fw - 3) + ',150 Z';
     };
+    /* torso: neck base, trapezius, shoulder ball, upper arm going down out of frame */
     const torsoPath = g => {
-      const { sw, nw } = g, nt = 296;
-      return 'M' + L(sw + 120) + ',520 L' + L(sw + 26) + ',440 L' + L(sw) + ',412 C' + L(sw - 2) + ',376 ' + L(sw - 24) + ',354 ' + L(sw - 62) + ',345 C' + L(sw - 104) + ',336 ' + L(nw + 26) + ',322 ' + L(nw + 1) + ',' + nt +
-        ' L' + R(nw + 1) + ',' + nt + ' C' + R(nw + 26) + ',322 ' + R(sw - 104) + ',336 ' + R(sw - 62) + ',345 C' + R(sw - 24) + ',354 ' + R(sw - 2) + ',376 ' + R(sw) + ',412 L' + R(sw + 26) + ',440 L' + R(sw + 120) + ',520 Z';
+      const { sw, nw, ssl } = g, nt = 296, ty = 345 + ssl * 8, tr = 322 + ssl * 6;
+      return 'M' + L(sw + 120) + ',520 L' + L(sw + 26) + ',440 L' + L(sw) + ',412 C' + L(sw - 1) + ',' + f(380 + ssl * 4) + ' ' + L(sw - 22) + ',' + f(ty + 8) + ' ' + L(sw - 62) + ',' + f(ty) + ' C' + L(sw - 104) + ',' + f(ty - 9) + ' ' + L(nw + 26) + ',' + f(tr) + ' ' + L(nw + 1) + ',' + nt +
+        ' L' + R(nw + 1) + ',' + nt + ' C' + R(nw + 26) + ',' + f(tr) + ' ' + R(sw - 104) + ',' + f(ty - 9) + ' ' + R(sw - 62) + ',' + f(ty) + ' C' + R(sw - 22) + ',' + f(ty + 8) + ' ' + R(sw - 1) + ',' + f(380 + ssl * 4) + ' ' + R(sw) + ',412 L' + R(sw + 26) + ',440 L' + R(sw + 120) + ',520 Z';
     };
     const neckPath = g => 'M' + L(g.nw) + ',226 C' + L(g.nw) + ',280 ' + L(g.nw + 3) + ',312 ' + L(g.nw + 12) + ',338 L' + R(g.nw + 12) + ',338 C' + R(g.nw + 3) + ',312 ' + R(g.nw) + ',280 ' + R(g.nw) + ',226 Z';
 
@@ -180,10 +228,10 @@
 
     /* ---------------- eyes ---------------- */
     function eye(s, g, X, Rc, K) {
-      const es = g.es, ex = C + s * g.edx, ey = g.ey + (X.dyE || 0), w = 16.5 * es, tilt = 2.2;
+      const es = g.es, ex = C + s * g.edx, ey = g.ey + (X.dyE || 0), w = 16.5 * es * g.ew, tilt = 2.2 + g.etl;
       const blind = (Rc.x || []).includes('blind');
       const ix = ex - s * w, iy = ey + 1.5, ox = ex + s * w, oy = ey - tilt;
-      const wx = ox + s * 9.5 * es, wy = oy - 3.6;
+      const kh = Rc.kohl != null ? Rc.kohl : 1, wx = ox + s * 9.5 * es * (0.35 + 0.65 * kh), wy = oy - 3.6 * (0.4 + 0.6 * kh);
       let out = '';
       const closed = X.close || (X.wink && s === 1);
       if (closed) {
@@ -194,7 +242,7 @@
         if (up) out += P('M' + f(ix + s * 2) + ',' + f(iy + 6) + ' Q' + f(ex) + ',' + f(ey + 2) + ' ' + f(ox - s * 3) + ',' + f(oy + 6), 'none', st(1.3, K.sh));
         return { open:out, closed:'' };
       }
-      const o = X.o, h = 9.6 * es * o, lo = 4.4 * es * (1 - X.sq * 0.85);
+      const o = X.o, h = 9.6 * es * o * g.eh, lo = 4.4 * es * (0.75 + 0.25 * g.eh) * (1 - X.sq * 0.85);
       let c1y = ey - h * 1.06, c2y = ey - h * 1.14;
       if (X.flat) { c1y = ey - h * 0.6; c2y = ey - h * 0.92; }
       if (X.droop) { c1y = ey - h * 1.22; c2y = ey - h * 0.86; }
@@ -210,12 +258,14 @@
         Ci(icx, icy, ir, IR) + Ci(icx, icy, ir, 'none', st(1.4, dark(IR))) + Ci(icx, icy + ir * 0.35, ir * 0.62, mx(IR, '#E0A060', 0.25), op('.45')) + Ci(icx, icy, ir * 0.46, '#120A08') + Ci(icx - ir * 0.34, icy - ir * 0.38, ir * 0.26, '#FFFFFF') + Ci(icx + ir * 0.38, icy + ir * 0.3, ir * 0.11, '#FFFFFF', op('.8'));
       out += '<g ' + clip(cid) + '>' + Gp('c40ir', iris) + P(up, 'none', st(4.5, K.lid, op('.55'))) + '</g>';
       /* kohl: the heavy upper lid line with its wing, the thin lower line that meets the wing */
-      out += P(up + ' L' + f(wx) + ',' + f(wy), 'none', st(3.3));
+      out += P(up + ' L' + f(wx) + ',' + f(wy), 'none', st(2.3 + kh * 1.1));
       out += P('M' + f(ox - s * 3) + ',' + f(oy - 1.2) + ' L' + f(wx) + ',' + f(wy) + ' L' + f(ox - s * 1) + ',' + f(oy + 2.2) + ' Z', INK);
       out += P('M' + f(ix) + ',' + f(iy) + ' C' + f(ex - s * w * 0.45) + ',' + f(ey + lo + 1.4) + ' ' + f(ex + s * w * 0.5) + ',' + f(ey + lo + 1) + ' ' + f(ox) + ',' + f(oy) + ' L' + f(wx - s * 2) + ',' + f(wy + 1.2), 'none', st(1.5, INK, op('.9')));
       out += P('M' + f(ix + s * 1) + ',' + f(iy - 1) + ' l' + f(-s * 2.6) + ',1.4', 'none', st(1.6));
       /* crease, lashes, age */
-      out += P('M' + f(ex - s * w * 0.5) + ',' + f(ey - h - 3.5) + ' Q' + f(ex + s * 2) + ',' + f(ey - h * 1.45 - 4.5) + ' ' + f(ex + s * w * 0.9) + ',' + f(ey - h * 0.95 - 3.5), 'none', st(1.3, K.sh2, op(g.fem ? '.45' : '.6')));
+      const cr = g.hood ? 1 - g.hood * 0.55 : 1;
+      out += P('M' + f(ex - s * w * 0.55) + ',' + f(ey - h * cr - 3.5) + ' Q' + f(ex + s * 2) + ',' + f(ey - h * 1.45 * cr - 4.5) + ' ' + f(ex + s * w * 0.95) + ',' + f(ey - h * 0.95 * cr - 3.5 + g.hood * 2), 'none', st(1.3 + g.hood, K.sh2, op(g.fem ? '.45' : '.6')));
+      if (g.hood) out += P('M' + f(ex - s * w * 0.4) + ',' + f(ey - h * cr - 2.5) + ' Q' + f(ex + s * 2) + ',' + f(ey - h * 1.3 * cr - 3) + ' ' + f(ex + s * w * 0.95) + ',' + f(ey - h * 0.9 * cr - 1 + g.hood * 2) + ' L' + f(ox) + ',' + f(oy - 1) + ' Q' + f(ex + s * 2) + ',' + f(ey - h * 1.1) + ' ' + f(ex - s * w * 0.4) + ',' + f(ey - h * cr - 1) + ' Z', K.lid, op('.6'));
       if (g.fem) out += P('M' + f(ex + s * w * 0.35) + ',' + f(ey - h * 1.08) + ' C' + f(ex + s * w * 0.75) + ',' + f(ey - h * 1.05) + ' ' + f(ox) + ',' + f(oy - 2) + ' ' + f(wx + s * 2.5) + ',' + f(wy - 2.5) + ' L' + f(ox - s * 1) + ',' + f(oy + 1) + ' Z', INK);
       if (g.age > 0.3) out += P('M' + f(ex - s * w * 0.6) + ',' + f(ey + lo + 6) + ' Q' + f(ex) + ',' + f(ey + lo + 9) + ' ' + f(ex + s * w * 0.7) + ',' + f(ey + lo + 5), 'none', st(1.3, K.sh2, op(f(0.35 + g.age * 0.3))));
       if (g.age > 0.45) out += P('M' + f(wx + s * 2) + ',' + f(wy + 4) + ' l' + f(s * 6) + ',-2 M' + f(wx + s * 1) + ',' + f(wy + 8) + ' l' + f(s * 6) + ',1.5', 'none', st(1.2, K.sh2, op('.6')));
@@ -230,8 +280,8 @@
     function brow(s, g, X, Rc, K) {
       const iy = X.br[s < 0 ? 0 : 2], oy = X.br[s < 0 ? 1 : 3];
       const by = g.by + (X.dyE || 0), th = (g.fem ? 4.2 : 7.6) * (Rc.bthk || 1), to = g.fem ? 1.4 : 2.4;
-      const ixx = C + s * (g.fem ? 13 : 12) - (iy > 4 ? s * 2 : 0), oxx = C + s * (g.fem ? 47 : 49);
-      const iyy = by + iy + 1, oyy = by + oy + (g.fem ? -1 : 1), px = C + s * (g.fem ? 34 : 33), py = by - (g.fem ? 7 : 5) + (iy + oy) * 0.45 - (iy < -6 ? 2 : 0);
+      const ixx = C + s * (g.fem ? 13 : 12) - (iy > 4 ? s * 2 : 0), oxx = C + s * (g.fem ? 47 : 49) * g.blen;
+      const iyy = by + iy + 1, oyy = by + oy + (g.fem ? -1 : 1), px = C + s * (g.fem ? 34 : 33), py = by - (2 + 5 * g.barch) + (iy + oy) * 0.45 - (iy < -6 ? 2 : 0);
       const cx = 2 * px - (ixx + oxx) / 2, cy = 2 * py - (iyy + oyy) / 2;
       const d = 'M' + f(ixx) + ',' + f(iyy - th / 2) + ' Q' + f(cx) + ',' + f(cy - th * 0.45) + ' ' + f(oxx) + ',' + f(oyy - to / 2) + ' Q' + f(oxx + s * 1.5) + ',' + f(oyy) + ' ' + f(oxx) + ',' + f(oyy + to / 2) + ' Q' + f(cx) + ',' + f(cy + th * 0.5) + ' ' + f(ixx) + ',' + f(iyy + th / 2) + ' Q' + f(ixx - s * 2.2) + ',' + f(iyy) + ' ' + f(ixx) + ',' + f(iyy - th / 2) + ' Z';
       const light = h2r(K.brow).reduce((a, b) => a + b, 0) > 400;
@@ -239,34 +289,43 @@
     }
     /* noses: bridge line on the shadow side, wings, tip */
     function nose(g, Rc, K) {
-      const k = Rc.nose || 'std', ny = g.ny + (k === 'long' || k === 'hook' ? 4 : k === 'button' ? -3 : 0), ww = k === 'broad' ? 15 : k === 'small' || k === 'button' ? 10 : 12.5;
+      const k = Rc.nose || 'std', nwd = Rc.nwd || 1;
+      /* per kind: [tip y offset, wing half width, wing roundness, nostril size, tip drop, bridge bulge] */
+      const N = { std:[0, 12.5, 1, 1, 0, 0], long:[5, 11.5, 0.8, 0.9, 2.5, 0], hook:[5, 12.5, 0.9, 1, 4, 1], broad:[1, 15.5, 1.5, 1.35, 0, 0], small:[-1, 10, 0.9, 0.8, 0, 0], button:[-4, 10.5, 1.3, 0.85, -1, 0], pointed:[4, 9.5, 0.7, 0.75, 3, 0] }[k] || [0, 12.5, 1, 1, 0, 0];
+      const ny = g.ny + N[0], ww = N[1] * nwd, wr = N[2], ns = N[3], td = N[4], bb = N[5];
       let s = '';
-      s += P('M' + R(3) + ',' + f(g.by + 18) + ' C' + R(5) + ',204 ' + R(8) + ',' + f(ny - 16) + ' ' + R(ww - 1) + ',' + f(ny - 6) + ' L' + R(ww - 4) + ',' + f(ny - 2) + ' C' + R(5) + ',' + f(ny - 12) + ' ' + R(2) + ',204 ' + L(1) + ',' + f(g.by + 18) + ' Z', K.sh, op('.75'));
-      if (k === 'hook') s += P('M' + R(2) + ',' + f(g.by + 22) + ' C' + R(9) + ',' + f(ny - 26) + ' ' + R(9) + ',' + f(ny - 14) + ' ' + R(6) + ',' + f(ny - 6), 'none', st(1.8, INK, op('.8')));
+      /* the shadow plane on the right of the bridge */
+      s += P('M' + R(3) + ',' + f(g.by + 18) + ' C' + R(5 + bb * 3) + ',204 ' + R(8) + ',' + f(ny - 16) + ' ' + R(ww - 1) + ',' + f(ny - 6) + ' L' + R(ww - 4) + ',' + f(ny - 2) + ' C' + R(5) + ',' + f(ny - 12) + ' ' + R(2) + ',204 ' + L(1) + ',' + f(g.by + 18) + ' Z', K.sh, op('.75'));
+      if (bb) s += P('M' + R(2) + ',' + f(g.by + 20) + ' C' + R(10) + ',' + f(ny - 30) + ' ' + R(10) + ',' + f(ny - 16) + ' ' + R(5) + ',' + f(ny - 4 + td * 0.5), 'none', st(2, INK, op('.85')));
       else s += P('M' + R(4) + ',' + f(g.by + 24) + ' C' + R(6) + ',' + f(ny - 24) + ' ' + R(9) + ',' + f(ny - 16) + ' ' + R(ww - 2) + ',' + f(ny - 7), 'none', st(1.7, INK, op('.75')));
-      s += P('M' + L(ww) + ',' + f(ny - 7) + ' C' + L(ww + 3) + ',' + f(ny - 1) + ' ' + L(ww - 3) + ',' + f(ny + 4) + ' ' + L(5) + ',' + f(ny + 1.5), 'none', st(2));
-      s += P('M' + R(ww) + ',' + f(ny - 7) + ' C' + R(ww + 3) + ',' + f(ny - 1) + ' ' + R(ww - 3) + ',' + f(ny + 4) + ' ' + R(5) + ',' + f(ny + 1.5), 'none', st(2.2));
-      s += P('M' + L(4) + ',' + f(ny + 2.5) + ' Q' + C + ',' + f(ny + 5) + ' ' + R(4) + ',' + f(ny + 2.5), 'none', st(1.6, INK, op('.7')));
-      s += El(C - ww * 0.45, ny + 1.5, 2.6, 1.4, K.sh2, op('.8')) + El(C + ww * 0.45, ny + 1.5, 2.6, 1.4, K.sh2, op('.8'));
-      s += El(C - 3, ny - 6, 3.5, 2.4, K.hl, op('.55'));
-      s += El(C + 2, ny + 9, 11, 3.2, K.sh, op('.55'));
+      /* wings: rounder and fuller for broad noses */
+      const wing = (S, w2) => 'M' + S(ww - 1) + ',' + f(ny - 8 - wr * 1.5) + ' C' + S(ww + 2 + wr * 2.5) + ',' + f(ny - 3) + ' ' + S(ww - 1 + wr) + ',' + f(ny + 4 + wr) + ' ' + S(ww * 0.42) + ',' + f(ny + 2 + td * 0.3);
+      s += P(wing(L), 'none', st(2)) + P(wing(R), 'none', st(2.2));
+      /* the tip: a soft line over the nostrils, dropping for long/hooked noses */
+      s += P('M' + L(ww * 0.42) + ',' + f(ny + 2.5 + td * 0.3) + ' Q' + C + ',' + f(ny + 5 + td) + ' ' + R(ww * 0.42) + ',' + f(ny + 2.5 + td * 0.3), 'none', st(1.6, INK, op('.7')));
+      s += El(C - ww * 0.45, ny + 1.5, 2.6 * ns, 1.4 * ns, K.sh2, op('.85')) + El(C + ww * 0.45, ny + 1.5, 2.6 * ns, 1.4 * ns, K.sh2, op('.85'));
+      s += El(C - 3, ny - 6 + td * 0.5, 3.5 * (k === 'button' ? 1.3 : 1), 2.4 * (k === 'button' ? 1.3 : 1), K.hl, op(k === 'button' ? '.7' : '.55'));
+      s += P('M' + L(1.5) + ',' + f(g.by + 26) + ' L' + L(2.5) + ',' + f(ny - 14), 'none', st(2.2, K.hl, op('.35')));
+      s += El(C + 2, ny + 9 + td * 0.5, 11, 3.2, K.sh, op('.55'));
       return s;
     }
     /* mouths: closed shapes are lines (+ lips for women), open shapes are a filled hole with teeth and tongue */
     function mouth(type, open, g, K, cid) {
-      const my = g.my, mw = g.mw, fem = g.fem;
+      const my = g.my, mw = g.mw, fem = g.fem, lf = g.lipf;
       let s = '';
       const closed = { rest:[-2.4, 2.2, -2.4], smile:[-6, 5, -6], frown:[5, -2.5, 5], sad:[4, -1, 3], smirk:[1, 2.6, -7], flat:[0.5, 1.2, 1.5] }[type];
       if (closed) {
         const [ly, cyy, ry] = closed, w2 = type === 'flat' ? mw * 0.75 : type === 'sad' ? mw * 0.85 : mw, sx = type === 'flat' ? 3 : 0;
         const d = 'M' + f(C - w2 + sx) + ',' + f(my + ly) + ' C' + f(C - w2 * 0.45 + sx) + ',' + f(my + cyy) + ' ' + f(C + w2 * 0.45 + sx) + ',' + f(my + cyy) + ' ' + f(C + w2 + sx) + ',' + f(my + ry);
         if (fem) {
-          s += P('M' + f(C - w2 + sx) + ',' + f(my + ly) + ' C' + f(C - w2 * 0.6 + sx) + ',' + f(my - 6 + ly * 0.3) + ' ' + f(C - 5 + sx) + ',' + f(my - 7.5) + ' ' + f(C + sx) + ',' + f(my - 4.6) + ' C' + f(C + 5 + sx) + ',' + f(my - 7.5) + ' ' + f(C + w2 * 0.6 + sx) + ',' + f(my - 6 + ry * 0.3) + ' ' + f(C + w2 + sx) + ',' + f(my + ry) +
+          s += P('M' + f(C - w2 + sx) + ',' + f(my + ly) + ' C' + f(C - w2 * 0.6 + sx) + ',' + f(my - 6 * lf + ly * 0.3) + ' ' + f(C - 5 + sx) + ',' + f(my - 7.5 * lf) + ' ' + f(C + sx) + ',' + f(my - 4.6 * lf) + ' C' + f(C + 5 + sx) + ',' + f(my - 7.5 * lf) + ' ' + f(C + w2 * 0.6 + sx) + ',' + f(my - 6 * lf + ry * 0.3) + ' ' + f(C + w2 + sx) + ',' + f(my + ry) +
             ' C' + f(C + w2 * 0.45 + sx) + ',' + f(my + cyy) + ' ' + f(C - w2 * 0.45 + sx) + ',' + f(my + cyy) + ' ' + f(C - w2 + sx) + ',' + f(my + ly) + ' Z', mx(K.lip, '#2A1010', 0.15));
-          s += P('M' + f(C - w2 + 2 + sx) + ',' + f(my + ly + 0.5) + ' C' + f(C - w2 * 0.45 + sx) + ',' + f(my + cyy) + ' ' + f(C + w2 * 0.45 + sx) + ',' + f(my + cyy) + ' ' + f(C + w2 - 2 + sx) + ',' + f(my + ry + 0.5) + ' C' + f(C + w2 * 0.5 + sx) + ',' + f(my + cyy + 9) + ' ' + f(C - w2 * 0.5 + sx) + ',' + f(my + cyy + 9) + ' ' + f(C - w2 + 2 + sx) + ',' + f(my + ly + 0.5) + ' Z', K.lip);
-          s += El(C - 3 + sx, my + cyy + 4.5, 5, 1.6, '#FFFFFF', op('.35'));
+          s += P('M' + f(C - w2 + 2 + sx) + ',' + f(my + ly + 0.5) + ' C' + f(C - w2 * 0.45 + sx) + ',' + f(my + cyy) + ' ' + f(C + w2 * 0.45 + sx) + ',' + f(my + cyy) + ' ' + f(C + w2 - 2 + sx) + ',' + f(my + ry + 0.5) + ' C' + f(C + w2 * 0.5 + sx) + ',' + f(my + cyy + 9 * lf) + ' ' + f(C - w2 * 0.5 + sx) + ',' + f(my + cyy + 9 * lf) + ' ' + f(C - w2 + 2 + sx) + ',' + f(my + ly + 0.5) + ' Z', K.lip);
+          s += El(C - 3 + sx, my + cyy + 4.5 * lf, 5 * lf, 1.6 * lf, '#FFFFFF', op('.38')) + P('M' + f(C - w2 * 0.55 + sx) + ',' + f(my + cyy + 7 * lf) + ' Q' + f(C + sx) + ',' + f(my + cyy + 10 * lf) + ' ' + f(C + w2 * 0.55 + sx) + ',' + f(my + cyy + 7 * lf), 'none', st(1.2, mx(K.lip, '#2A1010', 0.4), op('.5')));
           s += P(d, 'none', st(2));
         } else {
+          s += P('M' + f(C - w2 * 0.8 + sx) + ',' + f(my + ly * 0.8 + 1) + ' C' + f(C - w2 * 0.4 + sx) + ',' + f(my + cyy + 1) + ' ' + f(C + w2 * 0.4 + sx) + ',' + f(my + cyy + 1) + ' ' + f(C + w2 * 0.8 + sx) + ',' + f(my + ry * 0.8 + 1) + ' C' + f(C + w2 * 0.4 + sx) + ',' + f(my + cyy + 7 * lf) + ' ' + f(C - w2 * 0.4 + sx) + ',' + f(my + cyy + 7 * lf) + ' ' + f(C - w2 * 0.8 + sx) + ',' + f(my + ly * 0.8 + 1) + ' Z', K.lip, op('.55'));
+          s += P('M' + f(C - w2 * 0.85 + sx) + ',' + f(my + ly * 0.8 - 1) + ' C' + f(C - w2 * 0.5 + sx) + ',' + f(my - 4 * lf) + ' ' + f(C + w2 * 0.5 + sx) + ',' + f(my - 4 * lf) + ' ' + f(C + w2 * 0.85 + sx) + ',' + f(my + ry * 0.8 - 1) + ' Z', mx(K.lip, '#2A1010', 0.2), op('.4'));
           s += P(d, 'none', st(2.6));
           s += P('M' + f(C - 9 + sx) + ',' + f(my + cyy + 9) + ' Q' + f(C + sx) + ',' + f(my + cyy + 12) + ' ' + f(C + 9 + sx) + ',' + f(my + cyy + 9), 'none', st(2.2, K.sh, op('.8')));
           s += P('M' + f(C - 4) + ',' + f(my - 12) + ' Q' + f(C) + ',' + f(my - 9) + ' ' + f(C + 4) + ',' + f(my - 12), 'none', st(1.3, K.sh, op('.6')));
@@ -321,11 +380,19 @@
         s += ink(d, c, 2.8);
         s += strands(C - fw - sp + 4, C - fw + 2, 168, by - 2, 7, sheen(c)) + strands(C + fw - 2, C + fw + sp - 4, 168, by - 2, 7, sheen(c));
         s += P('M' + L(fw + 4) + ',200 L' + L(fw + 6) + ',' + f(by - 12) + ' M' + L(fw + 14) + ',180 L' + L(fw + 16) + ',' + f(by - 4) + ' M' + R(fw + 9) + ',190 L' + R(fw + 11) + ',' + f(by - 8) + ' M' + R(fw + 18) + ',176 L' + R(fw + 20) + ',' + f(by - 2), 'none', st(1.3, INK, op('.55')));
+        /* the blunt shoulder cut curls under: a light band above the ends and a dark inner edge */
+        if (H.s === 'shoulder') s += P('M' + L(fw + sp - 2) + ',' + f(by - 18) + ' Q' + L(fw + 10) + ',' + f(by - 12) + ' ' + L(fw - 6) + ',' + f(by - 16) + ' M' + R(fw - 6) + ',' + f(by - 16) + ' Q' + R(fw + 10) + ',' + f(by - 12) + ' ' + R(fw + sp - 2) + ',' + f(by - 18), 'none', st(5, sheen(c), op('.55'))) +
+          P('M' + L(fw + sp) + ',' + f(by - 2) + ' Q' + L(fw + 8) + ',' + f(by + 2) + ' ' + L(fw - 8) + ',' + f(by - 4) + ' M' + R(fw - 8) + ',' + f(by - 4) + ' Q' + R(fw + 8) + ',' + f(by + 2) + ' ' + R(fw + sp) + ',' + f(by - 2), 'none', st(2, INK, op('.6')));
         if (H.s === 'shortwig') { let rows = ''; for (let y = 190; y < by - 4; y += 15) { rows += 'M' + L(fw + sp) + ',' + y; for (let x = C - fw - sp; x < C - fw + 4; x += 9) rows += ' q4.5,6 9,0'; rows += ' M' + R(fw - 4) + ',' + y; for (let x = C + fw - 4; x < C + fw + sp; x += 9) rows += ' q4.5,6 9,0'; } s += P(rows, 'none', st(1.3, sheen(c), op('.8'))); }
-      } else if (H.s === 'long' || H.s === 'braids') {
+      } else if (H.s === 'long') {
         const d = 'M' + L(fw + 18) + ',150 C' + L(fw + 26) + ',84 ' + L(52) + ',48 ' + C + ',48 C' + R(52) + ',48 ' + R(fw + 26) + ',84 ' + R(fw + 18) + ',150 C' + R(fw + 28) + ',220 ' + R(fw + 34) + ',300 ' + R(fw + 36) + ',350 L' + L(fw + 36) + ',350 C' + L(fw + 34) + ',300 ' + L(fw + 28) + ',220 ' + L(fw + 18) + ',150 Z';
         s += ink(d, c, 2.8);
-        if (H.s === 'braids') s += strands(C - fw - 30, C - fw + 4, 170, 346, 4, H.c2 || sheen(c)) + strands(C + fw - 4, C + fw + 30, 170, 346, 4, H.c2 || sheen(c));
+      } else if (H.s === 'braids') {
+        /* a tall full braided wig: the mass behind, its plaits showing between the front lappets and the neck */
+        const wb = fw + 26 + (H.n || 5) * 3;
+        const d = 'M' + L(fw + 18) + ',150 C' + L(fw + 24) + ',84 ' + L(56) + ',50 ' + C + ',50 C' + R(56) + ',50 ' + R(fw + 24) + ',84 ' + R(fw + 18) + ',150 C' + R(wb - 6) + ',200 ' + R(wb) + ',280 ' + R(wb) + ',360 L' + L(wb) + ',360 C' + L(wb) + ',280 ' + L(wb - 6) + ',200 ' + L(fw + 18) + ',150 Z';
+        s += ink(d, mx(c, '#000000', 0.25), 2.8);
+        [-1, 1].forEach(sd => { for (let k = 0; k < 4; k++) { const x0 = fw - 16 + k * 8; s += plait([[C + sd * x0, 170], [C + sd * (x0 + 2), 230], [C + sd * (x0 + 4), 290], [C + sd * (x0 + 5), 352]], 8, mx(c, '#000000', 0.2), { n:9 }); } });
       } else if (H.s === 'curly' || H.s === 'curls') {
         const big = H.s === 'curly', pts = [];
         const n = big ? 13 : 16, rr = big ? 17 : 13;
@@ -338,6 +405,12 @@
         s += P('M' + L(fw + 22) + ',220 Q' + L(fw + 30) + ',270 ' + L(fw + 24) + ',322 M' + L(fw + 8) + ',200 Q' + L(fw + 14) + ',260 ' + L(fw + 12) + ',326', 'none', st(1.3, mx(H.c2 || c, INK, 0.3), op('.6')));
       }
       const B = H.band;
+      if (B && B.k === 'ribbon') {
+        /* a narrow headband knotted behind the left ear, two thin ribbons hanging down */
+        const kx = C - fw - 12, ky = 142;
+        [[2, 104, 8, mx(B.c, '#000', 0.22)], [12, 88, 8, B.c]].forEach(([dx, ln, w, col]) => { const ex = kx - 8 - dx * 1.5, ey2 = ky + ln; s += ink('M' + f(kx + 3) + ',' + f(ky - w * 0.4) + ' C' + f(kx - 4 - dx) + ',' + f(ky + ln * 0.3) + ' ' + f(kx - 4 - dx * 1.4) + ',' + f(ky + ln * 0.7) + ' ' + f(ex - w / 2) + ',' + f(ey2) + ' L' + f(ex) + ',' + f(ey2 - 5) + ' L' + f(ex + w / 2 + 1) + ',' + f(ey2 + 1) + ' C' + f(kx + 2 - dx * 1.4) + ',' + f(ky + ln * 0.7) + ' ' + f(kx + 3 - dx) + ',' + f(ky + ln * 0.3) + ' ' + f(kx + 6) + ',' + f(ky + w * 0.4) + ' Z', col, 2); });
+        s += ink('M' + f(kx - 6) + ',' + f(ky - 8) + ' C' + f(kx + 6) + ',' + f(ky - 12) + ' ' + f(kx + 10) + ',' + f(ky + 4) + ' ' + f(kx + 2) + ',' + f(ky + 8) + ' C' + f(kx - 6) + ',' + f(ky + 10) + ' ' + f(kx - 12) + ',' + f(ky - 2) + ' ' + f(kx - 6) + ',' + f(ky - 8) + ' Z', B.c, 2);
+      }
       if (B && B.k === 'tie') {
         const kx = C - fw - 10, ky = 136;
         const tail = (dx, dy, w0, w1, col, cls) => ink('M' + f(kx + 2) + ',' + f(ky - w0) + ' C' + f(kx - dx * 0.35) + ',' + f(ky + dy * 0.1) + ' ' + f(kx - dx * 0.7) + ',' + f(ky + dy * 0.45) + ' ' + f(kx - dx) + ',' + f(ky + dy) + ' L' + f(kx - dx + w1 * 0.9) + ',' + f(ky + dy + w1 * 0.5) + ' L' + f(kx - dx + w1 * 1.1) + ',' + f(ky + dy - w1 * 0.4) + ' C' + f(kx - dx * 0.55 + 4) + ',' + f(ky + dy * 0.5) + ' ' + f(kx - dx * 0.25 + 4) + ',' + f(ky + dy * 0.2) + ' ' + f(kx + 6) + ',' + f(ky + w0) + ' Z', col, 2.2, 'class="' + cls + '"');
@@ -354,8 +427,24 @@
         const n = 14; for (let i = 1; i < n; i++) { const x = C + (fw - 4) - 2 * (fw - 4) * i / n; d += ' L' + f(x) + ',' + f(bottomY + (i % 2 ? -3.2 : 0.5) + Math.abs(x - C) * 0.03); }
         d += ' L' + L(fw - 4) + ',' + f(bottomY + 2) + ' Z';
         let lines = ''; for (let i = 0; i < 12; i++) { const x = C - fw + 12 + (2 * fw - 24) * i / 11; lines += 'M' + f(x + (x - C) * 0.05) + ',' + f(bottomY - 26 + (i % 3) * 4) + ' L' + f(x) + ',' + f(bottomY - 3); }
+        if (H.s === 'braids') { /* under the braided crown: only the bangs edge is inked */
+          let e = 'M' + R(fw - 4) + ',' + f(bottomY + 2); for (let i = 1; i < n; i++) { const x = C + (fw - 4) - 2 * (fw - 4) * i / n; e += ' L' + f(x) + ',' + f(bottomY + (i % 2 ? -3.2 : 0.5) + Math.abs(x - C) * 0.03); } e += ' L' + L(fw - 4) + ',' + f(bottomY + 2);
+          return P(d, c) + P(e, 'none', st(2.4)) + P(lines, 'none', st(1.4, sheen(c), op('.8')));
+        }
         return ink(d, c, 2.6) + P(lines, 'none', st(1.4, sheen(c), op('.8'))) + P('M' + L(fw * 0.7) + ',' + f(topY + 22) + ' Q' + C + ',' + f(topY + 4) + ' ' + R(fw * 0.7) + ',' + f(topY + 22), 'none', st(6, sheen(c), op('.5')));
       };
+      if (H.s === 'braids') {
+        /* the crown of the braided wig covers the tops of the plaits; its lower edge is the row where they start */
+        const wb = fw + 2 + (H.n || 5) * (H.bw || 10.5) * 0.72;
+        let d = 'M' + L(wb) + ',172 C' + L(wb + 2) + ',100 ' + L(58) + ',44 ' + C + ',44 C' + R(58) + ',44 ' + R(wb + 2) + ',100 ' + R(wb) + ',172';
+        const n = Math.round((wb - fw + 4) / 8);
+        for (let i = 1; i <= n; i++) { const x = wb - (wb - fw + 4) * i / n; d += ' Q' + R(x + (wb - fw + 4) / n * 0.5) + ',' + f(180 - i * 0.6) + ' ' + R(x) + ',' + f(170 - i * 0.6); }
+        d += ' L' + R(fw - 4) + ',140 L' + L(fw - 4) + ',140';
+        for (let i = n; i >= 1; i--) { const x = wb - (wb - fw + 4) * i / n, x2 = wb - (wb - fw + 4) * (i - 1) / n; d += ' L' + L(x) + ',' + f(170 - i * 0.6) + ' Q' + L(x + (wb - fw + 4) / n * 0.5) + ',' + f(180 - i * 0.6) + ' ' + L(x2) + ',' + f(170 - (i - 1) * 0.6); }
+        d += ' Z';
+        let ln = ''; for (let i = 0; i < 22; i++) { const a2 = Math.PI * (1.06 + 0.88 * i / 21), x = C + Math.cos(a2) * (wb - 4), y = 160 + Math.sin(a2) * 112; ln += 'M' + f(C + (x - C) * 0.35) + ',' + f(70 + (y - 70) * 0.3) + ' Q' + f(C + (x - C) * 0.8) + ',' + f(90 + (y - 90) * 0.7) + ' ' + f(x) + ',' + f(Math.max(y, 120)); }
+        s += ink(d, c, 2.6) + P(ln, 'none', st(1.2, sheen(c), op('.55'))) + P('M' + L(fw * 0.8) + ',84 Q' + C + ',56 ' + R(fw * 0.8) + ',84', 'none', st(6, sheen(c), op('.45')));
+      }
       if (H.s === 'bob' || H.s === 'shortwig' || H.s === 'longbob' || H.s === 'shoulder' || H.s === 'long' || H.s === 'braids') s += fringe(64, fy, H.s === 'shortwig' ? 182 : 170);
       else if (H.s === 'crop') {
         const hl = H.hl || 126;
@@ -383,10 +472,10 @@
       }
       const B = H.band;
       if (B) {
-        const fwb = (H.s === 'crop' ? fw + 4 : fw + 11), y1 = H.s === 'crop' ? 132 : H.s === 'bald' ? 118 : H.s === 'curls' ? 116 : 124, th = B.k === 'gold' || B.k === 'beads' ? 9 : B.k === 'helmet' ? 16 : 15;
+        const fwb = (H.s === 'crop' ? fw + 4 : H.s === 'braids' ? fw + 14 : fw + 11), y1 = H.s === 'crop' ? 132 : H.s === 'bald' ? 118 : H.s === 'curls' ? 116 : 124, th = B.k === 'gold' || B.k === 'beads' ? 9 : B.k === 'helmet' ? 16 : B.k === 'ribbon' ? 10 : 15;
         const dd = 'M' + L(fwb) + ',' + f(y1 + 14) + ' Q' + C + ',' + f(y1 - 14) + ' ' + R(fwb) + ',' + f(y1 + 14) + ' L' + R(fwb) + ',' + f(y1 + 14 + th) + ' Q' + C + ',' + f(y1 - 14 + th) + ' ' + L(fwb) + ',' + f(y1 + 14 + th) + ' Z';
         const mid = 'M' + L(fwb) + ',' + f(y1 + 14 + th / 2) + ' Q' + C + ',' + f(y1 - 14 + th / 2) + ' ' + R(fwb) + ',' + f(y1 + 14 + th / 2);
-        if (B.k === 'tie' || B.k === 'flat' || B.k === 'cloth') {
+        if (B.k === 'tie' || B.k === 'flat' || B.k === 'cloth' || B.k === 'ribbon') {
           s += ink(dd, B.c, 2.4) + P('M' + L(fwb) + ',' + f(y1 + 10 + th) + ' Q' + C + ',' + f(y1 - 18 + th) + ' ' + R(fwb) + ',' + f(y1 + 10 + th), 'none', st(3.5, mx(B.c, '#000', 0.22), op('.7'))) + P('M' + L(fwb - 8) + ',' + f(y1 + 14) + ' Q' + C + ',' + f(y1 - 10) + ' ' + R(fwb - 8) + ',' + f(y1 + 14), 'none', st(2, '#FFFFFF', op('.3')));
           if (B.k === 'tie') s += ink('M' + L(fwb - 2) + ',' + f(y1 + 6) + ' C' + L(fwb + 10) + ',' + f(y1 + 4) + ' ' + L(fwb + 12) + ',' + f(y1 + 24) + ' ' + L(fwb + 2) + ',' + f(y1 + 28) + ' C' + L(fwb - 4) + ',' + f(y1 + 24) + ' ' + L(fwb - 6) + ',' + f(y1 + 12) + ' ' + L(fwb - 2) + ',' + f(y1 + 6) + ' Z', mx(B.c, '#000', 0.08), 2);
         } else if (B.k === 'gold') {
@@ -401,22 +490,51 @@
       }
       return s;
     }
-    /* the front lappets of long wigs fall in front of the shoulders: braids with gold beads, or straight */
+    /* a point and tangent on a cubic */
+    const cub = (a, b, c2, d, t) => { const u = 1 - t; return [u * u * u * a[0] + 3 * u * u * t * b[0] + 3 * u * t * t * c2[0] + t * t * t * d[0], u * u * u * a[1] + 3 * u * u * t * b[1] + 3 * u * t * t * c2[1] + t * t * t * d[1]]; };
+    const cubD = (a, b, c2, d, t) => { const u = 1 - t; return [3 * u * u * (b[0] - a[0]) + 6 * u * t * (c2[0] - b[0]) + 3 * t * t * (d[0] - c2[0]), 3 * u * u * (b[1] - a[1]) + 6 * u * t * (c2[1] - b[1]) + 3 * t * t * (d[1] - c2[1])]; };
+    /* one plait along a cubic: an inked rope with chevron lobes (the braid look), optional gold rings and a gold end bead */
+    function plait(Q, w, c, o) {
+      o = o || {};
+      const d = 'M' + f(Q[0][0]) + ',' + f(Q[0][1]) + ' C' + f(Q[1][0]) + ',' + f(Q[1][1]) + ' ' + f(Q[2][0]) + ',' + f(Q[2][1]) + ' ' + f(Q[3][0]) + ',' + f(Q[3][1]);
+      let s = P(d, 'none', st(w + 3 * LW, INK, 'stroke-linecap="butt"')) + P(d, 'none', st(w, c, 'stroke-linecap="butt"'));
+      const n = o.n || 16, t0 = o.t0 || 0; let lob = '', hl = '', rings = '';
+      for (let i = 0; i < n; i++) {
+        const ta = t0 + (1 - t0) * i / n, tb = t0 + (1 - t0) * (i + 0.5) / n, tc = t0 + (1 - t0) * (i + 1) / n;
+        const A = cub(Q[0], Q[1], Q[2], Q[3], ta), B = cub(Q[0], Q[1], Q[2], Q[3], tb), Cc = cub(Q[0], Q[1], Q[2], Q[3], tc), D = cubD(Q[0], Q[1], Q[2], Q[3], tb);
+        const l = Math.hypot(D[0], D[1]) || 1, nx = -D[1] / l, ny = D[0] / l, hw = w * 0.5, sd = i % 2 ? 1 : -1;
+        /* a lobe: from one edge at A sweeping to the centre at C (alternating sides) */
+        lob += 'M' + f(A[0] + nx * hw * sd) + ',' + f(A[1] + ny * hw * sd) + ' Q' + f(B[0] + nx * hw * 0.2 * sd) + ',' + f(B[1] + ny * hw * 0.2 * sd) + ' ' + f(Cc[0] - nx * hw * 0.25 * sd) + ',' + f(Cc[1] - ny * hw * 0.25 * sd) + ' ';
+        hl += 'M' + f(A[0] + nx * hw * 0.55 * sd + (B[0] - A[0]) * 0.3) + ',' + f(A[1] + ny * hw * 0.55 * sd + (B[1] - A[1]) * 0.3) + ' L' + f(B[0] + nx * hw * 0.25 * sd) + ',' + f(B[1] + ny * hw * 0.25 * sd) + ' ';
+      }
+      /* gold tubes slid onto the plait at fixed heights */
+      (o.rings || []).forEach(t => { const A = cub(Q[0], Q[1], Q[2], Q[3], t), D = cubD(Q[0], Q[1], Q[2], Q[3], t), an = Math.atan2(D[1], D[0]) * 180 / Math.PI - 90;
+        rings += '<g transform="translate(' + f(A[0]) + ' ' + f(A[1]) + ') rotate(' + f(an) + ')">' + P('M' + f(-w * 0.58) + ',-3.4 Q0,-1.6 ' + f(w * 0.58) + ',-3.4 L' + f(w * 0.58) + ',3.4 Q0,5.2 ' + f(-w * 0.58) + ',3.4 Z', GOLD, st(1.4)) + P('M' + f(-w * 0.34) + ',-1.6 L' + f(-w * 0.34) + ',2.2', 'none', st(1.4, '#FFF2B8', op('.9'))) + '</g>'; });
+      s += P(lob, 'none', st(1.15, INK, op('.85'))) + P(hl, 'none', st(1.3, o.hl || sheen(c), op('.75'))) + rings;
+      if (o.bead) {
+        const E = Q[3], D = cubD(Q[0], Q[1], Q[2], Q[3], 1), a = Math.atan2(D[1], D[0]) * 180 / Math.PI - 90;
+        s += '<g transform="translate(' + f(E[0]) + ' ' + f(E[1]) + ') rotate(' + f(a) + ')">' + P('M' + f(-w * 0.55) + ',-1.5 L' + f(w * 0.55) + ',-1.5 L' + f(w * 0.55) + ',2.5 L' + f(-w * 0.55) + ',2.5 Z', o.bead, st(1.3)) +
+          El(0, 2.5 + w * 0.5, w * 0.48, w * 0.55, o.bead, st(1.5)) + El(-w * 0.17, 1.5 + w * 0.4, w * 0.12, w * 0.2, '#FFFFFF', op('.75')) + '</g>';
+      }
+      return s;
+    }
+    /* the front lappets of long wigs fall in front of the shoulders (drawn with the head, so they tilt with it):
+       braids with gold rings and beads, or a straight lock */
     function lappets(Rc, g, K) {
-      const H = Rc.hair || {}; if (!/^(long|braids|shoulder|longbob)$/.test(H.s)) return '';
-      const fw = g.fw, c = K.hair, y2 = H.s === 'shoulder' ? 352 : H.s === 'longbob' ? 346 : 404;
+      const H = Rc.hair || {}; if (!/^(long|braids|longbob)$/.test(H.s)) return '';
+      const fw = g.fw, c = K.hair, y2 = H.y2 || (H.s === 'longbob' ? 346 : 404);
       let s = '';
       [-1, 1].forEach(sd => {
         const X = x => f(C + sd * x);
         if (H.s === 'braids') {
-          for (let k = 0; k < 5; k++) {
-            const x0 = fw - 6 + k * 9.5, xb = x0 + 6 + k * 3.5, yb = y2 - Math.abs(k - 2) * 6;
-            const d = 'M' + X(x0) + ',200 C' + X(x0 + 4) + ',250 ' + X(xb - 2) + ',300 ' + X(xb) + ',' + f(yb);
-            s += P(d, 'none', st(11.5, INK)) + P(d, 'none', st(8.6, c)) + P(d, 'none', st(6.5, H.c2 || sheen(c), 'stroke-dasharray="3.2 3.6" stroke-linecap="butt" opacity=".75"'));
-            s += El(C + sd * xb, yb + 6, 4.2, 6, GOLD, st(1.6)) + El(C + sd * xb - 1, yb + 4, 1.2, 2, '#FFF2B8');
+          const nb = H.n || 5, bw = H.bw || 10.5;
+          for (let k = nb - 1; k >= 0; k--) {
+            const x0 = fw - 5 + k * (bw * 0.8), xb = x0 + 3 + k * 3, yb = y2 - Math.abs(k - (nb - 1) / 2) * 6 + (k % 2) * 5;
+            const Q = [[C + sd * x0, 132], [C + sd * (x0 + 5 + k * 0.6), 210], [C + sd * (xb - 2), 290], [C + sd * xb, yb]];
+            s += plait(Q, bw, k % 2 ? c : mx(c, '#4A4058', 0.16), { n:Math.round((yb - 132) / (bw * 0.92)), rings:H.rings ? [0.5 + (k % 2) * 0.12] : null, bead:H.bead || GOLD, hl:H.c2 });
           }
         } else {
-          const d = 'M' + X(fw + 2) + ',200 C' + X(fw + 26) + ',236 ' + X(fw + 32) + ',290 ' + X(fw + 34) + ',' + f(y2) + ' Q' + X(fw + 18) + ',' + f(y2 + 8) + ' ' + X(fw - 2) + ',' + f(y2 + 2) + ' C' + X(fw - 4) + ',320 ' + X(fw - 8) + ',280 ' + X(fw - 8) + ',240 Z';
+          const d = 'M' + X(fw - 4) + ',150 C' + X(fw + 22) + ',196 ' + X(fw + 32) + ',290 ' + X(fw + 34) + ',' + f(y2) + ' Q' + X(fw + 18) + ',' + f(y2 + 8) + ' ' + X(fw - 2) + ',' + f(y2 + 2) + ' C' + X(fw - 4) + ',320 ' + X(fw - 8) + ',280 ' + X(fw - 10) + ',200 Z';
           s += ink(d, c, 2.6) + P('M' + X(fw + 8) + ',224 C' + X(fw + 14) + ',270 ' + X(fw + 16) + ',310 ' + X(fw + 14) + ',' + f(y2 - 4) + ' M' + X(fw + 20) + ',240 C' + X(fw + 26) + ',290 ' + X(fw + 26) + ',318 ' + X(fw + 26) + ',' + f(y2 - 2), 'none', st(1.5, sheen(c), op('.8')));
         }
       });
@@ -507,8 +625,24 @@
       /* cel shade: right side, under the arm line; a soft light on the left shoulder */
       inner += P('M' + R(sw - 60) + ',338 C' + R(sw - 30) + ',360 ' + R(sw - 6) + ',392 ' + R(sw + 4) + ',480 L' + R(sw - 34) + ',480 C' + R(sw - 38) + ',430 ' + R(sw - 46) + ',390 ' + R(sw - 70) + ',350 Z', robe ? mx(cl.c, '#5A4030', 0.25) : K.sh, op('.8'));
       inner += P('M' + L(sw - 70) + ',350 C' + L(sw - 40) + ',360 ' + L(sw - 16) + ',380 ' + L(sw - 8) + ',410', 'none', st(5, robe ? '#FFFFFF' : K.hl, op('.35')));
+      /* v42 anatomy: shoulder balls (deltoids) set off from the chest, collarbones, the pit of the neck */
+      const ty = 345 + g.ssl * 8, musc = Rc.musc || (g.fem ? 0 : 0.4);
+      if (!robe) {
+        [-1, 1].forEach(sd => {
+          const X = x => f(C + sd * x), lit = sd < 0;
+          /* the deltoid: a rounded cap from the shoulder top down into the arm line */
+          inner += P('M' + X(sw - 70) + ',' + f(ty + 2) + ' C' + X(sw - 44) + ',' + f(ty + 6) + ' ' + X(sw - 34) + ',' + f(ty + 30) + ' ' + X(sw - 36) + ',' + f(402 + musc * 4), 'none', st(1.6, K.sh2, op(f(0.35 + musc * 0.3))));
+          inner += P('M' + X(sw - 66) + ',' + f(ty + 6) + ' C' + X(sw - 44) + ',' + f(ty + 12) + ' ' + X(sw - 38) + ',' + f(ty + 34) + ' ' + X(sw - 40) + ',' + f(410) + ' L' + X(sw - 52) + ',' + f(410) + ' C' + X(sw - 50) + ',' + f(ty + 36) + ' ' + X(sw - 56) + ',' + f(ty + 16) + ' ' + X(sw - 74) + ',' + f(ty + 8) + ' Z', lit ? K.hl : K.sh, op(lit ? '.22' : '.35'));
+          /* collarbone */
+          inner += P('M' + X(g.nw + 6) + ',' + f(332 + g.ssl * 2) + ' C' + X(g.nw + 26) + ',' + f(338 + g.ssl * 3) + ' ' + X(sw - 96) + ',' + f(ty - 2) + ' ' + X(sw - 72) + ',' + f(ty - 4), 'none', st(1.5, K.sh2, op(g.fem ? '.35' : '.5'))) +
+            P('M' + X(g.nw + 8) + ',' + f(328 + g.ssl * 2) + ' C' + X(g.nw + 26) + ',' + f(333 + g.ssl * 3) + ' ' + X(sw - 96) + ',' + f(ty - 7) + ' ' + X(sw - 74) + ',' + f(ty - 9), 'none', st(2.2, K.hl, op('.3')));
+        });
+        inner += El(C, 338, 8, 4, K.sh, op('.5'));
+      }
       if (cl.k === 'bare' || cl.k === 'straps' || cl.k === 'shawl') {
         inner += P('M' + L(sw - 36) + ',400 C' + L(sw - 40) + ',430 ' + L(sw - 42) + ',456 ' + L(sw - 40) + ',480 M' + R(sw - 36) + ',400 C' + R(sw - 40) + ',430 ' + R(sw - 42) + ',456 ' + R(sw - 40) + ',480', 'none', st(2, INK, op('.8')));
+        /* the arm's shadow side and the chest's shadow under the pectorals */
+        inner += P('M' + R(sw - 4) + ',412 C' + R(sw - 10) + ',440 ' + R(sw - 14) + ',460 ' + R(sw - 16) + ',480 L' + R(sw - 30) + ',480 C' + R(sw - 28) + ',456 ' + R(sw - 24) + ',430 ' + R(sw - 16) + ',404 Z', K.sh2, op('.25'));
         if (!g.fem) inner += P('M' + L(sw - 50) + ',418 C' + L(90) + ',440 ' + L(40) + ',446 ' + L(10) + ',438 M' + R(10) + ',438 C' + R(40) + ',446 ' + R(90) + ',440 ' + R(sw - 50) + ',418', 'none', st(1.8, INK, op('.45'))) + P('M' + R(12) + ',440 C' + R(40) + ',450 ' + R(90) + ',446 ' + R(sw - 52) + ',424 L' + R(sw - 44) + ',480 L' + R(12) + ',480 Z', K.sh, op('.4'));
       }
       if (cl.k === 'dress') {
@@ -565,8 +699,16 @@
     function faceDetail(Rc, g, K, X) {
       const { fw, jw, jy, cw, cy, by, ey, my } = g; let s = '';
       /* cel shade on the right cheek and jaw, shadow under the hair line, light on the left cheek */
-      s += P('M' + R(fw * 0.62) + ',' + f(g.top) + ' C' + R(fw * 1.05) + ',140 ' + R(fw * 0.82) + ',196 ' + R(fw * 0.68) + ',222 C' + R(fw * 0.56) + ',252 ' + R(cw + 10) + ',' + f(cy - 8) + ' ' + R(2) + ',' + f(cy + 6) + ' L' + R(fw + 30) + ',' + f(cy + 30) + ' L' + R(fw + 30) + ',' + f(g.top) + ' Z', K.sh);
-      s += El(C - fw * 0.5, 222, 17, 10, K.hl, op('.45')) + El(C - 14, by - 22, 22, 8, K.hl, op('.35'));
+      const ck = g.ck, cky = g.cky;
+      /* the shadow edge bends round the lit cheekbone, then cuts in under it (the hollow) and runs down the jaw to the chin */
+      s += P('M' + R(fw * 0.62) + ',' + f(g.top) + ' C' + R(fw * 1.05) + ',140 ' + R(fw * (0.8 + ck * 0.1)) + ',' + f(cky - 16) + ' ' + R(fw * (0.74 + ck * 0.08)) + ',' + f(cky + 6) +
+        ' C' + R(fw * (0.66 - ck * 0.12)) + ',' + f(cky + 24) + ' ' + R(fw * (0.58 - ck * 0.06)) + ',' + f(g.jy - 6) + ' ' + R(Math.max(cw + 6, fw * 0.4)) + ',' + f(cy - 14) + ' C' + R(cw * 0.6) + ',' + f(cy - 6) + ' ' + R(4) + ',' + f(cy) + ' ' + R(2) + ',' + f(cy + 6) + ' L' + R(fw + 30) + ',' + f(cy + 30) + ' L' + R(fw + 30) + ',' + f(g.top) + ' Z', K.sh);
+      /* the far rim a tone darker */
+      s += '<g clip-path="url(#rh§)">' + P(facePath(g), 'none', st(7, K.sh2, op('.32'))) + '</g>';
+      K.defs += '<clipPath id="rh§"><rect x="' + R(fw * 0.55) + '" y="0" width="200" height="480"/></clipPath>';
+      /* light: cheekbone, forehead, chin; a soft hollow under the lit cheekbone */
+      s += El(C - fw * 0.52, cky + 10, 16 + ck * 4, 9, K.hl, op('.45') + ' transform="rotate(-14 ' + f(C - fw * 0.52) + ' ' + f(cky + 10) + ')"') + El(C - 14, by - 22, 22, 8, K.hl, op('.35')) + El(C - 4, cy - 13, Math.max(6, cw * 0.55), 4.5, K.hl, op('.4'));
+      if (ck > 0.3) s += El(C - fw * 0.6, cky + 34, 13, 6 + ck * 4, K.sh, op(f(0.1 + ck * 0.16)) + ' transform="rotate(-28 ' + f(C - fw * 0.6) + ' ' + f(cky + 34) + ')"');
       const H = Rc.hair || {}, hairline = /^(bob|shortwig|longbob|shoulder|long|braids)$/.test(H.s) ? by - 10 : H.s === 'crop' ? (H.hl || 126) + 2 : H.s === 'wrap' ? 140 : H.s === 'curly' || H.s === 'curls' ? 136 : 0;
       if (hairline) s += P('M' + L(fw + 10) + ',' + f(hairline - 6) + ' L' + R(fw + 10) + ',' + f(hairline - 6) + ' L' + R(fw + 10) + ',' + f(hairline + 9) + ' Q' + C + ',' + f(hairline + 3) + ' ' + L(fw + 10) + ',' + f(hairline + 9) + ' Z', K.sh, op('.85'));
       s += El(C - g.edx, ey - 4, 19, 9, K.sh, op('.28')) + El(C + g.edx, ey - 4, 19, 9, K.sh, op('.38'));
@@ -579,6 +721,7 @@
       s += P('M' + L(cw * 0.6) + ',' + f(cy - 9) + ' Q' + C + ',' + f(cy - 5) + ' ' + R(cw * 0.6) + ',' + f(cy - 9), 'none', st(1.4, K.sh, op('.8')));
       const xs = Rc.x || [];
       if (xs.includes('scar')) s += P('M' + L(fw * 0.52) + ',' + f(ey + 16) + ' L' + L(fw * 0.32) + ',' + f(ey + 44), 'none', st(2.4, mx(K.sk, '#F2D2C0', 0.45))) + P('M' + L(fw * 0.52) + ',' + f(ey + 16) + ' L' + L(fw * 0.32) + ',' + f(ey + 44), 'none', st(1, K.sh2, op('.7'))) + P('M' + L(fw * 0.5 + 4) + ',' + f(ey + 24) + ' l6,2 M' + L(fw * 0.42 + 4) + ',' + f(ey + 34) + ' l6,2', 'none', st(1, K.sh2, op('.7')));
+      if (xs.includes('mole')) s += Ci(C + g.mw + 9, g.my - 9, 1.9, mx(K.sk, '#2A1008', 0.65));
       if (xs.includes('shine')) s += El(C - 18, by - 24, 10, 4, '#FFFFFF', op('.55') + ' transform="rotate(-12 ' + f(C - 18) + ' ' + f(by - 24) + ')"') + El(C + 30, by - 18, 5, 2.4, '#FFFFFF', op('.5'));
       if (xs.includes('weather')) s += P('M' + L(fw - 12) + ',' + f(ey + 22) + ' q6,4 12,2 M' + R(fw - 12) + ',' + f(ey + 22) + ' q-6,4 -12,2', 'none', st(1.2, K.sh2, op('.5')));
       return s;
@@ -594,7 +737,7 @@
       const xs = Rc.x || [], sw = g.sw; let s = '';
       if (xs.includes('armband')) [-1, 1].forEach(sd => { const X = x => f(C + sd * x); s += P('M' + X(sw - 2) + ',420 Q' + X(sw - 22) + ',426 ' + X(sw - 38) + ',418', 'none', st(11, INK)) + P('M' + X(sw - 2) + ',420 Q' + X(sw - 22) + ',426 ' + X(sw - 38) + ',418', 'none', st(7.5, GOLD)) + P('M' + X(sw - 4) + ',417 Q' + X(sw - 22) + ',423 ' + X(sw - 36) + ',415', 'none', st(1.6, '#FFF2B8', op('.7'))); });
       if (xs.includes('copperBands')) [-1, 1].forEach(sd => { const X = x => f(C + sd * x); [0, 12].forEach(dy => { s += P('M' + X(sw - 1) + ',' + (404 + dy) + ' Q' + X(sw - 22) + ',' + (410 + dy) + ' ' + X(sw - 39) + ',' + (402 + dy), 'none', st(8.5, INK)) + P('M' + X(sw - 1) + ',' + (404 + dy) + ' Q' + X(sw - 22) + ',' + (410 + dy) + ' ' + X(sw - 39) + ',' + (402 + dy), 'none', st(5.5, '#C9733E')); }); });
-      if (xs.includes('sash')) s += '<g ' + clip('tc') + '>' + P('M' + R(sw - 54) + ',346 L' + L(sw - 30) + ',480', 'none', st(22, INK)) + P('M' + R(sw - 54) + ',346 L' + L(sw - 30) + ',480', 'none', st(18, '#6E3F86')) + P('M' + R(sw - 54) + ',340 L' + L(sw - 30) + ',474', 'none', st(2, '#9A6AB0', op('.8'))) + '</g>';
+      if (xs.includes('sash')) s += '<g ' + clip('tc') + '>' + P('M' + R(sw - 54) + ',346 L' + L(sw - 30) + ',480', 'none', st(22, INK)) + P('M' + R(sw - 54) + ',346 L' + L(sw - 30) + ',480', 'none', st(18, Rc.sashc || '#6E3F86')) + P('M' + R(sw - 54) + ',340 L' + L(sw - 30) + ',474', 'none', st(2, mx(Rc.sashc || '#6E3F86', '#FFFFFF', 0.3), op('.8'))) + '</g>';
       if (xs.includes('palette')) s += '<g ' + clip('tc') + '>' + P('M' + L(sw - 58) + ',344 L' + R(70) + ',480', 'none', st(9, INK)) + P('M' + L(sw - 58) + ',344 L' + R(70) + ',480', 'none', st(6, '#8E5A33')) + '</g>' + ink('M' + R(40) + ',380 L' + R(96) + ',364 L' + R(104) + ',390 L' + R(48) + ',406 Z', '#D8B57A', 2.2) + Ci(R(56), 390, 4, INK) + Ci(R(68), 386, 4, '#B7412E', st(1.2));
       if (xs.includes('cord')) s += P('M' + R(sw - 70) + ',338 C' + R(40) + ',400 ' + L(30) + ',440 ' + L(sw - 40) + ',480', 'none', st(6, INK)) + P('M' + R(sw - 70) + ',338 C' + R(40) + ',400 ' + L(30) + ',440 ' + L(sw - 40) + ',480', 'none', st(3.4, '#D9B878', 'stroke-dasharray="5 2"')) + El(R(sw - 64), 356, 22, 12, 'none', st(6, INK, 'transform="rotate(30 ' + R(sw - 64) + ' 356)"')) + El(R(sw - 64), 356, 22, 12, 'none', st(3.4, '#D9B878', 'transform="rotate(30 ' + R(sw - 64) + ' 356)"'));
       if (xs.includes('rope')) { for (let k = 0; k < 3; k++) { s += El(L(sw - 66), 360 + k * 7, 34 - k * 2, 16, 'none', st(7, INK, 'transform="rotate(-24 ' + L(sw - 66) + ' ' + (360 + k * 7) + ')"')) + El(L(sw - 66), 360 + k * 7, 34 - k * 2, 16, 'none', st(4.4, '#C9A262', 'stroke-dasharray="6 2" transform="rotate(-24 ' + L(sw - 66) + ' ' + (360 + k * 7) + ')"')); } }
@@ -611,10 +754,27 @@
       if (xs.includes('dust')) s += '<g ' + clip('tc') + '>' + [[-150, 400], [-120, 380], [130, 390], [150, 420], [-140, 440], [110, 450]].map(([x, y]) => El(C + x, y, 14, 8, '#F2E8D8', op('.35'))).join('') + '</g>';
       return s;
     }
-    function penBehindEar(Rc, g) {
+    /* a reed pen tucked behind the right ear: it goes over the hair and under the top of the ear */
+    function penBehindEar(Rc, g, K) {
       if (!(Rc.x || []).includes('pen')) return '';
-      const x = C + g.fw;
-      return P('M' + f(x - 2) + ',150 L' + f(x + 20) + ',232', 'none', st(6.4)) + P('M' + f(x - 2) + ',150 L' + f(x + 20) + ',232', 'none', st(3.6, '#C9A262')) + P('M' + f(x + 17) + ',222 L' + f(x + 20) + ',232', 'none', st(3.6, INK));
+      const fw = g.fw, ey = g.ey, x0 = C + fw + 22, y0 = 124, x1 = C + fw - 4, y1 = ey + 46;
+      const d = 'M' + f(x0) + ',' + y0 + ' L' + f(x1) + ',' + f(y1);
+      let s = P(d, 'none', st(7.4, INK, 'stroke-linecap="butt"')) + P(d, 'none', st(4.6, '#D2AE6E', 'stroke-linecap="butt"')) + P('M' + f(x0 - 1) + ',' + (y0 + 1) + ' L' + f(x1 + 1.5) + ',' + f(y1 - 2), 'none', st(1.3, '#F2DCA8', op('.9')));
+      /* joints of the reed and the inked tip */
+      [0.22, 0.5].forEach(t => { const x = x0 + (x1 - x0) * t, y = y0 + (y1 - y0) * t; s += P('M' + f(x - 3.6) + ',' + f(y - 1.4) + ' L' + f(x + 3.6) + ',' + f(y + 1.4), 'none', st(1.5, '#8E6A3A')); });
+      s += P('M' + f(x1 + (x0 - x1) * 0.1) + ',' + f(y1 + (y0 - y1) * 0.1) + ' L' + f(x1) + ',' + f(y1), 'none', st(4.6, '#1A1210', 'stroke-linecap="round"'));
+      /* the upper ear over the pen */
+      const X = x => f(C + x), ed = 'M' + X(fw - 5) + ',' + f(ey - 8) + ' C' + X(fw + 8) + ',' + f(ey - 18) + ' ' + X(fw + 15) + ',' + f(ey) + ' ' + X(fw + 11) + ',' + f(ey + 14) + ' L' + X(fw - 2) + ',' + f(ey + 14) + ' Z';
+      s += '<g>' + P(ed, K.sh, st(2.2)) + P('M' + X(fw - 5) + ',' + f(ey + 14) + ' L' + X(fw + 12) + ',' + f(ey + 14), 'none', st(3, K.sh)) + P('M' + X(fw) + ',' + f(ey - 3) + ' C' + X(fw + 9) + ',' + f(ey - 6) + ' ' + X(fw + 9) + ',' + f(ey + 8) + ' ' + X(fw + 5) + ',' + f(ey + 13), 'none', st(1.6, K.sh2)) + '</g>';
+      return s;
+    }
+    /* a blue lotus tucked into the band over the left temple */
+    function lotus(Rc, g) {
+      if (!(Rc.x || []).includes('lotus')) return '';
+      const x = C - g.fw - 4, y = 128; let s = P('M' + f(x + 4) + ',' + f(y + 4) + ' Q' + f(x + 10) + ',' + f(y + 26) + ' ' + f(x + 6) + ',' + f(y + 44), 'none', st(4.4)) + P('M' + f(x + 4) + ',' + f(y + 4) + ' Q' + f(x + 10) + ',' + f(y + 26) + ' ' + f(x + 6) + ',' + f(y + 44), 'none', st(2.4, '#4E8E3A'));
+      [[-34, 13], [34, 13], [-14, 16], [14, 16], [0, 18]].forEach(([a, l], i) => { const d = 'M0,0 C' + f(-5.5) + ',' + f(-l * 0.4) + ' ' + f(-3.5) + ',' + f(-l * 0.85) + ' 0,' + f(-l) + ' C3.5,' + f(-l * 0.85) + ' 5.5,' + f(-l * 0.4) + ' 0,0 Z';
+        s += '<g transform="translate(' + f(x) + ' ' + f(y) + ') rotate(' + a + ')">' + P(d, i < 2 ? '#7FA8D8' : '#F4F0F8', st(1.5)) + P('M0,' + f(-l * 0.6) + ' L0,' + f(-l), 'none', st(2.4, '#3E6CC8', op('.85'))) + '</g>'; });
+      return s + El(x, y + 1, 7, 3.6, '#4E8E3A', st(1.4));
     }
     function chinHand(g, K) {
       const y = g.cy - 6, x = C - 2;
@@ -686,10 +846,11 @@
       /* back layer: props, hair */
       let back = propsBack(Rc, g, K) + '<g class="c40h"><g' + ht + '>' + hairBack(Rc, g, K) + '</g></g>';
       /* body */
-      let body = bodyParts(Rc, g, K, X) + neck(Rc, g, K) + collar(Rc, g, K) + lappets(Rc, g, K) + propsFront(Rc, g, K);
+      let body = bodyParts(Rc, g, K, X) + neck(Rc, g, K) + collar(Rc, g, K) + propsFront(Rc, g, K);
       /* head */
       const eL = eye(-1, g, X, Rc, K), eR = eye(1, g, X, Rc, K);
-      let head = ears(Rc, g, K);
+      const braided = (Rc.hair || {}).s === 'braids';
+      let head = braided ? lappets(Rc, g, K) : lappets(Rc, g, K) + ears(Rc, g, K);
       if (g.fat > 0.6) { const dc = 'M' + L(g.jw - 4) + ',' + f(g.jy + 4) + ' C' + L(g.jw - 6) + ',' + f(g.cy + 18) + ' ' + L(g.cw + 4) + ',' + f(g.cy + 20) + ' ' + C + ',' + f(g.cy + 20) + ' C' + R(g.cw + 4) + ',' + f(g.cy + 20) + ' ' + R(g.jw - 6) + ',' + f(g.cy + 18) + ' ' + R(g.jw - 4) + ',' + f(g.jy + 4) + ' Z'; head += ink(dc, K.sk, 2.4) + P(dc, K.sh, op('.5') + ' transform="translate(6 2)"'); }
       head += ink(fd, K.sk, 2.8) + '<g ' + clip('fc') + '>' + faceDetail(Rc, g, K, X) + '</g>';
       head += nose(g, Rc, K) + beard(Rc, g, K, X);
@@ -698,7 +859,7 @@
       /* mouths: m0 the mood, m1/m2 the talking frames (live only) */
       head += '<g class="c40m m0">' + mouth(X.m, X.mo || 1, g, K, 'mA') + '</g>';
       if (o.live && !X.mo) { const tk = TALK[mood] || 'talk'; head += '<g class="c40m m1">' + mouth(tk, 1, g, K, 'mB') + '</g><g class="c40m m2">' + mouth(tk, 0.35, g, K, 'mC') + '</g>'; }
-      head += hairFront(Rc, g, K) + penBehindEar(Rc, g);
+      head += hairFront(Rc, g, K) + penBehindEar(Rc, g, K) + lotus(Rc, g);
       let front = '';
       if (X.hand === 'chin') front += chinHand(g, K);
       if (tell) front += tellParts(tell, g, K);
