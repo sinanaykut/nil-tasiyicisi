@@ -1,0 +1,38 @@
+
+/* ===== v45: the travel map: far towns, the "Kervanla" group, the far-town card ===== */
+.tvgrp{display:flex;flex-direction:column;gap:4px;margin-top:2px;padding-top:6px;border-top:1.5px dashed rgba(43,29,20,.35)}
+.tvgh{display:flex;align-items:center;gap:4px;font:800 12px/1.2 Nunito,sans-serif;color:var(--ink2);text-transform:uppercase;letter-spacing:.6px}
+.tvlist .chip.far{flex-direction:row;background:#EFE2C4;border-style:dashed;color:rgba(43,29,20,.85)}
+.tvlist .chip.far b{font-weight:800}
+.tvlist .chip.far small{font:700 11.5px/1.1 Nunito,sans-serif;color:#7A4E2A;margin-left:2px}
+.tvlist3 .chip.far{background:#EFE2C4;border-style:dashed;color:rgba(43,29,20,.8)}
+.tvlist3 .chip.far.on{background:#8E5A33;color:#FFF8EC;border-style:solid}
+.tvc.far .tvh .tvmini{filter:saturate(.75)}
+.tvph{display:inline-flex;flex-wrap:wrap;align-items:center;gap:3px}
+.tvph em{display:inline-grid;place-items:center;width:24px;height:22px;border-radius:7px;border:1.5px solid var(--ink);font-style:normal}
+.tvph em.lo{background:#BFE3B4}.tvph em.hi{background:#F4B9A6}
+.tvph small{color:var(--ink2);font-weight:700}
+.irow.warn .iI{background:#F6D58E}
+.tvfirst{display:flex;align-items:center;justify-content:center;gap:6px;background:#FBF3DF}
+.mk.far:not(:disabled){cursor:pointer}
+.mk.far.sel{opacity:1}
+.mk .ml small .ico{width:11px;height:11px;vertical-align:-1px;margin-right:2px}
+
+/* ===== v45: 3D map plaques: names only from afar, a single bubble for the chosen town ===== */
+.v3m-l.via i{display:flex;align-items:center;gap:2px;color:#7A4E2A}
+.v3m-l.via i .ico{width:11px;height:11px}
+.v3m-l.dim.sel{background:#6B5A48;color:#FFF8EC;border-color:#2B1D14}
+.v3m-l.dim.sel i{color:#F6D58E}
+.v3m-l .v3m-k{display:flex;align-items:center;gap:3px;font:800 11px/1.2 Nunito,sans-serif;color:#F2C65A;margin-top:1px}
+.v3m-l .v3m-k .ico{width:12px;height:12px}
+.v3m-l .v3m-k em{font-style:normal;letter-spacing:-1px}
+.v3m-l.sel .v3m-h{margin-top:3px}
+.v3m-sm .v3m-l .v3m-k{font-size:10.5px}
+.v3m-ll{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;overflow:visible}
+.v3m-ll path{fill:none;stroke:#2B1D14;stroke-width:1.8;stroke-linecap:round;opacity:.8;filter:drop-shadow(0 0 1.5px #FBF3DF)}
+.v3m-l.t0{min-height:0;padding-top:2px;padding-bottom:2px}
+.v3m-sm .v3m-l.t0{min-width:0;padding:1px 6px}
+
+/* ===== v45: the caravan stop in the town ===== */
+.v3t-l.car{background:#F6D58E}
+.pin.sp-caravan .pi{background:#F6D58E}

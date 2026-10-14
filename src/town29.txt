@@ -7,9 +7,11 @@
     if (!X) return null;
     let T = null, G = null;
     const INK = '#2B1D14', RED = X.RED;
-    const SPOTS = ['market', 'ship', 'hero', 'temple', 'tavern', 'work', 'yard', 'hapu', 'board', 'well'];
-    const SNAME = { market:'Pazar', ship:'Tekne · yola çık', temple:'Tapınak', tavern:'Meyhane', work:'Atölye', yard:'Tersane', hapu:'Hapu\'nun evi', board:'Sipariş panosu', well:'Kuyu' };
-    const SICO = { market:'i-stall', ship:'i-boat', hero:'i-heart', temple:'i-temple', tavern:'i-senet', work:'i-workshop', yard:'i-anchor', hapu:'i-coin', board:'i-scroll', well:'i-water' };
+    const SPOTS = ['market', 'ship', 'hero', 'temple', 'tavern', 'work', 'yard', 'hapu', 'board', 'well', 'caravan'];
+    const SNAME = { market:'Pazar', ship:'Tekne · yola çık', temple:'Tapınak', tavern:'Meyhane', work:'Atölye', yard:'Tersane', hapu:'Hapu\'nun evi', board:'Sipariş panosu', well:'Kuyu', caravan:'Kervan durağı' };
+    const SICO = { market:'i-stall', ship:'i-boat', hero:'i-heart', temple:'i-temple', tavern:'i-senet', work:'i-workshop', yard:'i-anchor', hapu:'i-coin', board:'i-scroll', well:'i-water', caravan:'i-donkey' };
+    /* v45: the river towns where a desert caravan sets out (Mennefer → Siwa, Abidos → Harga, Vaset → Saww): a caravan stop on the quay */
+    const CARHUB = { mennefer:1, abidos:1, vaset:1 }, CARSP = { x:80, z:74, y:8, r:18, top:20 };
     const CID = ['perbastet', 'mennefer', 'abidos', 'vaset', 'abu', 'siwa', 'kharga', 'saww'];
     /* per-city colours: walls, second wall tone, trims (corners, frames), the accent band under the roofs, roof, ground, paving */
     const CP = {
@@ -606,6 +608,7 @@ void main() {
         k.stick([56, 0, 106], [56, 30, 106], 1, '#6B4226'); k.stick([56, 30, 106], [76, 26, 116], 0.8, '#6B4226'); k.stick([76, 26, 116], [76, 14, 116], 0.25, '#5A4632');
         for (let i = 0; i < 4; i++) B3(k, '#C9955A', 50, i * 1.6, 132 - i * 0.4, 18, 1.6, 4);
         barrel(B, 46, 108); B.spots.yard = { x:70, z:118, y:8, r:24, top:30 };
+        if (CARHUB[id]) B.spots.caravan = Object.assign({}, CARSP);   /* v45: the donkeys themselves are dynamic (only while caravans can leave) */
         B.walk.push([[52, 96], [40, 102], [38, 120], [52, 118]]);   /* v41: on the paving by the slip, clear of the carrier, the barrel and the plank stack */
       }
       /* a low wall with merlons behind the plaza, opening onto the temple stairs */
@@ -924,7 +927,7 @@ void main() {
     }
     const phaseOf = day => { const t = Math.max(0, Math.min(1, ((+day || 1) - 1) / 29)); return t < 0.2 ? 0 : t < 0.62 ? 1 : t < 0.82 ? 2 : 3; };
     const PHASE_DAY = [2, 12, 22, 29];
-    const ALLSP = { market:true, ship:true, temple:true, tavern:true, work:true, yard:true, hapu:true, board:true, well:true };
+    const ALLSP = { market:true, ship:true, temple:true, tavern:true, work:true, yard:true, hapu:true, board:true, well:true, caravan:false };
     /* a tiny whole-town model for the travel map (no ground, no ink lines), cached for good */
     const MINI = new Map();
     function townMini(ci) {
@@ -1131,7 +1134,7 @@ void main() {
         }
         setFigs(o2, town0); setMovers(town0);
         /* dynamic: our boat (or caravan), Sethi, crisis */
-        const bk = JSON.stringify([ci, o2.boat, (o2.cargo || []).length, !!o2.sethiHere, o2.caravan && o2.caravan.donkeys, FIGON() ? '' : heroKey(o2.hero)]);
+        const bk = JSON.stringify([ci, o2.boat, (o2.cargo || []).length, !!o2.sethiHere, o2.caravan && o2.caravan.donkeys, FIGON() ? '' : heroKey(o2.hero), !!(o2.spots && o2.spots.caravan)]);
         if (bk !== boatK) { boatK = bk; buildDyn(o2, ci); }
         const ck = (o2.crisis || '') + ':' + ci;
         if (ck !== crisisK) { crisisK = ck; if (crisisG) { sc.remove(crisisG); crisisG.children.forEach(m => m.geometry && m.geometry.dispose && m.geometry.dispose()); crisisG = null; } const kk = crisisKit(o2.crisis, !!(CP[CID[ci]] || {}).water); if (kk) { crisisG = new T.Group(); const g1 = kk.bake({ em:true }), l1 = kk.bakeLines(); crisisG.add(new T.Mesh(g1, mats.toon)); crisisG.add(new T.Mesh(g1, mats.ink)); if (l1) { const lm = new T.Mesh(l1, mats.line); lm.frustumCulled = false; crisisG.add(lm); } sc.add(crisisG); } }
@@ -1151,6 +1154,13 @@ void main() {
           const me = mkPart(k => X.boatKit(k, boatSpecOf(o2)), 124, -2, 16, Math.PI, 0.95);
           me.boat = true; me.dmg = boatSpecOf(o2).dmg; me.list = me.dmg >= 3 ? 0.11 : me.dmg >= 2 ? 0.04 : 0;
           if (o2.sethiHere) { const s = mkPart(k => X.boatKit(k, boatSpecOf(o2, true)), 128, -2, -60, Math.PI, 0.9); s.boat = true; s.sethi = true; }
+          /* v45: a caravan hub: three pack donkeys and their driver wait on the quay south of the hero (the caravan stop) */
+          if (o2.spots && o2.spots.caravan && CARHUB[CID[ci]]) {
+            const c0 = CARSP;
+            for (let j = 0; j < 3; j++) mkPart(k => X.donkey(k, { pack:1 + (j % 2), saddle:j ? '#1F5FA8' : '#B7412E', s:1 }), c0.x + 1 + (j % 2) * 1.5, 0, c0.z - 12 + j * 12, Math.PI, 0.72);
+            mkPart(k => X.person(k, 0, 0, '#E6CB95', { stick:true, s:1 }), c0.x - 2, 0, c0.z - 22, 0.5, 0.75);
+            mkPart(k => { k.add('c8', '#C98E62', 0, 3, 0, 3, 6, 3); k.add('c8', '#5A3A22', 0, 6.4, 0, 1.2, 1.4, 1.2); k.add('c8', '#B88A5A', 4, 2.5, 2, 2.6, 5, 2.6); }, c0.x - 3, 0, c0.z + 22, 0, 0.9);
+          }
         } else if (p.water) {
           /* v41: a sea port reached by caravan (Saww): our boat waits at the river, so the donkeys stand in a file on the quay, not our ship in the sea */
           const n = Math.max(2, Math.min(5, (o2.caravan && o2.caravan.donkeys) || 4));   /* five fit between the incense tree and the hero */
@@ -1180,7 +1190,7 @@ void main() {
           const ic = typeof ico === 'function' ? ico(key === 'ship' && (desert || o2.caravan) ? 'i-donkey' : SICO[key], 15) : '';
           const html = ic + '<b>' + name + '</b>' + badge;
           if (L.dataset.h !== html) { L.innerHTML = html; L.dataset.h = html; }
-          L.dataset.spot = key; L.hidden = false; L.classList.toggle('ship', key === 'ship'); L.setAttribute('aria-label', name);
+          L.dataset.spot = key; L.hidden = false; L.classList.toggle('ship', key === 'ship'); L.classList.toggle('car', key === 'caravan'); L.setAttribute('aria-label', name);
         });
         need = true;
       }

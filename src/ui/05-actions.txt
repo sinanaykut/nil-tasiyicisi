@@ -1,11 +1,13 @@
   /* ================= actions ================= */
+  /* v45: any town can be chosen on the map; one you cannot reach now shows its card (why, and the way there) without a sail button */
   function selectCity(i) {
-    if (phase !== 'port' || !canGo(S, i)) return;
+    if (phase !== 'port' || !S || !CITIES[i] || i === S.city) return;
+    const ok = canGo(S, i);
     if (sheetName !== 'travel') { sel = i; play('click'); showTravel(i); return; }
-    sel = i; play('click'); buzz('pick');
-    if (guide().step === 'city') guideTo('sail');
+    sel = i; play(ok ? 'click' : 'tick'); buzz('pick');
+    if (ok && guide().step === 'city') guideTo('sail');
     travelUpdate();
-    const b = document.querySelector('#sheet [data-act="go"]'); if (b && !reduce) b.focus({ preventScroll:true });
+    const b = document.querySelector('#sheet [data-act="go"]'); if (ok && b && !reduce) b.focus({ preventScroll:true });
   }
   function trade(kind, gid, btn) {
     if (phase !== 'port' || S.over) return;

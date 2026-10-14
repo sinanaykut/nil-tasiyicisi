@@ -30,6 +30,9 @@
         const comp = document.createElement('div'); comp.className = 'v3m-n'; comp.setAttribute('aria-hidden', 'true');
         comp.innerHTML = '<svg viewBox="-20 -20 40 40"><circle r="17" fill="#FBF3DF" stroke="#2B1D14" stroke-width="2.5"/><path d="M0-15 5 0H-5Z" fill="#B7412E" stroke="#2B1D14" stroke-width="1.6" stroke-linejoin="round"/><path d="M0 15 5 0H-5Z" fill="#E9D9B4" stroke="#2B1D14" stroke-width="1.6" stroke-linejoin="round"/><circle r="2.4" fill="#D9A43A" stroke="#2B1D14" stroke-width="1.2"/></svg><b>K</b>';
         labs.appendChild(comp);
+        /* v45: leader lines from a token to its plaque when the plaque had to move away */
+        const llS = document.createElementNS('http://www.w3.org/2000/svg', 'svg'), llP = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        llS.setAttribute('class', 'v3m-ll'); llS.setAttribute('aria-hidden', 'true'); llS.appendChild(llP); labs.insertBefore(llS, labs.firstChild); let llD = '';
         const pr = Math.min(2.5, window.devicePixelRatio || 1); let el = null, onPick = null;
         U.uPR.value = pr; U.uInk.value = 1.15;
         const sc = new T.Scene(), ocam = new T.OrthographicCamera(-1, 1, 1, -1, 1, 3000), ODIST = 900, cam = ocam;
@@ -174,6 +177,8 @@
         const cities = new Map(), chips = [], CA = [];
         let myEp = VIS.epoch, slowM = mapSlow, gapA = 33, gapN = 0, mdl = model, W = 0, H = 0, needFit = true, dirty = true, raf = 0, killed = false, t0 = performance.now(), lastR = 0, inView = true, sel = null, ro = null, io = null, hover = -1, wd = 0;
         let awake = 0, selT = 0, tier = -1, rtChip = null;
+        /* v45: the miniatures are smaller from afar (tokens), full size close up */
+        const TSC = () => tier <= 0 ? 0.8 : tier === 1 ? 0.9 : 1;
         const _v = new T.Vector3(), _n = new T.Vector2(), rc = new T.Raycaster(), hits = []; if (rc.layers) rc.layers.enableAll();
         /* ---- the towns ---- */
         /* v42: k = the still model, k.life = the moving parts (swing / sway), k.smoke = smoke vents [x, y, z, phase] */
@@ -199,10 +204,16 @@
           cities.set(id, o); CA.push(o);
           return o;
         }
+        /* v45 (owner: "miniatures and texts take a lot of room"): from afar a plaque is the town's name only (a far desert town
+           adds its caravan hub, a closed one a short reason); days come at mid zoom, prices close up; the chosen town alone
+           opens into one bubble: days and risk, cheap and dear goods, its marks */
         function labHtml(o) {
-          const c = o.c || {}, bd = c.badges || {}, here = o.here, dim = o.dim;
-          let sub = here ? 'Buradasın' : dim ? (c.why || '') : c.days ? c.days + ' gün' : '';
-          if (dim && tier < 1 && sub.length > 15) sub = '';
+          const c = o.c || {}, bd = c.badges || {}, here = o.here, dim = o.dim, sl = o.sel;
+          let sub = '', via = false;
+          if (here) sub = tier >= 1 ? 'Buradasın' : '';
+          else if (dim && c.via) { via = true; sub = sl || tier >= 1 ? c.via : String(c.via).split(' · ')[0]; }
+          else if (dim) { sub = c.why || ''; if (!sl && tier < 1 && sub.length > 15) sub = ''; }
+          else if (!sl && tier >= 1 && c.days) sub = c.days + ' gün';
           let bh = '';
           if (bd.crisis) bh += '<span class="v3m-b cr" title="Kriz">⚠</span>';
           /* v43: orders you carry there (gold) and orders waiting on its board (light); a donkey marks a caravan job */
@@ -210,18 +221,20 @@
           else if (bd.post) bh += '<span class="v3m-b or of' + (bd.postDz ? ' dz' : '') + '" title="' + (bd.postDz ? 'Kervan işi bekliyor' : 'Sipariş bekliyor') + '">' + icoS(bd.postDz ? 'i-donkey' : 'i-scroll', '✉') + '</span>';
           if (bd.work) bh += '<span class="v3m-b wk" title="Atölye hazır">' + icoS('i-workshop', '⚒') + '</span>';
           if (bd.sethi) bh += '<span class="v3m-b se" title="Sethi">' + icoS('i-boat', '⛵') + '</span>';
-          let hint = '';
-          const h = c.hint; if (tier >= 1 && h && !dim && ((h.lo && h.lo.length) || (h.hi && h.hi.length))) hint = '<span class="v3m-h">' + (h.lo || []).map(g2 => '<em class="lo" title="ucuz">' + icoS('i-' + g2, '', 12) + '</em>').join('') + (h.hi || []).map(g2 => '<em class="hi" title="pahalı">' + icoS('i-' + g2, '', 12) + '</em>').join('') + '</span>';
+          let hint = '', key = '';
+          if (sl && !dim) { const rt = mdl && mdl.route && mdl.route.to === c.i ? mdl.route : null, d = rt ? rt.days : c.days, rk = rt ? rt.risk | 0 : c.risk | 0;
+            key = '<span class="v3m-k">' + icoS(c.river === false || (mdl && mdl.me && mdl.me.car) ? 'i-donkey' : 'i-boat', '') + '<b>' + escH(d + ' gün') + '</b>' + (rt || c.risk != null ? ' · Risk <em>' + '●'.repeat(rk) + '○'.repeat(3 - rk) + '</em>' : '') + '</span>'; }
+          const h = c.hint; if ((tier >= 2 || sl) && h && ((h.lo && h.lo.length) || (h.hi && h.hi.length))) hint = '<span class="v3m-h">' + (h.lo || []).map(g2 => '<em class="lo" title="ucuz">' + icoS('i-' + g2, '', 12) + '</em>').join('') + (h.hi || []).map(g2 => '<em class="hi" title="pahalı">' + icoS('i-' + g2, '', 12) + '</em>').join('') + '</span>';
           const nm = String(c.name || o.id);
-          return '<b>' + escH(nm) + '</b>' + (sub ? '<i>' + escH(sub) + '</i>' : '') + hint + (bh ? '<span class="v3m-bs">' + bh + '</span>' : '');
+          return '<b>' + escH(nm) + '</b>' + (sub ? '<i>' + (via ? icoS('i-donkey', '', 11) : '') + escH(sub) + '</i>' : '') + key + hint + (bh ? '<span class="v3m-bs">' + bh + '</span>' : '');
         }
         function setLab(o) {
           const c = o.c || {}, html = labHtml(o), nm = String(c.name || o.id);
           if (o.html !== html) { o.lab.innerHTML = html; o.html = html; o.lw = 0; }
           o.lab.dataset.i = c.i; o.lab.dataset.side = MSIDE[o.id] || 'b';
-          const cl = 'v3m-l' + (o.here ? ' here' : '') + (o.sel ? ' sel' : '') + (o.reach ? ' reach' : '') + (o.dim ? ' dim' : '') + (c.badges && c.badges.crisis ? ' cri' : '');
+          const cl = 'v3m-l' + (o.here ? ' here' : '') + (o.sel ? ' sel' : '') + (o.reach ? ' reach' : '') + (o.dim ? ' dim' : '') + (c.badges && c.badges.crisis ? ' cri' : '') + (o.dim && c.via ? ' via' : '') + (tier < 1 && !o.sel ? ' t0' : '');
           if (o.lab.className !== cl) { o.lab.className = cl; o.lw = 0; }   /* v35: dim / chosen plaques differ in size: measure again */
-          o.lab.setAttribute('aria-label', nm + (o.here ? ', buradasın' : o.dim ? ', şimdi gidilemez' + (c.why ? ': ' + c.why : '') : ', ' + (c.days || '') + ' gün, git'));
+          o.lab.setAttribute('aria-label', nm + (o.here ? ', buradasın' : o.dim ? ', şimdi gidilemez' + (c.why ? ': ' + c.why : '') + (c.via ? ', kervan ' + c.via : '') : ', ' + (c.days || '') + ' gün, git'));
           o.lab.setAttribute('aria-pressed', o.sel ? 'true' : 'false');
         }
         function setCity(o, c) {
@@ -239,7 +252,7 @@
             o.flag.forEach((m, j) => { m.visible = !!bd.crisis; m.material = j ? (dim ? mID : mI) : (dim ? mTD : mT); });
             o.ring.visible = here;
           }
-          o.here = here; o.sel = sl; o.reach = reach; o.dim = dim;
+          o.here = here; o.sel = sl; o.reach = reach; o.dim = dim; o.g.scale.setScalar(TSC());
           setLab(o);
         }
         /* ---- v42: the towns' moving parts: one merged mesh (toon + ink) for every visible town, one points mesh for the smoke;
@@ -249,15 +262,15 @@
         let lifeKey = '', lifeG = null, smG = null; const lifeM = [new T.Mesh(undefined, lifeT), new T.Mesh(undefined, lifeI)], smP = new T.Points(undefined, smM);
         lifeM.concat([smP]).forEach(m => { m.frustumCulled = false; m.visible = false; m.layers.set(1); sc.add(m); }); smP.renderOrder = 4;
         function lifeSet() {
-          const on = CA.filter(o => o.g.visible), key = on.map(o => o.id + (o.dim ? 'd' : '') + o.g.position.x.toFixed(2) + ',' + o.g.position.y.toFixed(2) + ',' + o.g.position.z.toFixed(2)).join('|');
+          const on = CA.filter(o => o.g.visible), key = on.map(o => o.id + (o.dim ? 'd' : '') + o.g.position.x.toFixed(2) + ',' + o.g.position.y.toFixed(2) + ',' + o.g.position.z.toFixed(2) + '*' + o.g.scale.x.toFixed(2)).join('|');
           if (key === lifeKey) return; lifeKey = key;
           [lifeG, smG].forEach(g0 => { if (g0) { g0.dispose(); const i = own.indexOf(g0); if (i >= 0) own.splice(i, 1); } }); lifeG = smG = null;
-          const sc0 = 0.1 * CS * LSC, gr = col3('#8F8578'), list = on.filter(o => o.lg); let n = 0; list.forEach(o => { n += o.lg.attributes.position.count; });
+          const sc1 = 0.1 * CS * LSC, gr = col3('#8F8578'), list = on.filter(o => o.lg); let n = 0, sc0 = sc1; list.forEach(o => { n += o.lg.attributes.position.count; });
           if (n) {
             const A = { position:3, normal:3, aCol:3, aSway:1, aOut:3, aPiv:3, aSwP:3 }, out = {}; Object.keys(A).forEach(a => { out[a] = new Float32Array(n * A[a]); });
             let v = 0;
             list.forEach(o => {
-              const P = o.g.position, src = {}, c = o.lg.attributes.position.count; Object.keys(A).forEach(a => { src[a] = o.lg.attributes[a].array; });
+              const P = o.g.position, src = {}, c = o.lg.attributes.position.count; sc0 = sc1 * o.g.scale.x; Object.keys(A).forEach(a => { src[a] = o.lg.attributes[a].array; });
               for (let i = 0; i < c; i++) {
                 const j = i * 3, d = (v + i) * 3, sw = src.aSwP[j + 2] !== 0;
                 out.position[d] = P.x + src.position[j] * sc0; out.position[d + 1] = P.y + src.position[j + 1] * sc0; out.position[d + 2] = P.z + src.position[j + 2] * sc0;
@@ -273,7 +286,7 @@
             lifeM.forEach(m => { m.geometry = lifeG; m.visible = true; });
           } else lifeM.forEach(m => { m.visible = false; });
           const sp = [], sa = [];
-          on.forEach(o => { if (o.dim) return; o.smk.forEach(q => { for (let j = 0; j < 3; j++) { sp.push(o.g.position.x + q[0] * sc0, o.g.position.y + q[1] * sc0, o.g.position.z + q[2] * sc0); sa.push(q[3] + j / 3); } }); });
+          on.forEach(o => { if (o.dim) return; const sc0 = sc1 * o.g.scale.x; o.smk.forEach(q => { for (let j = 0; j < 3; j++) { sp.push(o.g.position.x + q[0] * sc0, o.g.position.y + q[1] * sc0, o.g.position.z + q[2] * sc0); sa.push(q[3] + j / 3); } }); });
           if (sp.length) { smG = kp(new T.BufferGeometry()); smG.setAttribute('position', new T.Float32BufferAttribute(sp, 3)); smG.setAttribute('aPh', new T.Float32BufferAttribute(sa, 1)); smP.geometry = smG; smP.visible = true; } else smP.visible = false;
           dirty = true;
         }
@@ -313,7 +326,7 @@
         function routes(m) {
           const roads = Array.isArray(m.roads) ? m.roads : [], byI = new Map(); cities.forEach(o => { if (o.g.visible) byI.set(o.i, o); });
           const here = [...byI.values()].find(o => o.here), sl = [...byI.values()].find(o => o.sel), rt = m.route || null, sx = m.sethi || null;
-          const key = JSON.stringify([roads.map(r2 => [r2.a, r2.b, !!r2.desert, r2.days]), here && here.i, sl && sl.i, rt && [rt.days, rt.risk], sx && [sx.to, sx.x, sx.y, sx.race]]);
+          const key = JSON.stringify([roads.map(r2 => [r2.a, r2.b, !!r2.desert, r2.days, !!r2.shut]), here && here.i, sl && sl.i, sl && !!sl.reach, rt && [rt.days, rt.risk], sx && [sx.to, sx.x, sx.y, sx.race]]);
           if (key === rtKey) return; rtKey = key;
           if (rtMesh) { sc.remove(rtMesh); rtMesh.geometry.dispose(); rtMesh = null; }
           chips.forEach(ch => ch.el.remove()); chips.length = 0; rtChip = null;
@@ -325,7 +338,7 @@
             while (q.length) { const v = q.shift(); if (v === sl.i) break; roads.forEach(r2 => { const w = r2.a === v ? r2.b : r2.b === v ? r2.a : null; if (w != null && !prev.has(w) && byI.has(w)) { prev.set(w, v); q.push(w); } }); }
             if (prev.has(sl.i)) for (let v = sl.i; prev.get(v) != null; v = prev.get(v)) on.add(prev.get(v) + '>' + v);
           }
-          const P = { p:[], u:[], s:[], h:[], c:[], ix:[] }, gold = rgbA('#F2C65A'), cream = rgbA('#FFF4D6'), brown = rgbA('#8C5A2E'), red = rgbA('#B7412E'), green = rgbA('#3E9A6A');
+          const P = { p:[], u:[], s:[], h:[], c:[], ix:[] }, cream = rgbA('#FFF4D6'), brown = rgbA('#8C5A2E'), green = rgbA('#3E9A6A'), farW = !!(sl && !sl.reach), gold = farW ? cream : rgbA('#F2C65A'), red = farW ? rgbA('#E3B07A') : rgbA('#B7412E'), pale = rgbA('#B89470');
           const riskTxt = rt ? ' · Risk <i class="rk' + (rt.risk | 0) + '">' + '●'.repeat(rt.risk | 0) + '○'.repeat(3 - (rt.risk | 0)) + '</i>' : '';
           const rtHtml = rt ? (rt.desert ? icoS('i-donkey', '') : icoS('i-boat', '')) + '<b>' + escH(rt.days + ' gün') + '</b>' + riskTxt : '';
           let riverDone = false, hiCurve = [], car = 0;
@@ -333,7 +346,7 @@
             const A = byI.get(r2.a), B = byI.get(r2.b); if (!A || !B) return;
             const f = on.has(A.i + '>' + B.i), bk = on.has(B.i + '>' + A.i), hi = f || bk, a = bk ? B : A, b = bk ? A : B;
             if (r2.desert) {
-              const { pts, curve } = desertPts(a, b); if (pts.length > 1) strip(P, pts, hi ? 1.05 : 0.85, hi ? red : brown, hi ? 1 : 0);   /* v35: the caravan roads read better */
+              const { pts, curve } = desertPts(a, b); if (pts.length > 1) strip(P, pts, hi ? 1.05 : 0.85, hi ? red : r2.shut ? pale : brown, hi ? 1 : 0);   /* v35: the caravan roads read better; v45: paler before the caravans open */
               if (hi) hiCurve = hiCurve.concat(curve);
               else if (r2.days) chips.push({ el:chipEl('v3m-d', icoS('i-donkey', '') + escH(r2.days + ' gün')), curve });
               if (car < CARS.length && !RED) { const c2 = CARS[car++]; c2.curve = curve; c2.gs.forEach(g0 => { g0.visible = true; }); }
@@ -347,7 +360,7 @@
           }
           /* Sethi's course to his next market, in his green */
           if (sx && sx.to != null && sx.x != null) { const to = [...byI.values()].find(o => o.i === sx.to); if (to && Math.hypot(to.x - sx.x, to.y - sx.y) > 0.03 && nileIdx(sx.x, sx.y).d < 0.04 && nileIdx(to.x, to.y).d < 0.04) runs(P, riverPts(nileIdx(sx.x, sx.y).i, nileIdx(to.x, to.y).i, -1.0, 0.05 * CS).pts.map(q => q && [q[0] + 0.55, q[1], q[2] + 0.3]), 0.5, green, 1); }
-          if (rt && hiCurve.length > 2) { rtChip = { el:chipEl('v3m-d rt' + (rt.desert ? ' dz' : ''), rtHtml), curve:hiCurve, rt:true }; chips.unshift(rtChip); }
+          void rtHtml;   /* v45: the chosen town's bubble carries the days and the risk (no second plaque on the route) */
           if (!P.ix.length) return;
           const g = new T.BufferGeometry();
           g.setAttribute('position', new T.Float32BufferAttribute(P.p, 3)); g.setAttribute('aU', new T.Float32BufferAttribute(P.u, 1)); g.setAttribute('aS', new T.Float32BufferAttribute(P.s, 1)); g.setAttribute('aHi', new T.Float32BufferAttribute(P.h, 1)); g.setAttribute('aCol', new T.Float32BufferAttribute(P.c, 3)); g.setIndex(P.ix);
@@ -397,7 +410,7 @@
           cities.forEach((o, id) => { if (!seen.has(id)) { if (o.g.visible) bakeOK = false; o.g.visible = false; o.lab.hidden = true; o.sel = o.here = o.reach = false; } else o.lab.hidden = false; });
           lifeSet();
           const prevSel = sel; sel = null; cities.forEach(o => { if (o.sel && o.g.visible) sel = o; });
-          if (sel !== prevSel) { selT = performance.now(); if (sel) { selG.position.set(sel.g.position.x, sel.base - 0.75, sel.g.position.z); } selG.visible = !!sel; }
+          if (sel !== prevSel) { selT = performance.now(); if (sel) { selG.position.set(sel.g.position.x, sel.base - 0.75 * TSC(), sel.g.position.z); } selG.visible = !!sel; }
           const s = mdl.sethi;
           if (s && s.x != null && s.y != null) {
             /* at a city: moored on the river just south of it (or beside an oasis) so the marker stays clear */
@@ -448,7 +461,7 @@
           U.uFocal.value = ODIST / u;
           /* zoom levels: far = the routes and days, mid = town plaques with price hints, near = the villages too */
           const t2 = z < 1.45 ? 0 : z < 2.3 ? 1 : 2;
-          if (t2 !== tier) { tier = t2; labs.dataset.z = t2; labs.classList.toggle('v3m-z', t2 > 0); cities.forEach(o => { if (o.c) setLab(o); }); }
+          if (t2 !== tier) { tier = t2; labs.dataset.z = t2; labs.classList.toggle('v3m-z', t2 > 0); cities.forEach(o => { o.g.scale.setScalar(TSC()); if (o.c) setLab(o); }); bakeOK = false; lifeSet(); if (sel) selG.position.y = sel.base - 0.75 * TSC(); }
         }
         function scr(x, y, z) { _v.set(x, y, z).project(cam); return [(_v.x + 1) / 2 * W, (1 - _v.y) / 2 * H]; }
         /* ---- labels: the preferred side first (or the side used last time), then any side that overlaps nothing ---- */
@@ -456,7 +469,7 @@
         const put = (elx, rr, bdg) => { const x = Math.max(2, Math.min(W - rr.w - 2, rr.x)), y = Math.max(2, Math.min(H - rr.h - 2, rr.y)); const tf = 'translate(' + Math.round(x) + 'px,' + Math.round(y + (bdg || 0)) + 'px)'; if (elx.style.transform !== tf) elx.style.transform = tf; return { x, y, w:rr.w, h:rr.h }; };
         const vis = (e, on) => { if (e.classList.contains('v3m-off') === !on) return; e.classList.toggle('v3m-off', !on); };   /* v35: a fade (CSS), never a pop */
         function mRect(o) {
-          const X0 = mX(o.x), Z0 = mZ(o.y), R0 = 4.3 * CS, a = scr(X0 - R0, o.base, Z0), b = scr(X0 + R0, o.base, Z0), t = scr(X0, o.base + 4 * CS, Z0 - R0 * 0.5), u = scr(X0, o.base, Z0 + R0);
+          const ts = o.g.scale.x, X0 = mX(o.x), Z0 = mZ(o.y), R0 = 4.3 * CS * ts, a = scr(X0 - R0, o.base, Z0), b = scr(X0 + R0, o.base, Z0), t = scr(X0, o.base + 4 * CS * ts, Z0 - R0 * 0.5), u = scr(X0, o.base, Z0 + R0);
           const x0 = Math.min(a[0], b[0]), x1 = Math.max(a[0], b[0]), w = (x1 - x0) * 0.7 - 4;
           return { x:(x0 + x1) / 2 - w / 2, y:t[1] + 3, w, h:(u[1] - t[1]) * 0.8 - 3, o };
         }
@@ -467,7 +480,7 @@
         }
         function layout() {
           needLay = false;
-          const placed = [], vis2 = [];
+          const placed = [], vis2 = []; let lls = '';
           { const a = scr(0, 0, 0), b = scr(0, 0, -20), ang = Math.atan2(b[0] - a[0], -(b[1] - a[1])), cw = 40, cp = scr(-50, 0, -50);
             const x = Math.max(4, Math.min(W - cw - 4, cp[0] - cw / 2)), y = Math.max(4, Math.min(H - cw - 4, cp[1] - cw / 2));
             comp.style.transform = 'translate(' + Math.round(x) + 'px,' + Math.round(y) + 'px)'; comp.firstChild.style.transform = 'rotate(' + ang.toFixed(3) + 'rad)';
@@ -482,8 +495,8 @@
           vis2.forEach(o => {
             { const c0 = scr(mX(o.x), o.base, mZ(o.y)), off = c0[0] < -4 || c0[0] > W + 4 || c0[1] < -4 || c0[1] > H + 4; vis(o.lab, !off); if (off) { o.rect = null; return; } }
             if (!o.lw) { const bs = o.lab.querySelector('.v3m-bs'); o.bdg = bs ? 8 : 0; o.bw = bs ? Math.max(0, bs.offsetWidth - 9) : 0; o.lw = o.lab.offsetWidth; o.lh = o.lab.offsetHeight; }
-            const bdg = o.bdg, bw = o.bw, w = o.lw + bw, h = o.lh + bdg, pref = o.side0 || MSIDE[o.id] || 'b', X0 = mX(o.x), Z0 = mZ(o.y), y = o.base + 0.6, R1 = 4.9 * CS;
-            const at = sd => { let p; if (sd === 'r') { p = scr(X0 + R1, y, Z0 + 0.6); return { x:p[0], y:p[1] - h / 2, w, h }; } if (sd === 'l') { p = scr(X0 - R1, y, Z0 + 0.6); return { x:p[0] - w, y:p[1] - h / 2, w, h }; } if (sd === 'b') { p = scr(X0, o.base - 0.9, Z0 + R1 + 0.2); return { x:p[0] - w / 2, y:p[1], w, h }; } p = scr(X0, o.base + 6.6 * CS, Z0 - 1); return { x:p[0] - w / 2, y:p[1] - h, w, h }; };
+            const bdg = o.bdg, bw = o.bw, w = o.lw + bw, h = o.lh + bdg, pref = o.side0 || MSIDE[o.id] || 'b', X0 = mX(o.x), Z0 = mZ(o.y), y = o.base + 0.6, ts = o.g.scale.x, R1 = 4.9 * CS * ts;
+            const at = sd => { let p; if (sd === 'r') { p = scr(X0 + R1, y, Z0 + 0.6); return { x:p[0], y:p[1] - h / 2, w, h }; } if (sd === 'l') { p = scr(X0 - R1, y, Z0 + 0.6); return { x:p[0] - w, y:p[1] - h / 2, w, h }; } if (sd === 'b') { p = scr(X0, o.base - 0.9, Z0 + R1 + 0.2); return { x:p[0] - w / 2, y:p[1], w, h }; } p = scr(X0, o.base + 6.6 * CS * ts, Z0 - 1); return { x:p[0] - w / 2, y:p[1] - h, w, h }; };
             const sides = [pref].concat(['r', 'l', 'b', 't'].filter(q => q !== pref)), cand = [];
             sides.forEach(sd => cand.push([sd, 0])); sides.forEach(sd => [-0.6, 0.6, -1.1, 1.1].forEach(f => cand.push([sd, f])));
             let best = null, bs2 = pref, least = null, lo = 1e9;
@@ -494,7 +507,12 @@
               if (ov < lo) { lo = ov; least = rr; } return false; });
             o.side0 = best ? bs2 : null;
             o.rect = put(o.lab, best || least || at(MSIDE[o.id] || 'b'), bdg); placed.push(Object.assign({}, o.rect, { o:'L' })); o.rect = { x:o.rect.x, y:o.rect.y + bdg, w:o.rect.w - bw, h:o.rect.h - bdg };
+            /* v45: a plaque pushed away from its token gets a thin leader line (from the token's rim to the plaque's nearest edge) */
+            { const q = o.rect, c0 = scr(X0, o.base + 1.2 * CS * ts, Z0), e0 = scr(X0 + R1, o.base, Z0), rp = Math.max(8, Math.abs(e0[0] - c0[0]) * 0.75);
+              const nx = Math.max(q.x, Math.min(q.x + q.w, c0[0])), ny = Math.max(q.y, Math.min(q.y + q.h, c0[1])), d = Math.hypot(nx - c0[0], ny - c0[1]);
+              if (d > rp + 12) { const ux = (nx - c0[0]) / d, uy = (ny - c0[1]) / d; lls += 'M' + Math.round(c0[0] + ux * rp) + ' ' + Math.round(c0[1] + uy * rp) + 'L' + Math.round(nx) + ' ' + Math.round(ny); } }
           });
+          if (lls !== llD) { llD = lls; llP.setAttribute('d', lls || 'M0 0'); }
           if (sethi.visible) {
             if (sethiLab.innerHTML !== sethi.userData.full) sethiLab.innerHTML = sethi.userData.full;
             let ok = sethiPut(fits);
@@ -529,7 +547,7 @@
           let best = -1, bd = Math.max(26, Math.min(W, H) * 0.07);
           cities.forEach(o => {
             if (!o.g.visible) return;
-            const a = scr(mX(o.x), o.base + 0.8, mZ(o.y)), c2 = scr(mX(o.x), o.base + 4.5 * CS, mZ(o.y)), vx = c2[0] - a[0], vy = c2[1] - a[1], l2 = vx * vx + vy * vy || 1, t = Math.max(0, Math.min(1, ((lx - a[0]) * vx + (ly - a[1]) * vy) / l2)), d = Math.hypot(a[0] + vx * t - lx, a[1] + vy * t - ly);
+            const a = scr(mX(o.x), o.base + 0.8, mZ(o.y)), c2 = scr(mX(o.x), o.base + 4.5 * CS * o.g.scale.x, mZ(o.y)), vx = c2[0] - a[0], vy = c2[1] - a[1], l2 = vx * vx + vy * vy || 1, t = Math.max(0, Math.min(1, ((lx - a[0]) * vx + (ly - a[1]) * vy) / l2)), d = Math.hypot(a[0] + vx * t - lx, a[1] + vy * t - ly);
             if (d < bd) { bd = d; best = o.i; }
           });
           if (best >= 0) return best;
@@ -553,7 +571,7 @@
           _v.set(mX(o.x), o.base, mZ(o.y)).applyMatrix4(ocam.matrixWorldInverse);
           const tx = (_v.x - zb.cx) / zb.upp, ty = (zb.cy - _v.y) / zb.upp;
           if (zp.tgt.z > 2 && Math.hypot(zp.tgt.x - tx, zp.tgt.y - ty) < 20) return false;
-          zp.go(2.6, tx, ty); if (!o.sel && !o.here && !o.dim) pick(i); return true;
+          zp.go(2.6, tx, ty); if (!o.sel && !o.here) pick(i); return true;   /* v45: a far town can be chosen too (its card says why and how) */
         }
         const acc = () => { const ri = r.info.render; frameCalls += ri.calls; frameTris += ri.triangles; };
         const bakeable = () => r.capabilities.isWebGL2 && T.WebGLMultisampleRenderTarget && T.DepthTexture && mapTable.opt.bake !== false;
@@ -587,7 +605,7 @@
           U.uTime.value = t; uRow.value = RED ? 0 : t * 2.1;
           let moving = false;
           if (sel) {
-            const k = RED ? 1 : ease((now - selT) / 420), br = amb && !RED ? 1 + Math.sin(t * 2.4) * 0.025 : 1, s2 = (4.9 + 1.1 * k) * CS * br;
+            const k = RED ? 1 : ease((now - selT) / 420), br = amb && !RED ? 1 + Math.sin(t * 2.4) * 0.025 : 1, s2 = (4.9 + 1.1 * k) * CS * br * sel.g.scale.x;
             selA.scale.set(s2, 1, s2); selM.opacity = 0.9 * k;
             /* v35: the blue ring ripples outward (a calm pulse) while the table is awake, then rests just outside the gold one */
             const f = amb && !RED && k >= 1 ? (t * 0.55) % 1 : 0, fe = 1 - (1 - f) * (1 - f), rs = s2 * (1.12 + 0.42 * fe);
