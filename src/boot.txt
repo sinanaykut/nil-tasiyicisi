@@ -8,7 +8,7 @@
     buyN(g, n) { if (phase !== 'port') return 0; msel = g; qty = n == null ? Infinity : n; const b = document.querySelector('[data-buy="' + g + '"]'); const before = S.inv[g].n; trade('buy', g, b); return S.inv[g].n - before; },
     sellN(g, n) { if (phase !== 'port') return 0; msel = g; qty = n == null ? Infinity : n; const b = document.querySelector('[data-sell="' + g + '"]'); const before = S.inv[g].n; trade('sell', g, b); return before - S.inv[g].n; },
     repair:n => doRepair(n == null ? Infinity : n), gift:() => { const r = gift28(S); if (r) { save(); renderAll(); } return r; }, hag28, dealBuy:(g, n, u) => dealBuy(S, g, n, u), dealSell:(g, n, u) => dealSell(S, g, n, u),
-    market:on => market(on), quoteBuy:(g, n) => quoteBuy(S, g, n), hgStart, town:() => T3 ? { on:town3On(), where:k => T3.where(k) } : null, canHaggle28:g => canHaggle28(S, g),
+    market:on => market(on), quoteBuy:(g, n) => quoteBuy(S, g, n), hgStart, town:() => T3 ? { on:town3On(), where:k => T3.where(k) } : null, t3:() => T3, tv:() => tvMap, canHaggle28:g => canHaggle28(S, g),
     vt:(t, c) => VT.tile(t, c), heroPlate, renderPlate, heroInfo, mountHero3, disposeHero3, heroImg,
     state:() => ({ phase, sheet:sheetName, sel, msel, qty, useTS, guide:meta.guide, dlg:!!DLG }) } };
   if (window.__nil) { try { window.__nil.V3 = typeof V3 !== 'undefined' ? V3 : null; } catch (e) {} }

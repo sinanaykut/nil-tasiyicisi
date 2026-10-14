@@ -476,7 +476,8 @@ body.at-sea .cart,body.at-sea .spots,body.at-sea .hold{display:none}
   .st small .ld{display:none}
   .qstep .chip{padding:2px 7px;font-size:13px}
   .ab1.hgs .abg > svg{display:none}
-  .tv.prep .tvmap{width:min(100%,calc(24dvh * 400 / 440))}
+  .tv.prep .tvmap{width:min(100%,calc(28dvh * 400 / 440))}
+  .tv.prep .tvmap.three{width:100%;height:32dvh;min-height:220px}   /* v35: the 3D table stays full width (a wide box), only shorter */
   .tv.prep .tvgo{position:static}
   .tvgo{position:static}
   .heroOv{left:10px;top:28px}
