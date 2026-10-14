@@ -436,10 +436,14 @@
             const at = sd => { let p; if (sd === 'r') { p = scr(X0 + R1, y, Z0 + 0.6); return { x:p[0], y:p[1] - h / 2, w, h }; } if (sd === 'l') { p = scr(X0 - R1, y, Z0 + 0.6); return { x:p[0] - w, y:p[1] - h / 2, w, h }; } if (sd === 'b') { p = scr(X0, o.base - 0.9, Z0 + R1 + 0.2); return { x:p[0] - w / 2, y:p[1], w, h }; } p = scr(X0, o.base + 6.6 * CS, Z0 - 1); return { x:p[0] - w / 2, y:p[1] - h, w, h }; };
             const sides = [pref].concat(['r', 'l', 'b', 't'].filter(q => q !== pref)), cand = [];
             sides.forEach(sd => cand.push([sd, 0])); sides.forEach(sd => [-0.6, 0.6, -1.1, 1.1].forEach(f => cand.push([sd, f])));
-            let best = null, bs2 = pref;
-            cand.some(([sd, f]) => { const rr = at(sd); if (sd === 'r' || sd === 'l') rr.y += f * h; else rr.x += f * w * 0.4; if (fits(rr, o)) { best = rr; bs2 = sd; return true; } return false; });
+            let best = null, bs2 = pref, least = null, lo = 1e9;
+            cand.some(([sd, f]) => { const rr = at(sd); if (sd === 'r' || sd === 'l') rr.y += f * h; else rr.x += f * w * 0.4; if (fits(rr, o)) { best = rr; bs2 = sd; return true; }
+              /* v35: remember the spot that covers the least (other plaques count double): a tight map never stacks two plaques */
+              const cx = Math.max(2, Math.min(W - rr.w - 2, rr.x)), cy = Math.max(2, Math.min(H - rr.h - 2, rr.y)); let ov = 0;
+              for (let q = 0; q < placed.length; q++) { const p2 = placed[q]; if (p2.o === o) continue; const ix = Math.min(cx + rr.w, p2.x + p2.w) - Math.max(cx, p2.x), iy = Math.min(cy + rr.h, p2.y + p2.h) - Math.max(cy, p2.y); if (ix > 0 && iy > 0) ov += ix * iy * (p2.o === 'L' ? 2 : 1); }
+              if (ov < lo) { lo = ov; least = rr; } return false; });
             o.side0 = best ? bs2 : null;
-            o.rect = put(o.lab, best || at(MSIDE[o.id] || 'b'), bdg); placed.push(Object.assign({}, o.rect, { o:'L' })); o.rect = { x:o.rect.x, y:o.rect.y + bdg, w:o.rect.w - bw, h:o.rect.h - bdg };
+            o.rect = put(o.lab, best || least || at(MSIDE[o.id] || 'b'), bdg); placed.push(Object.assign({}, o.rect, { o:'L' })); o.rect = { x:o.rect.x, y:o.rect.y + bdg, w:o.rect.w - bw, h:o.rect.h - bdg };
           });
           if (sethi.visible) {
             if (sethiLab.innerHTML !== sethi.userData.full) sethiLab.innerHTML = sethi.userData.full;
