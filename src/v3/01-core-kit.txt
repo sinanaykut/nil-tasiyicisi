@@ -300,7 +300,12 @@ void main() {
         for (let k = 0; k < n; k++) {
           const o = k * 7, w = E[o + 6];
           for (let j = 0; j < 4; j++) { const v = (k * 4 + j) * 3; A[v] = E[o]; A[v + 1] = E[o + 1]; A[v + 2] = E[o + 2]; B[v] = E[o + 3]; B[v + 1] = E[o + 4]; B[v + 2] = E[o + 5]; S[v] = j === 0 || j === 3 ? -1 : 1; S[v + 1] = j < 2 ? 0 : 1; S[v + 2] = w; }
-          const b = k * 4, i = k * 6; I[i] = b; I[i + 1] = b + 1; I[i + 2] = b + 2; I[i + 3] = b; I[i + 4] = b + 2; I[i + 5] = b + 3;
+          const b = k * 4, i = k * 6;
+            /* v41: these quads wind clockwise on screen, so with the default front-face culling the crease lines have never been drawn and the
+               look everyone knows is without them (silhouettes come from the inverted-hull ink): they stay that way. Leaf and frond edges
+               (negative width, they sway) are wound the other way and drawn: two-sided leaves get no hull ink, these lines are their outline. */
+            if (w < 0) { I[i] = b; I[i + 1] = b + 2; I[i + 2] = b + 1; I[i + 3] = b; I[i + 4] = b + 3; I[i + 5] = b + 2; }
+            else { I[i] = b; I[i + 1] = b + 1; I[i + 2] = b + 2; I[i + 3] = b; I[i + 4] = b + 2; I[i + 5] = b + 3; }
         }
         const g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(A, 3)); g.setAttribute('aB', new T.BufferAttribute(B, 3)); g.setAttribute('aS', new T.BufferAttribute(S, 3)); g.setIndex(new T.BufferAttribute(I, 1)); g.computeBoundingSphere();
         return g;
@@ -314,10 +319,12 @@ void main() {
         at('normal', N, 3); at('aSway', this.w, 1); if (opt.em) at('aEm', this.m, 1);
         if (opt.swing) { at('aPiv', this.v, 3); at('aSwP', this.s, 3); }
         const O = new Float32Array(n * 3), map = new Map(), key = i => (Math.imul(Math.round(P[i] * 6), 73856093) ^ Math.imul(Math.round(P[i + 1] * 6), 19349663) ^ Math.imul(Math.round(P[i + 2] * 6), 83492791));
-        /* no: 0 = smooth outline from the normals shared at this position, 1 = none (inked by lines), 2 = preset (stamped models, v33) */
+        /* no: 0 = smooth outline from the normals shared at this position, 1 = none (inked by lines), 2 = preset (stamped models, v33)
+           v41: where the shared normals cancel out (both sides of a leaf, a sail, a frond) the vertex keeps its own normal: a zero outline
+           sends it to the far plane, and the triangles it shares with outlined vertices were then clipped into long black wedges */
         const NO = this.no, PO = this.po;
         for (let i = 0; i < n * 3; i += 3) { if (NO[i / 3]) continue; const k = key(i); let a = map.get(k); if (!a) { a = [0, 0, 0]; map.set(k, a); } a[0] += N[i]; a[1] += N[i + 1]; a[2] += N[i + 2]; }
-        for (let i = 0; i < n * 3; i += 3) { const q = NO[i / 3]; if (q === 2) { O[i] = PO[i]; O[i + 1] = PO[i + 1]; O[i + 2] = PO[i + 2]; continue; } if (q) continue; const a = map.get(key(i)), l = Math.hypot(a[0], a[1], a[2]); if (l > 0.2) { O[i] = a[0] / l; O[i + 1] = a[1] / l; O[i + 2] = a[2] / l; } }
+        for (let i = 0; i < n * 3; i += 3) { const q = NO[i / 3]; if (q === 2) { O[i] = PO[i]; O[i + 1] = PO[i + 1]; O[i + 2] = PO[i + 2]; continue; } if (q) continue; const a = map.get(key(i)), l = Math.hypot(a[0], a[1], a[2]); if (l > 0.2) { O[i] = a[0] / l; O[i + 1] = a[1] / l; O[i + 2] = a[2] / l; } else { O[i] = N[i]; O[i + 1] = N[i + 1]; O[i + 2] = N[i + 2]; } }
         at('aOut', O, 3); g.computeBoundingSphere();
         return g;
       }

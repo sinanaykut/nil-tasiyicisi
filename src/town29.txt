@@ -136,7 +136,7 @@ void main() {
     function Bld(ci, si) {
       const k = new X.Kit(), id = CID[ci] || 'mennefer', pal = CP[id];
       k.ed = true; k.lw = 1; k.noSwing = true; k.jit = 0.09;   /* v35: a little colour variation part to part */
-      return { k, id, ci, si, pal, sh:[], blobs:[], gnd:[], lamps:[], smoke:[], spots:{}, walk:[], idle:[], R:X.rng(ci * 97 + 13) };
+      return { k, id, ci, si, pal, sh:[], blobs:[], gnd:[], lamps:[], smoke:[], spots:{}, walk:[], idle:[], puts:[], R:X.rng(ci * 97 + 13) };
     }
     const B3 = (k, col, x, y, z, w, h, d, ry) => k.add('box', col, x, y + h / 2, z, w, h, d, 0, ry || 0, 0);
     function box(B, col, x, z, w, d, y0, h, shadow) { B3(B.k, col, x, y0, z, w, h, d); if (shadow !== false) B.sh.push([x - w / 2, z - d / 2, x + w / 2, z + d / 2, y0 + h]); }
@@ -255,6 +255,7 @@ void main() {
     function put(B, key, x, y, z, ry, s, o) {
       if (B.mini && /^(cat|ibis|duck|goose|goat|sheep|dog|heron|basket|heap|jars|lotus|reeds|baboon|offering|stela)/.test(key)) return null;
       const P = WL().put(B.k, key, x, y || 0, z, ry || 0, s || 1, o);
+      if (P && B.puts) B.puts.push([key, x, z, P.r * (s || 1), (y || 0)]);   /* where each model stands (debug: path checks) */
       if (P && !(o && o.noShadow)) { const r = Math.max(2, P.r * (s || 1)); if (P.top * (s || 1) > 16) B.blobs.push([x + r * 0.35, z, r * 0.62]); else B.blobs.push([x, z, r * 0.55]); }
       return P;
     }
@@ -448,23 +449,23 @@ void main() {
         pen:[['goose', -5, 2, 0.5], ['goose', 4, -3, 2], ['goose', 1, 5, -1], ['duck', -7, -4, 1], ['goose', 8, 4, 3]],
         big:['palmA', 'syc', 'palmB', 'syc2', 'palmC', 'syc', 'palmA', 'palmB'], mid:['syc2', 'bushF', 'tamarisk', 'syc'], small:['bushF', 'bush', 'bushF', 'bush'],
         stall:[['fish', 'fish', 'papyrus', 'dates'], ['grain', 'grain', 'melon', 'grain'], ['wine', 'cloth', 'amulet', 'papyrus']], mats:['fish', 'melon', 'basketF'],
-        boats:[['raft', 102, 82, 0.12], ['skiff', 108, -120, 2.9], ['skiffP', 150, 112, 0.3], ['raft2', 112, 162, -0.1], ['skiff', 160, -170, 1.2]],
+        boats:[['raft', 102, 82, 0.12], ['skiff', 106, -150, 2.9], ['skiffP', 150, 112, 0.3], ['raft2', 112, 162, -0.1], ['skiff', 160, -170, 1.2]],
         mov:[['duck', 'water', 5], ['catW', 'plaza', 2], ['skiffP', 'sail', 1]], fields:['papyrus', 'ibis', 'cow', 'ibisP', 'heron'] },
       mennefer:{ style:'egy', lots:['hT', 'hT', 'gran', 'hT', 'hR', 'hT', 'h2', 'h2', 'hR', 'h1', 'gran', null, 'h2', 'hR', null, 'h1', 'hR', null], skipF:[0, 5],
         big:['palmA', 'palmB', 'syc', 'palmA', 'palmC', 'tamarisk', 'palmB', 'syc'], mid:['syc2', 'tamarisk', 'syc', 'bush'], small:['bush', 'bushF', 'bush', 'bushY'],
         stall:[['wine', 'wine', 'jars', 'cedar'], ['grain', 'grain', 'dates', 'grain'], ['cloth', 'copper', 'amulet', 'incense']], mats:['jars', 'wine', 'basketG'],
-        boats:[['barque', 124, 92, 0], ['bargeC', 112, -140, Math.PI], ['skiff', 150, -40, 0.4], ['raft2', 160, 150, 2.8]],
+        boats:[['barque', 124, 104, 0], ['bargeC', 112, -140, Math.PI], ['skiff', 150, -150, 0.4], ['raft2', 160, 150, 2.8]],
         mov:[['duck', 'water', 3], ['donkey', 'quay', 1], ['raft', 'sail', 1]], fields:['cow', 'cowR', 'ibis', 'papyrus', 'cow'] },
       abidos:{ style:'egy', lots:['h1', 'gran', 'shrine', 'h1', 'shrine', 'h1', 'h1', 'gran', 'h1', 'pen', 'h1', 'h2', 'shrine', 'h1', 'h1', 'h1', 'shrine', 'h1'],
         pen:[['goat', -6, 2, 0.6], ['goatW', 4, -4, 2.2], ['goatB', 2, 5, -0.8], ['sheep', -4, -5, 1.5]],
         big:['tamarisk', 'acacia', 'palmB', 'doum', 'tamarisk', 'palmA', 'acacia', 'doum'], mid:['tamarisk', 'acacia', 'syc2', 'tamarisk'], small:['bushY', 'bush', 'bushY', 'bush'],
         stall:[['grain', 'dates', 'melon', 'jars'], ['grain', 'grain', 'dates', 'grain'], ['amulet', 'incense', 'cloth', 'papyrus']], mats:['amulet', 'jars', 'basketD'],
-        boats:[['barqueS', 124, 92, 0, 0.8], ['raft', 150, -100, 0.3], ['skiff', 110, -134, 3]],
+        boats:[['barqueS', 124, 100, 0, 0.8], ['raft', 156, -150, 0.3], ['skiff', 110, -134, 3]],
         mov:[['duck', 'water', 3], ['goat', 'quay', 2]], fields:['cow', 'goat', 'ibis', 'cowR', 'sheep'] },
       vaset:{ style:'egy', lots:['hT', 'hR', 'hT', 'dove', 'hR', 'hT', 'dove', 'garden', 'hT', 'h1', 'h2', 'hT', 'dove', 'h2', null, 'h2', 'h1', 'hT'], skipF:[1],
         big:['doum', 'palmA', 'syc', 'palmB', 'doum', 'palmA', 'syc2', 'palmC'], mid:['syc2', 'doum', 'syc', 'bushF'], small:['bushF', 'bush', 'papyrus', 'bush'],
         stall:[['copper', 'copper', 'jars', 'grain'], ['grain', 'grain', 'melon', 'grain'], ['incense', 'amulet', 'cloth', 'lapis']], mats:['copper', 'jars', 'basketF'],
-        boats:[['barque', 124, 92, 0], ['barge', 112, -140, Math.PI], ['skiffP', 160, -20, 0.2], ['raft2', 112, 168, 0.1]],
+        boats:[['barque', 124, 104, 0], ['barge', 112, -140, Math.PI], ['skiffP', 150, -156, 0.2], ['raft2', 112, 168, 0.1]],
         mov:[['duck', 'water', 4], ['donkeyP', 'quay', 1], ['barge', 'sail', 1]], fields:['cow', 'ibis', 'cowR', 'papyrus', 'goat'] },
       abu:{ style:'nub', lots:['nub', 'nub', 'nub', 'nub', 'h1', 'nub', 'nub', 'pen', 'nub', 'nub', 'nub', 'nub', 'nub', 'nub', 'nub', 'nub', 'nub', 'nub'],
         pen:[['goat', -6, 2, 0.6], ['goatB', 4, -4, 2.2], ['goatW', 2, 5, -0.8], ['goat', -4, -5, 1.5]],
@@ -487,7 +488,7 @@ void main() {
         big:['acacia', 'doum', 'acacia', 'incenseT', 'doum', 'acacia', 'tamarisk', 'doum'], mid:['bushY', 'incenseT', 'acacia', 'bushY'], small:['bushY', 'incenseT', 'bushY', 'bush'],
         stall:[['incense', 'incense', 'ivory', 'ebony'], ['grain', 'grain', 'dates', 'grain'], ['cloth', 'amulet', 'lapis', 'incense']], mats:['incense', 'ebony', 'basketD'],
         boats:[['skiff', 110, -150, 2.9], ['raft2', 150, 92, 0.2], ['skiffP', 170, 30, 0.1]],
-        mov:[['goat', 'quay', 2]], fields:['goat', 'camel', 'acacia', 'bushY', 'goatW'] }
+        mov:[],   /* v41: the caravan stands on the quay here (no beasts walking through it) */ fields:['goat', 'camel', 'acacia', 'bushY', 'goatW'] }
     };
     /* the houses, trees, gardens and beasts that make each city look like itself */
     function* districtG(B, o) {
@@ -519,9 +520,9 @@ void main() {
     /* the movers' paths (x, z): loops, or there-and-back lines ('pp') */
     const MOVP = {
       water:i => ({ L:[[170 + i * 9, -150 + i * 40], [210 - i * 6, -60 + i * 30], [200 + i * 4, 90 - i * 20], [160 + i * 8, 40 + i * 25]], v:3 + i * 0.4, y:-2.6, bob:0.3 }),
-      plaza:i => ({ L:i ? [[-30, 70], [-44, 14], [-30, -30]] : [[30, -28], [-24, -30], [-30, 18], [30, 20]], v:5, pp:!!i }),
-      quay:i => ({ L:[[70 - i * 4, -120 + i * 30], [74 - i * 4, 96 - i * 10]], v:5 + i, pp:true }),
-      desert:i => ({ L:[[150 + i * 22, -160 + i * 40], [160 + i * 22, 170 - i * 30]], v:4 + i * 0.6, pp:true }),
+      plaza:i => ({ L:i ? [[-8, 78], [-24, 30], [-30, -30]] : [[22, -30], [-24, -32], [-34, -2]], v:5, pp:true }),   /* v41: the cat keeps off the planter, the bench and the third stall */
+      quay:i => ({ L:[[70 - i * 4, -88 + i * 30], [74 - i * 4, 96 - i * 10]], v:5 + i, pp:true }),   /* v41: starts clear of the house on lot 6 */
+      desert:i => ({ L:[[200 + i * 24, -100 + i * 30], [206 + i * 24, 160 - i * 30]], v:4 + i * 0.6, pp:true }),   /* v41: east of the caravan, the palms and tents, clear of the salt lake */
       sail:i => ({ L:[[214, -420], [214, 420]], v:12, y:-2.6, bob:0.5, wrap:true })
     };
     /* the quay: dressed stone in two courses (one colour: no light/dark alternation), steps down to the water, bollards */
@@ -605,14 +606,16 @@ void main() {
         k.stick([56, 0, 106], [56, 30, 106], 1, '#6B4226'); k.stick([56, 30, 106], [76, 26, 116], 0.8, '#6B4226'); k.stick([76, 26, 116], [76, 14, 116], 0.25, '#5A4632');
         for (let i = 0; i < 4; i++) B3(k, '#C9955A', 50, i * 1.6, 132 - i * 0.4, 18, 1.6, 4);
         barrel(B, 46, 108); B.spots.yard = { x:70, z:118, y:8, r:24, top:30 };
-        B.walk.push([[60, 104], [50, 110], [46, 126], [60, 136]]);
+        B.walk.push([[52, 96], [40, 102], [38, 120], [52, 118]]);   /* v41: on the paving by the slip, clear of the carrier, the barrel and the plank stack */
       }
       /* a low wall with merlons behind the plaza, opening onto the temple stairs */
       for (let x = -48; x < 64; x += 8) { if (x > -72 && x < -36) continue; B3(k, '#D9BC86', x + 4, 0, -42, 8, 5, 3); if ((x / 8) % 2 === 0) B3(k, p.trim, x + 4, 5, -42, 3, 2, 3); }
       yield* districtG(B, o);
       /* walkers' loops (x, z) and idlers */
-      B.walk.push([[-30, -20], [30, -20], [34, 20], [-28, 22]], [[-140, 20], [-40, 20], [0, 62], [60, 72], [72, 20], [70, -50], [0, -52], [0, -100], [-30, -100], [-40, -48], [-44, 10]],
-        [[-44, -30], [-44, 10], [-100, 22], [-104, 80], [-40, 84], [0, 80], [-20, 40]], [[70, -50], [74, 60], [70, 110]]);
+      /* v41: the plaza loop stays between the fountain and the merchant (no walking through the third stall or the buyers); the long loop starts
+         outside the west house; the quay loop keeps off the hero's spot */
+      B.walk.push([[-30, -22], [24, -22], [26, 6], [10, 12], [-22, 12]], [[-130, 20], [-40, 20], [0, 62], [60, 72], [72, 20], [70, -50], [0, -52], [0, -100], [-30, -100], [-40, -48], [-44, 10]],
+        [[-44, -30], [-44, 10], [-100, 22], [-104, 80], [-40, 84], [0, 80], [-20, 40]], [[64, -50], [66, 60], [64, 100]]);
       B.idle.push([0, 40, 1.4], [20, 40, 3.6], [-40, 50, -1.6], [-38, 60, -1.2], [44, -8, 2.6], [-60, -46, 0.6], [74, 30, -1.6]);
       /* fields beyond the town (river towns) / dunes (desert) */
       if (p.fields) B.gnd.push(['fields', -232, -232, -168, 232], ['fields', -232, 168, 90, 232]);
@@ -653,7 +656,7 @@ void main() {
         /* Karnak: two pylons, obelisks, the avenue of ram sphinxes, the sacred lake; the Colossi on the west bank fields */
         temple(() => { X.pylon(k, -14, 0); X.pylon(k, 22, -12); });
         [[-96, -46], [-54, -46]].forEach(([x, z]) => X.obelisk(k, x, z, 0.75));
-        for (let i = 0; i < 4; i++) [-1, 1].forEach(s => put(B, 'ram', -60 + s * 8, 0, -26 + i * 12, s < 0 ? Math.PI / 2 : -Math.PI / 2, 0.45));
+        for (let i = 0; i < 3; i++) [-1, 1].forEach(s => put(B, 'ram', -60 + s * 8, 0, -26 + i * 12, s < 0 ? Math.PI / 2 : -Math.PI / 2, 0.45));
         pool(-172, -112, 40, 24, true); tree(B, 'doum', -196, -130, 0.8); tree(B, 'palmB', -146, -132, 0.8);
         put(B, 'colossus', -216, 0, 70, Math.PI / 2, 1.5); put(B, 'colossus', -216, 0, 116, Math.PI / 2, 1.5);
         onT('flagB', -112, -64, 0, 0.7); onT('flagR', -56, -64, 0, 0.7);
@@ -664,7 +667,7 @@ void main() {
         for (let i = 0; i < 4; i++) { B3(k, '#D9BC86', -200 + i * 26, 0, -200 + i * 8, 24, 20 + i * 3, 30); B3(k, '#3A2418', -200 + i * 26 + 4, 0, -184.5 + i * 8, 5, 8, 1); }
         for (let r = 0; r < 3; r++) for (let c = 0; c < 6; c++) put(B, (r + c) % 2 ? 'stela' : 'stela2', -205 + c * 11 + r * 4, 0, -152 + r * 11, 0.1 * (c - 3), 0.9 + ((r * 7 + c) % 3) * 0.12, { noShadow:true });
         [[-196, -96], [-216, -120], [-162, -102]].forEach(([x, z]) => tree(B, 'tamarisk', x, z, 1));
-        put(B, 'flagR', -80, 0, -48, 0, 0.7); put(B, 'flagB', -38, 0, -48, 0, 0.7);
+        put(B, 'flagR', -90, 0, -50, 0, 0.7); put(B, 'flagB', -30, 0, -50, 0, 0.7);   /* v41: off the walkers' way to the stairs */
         B.gnd.push(['sandy', -232, -232, -110, -88]);
       } else if (id === 'perbastet') {
         /* Bastet's red-granite temple, the great cat, cat statues by the stairs, cats everywhere; papyrus marsh, the canals */
@@ -679,7 +682,7 @@ void main() {
         /* Elephantine: granite boulders, the Nilometer, Khnum's rams, Nubian houses, the unfinished obelisk in its pit, cataract rocks */
         temple(() => X.pylon(k, 0, 0));
         onT('ramK', -110, -66, 0, 0.6); onT('ramK', -58, -66, 0, 0.6);
-        [[110, -60, 1.6], [116, -30, 1.1], [104, 60, 1.3], [-170, -150, 2.6], [-150, 140, 1.8], [160, 150, 2.2], [-226, 90, 2], [170, 100, 1.6], [190, -130, 2.2], [210, 30, 1.4]].forEach(([x, z, s], i) => put(B, i % 3 ? 'boulder' : 'boulderS', x, x > 88 ? -3 : 0, z, i * 1.7, s, { noShadow:x > 88 }));
+        [[102, 86, 1.4], [98, -102, 1], [104, 60, 1.3], [-170, -150, 2.6], [-150, 140, 1.8], [160, 150, 2.2], [-226, 90, 2], [170, 100, 1.6], [236, -126, 2.2], [238, 36, 1.4]].forEach(([x, z, s], i) => put(B, i % 3 ? 'boulder' : 'boulderS', x, x > 88 ? -3 : 0, z, i * 1.7, s, { noShadow:x > 88 }));
         for (let i = 0; i < 6; i++) B3(k, '#C9A46E', 80 + i * 3, -6 - i * 0.2, -86, 3.2, 6 - i * 1.4, 14);
         B3(k, '#D9BC86', -34, 0, -2, 12, 4, 16); k.ed = false; X.elephant(k, -34, -2, -0.6); k.ed = true;
         B.gnd.push(['pit', -238, -124, -156, -96]); k.stick([-232, 4.6, -110], [-162, 4.6, -110], 5, '#B8877A', 'tap'); k.line([-232, 9.6, -110], [-162, 8, -110], 0.8);
@@ -692,14 +695,14 @@ void main() {
         B.gnd.push(['salt', 70, -230, 230, -110]);
         temple(() => { B3(k, '#D2B288', 0, 0, -8, 40, 20, 26); B3(k, '#2BA59A', 0, 18, -8, 41, 2.4, 27); for (let i = 0; i < 3; i++) k.add('c8', '#E6D2A6', -10 + i * 10, 7, 6, 2.4, 14, 2.4); });
         k.add('c12', '#D9C49A', 30, 1, 96, 14, 2, 14); k.add('c12', '#2F8FC8', 30, 1.3, 96, 11.5, 2, 11.5); for (let i = 0; i < 3; i++) B3(k, '#E2C896', 30 - 14 + i * 2, 0, 96, 2, 2.2 - i * 0.6, 6);
-        [[-170, 60, 0.9, 'palmA'], [-190, 100, 0.8, 'palmB'], [-160, 120, 0.85, 'palmA'], [130, 60, 0.9, 'palmB'], [150, 30, 0.8, 'palmC'], [-210, 70, 0.8, 'olive'], [-180, 150, 0.9, 'olive'], [120, 120, 0.9, 'olive'], [160, 90, 0.8, 'palmA']].forEach(([x, z, s, key]) => tree(B, key, x, z, s));
+        [[-170, 60, 0.9, 'palmA'], [-190, 100, 0.8, 'palmB'], [-160, 120, 0.85, 'palmA'], [150, -70, 0.9, 'palmB'], [184, 14, 0.8, 'palmC'], [-210, 70, 0.8, 'olive'], [-180, 150, 0.9, 'olive'], [120, 120, 0.9, 'olive'], [150, 110, 0.8, 'palmA']].forEach(([x, z, s, key]) => tree(B, key, x, z, s));
         put(B, 'camel', 140, 0, 150, 2.6, 1, { sy:0.62 }); put(B, 'camelL', 168, 0, 128, 2.2, 1);
         B.gnd.push(['mats', 30, 120, 60, 136, '#C8742E'], ['mats', -20, 132, 6, 146, '#B8682A']);
       } else if (id === 'kharga') {
         /* Hibis temple, the mud-brick fortress, Bagawat's domed chapels, wells with sweeps, palm gardens, caravan tents */
         temple(() => { X.pylon(k, 0, 6); B3(k, '#E0C090', 0, 0, -16, 46, 24, 24); for (let i = 0; i < 4; i++) k.add('c8', '#EAD4A4', -15 + i * 10, 10, -3, 2.6, 20, 2.6); });
         for (let i = 0; i < 12; i++) tree(B, i % 3 ? 'palmA' : 'palmB', -200 + (i % 4) * 22 + (i % 2) * 6, 40 + Math.floor(i / 4) * 30, 0.75 + (i % 3) * 0.08);
-        [[130, -40, 0.9, 'palmB'], [150, 10, 0.85, 'palmA'], [120, 90, 0.8, 'acacia']].forEach(([x, z, s, key]) => tree(B, key, x, z, s));
+        [[130, -40, 0.9, 'palmB'], [182, 4, 0.85, 'palmA'], [120, 90, 0.8, 'acacia']].forEach(([x, z, s, key]) => tree(B, key, x, z, s));
         [[-200, -160, 26, 26, 36], [-170, -170, 20, 20, 28], [-226, -136, 18, 18, 30]].forEach(([x, z, w, d, h]) => { tbox(B, '#B88E60', x, 0, z, w, d, h, 0.84); k.add('sph5', '#B88E60', x, h + 1, z, w * 0.3, 2.4, d * 0.3); });
         for (let i = 0; i < 6; i++) { const x = -120 + i * 13, z = -206 + (i % 2) * 6; tbox(B, '#C9A274', x, 0, z, 10, 10, 9, 0.96); k.add('hemi', '#C9A274', x, 9, z, 4.6, 5, 4.6); B3(k, '#3A2418', x, 0, z + 5.1, 3, 5, 0.6); }
         put(B, 'shaduf', -150, 0, 150, 0.4, 1); B3(k, '#3F7CC4', -168, 0.1, 150, 10, 0.4, 10);
@@ -818,11 +821,13 @@ void main() {
       R2.push(['priest', -60, 14, -60, 0, 'idle', 3], ['guard', -73, 0, -34, 0.3, 'idle', 4], ['guard', -47, 0, -34, -0.3, 'idle', 5], ['scribe', 50, 0, -5, Math.PI, 'idle', 6], ['folk', 42, 0, -60, 2.2, 'carry', 41]);
       if (water) R2.push(['folk', 60, 0, 110, -1.2, 'carry', 42], ['folk', 74, 1.6, 124, 2.6, 'idle', 43]);
       if (ci === 1) R2.push(['hapu', -97, 0, -2, Math.PI / 2, 'idle', 7]);
-      if (B.spots.well) R2.push(['folk', B.spots.well.x + 9, 0, B.spots.well.z + 7, -0.8, 'carry', 44]);
+      if (B.spots.well) R2.push(['folk', B.spots.well.x - 10, 0, B.spots.well.z - 8, 0.9, 'carry', 44]);   /* v41: inside the plaza loop, not on it */
       if (o.sethiHere && water) R2.push(['sethi', 76, 0, -62, Math.PI / 2, 'idle', 8]);
-      const hk = heroKey(o.hero); if (hk) { const hs = water ? [74, 40] : [98, 44]; R2.push([hk, hs[0], 0, hs[1], Math.PI / 4, 'wave', 9]); }
+      const hk = heroKey(o.hero); if (hk) { const hs = water ? HERO_W : HERO_D; R2.push([hk, hs[0], 0, hs[1], Math.PI / 4, 'wave', 9]); }
       return R2;
     }
+    /* v41: where the hero waits (river towns: on the quay edge, out of the walkers' and the beasts' lanes) */
+    const HERO_W = [80, 40], HERO_D = [98, 44];
     const CLOTH = ['#FBF3DF', '#E6CB95', '#7FB25A', '#2BA59A', '#B7412E', '#5B5FA8', '#D9A43A', '#E86A7E'];
 
     /* ---------- materials shared by every town view and the cached towns (built once, never disposed) ---------- */
@@ -1057,6 +1062,8 @@ void main() {
         });
         dirty = true;
       }
+      /* ease an angle toward a target along the short way round (k = share of the gap per frame) */
+      const turn = (a, b, k) => { if (a == null || RED) return b; let d = b - a; d -= Math.round(d / 6.283185307) * 6.283185307; return a + d * Math.min(1, k); };
       function stepMovers(t, dt) {
         for (let q = 0; q < movs.length; q++) {
           const m = movs[q]; if (!RED) m.d += dt * m.v;
@@ -1066,6 +1073,7 @@ void main() {
           for (let j = 0; j < m.segs; j++) { a = m.L[j]; b = m.L[(j + 1) % m.L.length]; sl = Math.hypot(b[0] - a[0], b[1] - a[1]); if (d <= sl) break; d -= sl; }
           const f = sl ? Math.min(1, d / sl) : 0, x = a[0] + (b[0] - a[0]) * f, z = a[1] + (b[1] - a[1]) * f;
           let ry = Math.atan2(b[0] - a[0], b[1] - a[1]) + m.face; if (back) ry += Math.PI;
+          ry = m.ry = turn(m.ry, ry, dt * 4);   /* v41: the beasts and boats turn round at the ends of their lines (no snap) */
           const y = m.y + (m.bob ? 0 : (RED ? 0 : Math.abs(Math.sin(t * 7 + m.ph)) * 0.5));
           _e.set(0, ry + (m.bob ? Math.sin(t * 0.7 + m.ph) * 0.15 : 0), 0); _q.setFromEuler(_e); _p.set(x, y, z); _m.compose(_p, _q, _s); m.im.setMatrixAt(m.i, _m);
           m.im.instanceMatrix.needsUpdate = true;
@@ -1095,7 +1103,7 @@ void main() {
       const snap = document.createElement('canvas'); snap.className = 'v3t-snap'; snap.hidden = true;
       el.classList.add('v3-town'); el.appendChild(snap); el.appendChild(labs);
       const lab = {}, chip = {};
-      let myEp = X.VIS.epoch, slowT = townSlow, gapA = 33, gapN = 0, cur = o, town0 = null, crisisG = null, crisisK = '', boatK = '', W = 0, H = 0, need = true, dirty = true, raf = 0, killed = false, t0 = performance.now(), lastR = 0, inView = true, hover = null, hi = null, gone = 0, mineGL = false;
+      let clk = 0, myEp = X.VIS.epoch, slowT = townSlow, slowAt = townSlow ? performance.now() : 0, slowTry = townSlow ? 1 : 0, gapA = 33, gapN = 0, cur = o, town0 = null, crisisG = null, crisisK = '', boatK = '', W = 0, H = 0, need = true, dirty = true, raf = 0, killed = false, t0 = performance.now(), lastR = 0, inView = true, hover = null, hi = null, gone = 0, mineGL = false;
       /* v33 (karakter): CH33 people fill in once the character kit is decoded; redraw then */
       try { if (typeof FIG !== 'undefined' && FIG.onReady) FIG.onReady(() => { if (!killed) { need = true; dirty = true; } }); } catch (e) {}
       let r = null, ro = null, io = null, upp = 1, fitT = null;
@@ -1134,11 +1142,16 @@ void main() {
           s2.add(new T.Mesh(g1, mats.toon)); s2.add(new T.Mesh(g1, mats.ink)); dyn.add(g); const d = { g, s2, geos:[g1], x, y, z }; dynParts.push(d); return d;
         };
         const hk = heroKey(o2.hero);
-        if (hk && !FIGON()) { const hs = p.water ? [74, 40] : [98, 44], hc = { h_ahmose:'#B7412E', h_neferet:'#F4E7C6', h_sitre:'#2BA59A', h_bakenre:'#D9A43A' }[hk]; mkPart(k => X.person(k, 0, 0, hc, { wave:true, s:1 }), hs[0], 0, hs[1], Math.PI / 4, 1); }
-        if (p.water) {
+        if (hk && !FIGON()) { const hs = p.water ? HERO_W : HERO_D, hc = { h_ahmose:'#B7412E', h_neferet:'#F4E7C6', h_sitre:'#2BA59A', h_bakenre:'#D9A43A' }[hk]; mkPart(k => X.person(k, 0, 0, hc, { wave:true, s:1 }), hs[0], 0, hs[1], Math.PI / 4, 1); }
+        if (p.water && !o2.caravan) {
           const me = mkPart(k => X.boatKit(k, boatSpecOf(o2)), 124, -2, 16, Math.PI, 0.95);
           me.boat = true; me.dmg = boatSpecOf(o2).dmg; me.list = me.dmg >= 3 ? 0.11 : me.dmg >= 2 ? 0.04 : 0;
           if (o2.sethiHere) { const s = mkPart(k => X.boatKit(k, boatSpecOf(o2, true)), 128, -2, -60, Math.PI, 0.9); s.boat = true; s.sethi = true; }
+        } else if (p.water) {
+          /* v41: a sea port reached by caravan (Saww): our boat waits at the river, so the donkeys stand in a file on the quay, not our ship in the sea */
+          const n = Math.max(2, Math.min(5, (o2.caravan && o2.caravan.donkeys) || 4));   /* five fit between the incense tree and the hero */
+          for (let j = 0; j < n; j++) mkPart(k => X.donkey(k, { pack:1 + (j % 2), saddle:j ? '#1F5FA8' : '#B7412E', s:1 }), 82, 0, -22 + j * 11, 0, 0.72);
+          mkPart(k => X.person(k, 0, 0, '#FBF3DF', { stick:true, s:1 }), 84, 0, -46, Math.PI - 0.4, 0.75);
         } else {
           const n = Math.max(2, Math.min(6, (o2.caravan && o2.caravan.donkeys) || 4));
           for (let j = 0; j < n; j++) mkPart(k => X.donkey(k, { pack:1 + (j % 2), saddle:j ? '#1F5FA8' : '#B7412E', s:1 }), 112 + (j % 2) * 14 + j * 3, 0, -14 + j * 15, -Math.PI / 2 + 0.35, 0.8);
@@ -1159,7 +1172,7 @@ void main() {
           if (!L) { L = lab[key] = document.createElement('button'); L.type = 'button'; L.className = 'v3t-l'; labs.appendChild(L); L.addEventListener('focus', () => highlight(key, true)); L.addEventListener('blur', () => highlight(key, false)); }
           const name = key === 'ship' ? (desert || o2.caravan ? 'Kervan · yola çık' : SNAME.ship) : key === 'hero' ? heroName(o2.hero) : SNAME[key];
           const badge = key === 'board' && notes.board ? '<i class="v3t-n">' + notes.board + '</i>' : key === 'work' && notes.work === 'ready' ? '<i class="v3t-n">!</i>' : key === 'temple' && notes.temple === 'done' ? '<i class="v3t-n ok">✓</i>' : '';
-          const ic = typeof ico === 'function' ? ico(key === 'ship' && desert ? 'i-donkey' : SICO[key], 15) : '';
+          const ic = typeof ico === 'function' ? ico(key === 'ship' && (desert || o2.caravan) ? 'i-donkey' : SICO[key], 15) : '';
           const html = ic + '<b>' + name + '</b>' + badge;
           if (L.dataset.h !== html) { L.innerHTML = html; L.dataset.h = html; }
           L.dataset.spot = key; L.hidden = false; L.classList.toggle('ship', key === 'ship'); L.setAttribute('aria-label', name);
@@ -1169,8 +1182,8 @@ void main() {
       function spotOf(key) {
         if (!town0) return null;
         const desert = !(CP[CID[town0.ci]] || {}).water;
-        if (key === 'ship') return desert ? { x:116, z:6, y:8, r:30, top:20 } : { x:128, z:16, y:10, r:36, top:44 };
-        if (key === 'hero') return desert ? { x:98, z:44, y:9, r:11, top:21 } : { x:74, z:40, y:9, r:11, top:21 };
+        if (key === 'ship') return desert ? { x:116, z:6, y:8, r:30, top:20 } : cur.caravan ? { x:82, z:-4, y:8, r:26, top:20 } : { x:128, z:16, y:10, r:36, top:44 };   /* v41: a sea port reached by caravan: the donkeys on the quay */
+        if (key === 'hero') return desert ? { x:HERO_D[0], z:HERO_D[1], y:9, r:11, top:21 } : { x:HERO_W[0], z:HERO_W[1], y:9, r:11, top:21 };
         return town0.B.spots[key] || null;
       }
       /* camera: isometric, framed on the spots that are on (plus their plaque room) */
@@ -1273,9 +1286,11 @@ void main() {
             if (!RED) f.d = (f.d + dt * f.v) % f.len;
             let d = f.d, a = f.L[0], b = f.L[0], sl = 0;
             for (let j = 0; j < f.L.length; j++) { a = f.L[j]; b = f.L[(j + 1) % f.L.length]; sl = Math.hypot(b[0] - a[0], b[1] - a[1]); if (d <= sl) break; d -= sl; }
-            const q = sl ? d / sl : 0; f.g.position.set(a[0] + (b[0] - a[0]) * q, 0, a[1] + (b[1] - a[1]) * q); f.g.rotation.y = Math.atan2(b[0] - a[0], b[1] - a[1]);
+            const q = sl ? d / sl : 0; f.g.position.set(a[0] + (b[0] - a[0]) * q, 0, a[1] + (b[1] - a[1]) * q);
+            f.g.rotation.y = f.ry = turn(f.ry, Math.atan2(b[0] - a[0], b[1] - a[1]), dt * 7);   /* v41: turn at the corners instead of snapping round */
           }
-          try { FIG.animate(f.g, RED ? 0 : t + f.ph, f.st); } catch (e) {}
+          /* v41: the walk cycle keeps pace with the walker (8.6 units/s is the clip's own stride), so the feet do not slide */
+          try { FIG.animate(f.g, RED ? 0 : (f.L ? t * f.v / 8.6 : t) + f.ph, f.st); } catch (e) {}
         }
         /* v35: the spot ring breathes while it is shown */
         if (ring.visible && !RED) { const rr = (ring.userData.r || 10) * (1 + Math.sin(t * 4.2) * 0.06); ring.scale.set(rr, 1, rr); ring.material.opacity = 0.75 + Math.sin(t * 4.2) * 0.15; }
@@ -1311,16 +1326,20 @@ void main() {
           if (need) { if (fit()) { need = false; dirty = true; } }
           else if (W !== el.clientWidth || H !== el.clientHeight) need = true;
           /* focus / visibility changed: forget the measurements and leave the still mode right away */
-          if (myEp !== X.VIS.epoch) { myEp = X.VIS.epoch; gapA = 33; gapN = 0; lastR = 0; if (slowT) { slowT = townSlow = false; need = true; } dirty = true; }
+          if (myEp !== X.VIS.epoch) { myEp = X.VIS.epoch; gapA = 33; gapN = 0; lastR = 0; slowTry = 0; if (slowT) { slowT = townSlow = false; need = true; } dirty = true; }
+          /* v41: the still mode is not for good: after a while (6 s, then longer each time it proves right) the town tries full speed again,
+             so a slow patch (an app switch, a build, a busy moment) does not leave it crawling until the next focus change */
+          if (slowT && slowAt && now - slowAt > 6000 * Math.pow(2, Math.min(4, slowTry))) { slowT = townSlow = false; slowAt = 0; gapA = 33; gapN = 0; need = true; dirty = true; }
           if (W && zp.busy()) dirty = true;
-          if (W && (dirty || (!RED && now - lastR > (slowT ? 1500 : 33)))) {
-            /* a device that cannot keep up gets a still town (redrawn on changes, walkers every 1.5 s) */
-            if (!dirty && lastR && X.visOK(now) && now - lastR < 3000) { gapA = gapA * 0.8 + Math.min(1000, now - lastR) * 0.2; if (++gapN > 12 && gapA > 140) { slowT = townSlow = true; need = true; } }
+          if (W && (dirty || (!RED && now - lastR > (slowT ? 1500 : 30)))) {   /* v41: 30 ms (not 33): a 60/120 Hz frame at 33.3 ms still counts */
+            /* a device that cannot keep up gets a still town (redrawn on changes, walkers every 1.5 s); single long stalls (> 1 s) are not counted */
+            if (!dirty && !slowT && lastR && X.visOK(now) && now - lastR < 1000) { gapA = gapA * 0.8 + (now - lastR) * 0.2; if (++gapN > 12 && gapA > 140) { slowT = townSlow = true; slowAt = now; slowTry++; need = true; } }
             const dt = Math.min(0.1, (now - (lastR || now)) / 1000); lastR = now; dirty = false;
             if (town0 && lampsKey !== town0) { lampsKey = town0; lampsFor(); }
             glow.visible = tu.uNight.value > 0.05; birds.visible = !RED && tu.uNight.value < 0.95 && cur.crisis !== 'cekirge';
             const zm = zp.step(dt) || zp.busy();
-            try { step((now - t0) / 1000, dt); if (zm || zLay) { frame((now - t0) / 1000); layout(); if (zLay !== zm) labs.classList.toggle('zm', zm); zLay = zm; } r.render(sc, cam); } catch (e) { try { console.warn('town draw:', e); } catch (e2) {} el.classList.remove('v3-on'); kill(); return; }
+            clk += dt;   /* v41: a play clock, not the wall clock: after a pause (a sheet, the tab away) the birds, water and leaves go on from where they were */
+            try { step(clk, dt); if (zm || zLay) { frame(clk); layout(); if (zLay !== zm) labs.classList.toggle('zm', zm); zLay = zm; } r.render(sc, cam); } catch (e) { try { console.warn('town draw:', e); } catch (e2) {} el.classList.remove('v3-on'); kill(); return; }
             if (!el.classList.contains('v3-on')) { el.classList.add('v3-on'); inst.firstMs = performance.now() - inst.t0; }
           }
         }
@@ -1348,7 +1367,7 @@ void main() {
         zoom(z) { if (z == null) return zp.tgt.z; zp.set(+z || 1); },
         resetView() { zp.reset(); },
         stats() { const i2 = r ? r.info : null; return { slow:slowT, pf:town0 && Object.keys(town0.pf).map(k2 => k2 + ':' + Math.round(town0.pf[k2])).join(' '), build:town0 && town0.ms, tris:town0 && town0.tris, edges:town0 && town0.edges, calls:i2 && i2.render.calls, frameTris:i2 && i2.render.triangles, geos:i2 && i2.memory.geometries, tex:i2 && i2.memory.textures, firstMs:Math.round(inst.firstMs), W, H, cached:CACHE.size }; },
-        debug() { return { sc, cam, r }; }
+        debug() { return { sc, cam, r, B:town0 && town0.B, figs, movs, walkers, dyn:dynParts, U, uw, cur, slow:slowT, zp }; }
       };
       cur = Object.assign({}, o);
       setTown(cur);

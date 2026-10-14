@@ -451,6 +451,8 @@ void main() {` + VS + `  if (aFx.x < 0.1) { gl_Position = vec4(0.0, 0.0, 2.0, 0.
     const tq = new Float32Array(4);
     function sampleInto(st, name, t, w, first) {
       const C = KIT.clips[name] || KIT.clips.idle; if (!C) return;
+      /* v41: the town calls this directly (no pose() first since v40): make the face-bone mask here, or every town figure stays frozen */
+      if (!FACEB) FACEB = KIT.bones.map(b => /^(jaw|eye|lid|brow|mouth)/.test(b.name) ? 1 : 0);
       const nb = C.nb, loop = !ONESHOT[name];
       let f = (loop ? ((t % C.dur) + C.dur) % C.dur : Math.min(t, C.dur)) * C.fps; const f0 = Math.min(C.nf - 1, Math.floor(f)), f1 = Math.min(C.nf - 1, f0 + 1), a = f - f0;
       const Q = C.Q, B = st.bones, bi = KIT.bi;

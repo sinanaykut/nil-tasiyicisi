@@ -34,7 +34,7 @@
       /* the outline directions, once per model (stamps copy them turned; the big bake then skips its position hash for them) */
       const O = new Float32Array(P.p.length), map = new Map(), pk = i => Math.round(P.p[i] * 6) + ',' + Math.round(P.p[i + 1] * 6) + ',' + Math.round(P.p[i + 2] * 6);
       for (let i = 0; i < P.p.length; i += 3) { if (P.no[i / 3]) continue; const q = pk(i); let a = map.get(q); if (!a) { a = [0, 0, 0]; map.set(q, a); } a[0] += P.n[i]; a[1] += P.n[i + 1]; a[2] += P.n[i + 2]; }
-      for (let i = 0; i < P.p.length; i += 3) { if (P.no[i / 3]) continue; const a = map.get(pk(i)), l = Math.hypot(a[0], a[1], a[2]); if (l > 0.2) { O[i] = a[0] / l; O[i + 1] = a[1] / l; O[i + 2] = a[2] / l; } }
+      for (let i = 0; i < P.p.length; i += 3) { if (P.no[i / 3]) continue; const a = map.get(pk(i)), l = Math.hypot(a[0], a[1], a[2]); if (l > 0.2) { O[i] = a[0] / l; O[i + 1] = a[1] / l; O[i + 2] = a[2] / l; } else { O[i] = P.n[i]; O[i + 1] = P.n[i + 1]; O[i + 2] = P.n[i + 2]; } }   /* v41: two-sided leaves keep their own normal (a zero outline made black wedges) */
       P.o = O;
       let r = 0, top = 0; for (let i = 0; i < P.p.length; i += 3) { r = Math.max(r, Math.hypot(P.p[i], P.p[i + 2])); top = Math.max(top, P.p[i + 1]); } P.r = r; P.top = top;
       PRO.set(key, P); return P;
@@ -78,11 +78,14 @@
         const c = [b[0] + ca * d, b[1] + h, b[2] + sa * d], f = w * 0.42;
         S.push(c); Lf.push([c[0] + px * w, c[1] - f, c[2] + pz * w]); R.push([c[0] - px * w, c[1] - f, c[2] - pz * w]);
       }
+      /* v41: a two-sided strip has no inside for the inverted-hull ink (its back faces slid out as black wedges): the edges are inked by lines */
+      const no0 = k.noOut; k.noOut = true;
       for (let i = 0; i < n; i++) {
         k.quad(Lf[i], S[i], S[i + 1], Lf[i + 1], colU).quad(S[i], R[i], R[i + 1], S[i + 1], colU);
         k.quad(Lf[i + 1], S[i + 1], S[i], Lf[i], col).quad(S[i + 1], R[i + 1], R[i], S[i], col);
         if (ink !== false) { L(k, Lf[i], Lf[i + 1], -0.85); L(k, R[i], R[i + 1], -0.85); }
       }
+      k.noOut = no0;
       return S[n];
     }
     /* the sway weight of the last parts (vertex arrays) from start index i0 */
