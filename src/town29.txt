@@ -934,9 +934,11 @@ void main() {
       o = o || {}; w = Math.round(w || 320); h = Math.round(h || 200);
       const si = o.si == null ? 1 : o.si | 0, ph = phaseOf(o.day), key = [ci, si, ph, w, h].join(':');
       if (THUMBS.has(key)) return THUMBS.get(key);
+      /* 3D off: no bake at all (no three.js load, no readRenderTargetPixels) — the card shows the emblem */
+      try { if (X.pref && !X.pref()) return Promise.resolve(null); } catch (e) { return Promise.resolve(null); }
       const pr = (X.T() ? Promise.resolve(true) : X.load()).then(ok => new Promise(res => setTimeout(() => {
         try {
-          if (!ok || !X.available()) return res(null);
+          if (!ok || !X.available() || (X.pref && !X.pref())) return res(null);
           T = X.T(); X.tpl();
           const SHd = shared(), tu = SHd.tu, t = buildTown(ci, si, { ci, si, spots:ALLSP }, SHd.mats), col = h2 => new T.Color(h2);
           const sc = new T.Scene(), g = new T.Group(); sc.add(g);
@@ -1223,7 +1225,7 @@ void main() {
       /* hit test: plaques, then the nearest spot (screen) within a finger, then nothing */
       function hitTest(cx, cy) {
         const b = el.getBoundingClientRect(), lx = cx - b.left, ly = cy - b.top;
-        for (const k2 of SPOTS) { const L = lab[k2]; if (L && !L.hidden && L._r && lx >= L._r.x - 3 && lx <= L._r.x + L._r.w + 3 && ly >= L._r.y - 3 && ly <= L._r.y + L._r.h + 3) return k2; }
+        for (const k2 of SPOTS) { const L = lab[k2]; if (L && !L.hidden && L._r && lx >= L._r.x - 5 && lx <= L._r.x + L._r.w + 5 && ly >= L._r.y - 6 && ly <= L._r.y + L._r.h + 6) return k2; }
         let best = null, bd = 1e9;
         const sp = cur.spots || {};
         SPOTS.forEach(k2 => {

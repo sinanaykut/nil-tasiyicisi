@@ -191,7 +191,9 @@ void main() {` + VS + `  if (aFx.x < 0.05) { gl_Position = vec4(0.0, 0.0, 2.0, 0
       const ink = new T0.SkinnedMesh(kit.geo, M.ink); ink.bind(sk, mesh.bindMatrix); ink.onBeforeRender = M.pre; ink.frustumCulled = false;
       mesh.parent.add(ink); ink.position.copy(mesh.position); ink.quaternion.copy(mesh.quaternion); ink.scale.copy(mesh.scale);
       const rest = ['neck_01', 'Head'].map(n => byName[n] && [byName[n], byName[n].quaternion.clone()]).filter(Boolean);
-      return { root, mesh, ink, sk, bones:byName, rest };
+      /* v36: the head's bind-pose orientation in the character's space (the face looks down +z there, upright), before any clip runs */
+      let headBind = null; if (byName.Head) { root.updateMatrixWorld(true); headBind = new T0.Quaternion(); byName.Head.getWorldQuaternion(headBind); }
+      return { root, mesh, ink, sk, bones:byName, rest, headBind };
     }
 
     /* ---------- stage ---------- */
@@ -227,7 +229,7 @@ void main() {` + VS + `  if (aFx.x < 0.05) { gl_Position = vec4(0.0, 0.0, 2.0, 0
       if (!r) { const cv = document.createElement('canvas'); cv.className = 'c33-cv'; r = new T0.WebGLRenderer({ canvas:cv, alpha:true, antialias:true }); r.setClearColor(0, 0); el.appendChild(cv); own = r; mine = true; }
       h.r = r; h.own = own;
       el.classList.add('c33-on', 'c34-on');
-      h.pm = e => { const b = el.getBoundingClientRect(); if (!b.width) return; const x = (e.clientX - b.left) / b.width * 2 - 1, y = (e.clientY - b.top) / b.height * 2 - 1; h.F.lookT.set(Math.max(-1, Math.min(1, x * 1.3)), Math.max(-1, Math.min(1, -y * 1.1 + 0.3))); h.F.ext = 1; h.lastPm = h.t; };
+      h.pm = e => { if (e.pointerType === 'touch') return; const b = el.getBoundingClientRect(); if (!b.width) return; const x = (e.clientX - b.left) / b.width * 2 - 1, y = (e.clientY - b.top) / b.height * 2 - 1; if (Math.abs(x) > 1.6 || Math.abs(y) > 1.6) return; h.F.lookT.set(Math.max(-1, Math.min(1, x * 1.3)), Math.max(-1, Math.min(1, -y * 1.1 + 0.3))); h.F.ext = 1; h.lastPm = h.t; };
       h.pd = () => react(h, 'tap');
       window.addEventListener('pointermove', h.pm, { passive:true }); el.addEventListener('pointerdown', h.pd);
       apply(h);
@@ -305,34 +307,39 @@ void main() {` + VS + `  if (aFx.x < 0.05) { gl_Position = vec4(0.0, 0.0, 2.0, 0
     /* where the face points in the bind pose (measured: the rig's head is turned and tipped there) */
     const HEAD_K = 0.95;
     function headTurn(h, dt) {
-      const F = h.F, B = h.I.bones, T0 = h.T0;
-      F.hy += ((F.look.x * 0.3) - F.hy) * Math.min(1, dt * 5); F.hp += ((-F.look.y * 0.18) - F.hp) * Math.min(1, dt * 5);
+      const F = h.F, B = h.I.bones, k5 = Math.min(1, dt * 5);
+      /* v36: a small, calm follow (about 10 deg sideways, 6 deg up/down at most) */
+      F.hy += ((F.look.x * 0.18) - F.hy) * k5; F.hp += ((-F.look.y * 0.1) - F.hp) * k5;
       if (h.base === 'think' || h.once === 'wave') { F.hy *= 0.9; F.hp *= 0.9; }
+      const K = h.base === 'think' ? HEAD_K * 0.5 : HEAD_K, yaw = F.hy + (h.fr ? h.fr.yaw * 0.8 : 0), pitch = F.hp - 0.05;
       h.I.root.updateMatrixWorld(true);
-      /* v34.1: the face looks at us: pull neck and head most of the way back to the bind pose (which faces front), then turn toward the camera */
       if (!h.restM) { h.restM = new Map(); h.I.rest.forEach(([b, q]) => h.restM.set(b, q)); }
-      [['neck_01', HEAD_K], ['Head', HEAD_K]].forEach(([n, k]) => { const b = B[n], q = b && h.restM.get(b); if (q) b.quaternion.slerp(q, h.base === 'think' ? k * 0.5 : k); });
-      h.I.root.updateMatrixWorld(true);
-      [['neck_01', 0.35], ['Head', 0.65]].forEach(([n, k]) => {
-        const b = B[n]; if (!b || !b.parent) return;
-        b.parent.getWorldQuaternion(h.q0);
-        b.getWorldQuaternion(h.q1);
-        h.e0.set((F.hp - 0.07) * k, (F.hy + (h.fr ? h.fr.yaw * 0.8 : 0)) * k, 0, 'YXZ'); h.qa.setFromEuler(h.e0);
-        h.q1.premultiply(h.qa);
-        b.quaternion.copy(h.q0.invert().multiply(h.q1));
-        b.updateMatrixWorld(true);
-      });
+      /* the neck: most of the way back to the bind pose, then a third of the turn */
+      const nb = B.neck_01, nq = nb && h.restM.get(nb);
+      if (nq && nb.parent) {
+        nb.quaternion.slerp(nq, K); nb.updateMatrixWorld(true);
+        nb.parent.getWorldQuaternion(h.q0); nb.getWorldQuaternion(h.q1);
+        h.e0.set(pitch * 0.35, yaw * 0.35, 0, 'YXZ'); h.qa.setFromEuler(h.e0);
+        h.q1.premultiply(h.qa); nb.quaternion.copy(h.q0.invert().multiply(h.q1)); nb.updateMatrixWorld(true);
+      }
+      /* the head: its world orientation goes to (turn x bind pose) - upright, facing the camera - whatever the clip did below it */
+      const hb = B.Head;
+      if (hb && hb.parent && h.I.headBind) {
+        hb.parent.getWorldQuaternion(h.q0); hb.getWorldQuaternion(h.q1);
+        h.e0.set(pitch, yaw, 0, 'YXZ'); h.qa.setFromEuler(h.e0); h.qz.copy(h.qa).multiply(h.I.headBind);
+        h.q1.slerp(h.qz, K); hb.quaternion.copy(h.q0.invert().multiply(h.q1)); hb.updateMatrixWorld(true);
+      }
     }
     function frame(h, dt) {
       const el = h.el, r = h.r, cam = h.cam, T0 = h.T0;
       const w = Math.max(10, el.clientWidth), hh = Math.max(10, el.clientHeight), pr = Math.min(2, window.devicePixelRatio || 1);
       if (w !== h.w0 || hh !== h.h0 || pr !== h.pr0) { h.w0 = w; h.h0 = hh; h.pr0 = pr; r.setPixelRatio(pr); r.setSize(w, hh, false); cam.aspect = w / hh; fit(h); }
-      if (h.t - (h.lastPm || -9) > 2.5) { h.F.ext = 0; h.F.lookT.multiplyScalar(0.96); }
+      if (h.t - (h.lastPm || -9) > 1.6) { h.F.ext = 0; h.F.lookT.multiplyScalar(Math.exp(-dt * 3)); }
       h.I.rest.forEach(([b, q]) => b.quaternion.copy(q));
       if (!h.hq0 && h.I.bones.Head) { h.I.root.updateMatrixWorld(true); h.hq0 = new T0.Quaternion(); h.I.bones.Head.getWorldQuaternion(h.hq0); h.hq0.invert(); }
       h.mixer.update(dt);
       face(h, dt); headTurn(h, dt);
-      const cc = r.getClearColor(new T0.Color()), ca = r.getClearAlpha();
+      const cc = r.getClearColor(h.cc || (h.cc = new T0.Color())), ca = r.getClearAlpha();
       r.setClearColor(0, 0); r.render(h.sc, cam); r.setClearColor(cc, ca);
       if (!h.shown) { h.shown = true; el.classList.add('c33-ready'); }
     }

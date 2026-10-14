@@ -346,7 +346,7 @@
   function thumbHtml(ci) {
     const u = thumbC[ci];
     if (typeof u === 'string') return '<span class="tvmini th"><img src="' + u + '" alt=""></span>';
-    if (u !== false && typeof V3 !== 'undefined' && typeof V3.townThumb === 'function' && !u) {
+    if (u !== false && typeof V3 !== 'undefined' && typeof V3.townThumb === 'function' && !u && (() => { try { return V3.pref(); } catch (e) { return false; } })()) {
       let pr = null; try { pr = V3.townThumb(ci, 240, 160); } catch (e) { pr = null; }
       if (typeof pr === 'string' && pr) { thumbC[ci] = pr; return thumbHtml(ci); }
       if (pr && typeof pr.then === 'function') { thumbC[ci] = pr; pr.then(x => { thumbC[ci] = typeof x === 'string' && x ? x : false; const e = document.querySelector('#tvCard .tvmini[data-ci="' + ci + '"]'); if (e && thumbC[ci]) e.outerHTML = thumbHtml(ci); }, () => { thumbC[ci] = false; }); }

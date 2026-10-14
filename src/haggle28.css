@@ -119,3 +119,37 @@
   .hgtb{width:46px;height:46px;right:6px;bottom:6px;padding:6px}
 }
 @media (prefers-reduced-motion: reduce){ .hgpt.talk,.hgsteam,.hgdust,.hgtell i.mad,.hgbub.pop,.hgstamp,.hgstage.shk .hgbust,.hgtb{animation:none} }
+/* v36: landscape phones (wide but short): the whole haggle fits on one screen, the offer buttons need no scrolling */
+@media (min-width:700px) and (max-height:520px){
+  .veil:has(.hg){padding:4px}
+  .sheet:has(.hg){max-height:calc(100vh - 8px);max-height:calc(100dvh - 8px)}
+  .sh-in:has(.hg){padding:6px 12px 6px}
+  .hg{grid-template-columns:minmax(170px,26%) minmax(0,1fr);gap:4px 12px}
+  .hghd h2{font-size:18px}
+  .hghd h2 small{font-size:12.5px;margin-top:0}
+  .hgx{min-height:36px}
+  .hgl{gap:4px}
+  .hgr{gap:5px}
+  .hgstage{height:calc(100dvh - 222px);min-height:120px}
+  .hgpt{width:140px;height:140px;border-width:3px}
+  .hgtb{width:44px;height:44px;right:6px;bottom:6px;padding:6px}
+  .hgtell{min-height:32px;font-size:13px;padding:2px 7px}
+  .hgbook{min-height:20px;font-size:11.5px}
+  .hgshelf{max-height:66px}
+  .hgcues span{font-size:11.5px;padding:0 7px 0 3px}
+  .hgbub{font-size:13.5px;line-height:1.22;padding:3px 10px;min-height:36px}
+  .hgbub > b:first-child{font-size:11.5px}
+  .hgdeal{padding:3px 10px}
+  .hgnow b{font-size:24px}
+  .hgtot{gap:1px;font-size:13px}
+  .hgtot b{font-size:15px}
+  .hgbtns{gap:5px}
+  .hgoff{gap:6px}
+  .hgo{min-height:44px;padding:2px 6px}
+  .hgo b{font-size:18px}
+  .hgo small{font-size:11.5px}
+  .hga,.hgk{min-height:44px}
+  .hgok{min-height:46px}
+  .hghint{font-size:11.5px;line-height:1.2}
+  .hgnow span{font-size:10.5px}
+}

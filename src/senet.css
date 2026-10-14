@@ -117,3 +117,10 @@
   .sn.h .snpn{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"a th" "p th" "msg msg" "act act" "leg leg";gap:4px 8px}
   .sn.h > :not(.snbd):not(.snpn){grid-column:1 / -1}
 }
+/* v36: landscape phones: the player plates stack the name over the borne-off dots, so "Sen" / the rival's name is never cut to "S.." */
+@media (min-width:700px) and (max-height:520px){
+  .sn.h .snpl{display:grid;grid-auto-flow:column;grid-template-rows:auto auto;justify-content:start;align-items:center;column-gap:7px;row-gap:1px;padding:3px 10px 3px 7px}
+  .sn.h .snpl > svg,.sn.h .snpl > .snav{grid-row:1 / span 2}
+  .sn.h .snpl b{grid-row:1;line-height:1.1}
+  .sn.h .snpl .sndots{grid-row:2}
+}

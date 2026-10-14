@@ -12,6 +12,7 @@
 .v3t-l.hi{background:#FFF4CC;box-shadow:0 0 0 3px #F2C65A,0 2px 0 rgba(43,29,20,.4)}
 .v3t-n{display:grid;place-items:center;min-width:16px;height:16px;padding:0 3px;border-radius:999px;background:#B7412E;color:#FFF8EC;font:800 10.5px/1 Nunito,sans-serif;font-style:normal;border:1.5px solid #2B1D14}
 .v3t-n.ok{background:#2BA59A}
-@media (max-width:600px){.v3t-l{font-size:11px;padding:1px 6px 1px 4px;border-radius:8px}.v3t-l .ico{width:13px;height:13px}}
+/* v36: phone plaques stay readable (about 25 px tall, 12.5 px text); the layout still keeps them apart */
+@media (max-width:600px){.v3t-l{font-size:12.5px;line-height:1.15;padding:3px 8px 3px 5px;border-radius:9px}.v3t-l .ico{width:15px;height:15px}}
 @media (prefers-reduced-motion:reduce){.v3-town > .v3-cv{transition:none}}
 .v3t-l:focus-visible{outline:3px solid #2BA59A;outline-offset:2px}

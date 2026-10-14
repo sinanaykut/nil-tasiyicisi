@@ -213,13 +213,22 @@
     const el = document.querySelector('.vnode[data-vnode]:not(:disabled)'); if (!el) { box.hidden = true; return; }
     const text = VG.layer === 0 ? 'Bu yol haritası. Her gün bir durak seçersin; her durak kısa bir sahne ya da mola. ⚠ risk, ★ ödül demek. Sakin su ile başla.' : 'Dikkat: seçtiğin durak sonraki günün yollarını belirler. Köy pazarı güvenli bir mola, Batık küçük bir hazine avı.';
     el.classList.add('tut-target');
-    box.dataset.k = ''; box.innerHTML = '<span class="tn">Harita</span><p>' + esc(text) + '</p><div class="row"><button class="chip" type="button" data-act="noHints">Rehberi kapat</button></div>';
+    /* v36: same layout as the port guide (face | name, text, button), never over the voyage header */
+    box.classList.remove('dock'); box.dataset.k = ''; box.innerHTML = '<span class="cf">' + portrait(FACE.paneb, 3) + '</span><div><span class="tn">Harita</span><p>' + esc(text) + '</p><button class="chip" type="button" data-act="noHints">Rehberi kapat</button></div>';
     box.hidden = false;
-    const r = el.getBoundingClientRect(), bw = box.offsetWidth, bh = box.offsetHeight, sy = window.scrollY, sx = window.scrollX;
-    let top = r.bottom + 12, left = r.left + r.width / 2 - bw / 2, below = true;
-    if (top + bh > window.innerHeight - 8 && r.top - bh - 12 > 8) { top = r.top - bh - 12; below = false; }
-    left = Math.max(8, Math.min(left, window.innerWidth - bw - 8));
-    box.style.top = (top + sy) + 'px'; box.style.left = (left + sx) + 'px'; box.dataset.dir = below ? 'down' : 'up';
+    const r = el.getBoundingClientRect(), bw = box.offsetWidth, bh = box.offsetHeight, sy = window.scrollY, sx = window.scrollX, W0 = window.innerWidth, H0 = window.innerHeight;
+    const hd = document.querySelector('#voy .vhead'), hb = hd && hd.offsetParent ? hd.getBoundingClientRect().bottom + 6 : 8;
+    let top = r.bottom + 12, left = r.left + r.width / 2 - bw / 2, dir = 'down';
+    if (top + bh > H0 - 8) {
+      if (r.top - bh - 12 >= hb) { top = r.top - bh - 12; dir = 'up'; }
+      else {
+        /* no room above or below (landscape phones): beside the node, under the header */
+        top = Math.max(hb, Math.min(H0 - bh - 8, r.top + r.height / 2 - bh / 2)); dir = 'none';
+        left = r.right + 14 + bw <= W0 - 8 ? r.right + 14 : r.left - 14 - bw;
+      }
+    }
+    left = Math.max(8, Math.min(left, W0 - bw - 8));
+    box.style.top = (top + sy) + 'px'; box.style.left = (left + sx) + 'px'; box.dataset.dir = dir;
     box.style.setProperty('--ax', Math.max(14, Math.min(bw - 14, r.left + r.width / 2 - left)) + 'px');
   }
   function drawVoyLines() {
