@@ -152,3 +152,18 @@
 }
 /* v43: a long rival name ("Taşçı Seni") wraps to two lines in the narrow plates instead of being cut to "Taşçı ..." */
 .sn.v .snpl b,.tg .snpl b{white-space:normal;text-overflow:clip;line-height:1.05;font-size:13.5px;overflow-wrap:anywhere}
+/* v45 water: splash rings and drops, the sunk piece drifting back, the piece rising at the House of Rebirth, the rival's face */
+.snfx{pointer-events:none}
+.snsplash .snr{transform-box:fill-box;transform-origin:center;opacity:0;animation:snRip .9s ease-out forwards}
+@keyframes snRip{0%{transform:scale(.3);opacity:1}100%{transform:scale(2.3);opacity:0}}
+.snsplash .snd{opacity:0;animation:snDrop .8s linear forwards}
+@keyframes snDrop{0%{transform:translate(0,0) scale(.6);opacity:1;animation-timing-function:cubic-bezier(.2,.7,.5,1)}45%{transform:translate(calc(var(--dx) * .7),var(--dy)) scale(1);opacity:1;animation-timing-function:cubic-bezier(.5,0,.8,.4)}100%{transform:translate(var(--dx),6px) scale(.5);opacity:0}}
+.snwake{animation:snFlow .5s linear infinite,snFade 1.5s ease-out forwards}
+@keyframes snFade{0%,60%{opacity:.85}100%{opacity:0}}
+.snpc.wet .snpcb{filter:drop-shadow(0 0 4px #1F5FA8) saturate(.6) brightness(1.1);transform:scale(.55) translateY(8px);opacity:.45;transition:transform .35s ease-in,opacity .35s}
+.snpc.reborn .snpcb{animation:snReborn .7s cubic-bezier(.2,1.6,.4,1)}
+@keyframes snReborn{0%{transform:scale(.4);filter:drop-shadow(0 0 0 #FFD24A)}50%{filter:drop-shadow(0 0 8px #FFD24A)}100%{transform:scale(1)}}
+.snav{transition:none}
+.snav.pop{animation:snAvPop .45s cubic-bezier(.2,1.6,.4,1)}
+@keyframes snAvPop{40%{transform:scale(1.25)}}
+@media (prefers-reduced-motion: reduce){ .snsplash,.snwake{display:none} .snpc.reborn .snpcb,.snav.pop{animation:none} }

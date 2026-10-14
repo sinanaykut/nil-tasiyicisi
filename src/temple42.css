@@ -88,7 +88,7 @@
 @media (max-height:520px) and (min-width:700px){
   :has(> .tpbox){display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:16px;align-content:start;align-items:start}
   :has(> .tpbox) > *{grid-column:2}
-  :has(> .tpbox) > .tpbox{grid-column:1;grid-row:1 / span 6;width:min(calc(100dvh - 60px),56vw);max-width:none}
+  :has(> .tpbox) > .tpbox{grid-column:1;grid-row:1 / span 6;width:min(calc(100dvh - 64px),56vw);max-width:none}
   .tpbox.tp-glyph{width:min(560px,58vw)}
   .tpbox.tp-scale .scsvg{max-height:calc(100dvh - 150px)}
   .tpbox.tp-slide .slbd{max-height:calc(100dvh - 70px);max-width:calc((100dvh - 70px) * .75)}

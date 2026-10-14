@@ -46,6 +46,8 @@ Folders ui/, sea/, v3/ are single files split by section; parts are joined in na
 | temple42.txt | 44 |
 | tavern42.css | 7 |
 | tavern42.txt | 49 |
+| quick45.css | 8 |
+| quick45.txt | 33 |
 | town29.css | 2 |
 | town29.txt | 134 |
 | ui/01-port-scene.txt | 36 |
@@ -174,6 +176,22 @@ leader line (`.v3m-ll`). Caravan hubs (Mennefer, Abidos, Vaset) have a 'caravan'
 desert travel is open): 3D town `CARHUB`/`CARSP` (three pack donkeys, a driver and jars on the quay south of the hero, dynamic parts),
 2D `townScene` (two donkeys at the quay's west end); `openSpot('caravan')` opens the travel card on the hub's desert town (`carDest`).
 Images: docs/qa45-harita.
+v45 characters & tavern (owner report): CH40 scratch tell (`chars40.txt` scratchGeo/scratchUpper/scratchArm/scratchHand):
+the character's own right arm is raised: `g.raiseL` gives torsoPath a raised right side (no hanging arm), the upper arm is drawn
+before the body (the shoulder covers its root), forearm + hand in front of the hair; the hand is seen from the back, four fingers
+curl into the hair (strands drawn over the tips), the thumb lies on the side of the head; `.c40sc` rocks the forearm about the
+elbow, `.c40sk` rubs the hand. armband/copperBands/papyrus skip the raised side. tap: the forearm starts at the elbow under the
+hanging upper arm. Icons (`frame:'face'`, badges 30–44 px) keep the eyes open (min opening, no squint, light lids, eyes ×1.12);
+thinking opens the eyes wider. Senet (`senet.txt`): water = splash (`snSplash`, rings + drops in `#snFx`), the piece sinks
+(`.wet`), a wake (`snWake`) carries it to 15 (or the first free square before it) and it rises (`.reborn`); "başka hamlesi
+yoktu" when forced; the rival's badge face reacts (`snFace(mood, ms)`, also used by Mehen/Hounds hits, shortcuts, pits, homes,
+wins). Hounds & Jackals: HJ_H 440, holes r 10/12, pins ×1.4, 1–10 middle, 11–21 edge, 22–29 over the crown (ellipse
+HJ_RX/HJ_RY around HJ_AY), shen at y 36; any pin in the same hole/drawer moves (tgTapPiece). Quick bets (`quick45.txt/.css`):
+asik (knucklebones duel, ≈47 %), bakla (shell game, adaptive pace `meta.qShell.r`), tekcift (odd/even sticks, 50 / 43.75 %);
+`S.tq[city] = { d, n }`, 3 a day per tavern, stakes 50/100/300; money moves when the outcome is fixed (`qkSettle`), the show
+follows (`qkShow`). Tavern menu (ui/13 showTavern): "Uzun oyunlar" = the dialogue choices, "Kısa oyunlar" = `quickMenuHtml(ci)`
+tiles (`opts.html`); ui/12 keeps the tavern pin bright while quick bets remain. Debug: `fn.showQuick(id)`, `fn.quickAuto({ fast,
+n, cheat })` (tavernAuto drives it too), `fn.quickSim(id, n, call)`, `fn.quickLeft()`. Images: docs/qa45-oyun.
 
 ## Music (v44)
 - `snd-syn.txt` — `NilSynth()`: self-contained music synthesiser (its source text is also the render Worker's body, so it must not use game names). Instruments (Karplus-Strong oud/bass, modal harp/kanun, ney/reed wind phrases, wavetable drones/choir, modal darbuka/bendir/tabl/riq/sistrum/zills/bowl), buses + EQ, ping-pong echo, half-rate FFT convolution reverb, master compressor + soft ceiling, the six compositions (`composeMenu/Port/Bazaar/Temple/Sail/Chase`) and `TRACKS` (tempo, bars, reverb, measured bus gains and loudness trims). `job(name)` renders in steps (`step(ms)`), `onSeg` streams 1 s segments.

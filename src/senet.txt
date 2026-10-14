@@ -87,7 +87,36 @@
     }
     s += '</svg><svg viewBox="0 0 ' + G.W + ' ' + G.H + '" class="snov" aria-hidden="true"><g id="snTut" class="sntutg"></g><g id="snHl" class="snhl"></g><g id="snPcs">';
     ['p', 'a'].forEach(sd => PZ.pos[sd].forEach((q, i) => { const [x, y] = snXY(G, q); s += '<g class="snpc ' + sd + '" id="snP' + sd + i + '" style="transform:translate(' + x + 'px,' + y + 'px)"><g class="snpcb">' + snPieceSVG(sd) + '</g></g>'; }));
-    return s + '</g></svg>';
+    return s + '</g><g id="snFx" class="snfx"></g></svg>';
+  }
+  /* v45 (owner: "in Senet the rivals fall into the water with their eyes closed"): the water square splashes, the piece
+     sinks and drifts back to the House of Rebirth (15), and the rival's face in the badge reacts to what happens */
+  function snSplash(q) {
+    const g = $('#snFx'); if (!g || reduce || !PZ) return;
+    const [x, y] = snXY(PZ.G, q), k = ++uid;
+    let h = '<g class="snsplash" id="snSp' + k + '" transform="translate(' + x + ' ' + y + ')">';
+    [0, 1, 2].forEach(i => { h += '<ellipse class="snr" style="animation-delay:' + i * 0.14 + 's" rx="' + (10 + i * 3) + '" ry="' + (5 + i * 1.5) + '" fill="none" stroke="' + (i ? '#7FB2E5' : '#1F5FA8') + '" stroke-width="' + (3 - i * 0.6) + '"/>'; });
+    [[-16, -26], [-8, -34], [0, -38], [9, -33], [17, -24], [-22, -12], [22, -10]].forEach(([dx, dy], i) => {
+      h += '<path class="snd" style="--dx:' + dx + 'px;--dy:' + dy + 'px;animation-delay:' + (i % 3) * 0.03 + 's" d="M0 -5c3 3 4 5 4 7a4 4 0 0 1 -8 0c0 -2 1 -4 4 -7z" fill="#9FCDF0" stroke="#1F5FA8" stroke-width="1.2"/>'; });
+    h += '</g>';
+    g.insertAdjacentHTML('beforeend', h);
+    setTimeout(() => { const e = document.getElementById('snSp' + k); if (e) e.remove(); }, 1300);
+  }
+  /* the current under the board: a dashed wake from the water back to where the piece comes up */
+  function snWake(a, b) {
+    const g = $('#snFx'); if (!g || !PZ) return;
+    const [x0, y0] = snXY(PZ.G, a), [x1, y1] = snXY(PZ.G, b), k = ++uid;
+    g.insertAdjacentHTML('afterbegin', '<path id="snWk' + k + '" class="snwake" d="M' + x0 + ' ' + y0 + 'Q' + ((x0 + x1) / 2 + (PZ.G.vert ? 30 : 0)) + ' ' + ((y0 + y1) / 2 + (PZ.G.vert ? 0 : 30)) + ' ' + x1 + ' ' + y1 + '" fill="none" stroke="#1F5FA8" stroke-width="4" stroke-linecap="round" stroke-dasharray="2 9"/>');
+    setTimeout(() => { const e = document.getElementById('snWk' + k); if (e) e.remove(); }, 1500);
+  }
+  /* the rival's face in the badge: a mood for a moment, then back to neutral */
+  function snFace(mood, ms) {
+    if (!PZ || !PZ.oppK) return;
+    const el = document.querySelector('#sheet .snpl.a .snav'); if (!el) return;
+    const paint = m => { if (el.dataset.m === m) return; el.dataset.m = m; el.innerHTML = CH40.icon(PZ.oppK, m); };
+    paint(mood); el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+    clearTimeout(PZ.faceT);
+    if (ms) PZ.faceT = setTimeout(() => { if (PZ && !PZ.fin) paint('neutral'); }, ms);
   }
   function snSticksSVG(f) {
     return '<svg viewBox="0 0 124 64" class="snstk" aria-hidden="true">' + f.map((l, k) => {
@@ -111,6 +140,7 @@
     if (PZ.tut) s += '<div class="sncoach" id="snCoach"><div class="sncp" id="snCp"></div><div class="sncb"><b>Paneb</b><p id="snCoachT" aria-live="polite"></p><button class="btn go1 sm sncok" type="button" data-snok hidden>Tamam</button></div></div>';
     s += '<div class="sn ' + (vert ? 'v' : 'h') + (PZ.tut ? ' sntm' : '') + '"><div class="snbd" id="snBd">' + snBoardSVG(PZ.G) + '</div><div class="snpn">';
     const oppK = (() => { try { if (typeof CAST !== 'undefined') for (const c in CAST) if (CAST[c].name === who) return c; } catch (e) {} return null; })();
+    PZ.oppK = oppK;
     s += '<div class="snpl a" id="snPa"><svg viewBox="-16 -18 32 36" width="26" height="30" aria-hidden="true">' + snPieceSVG('a') + '</svg>' + (oppK ? '<span class="snav" data-k="' + oppK + '">' + CH40.icon(oppK, 'neutral') + '</span>' : '') + '<b>' + esc(who) + '</b>' + dots + '</div>';
     s += '<div class="snthrow"><div id="snStk">' + snSticksSVG(PZ.faces) + '</div><div class="snv"><b id="snV">?</b><small>1 · 4 · 5<br>bir daha</small></div></div>';
     s += '<p class="snmsg" id="snMsg" aria-live="polite"></p>';
@@ -221,14 +251,20 @@
       const oe = $('#snP' + op + m.j);
       snLater(() => { snSetPos(oe, m.f, true); play('haggle'); }, t); t += 420;
       msg = side === 'p' ? 'Yer değiştirdiniz: rakip geri gitti!' : esc(PZ.who) + ' seninle <b>yer değiştirdi</b>!';
+      snLater(() => snFace(side === 'p' ? 'angry' : 'sly', 1600), t - 300);
     } else if (m.kind === 'water') {
-      snLater(() => { play('splash'); if (el) el.classList.add('wet'); }, t); t += 320;
-      snLater(() => { snSetPos(el, m.fin, true); }, t); t += 420;
-      snLater(() => { if (el) el.classList.remove('wet'); }, t);
-      msg = (side === 'p' ? 'Taşın' : 'Rakibin taşı') + ' <b>suya düştü</b>: ' + m.fin + '. kareye döndü.';
+      /* the piece reaches the water, splashes and sinks, drifts back under the board and comes up at the House of Rebirth */
+      const forced = PZ.ms.every(x => x.kind === 'water');
+      snLater(() => { play('splash'); buzz('caught'); snSplash(27); if (el) el.classList.add('wet'); snFace(side === 'a' ? 'surprised' : 'laugh', side === 'a' ? 0 : 1800); }, t); t += 520;
+      snLater(() => { snWake(27, m.fin); if (el) { el.style.transitionDuration = reduce ? '0s' : snT(720) + 'ms'; const [x, y] = snXY(PZ.G, m.fin); el.style.transform = 'translate(' + x + 'px,' + y + 'px)'; } }, t); t += 760;
+      snLater(() => { if (el) { el.classList.remove('wet'); el.classList.add('reborn'); } play('tick'); if (side === 'a') snFace('angry', 1500); }, t);
+      snLater(() => { if (el) el.classList.remove('reborn'); }, t + 700); t += 200;
+      msg = side === 'p' ? 'Taşın <b>suya düştü</b>! Akıntı onu <b>' + m.fin + '</b>. kareye geri taşıdı' + (m.fin === 15 ? ' (Yeniden Doğuş Evi)' : '') + '.' + (forced ? ' Başka hamlen yoktu.' : '')
+        : '<b>Şap!</b> Rakibin taşı <b>suya düştü</b>, <b>' + m.fin + '</b>. kareye döndü.' + (forced ? ' Başka hamlesi yoktu.' : '');
     } else if (m.kind === 'off') {
       snLater(() => { if (el) el.classList.add('gone'); play(side === 'p' ? 'coin' : 'no'); snDots(); }, t); t += 260;
       msg = side === 'p' ? 'Bir taşın <b>çıktı</b>!' : esc(PZ.who) + ' bir taş <b>çıkardı</b>.';
+      snLater(() => snFace(side === 'p' ? 'sad' : 'happy', 1400), t);
     } else if (m.fin === 26) msg = (side === 'p' ? 'Güzellik Evi: burada güvendesin.' : esc(PZ.who) + ' Güzellik Evi\'nde güvende.');
     snLater(() => {
       PZ.ms = []; snHl();
@@ -249,7 +285,7 @@
     PZ.phase = 'over';
     const bd = $('#snBd');
     if (bd) bd.insertAdjacentHTML('beforeend', '<div class="snend ' + (win ? 'win' : 'lose') + '"><b>' + (win ? 'Kazandın!' : 'Kaybettin') + '</b><span>' + (win ? '+' : '−') + fmt(PZ.stake) + ' deben</span></div>');
-    snAct(win ? 'Kazandın!' : 'Kaybettin', false);
+    snAct(win ? 'Kazandın!' : 'Kaybettin', false); snFace(win ? 'sad' : 'laugh', 0);
     const gv = document.querySelector('#sheet [data-sngive]'); if (gv) gv.disabled = true;
     snMsg(win ? 'Üç taşın da çıktı. Bahis senin!' : esc(PZ.who) + ' üç taşını da çıkardı.');
     play(win ? 'fanfare' : 'bad'); buzz(win ? 'big' : 'caught');

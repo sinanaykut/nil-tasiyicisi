@@ -137,18 +137,25 @@
     ].filter(Boolean) });
   }
   /* ---------- the tavern: the host lays out today's game (Senet, Mehen or Hounds & Jackals) and offers another ---------- */
+  /* v45: the tavern menu has two parts: "Uzun oyunlar" (today's board game and the host's other one, one a day; the
+     dialogue choices) and "Kısa oyunlar" (quick bets, quick45.txt, a few a day; tiles under the choices) */
   function showTavern(game) {
     if (phase !== 'port') return;
     const ci = S.city, who = 'tv' + ci, stakes = [100, 300, 600].filter(x => x <= S.cash);
-    if (!canTavern(S)) { say(who, [S.tavern[ci] === S.day ? '"Bugün bir oyun yeter. Yarın gel, rövanş isterim."' : '"Masaya en az 100 deben koymadan oturulmaz, dostum."'], { sub:TAVERN[ci], choices:[{ label:'Tamam', ico:'i-close', run() {} }] }); return; }
+    const qh = typeof quickMenuHtml === 'function' ? quickMenuHtml(ci) : '';
+    if (!canTavern(S)) {
+      const played = S.tavern[ci] === S.day;
+      if (qh) { say(who, [played ? '"Bugün uzun oyun yeter, rövanş yarın. Ama kısa bir bahse ne dersin?"' : '"Uzun oyuna kesen yetmez. Kısa bir bahis olur ama!"'], { sub:TAVERN[ci] + ' · kısa oyunlar', mood:'sly', choices:[], html:qh }); return; }
+      say(who, [played ? '"Bugün bu kadar oyun yeter. Yarın gel, rövanş isterim."' : '"Masaya en az ' + (S.cash < 50 ? 50 : 100) + ' deben koymadan oturulmaz, dostum."'], { sub:TAVERN[ci], choices:[{ label:'Tamam', ico:'i-close', run() {} }] }); return;
+    }
     const GM = typeof TV_GAME !== 'undefined' ? TV_GAME : { senet:{ name:'Senet', pitch:'Taşlarını benden önce tahtadan çıkar, bahsi al.' } };
     const two = typeof tavernGames === 'function' ? tavernGames(ci, S.day) : ['senet', 'senet'];
     const g = game && GM[game] ? game : two[0], other = two.find(x => x !== g) || null;
     const first = !game;
-    say(who, [first ? '"' + TAVERN_WHO[ci] + ' derler bana. Bugün masada ' + GM[g].name + ' kurulu. ' + GM[g].pitch + '"' : '"' + GM[g].name + ' mi? Olur. ' + GM[g].pitch + '"', 'Günde bir oyun. Ne koyuyorsun?'], { sub:TAVERN[ci] + ' · ' + GM[g].name, mood:'sly',
-      choices:stakes.map(x => ({ label:GM[g].name + ': ' + fmt(x) + ' deben', sub:'Kazanırsan +' + fmt(x), ico:'i-coin', run() { if (guide().off || guide().seen.tavern) tavernPlay(x, g); else guideOnce('tavern', PANEB.tavern, () => tavernPlay(x, g)); } }))
-        .concat(other && GM[other] ? [{ label:'Başka oyun: ' + GM[other].name, sub:GM[other].pitch.split('!')[0].split('.')[0], ico:GM[other].ico || 'i-senet', run() { showTavern(other); } }] : [])
-        .concat([{ label:'Sonra', ico:'i-close', run() {} }]) });
+    say(who, [first ? '"' + TAVERN_WHO[ci] + ' derler bana. Bugün masada ' + GM[g].name + ' kurulu. ' + GM[g].pitch + '"' : '"' + GM[g].name + ' mi? Olur. ' + GM[g].pitch + '"', qh ? 'Uzun bir oyun mu, kısa bir bahis mi?' : 'Günde bir oyun. Ne koyuyorsun?'], { sub:TAVERN[ci] + ' · ' + GM[g].name, mood:'sly', html:qh,
+      choices:stakes.map(x => ({ label:GM[g].name + ': ' + fmt(x) + ' deben', sub:'Kazanırsan +' + fmt(x), ico:'i-coin', cls:'tvl', run() { if (guide().off || guide().seen.tavern) tavernPlay(x, g); else guideOnce('tavern', PANEB.tavern, () => tavernPlay(x, g)); } }))
+        .concat(other && GM[other] ? [{ label:'Başka oyun: ' + GM[other].name, sub:GM[other].pitch.split('!')[0].split('.')[0], ico:GM[other].ico || 'i-senet', cls:'tvl', run() { showTavern(other); } }] : [])
+        .concat(qh ? [] : [{ label:'Sonra', ico:'i-close', run() {} }]) });
   }
   function tavernPlay(stake, game) {
     const ci = S.city; if (!canTavern(S) || S.cash < stake) return;
