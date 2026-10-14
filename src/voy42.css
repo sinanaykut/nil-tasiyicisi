@@ -1,0 +1,109 @@
+/* ===== v42: route map token, tombs on the road, the arrival ledger ===== */
+/* the city emblem on the start/end stop: a small seal on the rim, not over the picture */
+.vnode .vci{position:absolute;right:-7px;bottom:-5px;width:22px;height:22px;border-radius:50%;background:var(--papl);border:2px solid var(--ink);display:grid;place-items:center;font-style:normal;box-shadow:0 1px 0 var(--ink);z-index:1}
+.vnode .vci svg{width:14px;height:14px}
+/* where we are: a gold ring around the stop (the boat docks beside it, never on it) */
+.vnode.here .vm{box-shadow:0 0 0 3px var(--papl),0 0 0 6px var(--gold),var(--sh)}
+.vnode.here b{color:var(--ink)}
+.vcol.past .vnode.here{opacity:1}
+/* the token: our boat (or the donkeys) on a little puddle of water (or sand), like a game piece */
+.vboat{left:0;top:0;width:46px;height:40px;margin:-20px 0 0 -23px;transition:none;filter:drop-shadow(0 2px 0 rgba(43,29,20,.28))}
+.vboat::before{content:"";position:absolute;left:4px;right:4px;bottom:-1px;height:12px;border-radius:50%;background:#7FC0D8;border:2px solid var(--ink);opacity:.9}
+.vboat.dz::before{background:#E6C98A}
+.vboat svg{position:relative}
+.vboat.dock svg{animation:vdock .5s cubic-bezier(.3,1.6,.5,1) 1,bob 2.4s ease-in-out .5s infinite}
+@keyframes vdock{0%{transform:translateY(-6px) scale(1.08)}100%{transform:none}}
+.vboat.sail svg{animation:none}
+@media (prefers-reduced-motion: reduce){ .vboat.dock svg{animation:none} }
+/* tombs on the road */
+.t-tomb .vm,.vm.t-tomb{background:#E2C79A}.t-dtomb .vm,.vm.t-dtomb{background:#EBCB92}
+.tlock{display:flex;flex-direction:column;gap:9px;align-items:center}
+.tl-wall{position:relative;width:100%;height:150px;border:2.5px solid var(--ink);border-radius:14px;overflow:hidden;box-shadow:0 3px 0 var(--ink);
+  background:repeating-linear-gradient(0deg,transparent 0 27px,rgba(43,29,20,.18) 27px 29px),linear-gradient(180deg,#C99A5E,#A97D45)}
+.tlock.dz .tl-wall{background:repeating-linear-gradient(0deg,transparent 0 27px,rgba(43,29,20,.14) 27px 29px),linear-gradient(180deg,#E6C98A,#C9A063)}
+.tl-door{position:absolute;left:50%;bottom:0;width:116px;height:96px;margin-left:-58px;border:3px solid var(--ink);border-bottom:0;border-radius:8px 8px 0 0;background:#1B120C;overflow:hidden}
+.tl-door .tl-l,.tl-door .tl-r{position:absolute;top:0;bottom:0;width:50%;background:linear-gradient(90deg,#8A6236,#A97D45);transition:transform .9s cubic-bezier(.6,0,.3,1)}
+.tl-door .tl-l{left:0;border-right:1.5px solid var(--ink)}.tl-door .tl-r{right:0;border-left:1.5px solid var(--ink);background:linear-gradient(270deg,#8A6236,#A97D45)}
+.tl-door .tl-in{position:absolute;left:50%;top:55%;width:60px;height:60px;margin:-30px 0 0 -30px;border-radius:50%;background:radial-gradient(#F2C65A,rgba(242,198,90,0) 70%);opacity:0;transition:opacity .6s .4s}
+.tlock.open .tl-l{transform:translateX(-100%)}.tlock.open .tl-r{transform:translateX(100%)}.tlock.open .tl-in{opacity:1}
+.tl-car{position:absolute;left:50%;top:10px;transform:translateX(-50%);display:flex;gap:6px;padding:4px 14px;background:#F3E2B8;border:2.5px solid var(--ink);border-radius:26px;box-shadow:0 2px 0 var(--ink)}
+.tl-car span{display:grid;place-items:center;width:38px;height:38px}
+.tl-dials{display:flex;gap:10px;justify-content:center}
+.tl-d{display:flex;flex-direction:column;align-items:center;gap:1px;width:88px;padding:7px 4px 5px;border:2.5px solid var(--ink);border-radius:14px;background:linear-gradient(180deg,#EAD6AA,#D6B87A);box-shadow:0 3px 0 var(--ink);cursor:pointer;font:inherit;color:var(--ink)}
+.tl-d small{font:800 11px Nunito,sans-serif;color:var(--ink2);white-space:nowrap}
+.tl-d:active{transform:translateY(2px);box-shadow:0 1px 0 var(--ink)}
+.tl-d.ok{background:linear-gradient(180deg,#F7E7A6,#E8C766);box-shadow:0 3px 0 var(--ink),0 0 0 3px var(--gold)}
+.tl-d.spin svg{animation:tlspin .28s ease-out}
+@keyframes tlspin{0%{transform:rotateY(90deg) scale(.8)}100%{transform:none}}
+.tl-torch{display:flex;align-items:center;gap:4px;flex-wrap:wrap;justify-content:center;font-size:13px}
+.tl-torch .tl-fl{color:#E07A2E;display:grid;animation:tlfl .9s ease-in-out infinite alternate}
+.tl-torch b{margin-right:4px}
+.tl-torch i{width:12px;height:16px;border-radius:6px 6px 3px 3px;border:1.5px solid var(--ink);background:rgba(43,29,20,.12)}
+.tl-torch i.on{background:linear-gradient(180deg,#F7C65A,#E07A2E)}
+.tl-torch small{font-weight:800;color:var(--ink2);margin-left:4px}
+@keyframes tlfl{to{transform:scale(1.15) rotate(-6deg)}}
+.tlock.out .tl-wall{filter:brightness(.55) saturate(.6);transition:filter .8s}
+.tcoffin{border:2.5px solid var(--ink);border-radius:14px;overflow:hidden;background:linear-gradient(180deg,#3A2A1C,#5A4128);box-shadow:0 3px 0 var(--ink)}
+.tcoffin > svg{display:block;width:100%;height:auto;max-height:150px}
+.tcoffin .tc-lid{animation:tclid 1s cubic-bezier(.4,0,.2,1) both}
+.tcoffin .tc-glow{animation:tcglow 1.6s ease-in-out infinite alternate}
+@keyframes tclid{from{transform:translate(0,14px) rotate(0)}}
+@keyframes tcglow{to{opacity:.55}}
+@media (prefers-reduced-motion: reduce){ .tl-door .tl-l,.tl-door .tl-r{transition:none} .tcoffin .tc-lid,.tcoffin .tc-glow,.tl-torch .tl-fl,.tl-d.spin svg{animation:none} }
+/* ===== the arrival: the town's picture, then the voyage as a clean ledger ===== */
+.arr42{display:flex;flex-direction:column;gap:10px}
+.a42-pic{position:relative;height:170px;border:2.5px solid var(--ink);border-radius:16px;overflow:hidden;box-shadow:0 3px 0 var(--ink);background:linear-gradient(180deg,#9FD0DC,#F3E2B8)}
+.a42-pic.dz{background:linear-gradient(180deg,#F2C68A,#EBCB92)}
+.a42-pic img,.a42-pic > svg,.a42-pic .pscene{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.a42-pic .pscene svg{width:100%;height:100%;display:block}
+.a42-pic img{opacity:0;transition:opacity .5s}
+.a42-pic img.in{opacity:1}
+.a42-pic .a42-ph{position:absolute;inset:0;display:grid;place-items:center;color:rgba(43,29,20,.35)}
+.a42-pic::after{content:"";position:absolute;inset:auto 0 0;height:56%;background:linear-gradient(180deg,rgba(43,29,20,0),rgba(43,29,20,.42));pointer-events:none}
+.a42-plq{position:absolute;left:12px;bottom:10px;z-index:1;display:flex;align-items:center;gap:9px;max-width:calc(100% - 24px);padding:5px 14px 6px 7px;background:var(--papl);border:2.5px solid var(--ink);border-radius:30px;box-shadow:0 2px 0 var(--ink)}
+.a42-plq .a42-e{width:34px;height:34px;flex:none;border-radius:50%;border:2px solid var(--ink);background:var(--gold);display:grid;place-items:center;color:var(--ink)}
+.a42-plq h2{margin:0;font-size:22px;line-height:1.05}
+.a42-plq small{display:block;font:700 12px Nunito,sans-serif;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.a42-day{position:absolute;right:10px;top:10px;z-index:1;padding:2px 10px;background:var(--ink);color:var(--papl);border-radius:20px;font:800 12px Nunito,sans-serif;box-shadow:0 0 0 2px var(--papl)}
+.a42-route{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--papl);border:2px solid var(--ink);border-radius:12px}
+.a42-route .vstrip.iso{flex:1;min-width:0;justify-content:flex-start;padding:0}
+.a42-route .vstrip.iso .vsi{width:50px}.a42-route .vstrip.iso .vsi svg.vt{width:44px}
+.a42-route > b{flex:none;font:800 12px Nunito,sans-serif;color:var(--ink2);text-align:center;line-height:1.1}
+.a42-route > b big{display:block;font:700 20px Cinzel,serif;color:var(--ink)}
+.a42-sum{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.a42-sum > span{display:flex;flex-direction:column;align-items:flex-start;gap:0;padding:5px 9px 6px;background:var(--papl);border:2px solid var(--ink);border-radius:11px;box-shadow:0 2px 0 var(--ink);min-width:0}
+.a42-sum small{font:800 10.5px Nunito,sans-serif;text-transform:uppercase;letter-spacing:.04em;color:var(--ink2);white-space:nowrap}
+.a42-sum b{font:800 17px Nunito,sans-serif;white-space:nowrap}
+.a42-sum .pos b{color:var(--green2)}.a42-sum .neg b{color:var(--ochre2)}
+.a42-sum .net{background:var(--ink);color:var(--papl)}.a42-sum .net small{color:var(--pap3)}.a42-sum .net.pos b{color:#9FD39A}.a42-sum .net.neg b{color:#F2B5A3}
+.a42-sum .hp{display:flex;gap:2px;align-items:center}.a42-sum .hp i{width:11px;height:11px;border-radius:50%;border:1.5px solid var(--ink);background:rgba(0,0,0,.1)}.a42-sum .hp i.on{background:#E86A7E}
+.a42-ev{display:flex;flex-direction:column;gap:0;border:2px solid var(--ink);border-radius:12px;background:var(--papl);overflow:hidden}
+.a42-ev h3{margin:0;padding:6px 12px 4px;font:700 14px Cinzel,serif;color:var(--ink2);border-bottom:1.5px dashed var(--pap3)}
+.a42-ev .ae{display:flex;gap:10px;align-items:flex-start;padding:7px 12px;border-bottom:1.5px dashed var(--pap3);border-left:5px solid #F2D58A}
+.a42-ev .ae:last-child{border-bottom:0}
+.a42-ev .ae.good{border-left-color:#7FC48A}.a42-ev .ae.bad{border-left-color:#E07A62}
+.a42-ev .ae .oiI{width:28px;height:28px}
+.a42-ev .ae b{display:block;font-size:14px;line-height:1.2}
+.a42-ev .ae p{margin:1px 0 0;font-size:13px;line-height:1.3;color:var(--ink2)}
+.a42-ev .ae.more{display:none}.a42-ev.all .ae.more{display:flex}
+.a42-ev .a42-mo{border:0;background:var(--pap2);font:800 13px Nunito,sans-serif;padding:6px;color:var(--ink);cursor:pointer}
+.a42-ev.all .a42-mo{display:none}
+.a42-news{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.a42-news small{font:800 11px Nunito,sans-serif;text-transform:uppercase;letter-spacing:.04em;color:var(--ink2);margin-right:2px}
+.a42-news .nwc{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.a42-go{position:sticky;bottom:-2px;z-index:2;padding:6px 0 2px;background:linear-gradient(180deg,rgba(239,221,180,0),var(--pap) 14px)}
+.a42-go .btn{width:100%}
+@media (max-width:600px){
+  .a42-pic{height:150px}
+  .a42-plq h2{font-size:20px}
+  .a42-sum{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .a42-sum b{font-size:16px}
+}
+@media (max-height:500px) and (orientation:landscape){
+  .tlock{gap:5px}
+  .tl-wall{height:90px}.tl-door{height:58px;width:96px;margin-left:-48px}.tl-car{top:5px;padding:2px 10px}.tl-car span{width:30px;height:30px}.tl-car svg{width:28px;height:28px}
+  .tl-d{width:76px;padding:3px 4px}.tl-d svg{width:34px;height:34px}
+  .tcoffin > svg{max-height:96px}
+  .a42-pic{height:110px}
+  .a42-sum{grid-template-columns:repeat(4,minmax(0,1fr))}
+}

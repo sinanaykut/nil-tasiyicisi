@@ -363,10 +363,13 @@
     const BOY = 66, RT = { ks:1.068, sb:1.24, miss:0.2, look:240, rech:4.5, rubber:1, rb:0.1, ra:0.16, pb:1.25, sm:1.16, blunder:0.14, nodraw:false };
     function raceInit(s, o) {
       const finY = Math.round(s.base * s.cfg.dur), sp = o.speed || 0;
-      s.len = finY + 260; s.u = 0.3; s.count = 2.4;
+      /* v42: a wider river and two lanes far apart: we start right, Sethi left, each keeps to his side unless overtaking */
+      RV = Object.assign({}, RV, { width:Math.max(1, RV.width || 1) * 1.16 });
+      s.len = finY + 260; s.u = 0.4; s.count = 2.4;
+      s.sethiBoat = o.boat === 'kadirga' ? 'feluka' : 'kadirga';
       s.maxc = Math.max(3, Math.min(5, 2 + (o.rowers || 0) + Math.min(1, o.extra || 0))); s.charges = s.maxc; s.rechT = Math.max(2.8, 4.2 - (o.rowers || 0) * 0.4);
       s.spawnY = 760; s.pickY = 640; s.streamY = 380;
-      s.rival = { u:-0.3, tu:-0.3, vu:0, lane:-0.3, y:0, v:s.base, base:s.base * RT.ks * (1 + 0.012 * (1 - sp)), boostT:0, charges:3, rech:0, slowT:0, stall:0, blunder:R() < RT.blunder ? rnd(0.7, 0.92) : 0, inv:0, row:0, plan:0, trail:[], hits:0, boosts:0, wake:false, draft:false, inStream:false, park:-0.6 };
+      s.rival = { u:-0.46, tu:-0.46, vu:0, lane:-0.46, home:-0.5, homeT:0, y:0, v:s.base, base:s.base * RT.ks * (1 + 0.012 * (1 - sp)), boostT:0, charges:3, rech:0, slowT:0, stall:0, blunder:R() < RT.blunder ? rnd(0.7, 0.92) : 0, inv:0, row:0, plan:0, trail:[], hits:0, boosts:0, wake:false, draft:false, inStream:false, park:-0.6 };
       s.race = { finY, phase:'run', tP:null, tS:null, slow:false, slowUsed:false, fin:0, flashT:0, wake:false, draft:false, bump:0, per:0.6, lastBeat:-1, cnt:-1, fb:null, fbT:0, fbC:null, combo:0, onBeat:0, offBeat:0, draftT:0, wakeT:0, lead:0, swaps:0, park:0.6, margin:0, photo:false, conf:[] };
     }
     function raceSpawn(y, prog) {

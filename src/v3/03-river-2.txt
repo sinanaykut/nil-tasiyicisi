@@ -221,7 +221,7 @@
       }
       /* Sethi */
       const rv = st.rival;
-      if (rv && !st.desert) { const b = boats.rival || boatModel('rival', () => ({ boat:'nehir', up:{ yelken:1, kurek:0 }, col:{ hull:'#2F5D46', sail:'#BFE3C2', sailBand:'#2F7346', tip:K.gold }, flagCol:K.gold })); b.g.visible = true; b.g.position.set(api.sx(rv.u, rv.y), 0, -rv.y); b.mat.uniforms.uRow.value = st.t * 7; if (!b.lab) { b.lab = label('Sethi'); b.lab.position.set(0, 52, 0); b.lab.scale.set(18 * b.lab.userData.ar, 18, 1); b.g.add(b.lab); } }
+      if (rv && !st.desert) { if (boats.rival && boats.rival.k !== (st.sethiBoat || 'kadirga')) boats.rival.g.visible = false; const b = boatModel('rival' + (st.sethiBoat || 'kadirga'), () => ({ boat:st.sethiBoat || 'kadirga', up:{ yelken:1, kurek:st.sethiBoat === 'kadirga' ? 1 : 0 }, col:{ hull:'#2F5D46', sail:'#F2C65A', sailBand:'#2F7346', tip:K.gold }, flagCol:K.gold })); b.k = st.sethiBoat || 'kadirga'; boats.rival = b; b.g.visible = true; b.g.position.set(api.sx(rv.u, rv.y), 0, -rv.y); b.mat.uniforms.uRow.value = st.t * 7; if (!b.lab) { b.lab = label('Sethi'); b.lab.position.set(0, 52, 0); b.lab.scale.set(18 * b.lab.userData.ar, 18, 1); b.g.add(b.lab); } }
       else if (boats.rival) boats.rival.g.visible = false;
       /* the chaser */
       const ch = st.chaser, chOn = ch && ch.on && !ch.gone;
@@ -262,7 +262,7 @@
     }
     /* wake lines behind the boat (dust puffs in the desert) and boost streaks */
     /* one shared quad writer for the wake/streak buffer (no per-frame closure) */
-    const FXB = { P:null, C:null, A:null, cap:0, q:0 }, WHITE3 = [1, 1, 1];
+    const FXB = { P:null, C:null, A:null, cap:0, q:0 }, WHITE3 = [1, 1, 1], RWAKE = [0.98, 0.93, 0.72];
     function quad(x0, z0, x1, z1, w, col, a0, a1, y) {
       const B = FXB; if (B.q >= B.cap) return;
       const P = B.P, Cc = B.C, A = B.A, dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1, nx = -dz / l * w / 2, nz = dx / l * w / 2, o = B.q * 12, oc = B.q * 4;
@@ -283,7 +283,8 @@
         }
       }
       const rv = st.rival;
-      if (rv && !st.desert && rv.y > st.dist - vis.behind && rv.y < st.dist + vis.ahead) { const rx = api.sx(rv.u, rv.y); for (let sd = -1; sd <= 1; sd += 2) for (let j = 0; j < 3; j++) quad(rx + sd * (12 + j * 9), -(rv.y - 30 - j * 26), rx + sd * (21 + j * 9), -(rv.y - 56 - j * 26), 2.4, foam, 0.5 - j * 0.15, 0.4 - j * 0.15, 0.35); }
+      /* v42: Sethi leaves a real V wake along his trail (gold-tinted foam), so his lane reads at a glance */
+      if (rv && !st.desert && rv.y > st.dist - vis.behind && rv.y < st.dist + vis.ahead && rv.trail && rv.trail.length >= 4) { const tr2 = rv.trail, n2 = tr2.length; for (let sd = -1; sd <= 1; sd += 2) for (let i = 1; i < n2; i++) { const a0 = n2 - i + 1, a1 = n2 - i, p0 = tr2[i - 1], p1 = tr2[i]; quad(p0.x + sd * (9 + a0 * 1.2), -(p0.y - 22), p1.x + sd * (9 + a1 * 1.2), -(p1.y - 22), 2.2, RWAKE, 0.55 * (1 - a0 / n2), 0.55 * (1 - a1 / n2), 0.35); } }
       if (st.boostT > 0) for (let k = 0; k < 6; k++) { const x = bx + (k - 2.5) * 14, y = st.dist - 40 - ((st.t * 400 + k * 37) % 60); quad(x, -y, x, -(y - 18), 2, st.desert ? dust : WHITE3, 0.5, 0.5, 2); }
       if (st.desert && st.t > 0) for (let k = 0; k < 8; k++) { const ph = (clock * 1.3 + k / 8) % 1, x = bx + Math.sin(k * 7.1) * 10, y = st.dist - 14 - ph * 40; quad(x - 4 - ph * 4, -y, x + 4 + ph * 4, -y, 4 + ph * 4, dust, 0.35 * (1 - ph), 0.35 * (1 - ph), 1); }
       for (let i = FXB.q; i < cap; i++) { const oc = i * 4; A[oc] = A[oc + 1] = A[oc + 2] = A[oc + 3] = 0; }

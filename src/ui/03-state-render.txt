@@ -198,7 +198,7 @@
     const off = S.offers[S.city];
     if (off) {
       const full = S.orders.length >= 2;
-      return '<div class="box order"><div class="ot"><span class="oq">' + gIco(off.g, 26) + '<b>' + off.q + '</b></span><span><b>Sipariş</b><span class="och"><i>→ ' + cIco(off.to, 14) + esc(CITIES[off.to].name) + '</i><i>' + ico('i-sun', 14) + off.due + '. güne kadar</i><i>' + ico('i-coin', 14) + '+' + fmt(off.reward) + '</i>' + PERKTXT(off) + '</span></span></div><button class="btn sm" type="button" data-act="accept"' + (full ? ' disabled title="En fazla 2 sipariş taşıyabilirsin"' : '') + '>' + (full ? 'Dolu' : 'Kabul et') + '</button></div>';
+      return '<div class="box order"><div class="ot"><span class="oq">' + gIco(off.g, 26) + '<b>' + off.q + '</b></span><span><b>Sipariş</b><span class="och"><i>→ ' + cIco(off.to, 14) + esc(CITIES[off.to].name) + '</i>' + (!isRiver(off.to) || !isRiver(off.from) ? '<i>' + ico('i-donkey', 14) + 'kervan işi</i>' : '') + '<i>' + ico('i-sun', 14) + off.due + '. güne kadar</i><i>' + ico('i-coin', 14) + '+' + fmt(off.reward) + '</i>' + PERKTXT(off) + '</span></span></div><button class="btn sm" type="button" data-act="accept"' + (full ? ' disabled title="En fazla 2 sipariş taşıyabilirsin"' : '') + '>' + (full ? 'Dolu' : 'Kabul et') + '</button></div>';
     }
     if (S.orders.length) return '<div class="box order mini"><span class="och">' + S.orders.map(o => '<i>' + gIco(o.g, 14) + o.q + ' → ' + cIco(o.to, 14) + esc(CITIES[o.to].name) + ' · ' + o.due + '. gün</i>').join('') + '</span></div>';
     return '';

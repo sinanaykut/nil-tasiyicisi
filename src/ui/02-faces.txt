@@ -66,7 +66,7 @@
   /* ---------- the voyage receipt: route strip, ledger and illustrated outcomes ---------- */
   function outIcon(o) {
     const t = o.title || '';
-    if (/Kusursuz/.test(t)) return 'i-sun'; if (/darbe|karaya|sandık düştü/i.test(t)) return 'i-storm'; if (/Kaçtın/.test(t)) return 'i-bolt';
+    if (/Kusursuz/.test(t)) return 'i-sun'; if (/mezar/i.test(t)) return 'i-ankh'; if (/sipariş/i.test(t)) return 'i-scroll'; if (/darbe|karaya|sandık düştü/i.test(t)) return 'i-storm'; if (/Kaçtın/.test(t)) return 'i-bolt';
     if (/Haydut|Medjay|Tefeci|Djedi|Devriye|yetişti/.test(t)) return 'i-scroll'; if (/Sethi/.test(t)) return 'i-c-vaset'; if (/Nehirden|topladık/.test(t)) return 'i-chest';
     if (/Faiz|Hapu/.test(t)) return 'i-coin'; if (/Kehanet|dua|şöhret|Cesur/i.test(t)) return 'i-ankh'; if (/Kaçak|sandık/i.test(t)) return 'i-chest'; if (/Sipariş/.test(t)) return 'i-scroll';
     if (/Akhet|Peret|Shemu/.test(t)) return 'i-flood'; if (/görev|Görev|Altın Kedi|Ba'nın|Kalpazan/.test(t)) return 'i-map'; if (/Yolda/.test(t)) return 'i-whisper';
@@ -113,16 +113,55 @@
     const tick = now => { const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3); els.forEach(el => { if (!document.body.contains(el)) return; el.textContent = el.dataset.pre + fmt(Math.round(+el.dataset.count * e)); }); if (k < 1) requestAnimationFrame(tick); };
     requestAnimationFrame(tick);
   }
+  /* v42: the arrival — the town's own picture (its 3D town rendered once, or the painted port when 3D is off) with a name plaque,
+     the route as a ribbon, a four-cell ledger (days, gains, losses, hull or water) and the voyage's events as a tidy list */
+  const arrPic = {};
+  function arrPicture(ci, el) {
+    const dz = !isRiver(ci), si = seasonIdx(S), key = ci + ':' + si + ':' + (S.day % 4);
+    const use3 = (() => { try { return typeof V3 !== 'undefined' && typeof V3.townThumb === 'function' && V3.pref() && V3.available(); } catch (e) { return false; } })();
+    const paint = () => { try { const h = dz ? oasisScene(ci, si, S.day, false, 0) : portScene(ci, S.up, 2, si, false, S.day, 0); return '<div class="pscene">' + h + '</div>'; } catch (e) { return '<span class="a42-ph">' + cIco(ci, 64) + '</span>'; } };
+    if (!use3) return paint();
+    const u = arrPic[key];
+    if (typeof u === 'string') return '<img class="in" src="' + u + '" alt="">';
+    if (!u) {
+      let pr = null; try { pr = V3.townThumb(ci, 520, 260, { si, day:S.day }); } catch (e) { pr = null; }
+      if (typeof pr === 'string' && pr) { arrPic[key] = pr; return '<img class="in" src="' + pr + '" alt="">'; }
+      if (pr && typeof pr.then === 'function') { arrPic[key] = pr; pr.then(x => { arrPic[key] = typeof x === 'string' && x ? x : false; const box = document.querySelector('#sheet .a42-pic[data-ci="' + ci + '"]'); if (!box) return; if (arrPic[key]) { const im = new Image(); im.alt = ''; im.onload = () => { const ph = box.querySelector('.a42-ph, .pscene'); box.insertBefore(im, box.firstChild); requestAnimationFrame(() => { im.classList.add('in'); if (ph) setTimeout(() => ph.remove(), 520); }); }; im.src = arrPic[key]; } else { const ph = box.querySelector('.a42-ph'); if (ph) ph.outerHTML = paint(); } }, () => { arrPic[key] = false; }); }
+      else arrPic[key] = false;
+    }
+    return arrPic[key] === false ? paint() : '<span class="a42-ph">' + cIco(ci, 64) + '</span>';
+  }
   function showArrival() {
-    const L = S.last, c = CITIES[S.city];
-    let s = '<div class="arrhead">' + isoStage(isRiver(S.city) ? 'city' : 'oasis', { desert:!isRiver(S.city), ico:null, cls:'arr' }) + '<div class="arrt"><h2 id="shTitle">' + esc(c.name) + '</h2><small>' + L.days + ' günlük yolculuk · ' + S.day + '. gün</small></div></div>';
-    s += vstrip(L) + ledgerHtml(L.ledger);
-    s += '<div class="out icons clamp">' + L.out.map(o => '<button type="button" class="oi ' + o.kind + '" data-act="oiMore"><span class="oiI">' + ico(outIcon(o), 20) + '</span><div>' + (o.title ? '<b>' + esc(o.title) + '</b>' : '') + '<p>' + esc(o.text) + '</p></div></button>').join('') + '</div>';
+    const L = S.last, c = CITIES[S.city], dz = !isRiver(S.city), lg = L.ledger || { river:0, lost:0, fines:0, interest:0 };
+    const se = SEASONS[seasonIdx(S)];
+    let s = '<div class="arr42">';
+    s += '<div class="a42-pic' + (dz ? ' dz' : '') + '" data-ci="' + S.city + '">' + arrPicture(S.city) +
+      '<span class="a42-day">' + S.day + '. gün · ' + esc(se ? se.name : '') + '</span>' +
+      '<div class="a42-plq"><span class="a42-e">' + cIco(S.city, 22) + '</span><div><h2 id="shTitle">' + esc(c.name) + '</h2><small>' + esc(c.sub || '') + '</small></div></div></div>';
+    s += '<div class="a42-route">' + vstrip(L) + '<b><big>' + L.days + '</big>gün</b></div>';
+    /* the ledger: what the river gave, what the road took, and the boat (or the water skins) now */
+    const loss = (lg.lost || 0) + (lg.fines || 0), net = (lg.river || 0) - loss - (lg.interest || 0);
+    const cell = (lab, v, sign, cls) => '<span class="' + cls + '"><small>' + lab + '</small><b data-count="' + Math.abs(v) + '" data-pre="' + sign + '">' + sign + '0</b></span>';
+    s += '<div class="a42-sum">' + cell(dz || !isRiver(L.from) ? 'Yoldan' : 'Nehirden', lg.river || 0, '+', 'pos') + cell(loss ? 'Kayıp ve ceza' : 'Faiz', loss || lg.interest || 0, '−', (loss || lg.interest) ? 'neg' : '');
+    if (loss && lg.interest) s += cell('Faiz', lg.interest, '−', 'neg');
+    else if (S.caravan) s += '<span><small>Su</small><b>' + ico('i-water', 15) + ' ' + S.caravan.water + ' gün</b></span>';
+    else { const m = maxHp(S), h = hullNow(S); s += '<span><small>Gövde</small><b class="hp">' + Array.from({ length:m }, (_, k) => '<i class="' + (k < h ? 'on' : '') + '"></i>').join('') + '</b></span>'; }
+    const cd = L.cash0 != null ? S.cash - L.cash0 : net;
+    s += cell('Kesende', cd, cd >= 0 ? '+' : '−', 'net ' + (cd >= 0 ? 'pos' : 'neg')) + '</div>';
+    /* what happened on the way: the important ones first, the rest one tap away */
+    const rk = o => o.kind === 'bad' ? 0 : o.kind === 'good' ? 1 : 2, MAX = 4;
+    /* the coins alone are already in the ledger above */
+    const ev = L.out.filter(o => !(/Nehirden topladık|Yolda bulduğun/.test(o.title || '') && /^[\d.]+ deben\.$/.test(o.text || ''))).sort((a, b) => rk(a) - rk(b));
     const dl = deliverable(S);
-    if (dl.length) s += '<div class="oi good"><span class="oiI">' + ico('i-scroll', 20) + '</span><div><b>Sipariş teslim edilebilir</b><p>' + dl.map(o => o.q + ' ' + gName(o.g)).join(', ') + ' burada bekleniyor. Sipariş panosundan teslim et.</p></div></div>';
-    if (L.news.length) s += '<div class="newsrow">' + L.news.map(n => '<span class="nwc' + (n.up ? ' up' : ' down') + '">' + gIco(n.g, 18) + esc(CITIES[n.city].name) + ' ' + (n.up ? '↑' : '↓') + '</span>').join('') + '</div>';
-    s += '<button class="btn go1" type="button" data-act="' + (S.pendingEvent ? 'event' : 'land') + '" data-first>' + (S.pendingEvent ? 'Devam' : 'Pazara çık') + '</button>';
+    if (dl.length) ev.unshift({ kind:'good', title:'Sipariş teslim edilebilir', text:dl.map(o => o.q + ' ' + gName(o.g)).join(', ') + ' burada bekleniyor. Sipariş panosundan teslim et.', ico:'i-scroll' });
+    if (ev.length) {
+      s += '<div class="a42-ev"><h3>Yolda olanlar</h3>' + ev.map((o, k) => '<div class="ae ' + o.kind + (k >= MAX ? ' more' : '') + '"><span class="oiI">' + ico(o.ico || outIcon(o), 18) + '</span><div>' + (o.title ? '<b>' + esc(o.title) + '</b>' : '') + '<p>' + esc(o.text) + '</p></div></div>').join('') +
+        (ev.length > MAX ? '<button type="button" class="a42-mo" data-act="arrMore">+' + (ev.length - MAX) + ' olay daha</button>' : '') + '</div>';
+    }
+    if (L.news.length) s += '<div class="a42-news"><small>Pazar haberleri</small>' + L.news.map(n => '<span class="nwc' + (n.up ? ' up' : ' down') + '">' + gIco(n.g, 16) + esc(CITIES[n.city].name) + ' ' + (n.up ? '↑' : '↓') + '</span>').join('') + '</div>';
+    s += '<div class="a42-go"><button class="btn go1" type="button" data-act="' + (S.pendingEvent ? 'event' : 'land') + '" data-first>' + (S.pendingEvent ? 'Devam' : dz ? 'Çarşıya çık' : 'Pazara çık') + '</button></div></div>';
     openSheet(s, true, 'arrive');
+    const mo = document.querySelector('#sheet [data-act="arrMore"]'); if (mo) mo.onclick = e => { e.stopPropagation(); const b = mo.closest('.a42-ev'); if (b) b.classList.add('all'); };
     animateCounts();
   }
   function showEvent() {
