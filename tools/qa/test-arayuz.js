@@ -49,6 +49,8 @@ async function newGame(p, meta) {
   await p.goto('file://' + HTML + '?debug'); await W(D3 ? 1500 : 500);
   await p.evaluate(() => { try { window.__nil.V3.river.adapt = false; } catch (e) {} document.querySelector('[data-act="new"]').click(); }); await W(400);
   await p.evaluate(() => { const h = document.querySelector('#sheet [data-act="heroGo"]'); if (h) h.click(); }); await W(D3 ? 2500 : 500);
+  /* v35+: the papyrus curtain delays the first sheet: wait for it (max 4 s) */
+  if (!meta) for (let i = 0; i < 20; i++) { if (await p.evaluate(() => window.__nil.fn.state().sheet === 'say')) break; await W(200); }
 }
 
 (async () => {
