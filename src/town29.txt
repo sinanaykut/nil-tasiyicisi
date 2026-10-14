@@ -676,7 +676,7 @@ void main() {
         put(B, 'catStatue', -80, 0, -46, 0, 0.6); put(B, 'catStatue', -40, 0, -48, 0, 0.6);
         [[96, -120], [96, -90], [96, 150], [96, 175]].forEach(([x, z]) => put(B, 'papyrus', x + 2, -3, z, z * 0.1, 0.8, { noShadow:true }));
         /* cats on roofs and in the streets */
-        [['catS', -132, 22, 0, 0.4], ['catT', -2, -114, 0, 1], ['catG', 30, 6, 0, -0.5], ['catS', -60, 20, 0, 2], ['catT', 52, -2, 0, 2.6], ['catS', -40, 66, 0, 1.2], ['catG', -90, 118, 0, 0.8], ['catT', 54, -100, 0, -1]].forEach(([key, x, z, y, r]) => put(B, key, x, y, z, r, 1.1, { noShadow:!!y }));
+        [['catS', -132, 22, 0, 0.4], ['catT', -2, -114, 0, 1], ['catG', 30, 6, 0, -0.5], ['catS', -60, 20, 0, 2], ['catT', 58, 6, 0, 2.6], ['catS', -40, 66, 0, 1.2], ['catG', -90, 118, 0, 0.8], ['catT', 54, -100, 0, -1]].forEach(([key, x, z, y, r]) => put(B, key, x, y, z, r, 1.1, { noShadow:!!y }));
         B.gnd.push(['canal', [[-232, -64], [-200, -60], [-196, 60], [-232, 66]], 7], ['canal', [[-232, 196], [40, 200], [90, 196]], 6]);
       } else if (id === 'abu') {
         /* Elephantine: granite boulders, the Nilometer, Khnum's rams, Nubian houses, the unfinished obelisk in its pit, cataract rocks */
@@ -816,11 +816,14 @@ void main() {
     function rolesFor(B, o) {
       const id = B.id, ci = B.ci, water = !!B.pal.water, R2 = [];
       /* the market: the merchant and a little crowd of buyers facing the stalls; the tavern: the host and the players at the board */
-      R2.push(['@m', -6, 0, 20, 0, 'talk', 1], ['folk', 20, 0, 21, 0.2, 'idle', 31], ['folk', -2, 0, 34, Math.PI, 'talk', 35], ['folk', 8, 0, 36, Math.PI + 0.5, 'idle', 36], ['folk', -14, 0, 33, Math.PI - 0.6, 'cheer', 37], ['folk', 28, 0, 32, -2.6, 'carry', 38]);
-      R2.push(['@tv', -49, 0, 44, Math.PI / 2, 'wave', 2], ['folk', -38, 0, 42, -Math.PI / 2, 'sit', 33], ['folk', -38, 0, 58, -Math.PI / 2, 'sit', 34], ['folk', -30, 0, 50, -Math.PI / 2, 'cheer', 39]);
-      R2.push(['priest', -60, 14, -60, 0, 'idle', 3], ['guard', -73, 0, -34, 0.3, 'idle', 4], ['guard', -47, 0, -34, -0.3, 'idle', 5], ['scribe', 50, 0, -5, Math.PI, 'idle', 6], ['folk', 42, 0, -60, 2.2, 'carry', 41]);
+      /* v41: the buyers stand out past the awnings' front edge (people are 20 tall, the awnings hang to 11 there: they went through them) */
+      R2.push(['@m', -6, 0, 20, 0, 'talk', 1], ['folk', 20, 0, 21, 0.2, 'idle', 31], ['folk', -3, 0, 39.5, Math.PI, 'talk', 35], ['folk', 6, 0, 39, Math.PI + 0.5, 'idle', 36], ['folk', -10, 0, 40, Math.PI - 0.6, 'cheer', 37], ['folk', 29, 0, 38, -2.6, 'carry', 38]);
+      R2.push(['@tv', -44, 0, 32, 0.3, 'wave', 2],   /* v41: the host stands clear of the awning (his head went through it) */
+         ['folk', -38, 0, 42, -Math.PI / 2, 'sit', 33], ['folk', -38, 0, 58, -Math.PI / 2, 'sit', 34], ['folk', -30, 0, 50, -Math.PI / 2, 'cheer', 39]);
+      R2.push(['priest', -52, 14, -57, 0, 'idle', 3],   /* v41: at the head of the stairs, clear of the statues and standards on the terrace */
+         ['guard', -73, 0, -34, 0.3, 'idle', 4], ['guard', -47, 0, -34, -0.3, 'idle', 5], ['scribe', 50, 0, -5, Math.PI, 'idle', 6], ['folk', 30, 0, -58, Math.PI / 2, 'carry', 41]);   /* v41: out from under the shed roof and off the pots */
       if (water) R2.push(['folk', 60, 0, 110, -1.2, 'carry', 42], ['folk', 74, 1.6, 124, 2.6, 'idle', 43]);
-      if (ci === 1) R2.push(['hapu', -97, 0, -2, Math.PI / 2, 'idle', 7]);
+      if (ci === 1) R2.push(['hapu', -90, 0, -6, Math.PI / 2, 'idle', 7]);   /* v41: in front of his portico, not inside a column */
       if (B.spots.well) R2.push(['folk', B.spots.well.x - 10, 0, B.spots.well.z - 8, 0.9, 'carry', 44]);   /* v41: inside the plaza loop, not on it */
       if (o.sethiHere && water) R2.push(['sethi', 76, 0, -62, Math.PI / 2, 'idle', 8]);
       const hk = heroKey(o.hero); if (hk) { const hs = water ? HERO_W : HERO_D; R2.push([hk, hs[0], 0, hs[1], Math.PI / 4, 'wave', 9]); }
@@ -1039,7 +1042,8 @@ void main() {
         if (key === figKey) return; figKey = key;
         figG.children.slice().forEach(g => figG.remove(g)); figs = [];
         const tvk = 'tv' + ci;
-        roles.forEach(([k, x, y, z, ry, st, seed]) => { const kk = k === '@m' ? String(ci) : k === '@tv' ? ((FIG.keys || []).indexOf(tvk) >= 0 ? tvk : 'folk') : k; const g = figGet(kk, seed); if (!g) return; g.position.set(x, y, z); g.rotation.set(0, ry, 0); figs.push({ g, st, ph:seed }); });
+        /* v41: 'carry' is a walk cycle: a carrier who stays put stands (he used to walk on the spot once the figures moved again) */
+        roles.forEach(([k, x, y, z, ry, st, seed]) => { const kk = k === '@m' ? String(ci) : k === '@tv' ? ((FIG.keys || []).indexOf(tvk) >= 0 ? tvk : 'folk') : k; const g = figGet(kk, seed); if (!g) return; g.position.set(x, y, z); g.rotation.set(0, ry, 0); figs.push({ g, st:st === 'carry' || st === 'walk' ? 'idle' : st, ph:seed }); });
         const Bw = t.B.walk;
         /* walkers: the cheaper level of detail, fewer of them (each figure is several draw calls) */
         for (let i = 0; i < 6; i++) { const L = Bw[i % Bw.length]; let len = 0; for (let j = 0; j < L.length; j++) { const a = L[j], b = L[(j + 1) % L.length]; len += Math.hypot(b[0] - a[0], b[1] - a[1]); } const g = figGet('folk', 100 + i * 7, 1); if (g) figs.push({ g, L, len, d:(i * 53) % len, v:8 + (i % 3) * 1.5, ph:i, st:i % 4 === 3 ? 'carry' : 'walk' }); }
@@ -1196,6 +1200,8 @@ void main() {
         const add = (x, y, z) => { _v.set(x, y, z).applyMatrix4(cam.matrixWorldInverse); x0 = Math.min(x0, _v.x); x1 = Math.max(x1, _v.x); y0 = Math.min(y0, _v.y); y1 = Math.max(y1, _v.y); };
         const sp = cur.spots || {};
         SPOTS.forEach(k2 => { const s = (sp[k2] || k2 === 'ship' || (k2 === 'hero' && heroKey(cur.hero))) && spotOf(k2); if (!s) return; add(s.x - s.r, 0, s.z - s.r); add(s.x + s.r, 0, s.z + s.r); add(s.x - s.r, 0, s.z + s.r); add(s.x + s.r, 0, s.z - s.r); add(s.x, s.top + 10, s.z); });
+        /* v41: a sea port reached by caravan keeps the framing it has with a ship at the quay (the harbour stays in view, the plaques keep their room) */
+        if (cur.caravan && town0 && (CP[CID[town0.ci]] || {}).water) { add(164, 0, -20); add(164, 0, 52); }
         const pad = { l:10, r:10, t:Math.max(34, h * 0.12), b:8 };
         upp = Math.max((x1 - x0) / (W - pad.l - pad.r), (y1 - y0) / (H - pad.t - pad.b));
         const cx = (x0 + x1) / 2 + (pad.r - pad.l) / 2 * upp, cy = (y0 + y1) / 2 + (pad.t - pad.b) / 2 * upp;
@@ -1220,20 +1226,36 @@ void main() {
       function scr(x, y, z) { _v.set(x, y, z).project(cam); return [(_v.x + 1) / 2 * W, (1 - _v.y) / 2 * H]; }
       const ovl = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
       function layout() {
-        const placed = (cur.avoid || [{ x:W * 0.3, y:0, w:W * 0.4, h:W < 500 ? 62 : 90 }]).slice();   /* the city name cartouche (or what the UI says) */
+        const base = (cur.avoid || [{ x:W * 0.3, y:0, w:W * 0.4, h:W < 500 ? 62 : 90 }]).slice();   /* the city name cartouche (or what the UI says) */
         const keys = SPOTS.filter(k2 => lab[k2] && !lab[k2].hidden);
         /* keep every spot's own centre tappable: plaques may not cover another spot's middle */
-        keys.forEach(k2 => { const s = spotOf(k2); if (!s) return; const c = scr(s.x, s.y, s.z); placed.push({ x:c[0] - 15, y:c[1] - 15, w:30, h:30, own:k2 }); });
+        keys.forEach(k2 => { const s = spotOf(k2); if (!s) return; const c = scr(s.x, s.y, s.z); base.push({ x:c[0] - 15, y:c[1] - 15, w:30, h:30, own:k2 }); });
+        const area = (a, q) => Math.max(0, Math.min(a.x + a.w, q.x + q.w) - Math.max(a.x, q.x)) * Math.max(0, Math.min(a.y + a.h, q.y + q.h) - Math.max(a.y, q.y));
+        /* v41: other plaques, the cartouche and the zoom buttons weigh the same (it used to prefer hiding under the buttons); two more places
+           off to the side of the top; and a second pass: a plaque still overlapping is placed again knowing where all the others went */
+        const C = {}, R = {};
+        const choose = (k2, others) => {
+          const c = C[k2], w = c.w, h = c.h, top = c.top, mid = c.mid;
+          const cands = [[top[0] - w / 2, top[1] - h], [top[0] - w / 2, top[1] - h - 14], [mid[0] + 18, mid[1] - h / 2], [mid[0] - w - 18, mid[1] - h / 2], [mid[0] - w / 2, mid[1] + 14], [top[0] - w / 2, top[1] - h - 30], [top[0] - w * 0.88, top[1] - h - 4], [top[0] - w * 0.12, top[1] - h - 4],
+            [mid[0] + 18, mid[1] - h - 4], [mid[0] - w - 18, mid[1] - h - 4], [mid[0] + 18, mid[1] + 4], [mid[0] - w - 18, mid[1] + 4]];
+          let best = null, bo = 1e9;
+          for (let ci2 = 0; ci2 < cands.length; ci2++) {
+            const [x, y] = cands[ci2], rr = { x:Math.max(3, Math.min(W - w - 3, x)), y:Math.max(3, Math.min(H - h - 3, y)), w, h }; let ov = 0;
+            for (const q of base) if (q.own !== k2) ov += area(rr, q) * (q.own ? 4 : 3);
+            for (const q of others) ov += area(rr, q) * 3;
+            ov += ci2 * 2; if (ov < bo) { bo = ov; best = rr; } if (ov <= ci2 * 2) break;
+          }
+          return { r:best, ov:bo };
+        };
+        const done = [];
         keys.forEach(k2 => {
           const L = lab[k2], s = spotOf(k2); if (!s) return;
           { const m = scr(s.x, s.y, s.z), off = m[0] < 4 || m[0] > W - 4 || m[1] < 4 || m[1] > H - 4; if (L.classList.contains('v3t-off') !== off) L.classList.toggle('v3t-off', off); if (off) { L._r = null; return; } }
-          const w = L.offsetWidth, h = L.offsetHeight, top = scr(s.x, s.top + 4, s.z), mid = scr(s.x, s.y, s.z);
-          const cands = [[top[0] - w / 2, top[1] - h], [top[0] - w / 2, top[1] - h - 14], [mid[0] + 18, mid[1] - h / 2], [mid[0] - w - 18, mid[1] - h / 2], [mid[0] - w / 2, mid[1] + 14], [top[0] - w / 2, top[1] - h - 30]];
-          let best = null, bo = 1e9;
-          const area = (a, q) => Math.max(0, Math.min(a.x + a.w, q.x + q.w) - Math.max(a.x, q.x)) * Math.max(0, Math.min(a.y + a.h, q.y + q.h) - Math.max(a.y, q.y));
-          for (let ci2 = 0; ci2 < cands.length; ci2++) { const [x, y] = cands[ci2], rr = { x:Math.max(3, Math.min(W - w - 3, x)), y:Math.max(3, Math.min(H - h - 3, y)), w, h }; let ov = 0; for (const q of placed) if (q.own !== k2) ov += area(rr, q) * (q.own ? 4 : 1); ov += ci2 * 2; if (ov < bo) { bo = ov; best = rr; } if (ov <= ci2 * 2) break; }
-          placed.push(best); L.style.transform = 'translate(' + Math.round(best.x) + 'px,' + Math.round(best.y) + 'px)'; L._r = best;
+          C[k2] = { w:L.offsetWidth, h:L.offsetHeight, top:scr(s.x, s.top + 4, s.z), mid:scr(s.x, s.y, s.z) };
+          const b = choose(k2, done.map(q => R[q].r)); R[k2] = b; done.push(k2);
         });
+        done.forEach(k2 => { if (R[k2].ov <= 14) return; const b = choose(k2, done.filter(q => q !== k2).map(q => R[q].r)); if (b.ov < R[k2].ov) R[k2] = b; });
+        done.forEach(k2 => { const L = lab[k2], best = R[k2].r; L.style.transform = 'translate(' + Math.round(best.x) + 'px,' + Math.round(best.y) + 'px)'; L._r = best; });
       }
       /* hit test: plaques, then the nearest spot (screen) within a finger, then nothing */
       function hitTest(cx, cy) {
@@ -1367,7 +1389,7 @@ void main() {
         zoom(z) { if (z == null) return zp.tgt.z; zp.set(+z || 1); },
         resetView() { zp.reset(); },
         stats() { const i2 = r ? r.info : null; return { slow:slowT, pf:town0 && Object.keys(town0.pf).map(k2 => k2 + ':' + Math.round(town0.pf[k2])).join(' '), build:town0 && town0.ms, tris:town0 && town0.tris, edges:town0 && town0.edges, calls:i2 && i2.render.calls, frameTris:i2 && i2.render.triangles, geos:i2 && i2.memory.geometries, tex:i2 && i2.memory.textures, firstMs:Math.round(inst.firstMs), W, H, cached:CACHE.size }; },
-        debug() { return { sc, cam, r, B:town0 && town0.B, figs, movs, walkers, dyn:dynParts, U, uw, cur, slow:slowT, zp }; }
+        debug() { return { sc, cam, r, B:town0 && town0.B, figs, movs, walkers, dyn:dynParts, U, uw, cur, slow:slowT, slowTry, slowAt, ep:X.VIS.epoch, zp, frame }; }
       };
       cur = Object.assign({}, o);
       setTown(cur);

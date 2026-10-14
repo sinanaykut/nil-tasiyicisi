@@ -481,6 +481,8 @@ body.at-sea .cart,body.at-sea .spots,body.at-sea .hold{display:none}
   .ab1.hgs .abg > svg{display:none}
   .tv.prep .tvmap{width:min(100%,calc(28dvh * 400 / 440))}
   .tv.prep .tvmap.three{width:100%;height:32dvh;min-height:220px}   /* v35: the 3D table stays full width (a wide box), only shorter */
+  .tv.prep .tvmap:not(.three) .mk{transform:translate(-50%,-50%) scale(.76)}   /* v41: the 2D map shrinks to ~2/3 here: the town buttons shrink with it (they overlapped) */
+  .tv.prep .tvmap:not(.three) .msethi{transform:translate(-50%,-60%) scale(.8)}
   .tv.prep .tvgo{position:static}
   .tvgo{position:static}
   .heroOv{left:10px;top:28px}

@@ -87,3 +87,12 @@ Used by: say() dialogues (merchants, Paneb, Hapu, heroes, tavern players), haggl
 hero pick cards, HUD plate / quips / scene overlay (heroImg), market header, Hapu sheet, guide strips, story/board badges, ledger.
 The 3D town people stay on chars33 (FIG.build/animate re-pointed, chars33.dat); its close-up stages and snapshots were removed.
 `logo31.txt` keeps the title emblem that used to live in the portrait pack.
+
+v41 town & map fixes: `chars33.txt` sampleInto builds its face-bone mask itself (town figures were frozen in the bind pose since v40);
+town walk cycle runs at the walker's speed (`t * v / 8.6`), walkers and movers ease their turns (`turn()`), a play clock (`clk`, map `mclk`)
+replaces the wall clock; the still mode retries full speed after 6 s (doubling) and ignores single stalls > 1 s. Kit lines (`bakeLines`):
+positive-width crease lines stay culled (the look never had them), negative-width leaf/frond edges are drawn; fronds are `noOut` and
+cancelled outline normals fall back to the vertex normal (no black wedges). Paths, boats, rocks, role figures and plaques were moved off
+each other (debug: `T3.debug()` returns B (with B.puts), figs, movs, dyn, zp, frame). Saww reached by caravan: donkeys on the quay, not our
+ship in the sea. Map: river boats fade at both ends of their run, caravan beasts follow in phase and turn smoothly. 2D map in caravan
+prep: town buttons scaled with the smaller map. Images: docs/qa41.
