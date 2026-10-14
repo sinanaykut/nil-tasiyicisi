@@ -593,6 +593,10 @@ void main() {` + VS + `  if (aFx.x < 0.1) { gl_Position = vec4(0.0, 0.0, 2.0, 0.
       T = T0 || getT(); o = o || {};
       const g = new T.Group(); g.userData = { fig:true, key, c33p:true, o, ph:((o.seed || 0) * 1.37) % 6.28, state:'idle' };
       const rc = recipe(key, o); if (rc && rc.carry) g.userData.state = 'carry';
+      /* v43: who holds a load while walking: the carry clip raises the LEFT arm, right for a load on the head or the shoulder jar
+         (it sits on the left shoulder); the sack sits on the right shoulder, so a sack carrier walks with both arms down
+         (he used to raise the wrong arm), and so does a walker with nothing to hold */
+      const pr = (rc && rc.props) || []; g.userData.load = !!(rc && (rc.carry || pr.includes('jarShoulder')));
       const fill = () => {
         if (g.userData.inst) return;
         const inner = KIT ? instance(key, { seed:o.seed, lod:1, outline:o.outline }) : null;
@@ -608,7 +612,9 @@ void main() {` + VS + `  if (aFx.x < 0.1) { gl_Position = vec4(0.0, 0.0, 2.0, 0.
       const u = g && g.userData; if (!u) return;
       if (u.old) { try { FIG0.animate(u.old, t, state); } catch (e) {} return; }
       const st = u.c33; if (!st) return;
-      const want = FIGSTATE[state || u.state] || 'idle';
+      let want = FIGSTATE[state || u.state] || 'idle';
+      /* v43: a walker with nothing to hold walks (no arm raised over an empty head), one with a load holds it */
+      if (want === 'carry' && !u.load) want = 'walk'; else if (want === 'walk' && u.load) want = 'carry';
       if (st.clip !== want) { st.clip = want; st.prev = null; }
       const dt = st.lastT == null ? 0 : Math.max(0, Math.min(0.1, t - st.lastT)); st.lastT = t;
       st.clipT = t * (want === 'walk' || want === 'carry' ? 0.8 : 1);

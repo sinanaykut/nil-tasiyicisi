@@ -1165,7 +1165,8 @@ void main() {
         dirty = true;
       }
       /* time of day across the run: dawn -> noon -> dusk (dayPal colours), lamps and windows at dusk */
-      function light(o2) { lightU(tu, o2); far.material.color.copy(gmat.uniforms.uFar.value).multiply(tu.uLit.value); dirty = true; }
+      /* the plain beyond the painted ground gets the same light, dusk tint and night haze, so the ground's faded rim never shows a seam */
+      function light(o2) { lightU(tu, o2); const fc = far.material.color.copy(gmat.uniforms.uFar.value).multiply(tu.uLit.value); if (tu.uNight.value > 0.01) fc.lerp(tu.uHaze.value, tu.uNight.value * 0.16); fc.lerp(tu.uTint.value, tu.uTintA.value); dirty = true; }
       /* labels: plaques over the spots, avoiding each other */
       function labels(o2) {
         const sp = o2.spots || {}, desert = !(CP[CID[o2.ci]] || {}).water, notes = o2.notes || {};
@@ -1206,6 +1207,8 @@ void main() {
         upp = Math.max((x1 - x0) / (W - pad.l - pad.r), (y1 - y0) / (H - pad.t - pad.b));
         const cx = (x0 + x1) / 2 + (pad.r - pad.l) / 2 * upp, cy = (y0 + y1) / 2 + (pad.t - pad.b) / 2 * upp;
         fitT = { cx, cy };
+        /* v43: the town's extent on screen, for the pan limits */
+        townBox(); zp.fix();
         frame(0);
         zLast = 0;
         const prN = slowT ? 1 : pr; r.setPixelRatio(prN); r.setSize(W, H, false); const db = r.getDrawingBufferSize(_n); uw.uRes.value.set(db.x, db.y); uw.uLW.value = 1.55 * prN;
@@ -1222,7 +1225,31 @@ void main() {
         if (zLast !== z) { zLast = z; U.uFocal.value = ODIST / u; pu.uPx.value = (slowT ? 1 : pr) / u; }
       }
       let zLast = 0, zLay = false;
-      const zp = X.zoomPan(el, { max:3, onChange() { dirty = true; } });
+      /* v43 (owner: "the town does not pan unless zoomed in"): the view pans at every zoom, as far as the town itself goes.
+         gBox = the built town (houses, trees, props: the merged geometry's box, kept inside the painted ground) in screen px
+         at the whole view, relative to the fit centre; the view may slide until its edge comes within 16 px of that box's edge.
+         The limits are never tighter than the plain fit (zoomPan's own box), so nothing that was reachable gets lost.
+         Beyond the box the painted ground fades into the plain of the same colour, so no edge of the world can show. */
+      let gBox = null;
+      function townBound(s, w, h) {
+        if (!gBox || W < 20 || H < 20) return false;
+        const mx = w / 2 * (1 - 1 / s.z), my = h / 2 * (1 - 1 / s.z), hw = w / 2 / s.z, hh = h / 2 / s.z, m = -16;
+        const xl = Math.min(-mx, gBox[0] - m + hw), xh = Math.max(mx, gBox[1] + m - hw), yl = Math.min(-my, gBox[2] - m + hh), yh = Math.max(my, gBox[3] + m - hh);
+        s.x = xl <= xh ? Math.max(xl, Math.min(xh, s.x)) : 0; s.y = yl <= yh ? Math.max(yl, Math.min(yh, s.y)) : 0;
+        return true;
+      }
+      /* is there any room to pan at the whole view? (else vertical swipes stay with the page) */
+      function townRoom() { if (!gBox) return false; const t = { z:1, x:1e4, y:1e4 }, t2 = { z:1, x:-1e4, y:-1e4 }; townBound(t, W, H); townBound(t2, W, H); return t.x - t2.x > 6 || t.y - t2.y > 6; }
+      function townBox() {
+        gBox = null; if (!town0 || !town0.geo || !fitT) return;
+        const g = town0.geo; if (!g.boundingBox) g.computeBoundingBox(); const b = g.boundingBox, GL = GX * 0.82;
+        const x0 = Math.max(-GL, b.min.x), x1 = Math.min(GL, b.max.x), z0 = Math.max(-GL, b.min.z), z1 = Math.min(GL, b.max.z), y1 = Math.min(60, b.max.y);
+        let a = 1e9, bb = -1e9, c = 1e9, d = -1e9;
+        for (const x of [x0, x1]) for (const z of [z0, z1]) for (const y of [0, y1]) { _v.set(x, y, z).applyMatrix4(cam.matrixWorldInverse); const px = (_v.x - fitT.cx) / upp, py = -(_v.y - fitT.cy) / upp; a = Math.min(a, px); bb = Math.max(bb, px); c = Math.min(c, py); d = Math.max(d, py); }
+        gBox = [a, bb, c, d];
+      }
+      const pageScrolls = () => { try { const d = document.scrollingElement || document.documentElement; return d.scrollHeight > innerHeight + 4; } catch (e) { return false; } };
+      const zp = X.zoomPan(el, { max:3, onChange() { dirty = true; }, bound:townBound, room:townRoom, ta:() => townRoom() && !pageScrolls() ? 'none' : 'pan-y' });
       function scr(x, y, z) { _v.set(x, y, z).project(cam); return [(_v.x + 1) / 2 * W, (1 - _v.y) / 2 * H]; }
       const ovl = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
       function layout() {

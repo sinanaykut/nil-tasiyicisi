@@ -18,7 +18,7 @@
     sstorm:     { name:'Kum fırtınası',    ico:'i-storm',   risk:3, gain:2, desc:'Göz gözü görmez. Rüzgârın geldiği yana yüklen; tökezlersen bir tulum patlar.' },
     oasis:      { name:'Vaha',             ico:'i-water',   risk:0, gain:2, desc:'Hurmalıklar ve kuyu: tulumları doldur, eşekleri dinlendir.' },
     mirage:     { name:'Serap',            ico:'i-whisper', risk:1, gain:2, desc:'Ufukta bir göl parlıyor. Gerçek mi? Kuyu da olabilir, boşa yürümek de.' },
-    ruin:       { name:'Gömülü tapınak',   ico:'i-temple',  risk:1, gain:3, desc:'Kumların altında unutulmuş bir mabet: ışığı yönlendiren hazineyi bulur.' },
+    ruin:       { name:'Gömülü tapınak',   ico:'i-temple',  risk:2, gain:3, desc:'Kumların altında unutulmuş bir mabet: kapısındaki mührü çöz, sandığı aç. Açgözlülük lanet getirir.' },
     /* v42: the road has no temples any more (the towns have them); old tombs instead: a seal to turn, a coffin to open, a curse to fear */
     tomb:       { name:'Kaya mezarı',      ico:'i-ankh',    risk:2, gain:3, desc:'Kayalara oyulmuş eski bir mezar. Mührü çöz, lahdi aç: muska ve papirüs çıkar. Açgözlülük lanet getirir.' },
     dtomb:      { name:'Kum mezarı',       ico:'i-chest',   risk:2, gain:3, desc:'Rüzgâr kumun altından bir mezar kapısı çıkarmış. Mührü çöz, lahdi aç. Açgözlülük lanet getirir.' }
@@ -419,8 +419,9 @@
       if (!sm && p.terrain !== 'desert' && VG.hp < VG.maxhp && S.cash >= 70) ch.push({ label:'Gövdeyi kalafatlat', ico:'i-repair', gain:1, sub:'70 deben · gövde +1', run() { S.cash -= 70; VG.hp = Math.min(VG.maxhp, VG.hp + 1); return 'Köyün kalafatçıları çatlakları ziftledi: gövde +1.'; } });
       if (!sm && VG.torn && S.cash >= 60) ch.push({ label:'Yelkeni yamat', ico:'i-bolt', gain:1, sub:'60 deben · tekne yeniden hızlanır', run() { S.cash -= 60; VG.torn = false; return 'Köyün yelkencisi yırtığı yamadı.'; } });
       if (!sm) ch.push({ label:'Köylülerle sohbet et', ico:'i-whisper', gain:1, sub:'Belki bir kestirme bilen çıkar', run() { if (VG.layers[L + 1] && !VG.shortcut && r() < 0.4) { insertNode(L + 1, 'canal'); return 'Yaşlı bir çiftçi eski bir sulama kanalını anlattı: haritana eklendi.'; } setMorale(1); return 'Köylüler hurma ikram etti. Tayfa keyiflendi: moral +1.'; } });
-    } else if (t === 'tomb' || t === 'dtomb') {
-      const dz = t === 'dtomb', fogLeft = !VG.revealAll && VG.layers.some((Lr, i) => i > L && Lr.some(x => !x.rev));
+    } else if (t === 'tomb' || t === 'dtomb' || t === 'ruin') {
+      /* v43: a 'ruin' (older saves and maps) opens like the sand tomb: the seal stones, then the coffin (the old light puzzle is gone) */
+      const dz = t !== 'tomb', fogLeft = !VG.revealAll && VG.layers.some((Lr, i) => i > L && Lr.some(x => !x.rev));
       s += '<p class="ntext">' + (dz ? 'Rüzgâr bir kum tepesini süpürmüş: altından boyalı bir kapı ve mühürlü bir kartuş çıkmış.' : 'Kıyıdaki kayalara oyulmuş bir mezar. Kapısında üç işaretli bir mühür, üstünde lanet yazısı: "Huzurumu bozanın yolu kararsın."') + '</p>';
       ch.push({ label:'Mührü çöz', ico:'i-ankh', gain:3, risk:2, sub:'Taşları kartuştaki gibi diz · lahitte muska ve ' + (dz ? 'lapis' : 'papirüs') + ' var', run() { return '@tomb'; } });
       if (fogLeft) ch.push({ label:'Duvar resimlerini kopyala', ico:'i-map', gain:1, sub:'Mezara girmeden: duvardaki yol haritası sisi kaldırır, pusular görünür', run() { VG.revealAll = true; VG.scout = true; return 'Kâtibin duvardaki ölüler yolculuğunu kopyaladı: bütün duraklar ve pusular haritada.'; } });
@@ -550,7 +551,7 @@
     const txt = c.run(); nodeChoices = null;
     save(); closeSheet(); renderHud();
     if (txt === '@night') { playScene('night', 'cpnight'); return; }
-    if (txt === '@tomb') { tombLock(nodeType === 'dtomb'); return; }
+    if (txt === '@tomb') { tombLock(nodeType !== 'tomb'); return; }
     const kind = txt && typeof txt === 'object' ? txt.kind : 'good', tx = txt && typeof txt === 'object' ? txt.t : txt;
     if (tx) { VG.acc.notes.push({ kind, title:NODES[nodeType].name, text:tx }); VG.log.push(tx); play(kind === 'bad' ? 'bad' : kind === 'info' ? 'click' : 'good'); toast(tx); }
     afterStop(curPick());

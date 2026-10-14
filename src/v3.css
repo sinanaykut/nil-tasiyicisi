@@ -27,7 +27,7 @@
 .v3m-bs{position:absolute;top:-8px;left:calc(100% - 9px);display:flex;gap:1px}
 .v3m-b{display:grid;place-items:center;width:19px;height:19px;border-radius:50%;border:1.5px solid #2B1D14;font:800 11px/1 Nunito,sans-serif;color:#2B1D14;background:#FBF3DF}
 .v3m-b .ico{width:12px;height:12px}
-.v3m-b.cr{background:#F0A894}.v3m-b.or{background:#F2C65A}.v3m-b.wk{background:#8ED1C8}.v3m-b.se{background:#2F5D46;color:#fff}
+.v3m-b.cr{background:#F0A894}.v3m-b.or{background:#F2C65A}.v3m-b.or.of{background:#FFF8E6;border-style:dashed;border-color:#8E5A33}.v3m-b.or.dz{background:#E9B26A}.v3m-b.or.of.dz{background:#FBE7C4}.v3m-b.wk{background:#8ED1C8}.v3m-b.se{background:#2F5D46;color:#fff}
 .v3m-d,.v3m-s{position:absolute;left:0;top:0;z-index:1;display:flex;align-items:center;gap:3px;padding:1px 7px 1px 5px;border-radius:999px;border:1.5px solid #2B1D14;font:800 11px/1.3 Nunito,sans-serif;white-space:nowrap;pointer-events:none}
 .v3m-d{background:#F3DFB1;color:#6B4226}
 .v3m-d.on{background:#B7412E;color:#FFF8EC}
@@ -93,3 +93,7 @@
 .v3t-labs.zm > .v3t-l{transition:background-color .15s,opacity .22s ease}
 .v3t-labs > .v3t-off{opacity:0;visibility:hidden;transition:opacity .16s ease,visibility 0s linear .16s}
 @media (prefers-reduced-motion:reduce){.v3m-labs > *,.v3t-labs > .v3t-l{transition:none!important}}
+
+/* v43: the order marks are a touch bigger on the map (they were easy to miss) */
+.v3m-b{width:21px;height:21px}.v3m-b .ico{width:14px;height:14px}
+.v3m-sm .v3m-b{width:18px;height:18px}.v3m-sm .v3m-b .ico{width:12px;height:12px}

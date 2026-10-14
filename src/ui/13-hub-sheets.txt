@@ -241,7 +241,10 @@
     const note = (cls, title, body) => '<div class="note ' + cls + '"><h3>' + title + '</h3>' + body + '</div>';
     let ob = '';
     if (here) { const dl = deliverable(S); if (dl.length || S.offers[S.city]) ob += orderBox(); }
-    if (S.orders.length) ob += '<div class="olist">' + S.orders.map(o => '<span>' + gIco(o.g, 16) + o.q + ' → ' + cIco(o.to, 14) + esc(CITIES[o.to].name) + ' · ' + o.due + '. gün · +' + fmt(o.reward) + '</span>').join('') + '</div>';
+    if (S.orders.length) ob += '<div class="olist">' + S.orders.map(o => '<span>' + gIco(o.g, 16) + o.q + ' → ' + cIco(o.to, 14) + esc(CITIES[o.to].name) + (ordDz(o) ? ' ' + ico('i-donkey', 14) : '') + ' · ' + o.due + '. gün · +' + fmt(o.reward) + '</span>').join('') + '</div>';
+    /* v43: orders seen on other towns' boards (river and caravan jobs), the list behind the map's marks */
+    { const far = CITIES.map((c, i) => i).filter(i => i !== S.city && offerOK(i, S.offers[i]) && !S.orders.some(o => o.from === i) && (isRiver(i) || has(S, 'desert')));
+      if (far.length) ob += '<div class="olist far"><small>Başka panolarda</small>' + far.map(i => { const o = S.offers[i]; return '<span>' + cIco(i, 14) + esc(CITIES[i].name) + ': ' + gIco(o.g, 16) + o.q + ' → ' + cIco(o.to, 14) + esc(CITIES[o.to].name) + (ordDz(o) ? ' ' + ico('i-donkey', 14) : '') + ' · ' + o.due + '. gün · +' + fmt(o.reward) + '</span>'; }).join('') + '</div>'; }
     s += note('ord', ico('i-scroll', 18) + ' Siparişler', ob || '<p class="muted" style="margin:0">' + (isRiver(S.city) ? 'Burada bekleyen sipariş yok. Yarın ya da başka bir şehrin panosunda yenisi çıkar.' : 'Vahanın tüccarları bugün sipariş vermedi. Bir dahaki gelişinde panoya yine bak.') + '</p>');
     const cj = contraHtml();
     if (cj && (S.city === 1 || S.contra)) s += note('hapu', ico('i-chest', 18) + ' Hapu\'nun işi', cj);
@@ -281,13 +284,26 @@
     L.sort((a, b) => a[1] - b[1]);
     return { lo:L.filter(q => q[1] <= 0.86).slice(0, 2).map(q => q[0]), hi:L.filter(q => q[1] >= 1.28).slice(-2).reverse().map(q => q[0]), seen:!!sn };
   }
+  /* v43 (owner: "the caravan orders are not on the map"): what each town means for orders.
+     have: orders you carry that go there; post: an order waiting on that town's board (seen on your last visit, still on time),
+     or the town the order on this board would send you to; dz: one of them is a caravan job (desert road). */
+  const offerOK = (i, o) => !!o && o.due > S.day;
+  const ordDz = o => !!o.dz || !isRiver(o.to) || !isRiver(o.from);
+  function ordInfo(i) {
+    const have = S.orders.filter(o => o.to === i), mine = S.offers[S.city] && S.orders.length < 2 && !S.orders.some(o => o.from === S.city) ? S.offers[S.city] : null;
+    const post = [];
+    if (i !== S.city && offerOK(i, S.offers[i]) && !S.orders.some(o => o.from === i)) post.push({ o:S.offers[i], at:i });
+    if (mine && mine.to === i && i !== S.city) post.push({ o:mine, at:S.city });
+    return { have, post, haveDz:have.some(ordDz), postDz:post.some(q => ordDz(q.o)) };
+  }
+  const ordWord = o => o.q + ' ' + gName(o.g).toLowerCase() + ' → ' + CITIES[o.to].name;
   function mapModel() {
     const cri = crisisList().filter(c => c.state !== 'past'), sp = S.rival.plan, sx = sethiXY();
     const rd = sel != null && sel !== S.city && canGo(S, sel) ? travelDays(S, sel) - (rapid && canRapid(S, sel) ? 1 : 0) : 0;
     return { si:seasonIdx(S), day:S.day,
       cities:CITIES.map((c, i) => ({ i, id:c.id, name:c.name, x:MAPXY[i][0], y:MAPXY[i][1], river:!!c.river, here:i === S.city, reach:canGo(S, i), days:i === S.city ? 0 : travelDays(S, i), sel:sel === i,
         why:i === S.city || canGo(S, i) ? '' : whyShort(i), hint:priceHint(i),
-        badges:{ sethi:sethiAt(S) === i || !!(sp && sp.to === i && S.day < sp.arrive), crisis:!!cri.find(x => x.city === i), order:S.orders.some(o => o.to === i) || !!(S.contra && S.contra.to === i), work:!!(S.work || []).find(w => w.city === i) } })).filter(c => c.river || has(S, 'desert')),
+        badges:(() => { const oi = ordInfo(i); return { sethi:sethiAt(S) === i || !!(sp && sp.to === i && S.day < sp.arrive), crisis:!!cri.find(x => x.city === i), order:oi.have.length > 0 || !!(S.contra && S.contra.to === i), orderDz:oi.haveDz, post:oi.post.length > 0, postDz:oi.postDz, work:!!(S.work || []).find(w => w.city === i) }; })() })).filter(c => c.river || has(S, 'desert')),
       roads:RIVER.slice(0, -1).map(i => ({ a:i, b:i + 1, desert:false, days:1 })).concat(has(S, 'desert') ? CITIES.map((c, i) => i).filter(i => !isRiver(i)).map(i => ({ a:CITIES[i].hub, b:i, desert:true, days:CITIES[i].days })) : []),
       route:rd ? { to:sel, days:rd, risk:riskOf(sel)[2], desert:!isRiver(sel) || !isRiver(S.city) } : null,
       me:{ boat:S.boat, up:S.up, dev:S.dev, car:!isRiver(S.city) },
@@ -357,7 +373,7 @@
       const i = c.i, p = mxy(i), here = c.here, ok = c.reach, b = c.badges;
       const side = i === 7 || i === 6 ? ' bot' : '';
       return '<button type="button" class="mk' + (here ? ' here' : ok ? ' reach' : ' far') + (sel === i ? ' sel' : '') + (isRiver(i) ? '' : ' dz') + side + '" data-city="' + i + '"' + (ok ? '' : ' disabled') + ' style="left:' + (p[0] / MW * 100).toFixed(2) + '%;top:' + (p[1] / MH * 100).toFixed(2) + '%" aria-pressed="' + (sel === i) + '" aria-label="' + esc(c.name) + (here ? ', buradasın' : ok ? ', ' + c.days + ' gün' : ', ' + (whyNot(S, i) || 'yetişmez')) + '">' +
-        '<span class="md">' + mapTok(i) + (b.order ? '<i class="bd ord">' + ico('i-scroll', 11) + '</i>' : '') + (b.work ? '<i class="bd wk">' + ico('i-workshop', 11) + '</i>' : '') + (b.crisis ? '<i class="bd cri">⚠</i>' : '') + '</span><span class="ml"><b>' + esc(c.name) + '</b><small>' + (here ? 'buradasın' : ok ? c.days + ' gün' : !isRiver(i) && isRiver(S.city) ? esc(whyNot(S, i) || '') : '') + '</small></span></button>';
+        '<span class="md">' + mapTok(i) + (b.order ? '<i class="bd ord' + (b.orderDz ? ' dz' : '') + '">' + ico(b.orderDz ? 'i-donkey' : 'i-scroll', 12) + '</i>' : b.post ? '<i class="bd ord of' + (b.postDz ? ' dz' : '') + '">' + ico(b.postDz ? 'i-donkey' : 'i-scroll', 12) + '</i>' : '') + (b.work ? '<i class="bd wk">' + ico('i-workshop', 11) + '</i>' : '') + (b.crisis ? '<i class="bd cri">⚠</i>' : '') + '</span><span class="ml"><b>' + esc(c.name) + '</b><small>' + (here ? 'buradasın' : ok ? c.days + ' gün' : !isRiver(i) && isRiver(S.city) ? esc(whyNot(S, i) || '') : '') + '</small></span></button>';
     }).join('');
     if (sx) { const p = [20 + sx[0] * 360, 14 + sx[1] * 410]; s += '<span class="msethi" style="left:' + ((p[0] - 46) / MW * 100).toFixed(2) + '%;top:' + ((p[1] - 10) / MH * 100).toFixed(2) + '%" title="' + esc(M.sethi.label) + '"><svg viewBox="0 0 40 42" aria-hidden="true"><use href="#boatRival"/></svg><em>' + (sp && S.day < sp.arrive ? sp.arrive + '. gün' : 'Sethi') + '</em></span>'; }
     return s;
@@ -376,6 +392,8 @@
     }
     return '<span class="tvmini ic" data-ci="' + ci + '">' + cIco(ci, 34) + '</span>';
   }
+  /* a small order mark on a town chip: gold = you carry an order there, light = an order waits there (donkey = caravan job) */
+  function ordChip(i) { const oi = ordInfo(i); if (!oi.have.length && !oi.post.length) return ''; const dz = oi.have.length ? oi.haveDz : oi.postDz; return '<i class="tvob' + (oi.have.length ? '' : ' of') + '" title="' + (oi.have.length ? 'Siparişin var' : 'Sipariş bekliyor') + '">' + ico(dz ? 'i-donkey' : 'i-scroll', 12) + '</i>'; }
   function travelCard() {
     const any = CITIES.some((c, i) => canGo(S, i)), g = guide();
     let s = '';
@@ -383,7 +401,7 @@
     if (g.step === 'city' && !g.off) s += coachHtml('Bir şehir seç: ' + CITIES[guideDest()].name + ' bir gün uzakta, oraya dokun.');
     else if (g.step === 'sail' && !g.off) s += coachHtml('Şimdi "Yelken aç"! Yolda her gün bir durak seçersin.');
     if (sel == null || !canGo(S, sel)) {
-      s += '<div class="tvc empty"><b class="tvq">Nereye gidelim?</b><p class="muted" style="margin:0">Haritada bir şehre dokun.</p>' + (use3DMap() ? '' : '') + '<div class="tvlist">' + CITIES.map((c, i) => i).filter(i => canGo(S, i)).map(i => '<button type="button" class="chip" data-city="' + i + '">' + cIco(i, 16) + esc(CITIES[i].name) + ' · ' + travelDays(S, i) + ' gün</button>').join('') + '</div></div>';
+      s += '<div class="tvc empty"><b class="tvq">Nereye gidelim?</b><p class="muted" style="margin:0">Haritada bir şehre dokun.</p>' + (use3DMap() ? '' : '') + '<div class="tvlist">' + CITIES.map((c, i) => i).filter(i => canGo(S, i)).map(i => '<button type="button" class="chip" data-city="' + i + '">' + cIco(i, 16) + esc(CITIES[i].name) + ' · ' + travelDays(S, i) + ' gün' + ordChip(i) + '</button>').join('') + '</div></div>';
       return s;
     }
     const c = CITIES[sel], dz = !isRiver(sel), fromDz = !isRiver(S.city), cr = canRapid(S, sel); if (!cr) rapid = false;
@@ -394,7 +412,9 @@
     if (sp && sp.to === sel && S.day < sp.arrive) notes.push(['i-c-vaset', 'Sethi ' + sp.arrive + '. gün buraya ' + gName(sp.g) + ' boşaltacak' + (Math.abs(S.day + d - sp.arrive) <= 1 ? ': yarış olabilir!' : '.'), 'bad']);
     if (sp && sp.from === sel && S.day <= sp.start + 1) notes.push(['i-' + sp.g, 'Sethi orada ' + gName(sp.g) + ' topluyor: kıt ve pahalı.', 'bad']);
     if (cri) notes.push(['i-storm', CRISES[cri.k].name + ': ' + crisisLine(cri), 'bad']);
-    S.orders.filter(o => o.to === sel).forEach(o => notes.push(['i-scroll', 'Sipariş: ' + o.q + ' ' + gName(o.g) + ' · ' + o.due + '. güne kadar · +' + fmt(o.reward), 'good']));
+    { const oi = ordInfo(sel);
+      oi.have.forEach(o => notes.push([ordDz(o) ? 'i-donkey' : 'i-scroll', (ordDz(o) ? 'Kervan işi: ' : 'Sipariş: ') + o.q + ' ' + gName(o.g) + ' · ' + o.due + '. güne kadar · +' + fmt(o.reward) + (S.inv[o.g].n < o.q ? ' · elinde ' + S.inv[o.g].n : ''), 'good']));
+      oi.post.forEach(({ o, at }) => notes.push([ordDz(o) ? 'i-donkey' : 'i-scroll', at === S.city ? 'Buradaki panoda: ' + ordWord(o) + ' · +' + fmt(o.reward) + ' (önce kabul et)' : 'Panoda ' + (ordDz(o) ? 'kervan işi' : 'sipariş') + ' var: ' + ordWord(o) + ' · ' + o.due + '. güne kadar · +' + fmt(o.reward), 'info'])); }
     if (S.contra && S.contra.to === sel) notes.push(['i-chest', 'Hapu\'nun sandıkları burada teslim', 'good']);
     const wk = (S.work || []).find(w => w.city === sel); if (wk) notes.push(['i-workshop', 'Atölyede ' + wk.n + ' ' + gName(wk.g) + (S.day + d >= wk.ready ? ' hazır olacak' : ', ' + wk.ready + '. gün'), 'good']);
     const qg = qGoal(); if (qg && qg.c === sel) notes.push(['i-map', 'Görev: ' + qg.t, 'good']);
@@ -430,7 +450,7 @@
     const three = use3DMap(), g = guide();
     tvDz = false; if (sel != null && (!isRiver(sel) || !isRiver(S.city)) && !g.off && !g.seen.desert) { g.seen.desert = true; saveMeta(); tvDz = true; }
     const s = '<div class="sh-h"><h2 id="shTitle">Nil haritası<small>' + S.day + '. gün · ' + esc(CITIES[S.city].loc) + 'n nereye?</small></h2>' + xBtn + '</div>' +
-      '<div class="tv"><div class="tvmap' + (three ? ' three' : '') + '" id="tvMap">' + (three ? '<div class="tv3" id="tv3"><div class="tv3pre">' + mapSVG() + mapMarkers() + '</div></div><div class="tvlist3">' + CITIES.map((c, i) => i).filter(i => canGo(S, i)).map(i => '<button type="button" class="chip' + (sel === i ? ' on' : '') + '" data-city="' + i + '">' + cIco(i, 14) + esc(CITIES[i].name) + '</button>').join('') + '</div>' : mapSVG() + mapMarkers()) + '</div><div class="tvcard" id="tvCard">' + travelCard() + '</div></div>';
+      '<div class="tv"><div class="tvmap' + (three ? ' three' : '') + '" id="tvMap">' + (three ? '<div class="tv3" id="tv3"><div class="tv3pre">' + mapSVG() + mapMarkers() + '</div></div><div class="tvlist3">' + CITIES.map((c, i) => i).filter(i => canGo(S, i)).map(i => '<button type="button" class="chip' + (sel === i ? ' on' : '') + '" data-city="' + i + '">' + cIco(i, 14) + esc(CITIES[i].name) + ordChip(i) + '</button>').join('') + '</div>' : mapSVG() + mapMarkers()) + '</div><div class="tvcard" id="tvCard">' + travelCard() + '</div></div>';
     openSheet(s, false, 'travel', true);
     $('#sheet').classList.add('travel28'); tvPrep();
     if (three) {

@@ -100,6 +100,9 @@
   .sncp{width:66px;height:76px}
   .sncb p{font-size:13.5px;line-height:1.25}
   .sn.v.sntm + .snfoot .muted{display:none}
+  /* v43: short phone screens: the upright board shrinks a little so the sheet never scrolls (most of all with Paneb's coaching) */
+  .sn.v .snbd{width:min(202px,calc((100vh - 250px) * .41));width:min(202px,calc((100dvh - 250px) * .41))}
+  .sn.v.sntm .snbd{width:min(202px,calc((100vh - 372px) * .41));width:min(202px,calc((100dvh - 372px) * .41))}
 }
 @media (prefers-reduced-motion: reduce){ .sntr,.sntut,.sncb p.pop,.snrules,.sncp .snpb.talk{animation:none} }
 @media (min-width:700px) and (max-height:520px){
@@ -130,3 +133,22 @@
 .sn.v .snpl > svg,.sn.v .snpl > .snav{grid-row:1 / span 2}
 .sn.v .snpl b{grid-row:1;line-height:1.1}
 .sn.v .snpl .sndots{grid-row:2}
+
+/* v43 landscape phones: compact title, coach and footer ("Pes et" waits under the board), so Senet never scrolls */
+@media (min-width:700px) and (max-height:520px){
+  .sh-in:has(.sn){padding:8px 12px;gap:6px}
+  .sh-in:has(.sn) .sh-h h2{font-size:20px}
+  .sh-in:has(.sn) .snfoot .muted{display:none}
+  .sh-in:has(.sn) .snfoot{position:absolute;left:12px;bottom:10px}
+  .sh-in:has(.sn.sntm) .snleg{display:none}
+  .sh-in:has(.sn) .sncoach{padding:4px 8px 4px 4px;gap:8px}
+  .sh-in:has(.sn) .sncp{width:54px;height:60px}
+  .sh-in:has(.sn) .sncb p{font-size:13px;line-height:1.22}
+  .sh-in:has(.sn) .sncok{min-height:38px}
+  .sh-in:has(.sn) .snact{min-height:46px}
+  .sh-in:has(.sn) .snmsg{min-height:0}
+  .sh-in:has(.sn.sntm) .snfoot{left:auto;right:12px}
+  .sh-in:has(.sn.sntm) .snact{width:calc(100% - 96px)}
+}
+/* v43: a long rival name ("Taşçı Seni") wraps to two lines in the narrow plates instead of being cut to "Taşçı ..." */
+.sn.v .snpl b,.tg .snpl b{white-space:normal;text-overflow:clip;line-height:1.05;font-size:13.5px;overflow-wrap:anywhere}

@@ -21,7 +21,7 @@
   function mhPts() {
     if (MH_PTS) return MH_PTS;
     /* an Archimedean spiral from the tail (outside) to the head (middle), cells at equal arc length */
-    const R0 = 158, R1 = 50, turns = 2.15, th0 = Math.PI * 0.62, S = [], n = 600;
+    const R0 = 160, R1 = 47, turns = 2.15, th0 = Math.PI * 0.62, S = [], n = 600;
     for (let k = 0; k <= n; k++) { const t = k / n, r = R0 - (R0 - R1) * t, a = th0 + t * turns * Math.PI * 2; S.push([MH_C + Math.cos(a) * r, MH_C + Math.sin(a) * r]); }
     const L = [0]; for (let k = 1; k <= n; k++) L.push(L[k - 1] + Math.hypot(S[k][0] - S[k - 1][0], S[k][1] - S[k - 1][1]));
     const tot = L[n], at = d => { let k = 1; while (k < n && L[k] < d) k++; const f = (d - L[k - 1]) / (L[k] - L[k - 1] || 1); return [S[k - 1][0] + (S[k][0] - S[k - 1][0]) * f, S[k - 1][1] + (S[k][1] - S[k - 1][1]) * f]; };
@@ -33,7 +33,9 @@
   }
   const TG = {};
   TG.mehen = {
-    id:'mehen', title:'Mehen', N:2, GOAL:MH_GOAL, W:360, H:360, lab:'aslan',
+    id:'mehen', title:'Mehen', N:2, GOAL:MH_GOAL, W:360, H:360, lab:'aslan', ps:1.18, hr:22,
+    /* v43: a finger-sized tap area around every lion (the visible piece is smaller) */
+    hit:'<circle r="20" fill="transparent"/>',
     throw() { const f = [0, 1, 2].map(() => Math.random() < 0.5 ? 1 : 0), c = f.reduce((a, b) => a + b, 0); return { f, v:c || 4 }; },
     again:v => v === 4,
     againTxt:'4 gelirse<br>bir daha',
@@ -73,19 +75,20 @@
       s += '<defs><radialGradient id="mhBg' + PZ.uid + '"><stop offset="0" stop-color="#F4E1B0"/><stop offset="1" stop-color="#C9A46A"/></radialGradient></defs>';
       s += '<rect x="2" y="2" width="356" height="356" rx="26" fill="#8E5A33" stroke="' + INK + '" stroke-width="3"/><circle cx="180" cy="180" r="172" fill="url(#mhBg' + PZ.uid + ')" stroke="' + INK + '" stroke-width="2.5"/>';
       /* the snake: ink, body, belly line, scale bands */
-      s += '<path d="' + d + '" fill="none" stroke="' + INK + '" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/><path d="' + d + '" fill="none" stroke="#6E9A3A" stroke-width="38.5" stroke-linecap="round" stroke-linejoin="round"/><path d="' + d + '" fill="none" stroke="#A9C45A" stroke-width="22" stroke-linecap="round" stroke-linejoin="round" opacity=".75"/>';
-      P.cuts.forEach(([p, a], q) => { if (q === 0 || q === MH_N) return; const nx = -Math.sin(a) * 19, ny = Math.cos(a) * 19; s += '<path d="M' + (p[0] + nx).toFixed(1) + ' ' + (p[1] + ny).toFixed(1) + 'L' + (p[0] - nx).toFixed(1) + ' ' + (p[1] - ny).toFixed(1) + '" stroke="' + INK + '" stroke-width="2"/>'; });
+      s += '<path d="' + d + '" fill="none" stroke="' + INK + '" stroke-width="50" stroke-linecap="round" stroke-linejoin="round"/><path d="' + d + '" fill="none" stroke="#6E9A3A" stroke-width="44.5" stroke-linecap="round" stroke-linejoin="round"/><path d="' + d + '" fill="none" stroke="#A9C45A" stroke-width="25" stroke-linecap="round" stroke-linejoin="round" opacity=".75"/>';
+      P.cuts.forEach(([p, a], q) => { if (q === 0 || q === MH_N) return; const nx = -Math.sin(a) * 22, ny = Math.cos(a) * 22; s += '<path d="M' + (p[0] + nx).toFixed(1) + ' ' + (p[1] + ny).toFixed(1) + 'L' + (p[0] - nx).toFixed(1) + ' ' + (p[1] - ny).toFixed(1) + '" stroke="' + INK + '" stroke-width="2"/>'; });
       for (let q = 1; q <= MH_N; q++) {
         const [x, y] = P.cells[q], safe = MH_SAFE.includes(q);
-        s += '<g data-tgsq="' + q + '"><circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="15" fill="' + (safe ? '#F2C53D' : '#4E7A28') + '" stroke="' + INK + '" stroke-width="1.6" opacity="' + (safe ? 1 : 0.35) + '"/>';
-        if (safe) s += '<g transform="translate(' + x.toFixed(1) + ' ' + y.toFixed(1) + ')">' + pth('M-9 0q9 -8 18 0q-9 7 -18 0z', '#FBF3DF', ink(1.4)) + '<circle r="3" fill="' + INK + '"/></g>';
-        s += '<text x="' + x.toFixed(1) + '" y="' + (y + 3.5).toFixed(1) + '" text-anchor="middle" class="tgnum' + (safe ? ' s' : '') + '">' + (safe ? '' : q) + '</text></g>';
+        /* v43: bigger cells and numbers, and a finger-sized (transparent) tap circle around each */
+        s += '<g data-tgsq="' + q + '"><circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="24" fill="transparent"/><circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="18" fill="' + (safe ? '#F2C53D' : '#3C6A1E') + '" stroke="' + INK + '" stroke-width="1.8" opacity="' + (safe ? 1 : 0.5) + '"/>';
+        if (safe) s += '<g transform="translate(' + x.toFixed(1) + ' ' + y.toFixed(1) + ') scale(1.2)">' + pth('M-9 0q9 -8 18 0q-9 7 -18 0z', '#FBF3DF', ink(1.4)) + '<circle r="3" fill="' + INK + '"/></g>';
+        s += safe ? '</g>' : '<text x="' + x.toFixed(1) + '" y="' + (y + 4.8).toFixed(1) + '" text-anchor="middle" class="tgnum">' + q + '</text></g>';
       }
       /* tail tip at the start, the head in the middle (the goal) */
       const t0 = P.S[0], t1 = P.S[6], ta = Math.atan2(t0[1] - t1[1], t0[0] - t1[0]);
-      s += '<path d="M' + (t0[0] - Math.sin(ta) * 19).toFixed(1) + ' ' + (t0[1] + Math.cos(ta) * 19).toFixed(1) + 'L' + (t0[0] + Math.cos(ta) * 26).toFixed(1) + ' ' + (t0[1] + Math.sin(ta) * 26).toFixed(1) + 'L' + (t0[0] + Math.sin(ta) * 19).toFixed(1) + ' ' + (t0[1] - Math.cos(ta) * 19).toFixed(1) + 'Z" fill="#6E9A3A" stroke="' + INK + '" stroke-width="2.2" stroke-linejoin="round"/>';
+      s += '<path d="M' + (t0[0] - Math.sin(ta) * 22).toFixed(1) + ' ' + (t0[1] + Math.cos(ta) * 22).toFixed(1) + 'L' + (t0[0] + Math.cos(ta) * 30).toFixed(1) + ' ' + (t0[1] + Math.sin(ta) * 30).toFixed(1) + 'L' + (t0[0] + Math.sin(ta) * 22).toFixed(1) + ' ' + (t0[1] - Math.cos(ta) * 22).toFixed(1) + 'Z" fill="#6E9A3A" stroke="' + INK + '" stroke-width="2.2" stroke-linejoin="round"/>';
       const hE = P.S[P.S.length - 1], hP = P.S[P.S.length - 12], ha = Math.atan2(hE[1] - hP[1], hE[0] - hP[0]) * 180 / Math.PI;
-      s += '<g data-tgsq="' + MH_GOAL + '" transform="translate(' + hE[0].toFixed(1) + ' ' + hE[1].toFixed(1) + ') rotate(' + ha.toFixed(1) + ')"><path d="M-14 -21c18 -4 38 6 38 21s-20 25 -38 21z" fill="#6E9A3A" stroke="' + INK + '" stroke-width="2.4"/>' + pth('M24 0h9M33 0l5 -4M33 0l5 4', 'none', 'stroke="#B7412E" stroke-width="2.2" stroke-linecap="round"') + '<circle cx="8" cy="-10" r="5" fill="#FBF3DF" stroke="' + INK + '" stroke-width="1.6"/><circle cx="8" cy="10" r="5" fill="#FBF3DF" stroke="' + INK + '" stroke-width="1.6"/><circle cx="9" cy="-10" r="2.2" fill="' + INK + '"/><circle cx="9" cy="10" r="2.2" fill="' + INK + '"/>' + '</g>';
+      s += '<g data-tgsq="' + MH_GOAL + '" transform="translate(' + hE[0].toFixed(1) + ' ' + hE[1].toFixed(1) + ') rotate(' + ha.toFixed(1) + ') scale(1.1)"><circle cx="8" r="30" fill="transparent"/><path d="M-14 -21c18 -4 38 6 38 21s-20 25 -38 21z" fill="#6E9A3A" stroke="' + INK + '" stroke-width="2.4"/>' + pth('M24 0h9M33 0l5 -4M33 0l5 4', 'none', 'stroke="#B7412E" stroke-width="2.2" stroke-linecap="round"') + '<circle cx="8" cy="-10" r="5" fill="#FBF3DF" stroke="' + INK + '" stroke-width="1.6"/><circle cx="8" cy="10" r="5" fill="#FBF3DF" stroke="' + INK + '" stroke-width="1.6"/><circle cx="9" cy="-10" r="2.2" fill="' + INK + '"/><circle cx="9" cy="10" r="2.2" fill="' + INK + '"/>' + '</g>';
       /* the two start trays */
       s += '<g data-tgsq="0"><rect x="280" y="312" width="72" height="42" rx="12" fill="#E9C46A" stroke="' + INK + '" stroke-width="2" stroke-dasharray="5 3"/><rect x="6" y="6" width="72" height="42" rx="12" fill="#E9B5A6" stroke="' + INK + '" stroke-width="2" stroke-dasharray="5 3"/></g>';
       return s + '</svg>';
@@ -126,7 +129,7 @@
   };
 
   /* ---------- Hounds & Jackals ---------- */
-  const HJ_GOAL = 30, HJ_JUMP = { 6:20, 8:12, 24:16 }, HJ_W = 300, HJ_H = 452, HJ_CX = 150;
+  const HJ_GOAL = 30, HJ_JUMP = { 6:20, 8:12, 24:16 }, HJ_W = 300, HJ_H = 420, HJ_CX = 150;
   function hjXY(side, q) {
     const sg = side === 'p' ? 1 : -1;
     if (q >= HJ_GOAL) return [HJ_CX, 44];
@@ -136,7 +139,8 @@
     return [HJ_CX + sg * Math.cos(a) * R, 176 - Math.sin(a) * R * 1.02];
   }
   TG.hounds = {
-    id:'hounds', title:'Tazı ve Çakal', N:3, GOAL:HJ_GOAL, W:HJ_W, H:HJ_H, lab:'tazı',
+    id:'hounds', title:'Tazı ve Çakal', N:3, GOAL:HJ_GOAL, W:HJ_W, H:HJ_H, lab:'tazı', ps:1, hr:16,
+    hit:'<rect x="-11" y="-46" width="22" height="54" rx="6" fill="transparent"/>',
     throw() { const r = Math.random(), v = r < 0.1 ? 1 : r < 0.5 ? 3 : r < 0.9 ? 4 : 6; return { f:[v], v }; },
     again:v => v === 1 || v === 6,
     againTxt:'1 · 6<br>bir daha',
@@ -165,7 +169,8 @@
     },
     steps(m) { const out = []; for (let q = m.f + 1; q <= m.t; q++) out.push(q); return out; },
     xy(side, q, i) {
-      if (q <= 0) return [HJ_CX + (side === 'p' ? 1 : -1) * (58 + i * 24), 438];
+      /* v43: the pins wait in little drawers at the top of the palm, right above hole 1 (the first move no longer jumps across the board) */
+      if (q <= 0) return [HJ_CX + (side === 'p' ? 1 : -1) * (21 + i * 16), 128];
       if (q >= HJ_GOAL) return [HJ_CX + (side === 'p' ? 1 : -1) * (6 + i * 9), 44 + (i % 2 ? 3 : -2)];
       return hjXY(side, q);
     },
@@ -178,10 +183,11 @@
       s += '<path d="' + out + '" fill="url(#hjWd' + u + ')" stroke="' + INK + '" stroke-width="3"/>';
       s += '<path d="M20 ' + (HJ_H - 18) + 'V178A130 130 0 0 1 280 178V' + (HJ_H - 18) + 'Z" fill="url(#hjIv' + u + ')" stroke="' + INK + '" stroke-width="2"/>';
       /* the palm: trunk rings and fronds */
-      let tr = ''; for (let y = 150; y < 396; y += 13) tr += 'M' + (HJ_CX - 9) + ' ' + y + 'q9 6 18 0';
-      s += '<rect x="' + (HJ_CX - 10) + '" y="140" width="20" height="262" rx="6" fill="#B07A44" stroke="' + INK + '" stroke-width="2"/>' + pth(tr, 'none', 'stroke="#7A4E28" stroke-width="2"');
-      s += [-1, 1].map(sg => [[-0.2, 66], [0.25, 72], [0.75, 64], [1.15, 52]].map(([a, L]) => { const ex = HJ_CX + sg * Math.cos(a) * L, ey = 120 - Math.sin(a) * L * 0.8 + 18; return pth('M' + HJ_CX + ' 122Q' + (HJ_CX + sg * L * 0.5) + ' ' + (ey - 26) + ' ' + ex.toFixed(1) + ' ' + ey.toFixed(1) + 'Q' + (HJ_CX + sg * L * 0.45) + ' ' + (ey - 10) + ' ' + HJ_CX + ' 128Z', '#3E8A4A', ink(1.8)); }).join('')).join('');
-      s += '<circle cx="' + (HJ_CX - 6) + '" cy="132" r="5" fill="#8E3B2A" stroke="' + INK + '" stroke-width="1.4"/><circle cx="' + (HJ_CX + 6) + '" cy="133" r="5" fill="#8E3B2A" stroke="' + INK + '" stroke-width="1.4"/>';
+      let tr = ''; for (let y = 146; y < HJ_H - 30; y += 13) tr += 'M' + (HJ_CX - 9) + ' ' + y + 'q9 6 18 0';
+      s += '<rect x="' + (HJ_CX - 10) + '" y="132" width="20" height="' + (HJ_H - 26 - 132) + '" rx="6" fill="#B07A44" stroke="' + INK + '" stroke-width="2"/>' + pth(tr, 'none', 'stroke="#7A4E28" stroke-width="2"');
+      /* the crown rises between the two drawers */
+      s += [-1, 1].map(sg => [[0.55, 48], [0.95, 50], [1.3, 42], [1.52, 30]].map(([a, L]) => { const ex = HJ_CX + sg * Math.cos(a) * L, ey = 116 - Math.sin(a) * L; return pth('M' + HJ_CX + ' 118Q' + (HJ_CX + sg * Math.cos(a) * L * 0.55 - sg * 8).toFixed(1) + ' ' + (ey - 4).toFixed(1) + ' ' + ex.toFixed(1) + ' ' + ey.toFixed(1) + 'Q' + (HJ_CX + sg * Math.cos(a) * L * 0.5 + sg * 4).toFixed(1) + ' ' + (ey + 12).toFixed(1) + ' ' + HJ_CX + ' 124Z', '#3E8A4A', ink(1.8)); }).join('')).join('');
+      s += '<circle cx="' + (HJ_CX - 5) + '" cy="126" r="4.6" fill="#8E3B2A" stroke="' + INK + '" stroke-width="1.4"/><circle cx="' + (HJ_CX + 5) + '" cy="127" r="4.6" fill="#8E3B2A" stroke="' + INK + '" stroke-width="1.4"/>';
       /* shortcut lines (both sides) */
       ['p', 'a'].forEach(sd => Object.keys(HJ_JUMP).forEach(k => {
         const a = hjXY(sd, +k), b = hjXY(sd, HJ_JUMP[k]), up = HJ_JUMP[k] > +k, mx = (a[0] + b[0]) / 2 + (sd === 'p' ? 1 : -1) * (up ? -10 : 18), my = (a[1] + b[1]) / 2 + (up ? 14 : 0);
@@ -190,14 +196,14 @@
       /* the holes */
       ['p', 'a'].forEach(sd => { for (let q = 1; q < HJ_GOAL; q++) {
         const [x, y] = hjXY(sd, q), sp = HJ_JUMP[q], land = Object.values(HJ_JUMP).includes(q);
-        s += '<g' + (sd === 'p' ? ' data-tgsq="' + q + '"' : '') + '><circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + (sp ? 9 : 7) + '" fill="' + (sp ? (sp > q ? '#2BA59A' : '#B7412E') : land ? '#E9C46A' : '#5A3A22') + '" stroke="' + INK + '" stroke-width="' + (sp ? 2.2 : 1.6) + '"/><circle cx="' + x.toFixed(1) + '" cy="' + (y + 1).toFixed(1) + '" r="' + (sp ? 4 : 3.4) + '" fill="#2B1D14"/>';
-        if (sd === 'p' && (q % 5 === 0 || q === 1)) s += '<text x="' + (x + (q <= 10 ? 13 : -13)).toFixed(1) + '" y="' + (y + 3.5).toFixed(1) + '" text-anchor="middle" class="tgnum">' + q + '</text>';
+        s += '<g' + (sd === 'p' ? ' data-tgsq="' + q + '"' : '') + '>' + (sd === 'p' ? '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="12" fill="transparent"/>' : '') + '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + (sp ? 9 : 7) + '" fill="' + (sp ? (sp > q ? '#2BA59A' : '#B7412E') : land ? '#E9C46A' : '#5A3A22') + '" stroke="' + INK + '" stroke-width="' + (sp ? 2.2 : 1.6) + '"/><circle cx="' + x.toFixed(1) + '" cy="' + (y + 1).toFixed(1) + '" r="' + (sp ? 4 : 3.4) + '" fill="#2B1D14"/>';
+        if (sd === 'p' && (q % 5 === 0 || q === 1)) { const lx = q <= 10 ? x + 14 : q <= 20 ? x - 15 : x + (x - HJ_CX) / 118 * 17, ly = q <= 20 ? y + 4 : y + (y - 176) / 118 * 17 + 4; s += '<text x="' + lx.toFixed(1) + '" y="' + ly.toFixed(1) + '" text-anchor="middle" class="tgnum">' + q + '</text>'; }
         s += '</g>';
       } });
       /* the shen hole at the top */
       s += '<g data-tgsq="' + HJ_GOAL + '"><circle cx="' + HJ_CX + '" cy="44" r="17" fill="#E9C46A" stroke="' + INK + '" stroke-width="2.4"/><circle cx="' + HJ_CX + '" cy="44" r="10" fill="#2B1D14"/><path d="M' + (HJ_CX - 14) + ' 64h28" stroke="' + INK + '" stroke-width="3" stroke-linecap="round"/></g>';
       /* the drawers */
-      s += '<g data-tgsq="0"><rect x="' + (HJ_CX + 36) + '" y="410" width="96" height="32" rx="8" fill="#E9C46A" stroke="' + INK + '" stroke-width="2" stroke-dasharray="5 3"/><rect x="' + (HJ_CX - 132) + '" y="410" width="96" height="32" rx="8" fill="#E9B5A6" stroke="' + INK + '" stroke-width="2" stroke-dasharray="5 3"/></g>';
+      s += '<g data-tgsq="0"><rect x="' + (HJ_CX + 11) + '" y="106" width="58" height="30" rx="8" fill="#E9C46A" stroke="' + INK + '" stroke-width="2" stroke-dasharray="5 3"/><rect x="' + (HJ_CX - 69) + '" y="106" width="58" height="30" rx="8" fill="#E9B5A6" stroke="' + INK + '" stroke-width="2" stroke-dasharray="5 3"/></g>';
       return s + '</svg>';
     },
     piece(side) {
@@ -255,7 +261,7 @@
     let s = '<div class="sh-h"><h2 id="shTitle">' + esc(D.title) + '<small>' + (PZ.tut ? 'İlk oyun · ' : '') + 'Bahis: <b>' + fmt(stake) + ' deben</b> · Rakip: ' + esc(who) + '</small></h2><button class="btn sm snrb" type="button" data-tgrules>' + snRulesIco() + 'Kurallar</button></div>';
     if (PZ.tut) s += '<div class="sncoach" id="tgCoach"><div class="sncp" id="tgCp"></div><div class="sncb"><b>Paneb</b><p id="tgCoachT" aria-live="polite"></p><button class="btn go1 sm sncok" type="button" data-tgok hidden>Tamam</button></div></div>';
     s += '<div class="tg tg-' + id + (wideOK ? ' w' : '') + (PZ.tut ? ' tgtm' : '') + '"><div class="tgbd" id="tgBd">' + D.board() + '<svg viewBox="0 0 ' + D.W + ' ' + D.H + '" class="tgov" aria-hidden="true"><g id="tgTut"></g><g id="tgHl"></g><g id="tgPcs">';
-    ['a', 'p'].forEach(sd => PZ.pos[sd].forEach((q, i) => { const [x, y] = D.xy(sd, q, i); s += '<g class="tgpc ' + sd + '" id="tgP' + sd + i + '" data-tgpc="' + (sd === 'p' ? i : '') + '" style="transform:translate(' + x + 'px,' + y + 'px)"><g class="tgpcb">' + D.piece(sd) + '</g></g>'; }));
+    ['a', 'p'].forEach(sd => PZ.pos[sd].forEach((q, i) => { const [x, y] = D.xy(sd, q, i); s += '<g class="tgpc ' + sd + '" id="tgP' + sd + i + '" data-tgpc="' + (sd === 'p' ? i : '') + '" style="transform:translate(' + x + 'px,' + y + 'px)"><g class="tgpcb"><g transform="scale(' + (D.ps || 1) + ')">' + (sd === 'p' ? D.hit || '' : '') + D.piece(sd) + '</g></g></g>'; }));
     s += '</g></svg></div><div class="tgpn">';
     const oppK = (() => { try { if (typeof CAST !== 'undefined') for (const c in CAST) if (CAST[c].name === who) return c; } catch (e) {} return null; })();
     s += '<div class="snpl a" id="tgPa"><svg viewBox="-18 -' + (id === 'hounds' ? 44 : 20) + ' 36 ' + (id === 'hounds' ? 50 : 36) + '" width="26" height="30" aria-hidden="true">' + D.piece('a') + '</svg>' + (oppK ? '<span class="snav" data-k="' + oppK + '">' + CH40.icon(oppK, 'neutral') + '</span>' : '') + '<b>' + esc(who) + '</b>' + dots + '</div>';
@@ -263,8 +269,9 @@
     s += '<p class="snmsg" id="tgMsg" aria-live="polite"></p>';
     s += '<button class="btn go1 snact tgact" type="button" data-tgact data-first>' + (id === 'hounds' ? 'Kemiği at' : 'Değnekleri at') + '</button>';
     s += '<div class="snpl p on" id="tgPp"><svg viewBox="-18 -' + (id === 'hounds' ? 44 : 20) + ' 36 ' + (id === 'hounds' ? 50 : 36) + '" width="26" height="30" aria-hidden="true">' + D.piece('p') + '</svg><b>Sen</b>' + dots + '</div>';
-    s += '<div class="snleg">' + D.legend() + '</div>';
-    s += '</div></div><div class="snfoot"><span class="muted">' + D.foot + '</span><button class="btn sm" type="button" data-tggive>Pes et</button></div>';
+    if (wideOK) s += '<div class="snleg">' + D.legend() + '</div>';
+    /* v43 phones: the legend sits in the footer next to "Pes et" (the long foot line is in the rules card), so the board gets the room */
+    s += '</div></div><div class="snfoot' + (wideOK ? '' : ' tgft') + '">' + (wideOK ? '<span class="muted">' + D.foot + '</span>' : '<div class="snleg">' + D.legend() + '</div>') + '<button class="btn sm" type="button" data-tggive>Pes et</button></div>';
     openSheet(s, true, 'pz', wideOK);
     if (PZ.tut) tgTip('hi'); else tgTurn('p');
   }
@@ -349,7 +356,7 @@
         const pts = [D.xy(side, m.f, m.i)].concat(D.steps(m).map(q => D.xy(side, q, m.i)));
         s += '<path d="M' + pts.map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join('L') + '" fill="none" stroke="' + col + '" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1 9" class="snpath"/>';
         const [tx, ty] = D.xy(side, m.t >= D.GOAL ? D.GOAL : m.t, m.i);
-        s += '<circle cx="' + tx.toFixed(1) + '" cy="' + ty.toFixed(1) + '" r="17" fill="' + col + '" fill-opacity=".2" stroke="' + col + '" stroke-width="3.5" class="sntgt"/>';
+        s += '<circle cx="' + tx.toFixed(1) + '" cy="' + ty.toFixed(1) + '" r="' + (D.hr || 17) + '" fill="' + col + '" fill-opacity=".2" stroke="' + col + '" stroke-width="3.5" class="sntgt"/>';
         if (m.fin !== m.t && m.fin < D.GOAL) { const [fx, fy] = D.xy(side, m.fin, m.i); s += '<path d="M' + tx.toFixed(1) + ' ' + ty.toFixed(1) + 'L' + fx.toFixed(1) + ' ' + fy.toFixed(1) + '" fill="none" stroke="' + (m.fin > m.t ? '#1E7D74' : '#B7412E') + '" stroke-width="3.2" stroke-dasharray="6 5"/><circle cx="' + fx.toFixed(1) + '" cy="' + fy.toFixed(1) + '" r="14" fill="none" stroke="' + (m.fin > m.t ? '#1E7D74' : '#B7412E') + '" stroke-width="3"/>'; }
         if (m.kind === 'cap') s += '<g transform="translate(' + tx.toFixed(1) + ' ' + (ty - 24).toFixed(1) + ')"><circle r="9" fill="#FBF3DF" stroke="' + INK + '" stroke-width="1.6"/>' + pth('M-4 -4l8 8M4 -4l-8 8', 'none', 'stroke="#B7412E" stroke-width="2.2" stroke-linecap="round"') + '</g>';
       });
@@ -480,7 +487,7 @@
   function tgTutHl(spec) {
     tgTutClear(); if (!spec) return;
     const g = $('#tgTut'), D = PZ.D;
-    if (g && spec.sq) g.innerHTML = spec.sq.map(q => { const p = D.cellXY(q); return p ? '<circle cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="' + (q >= D.GOAL ? 24 : 15) + '" class="sntr"/>' : ''; }).join('');
+    if (g && spec.sq) g.innerHTML = spec.sq.map(q => { const p = D.cellXY(q); return p ? '<circle cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="' + (q >= D.GOAL ? 26 : (D.hr || 17) - 1) + '" class="sntr"/>' : ''; }).join('');
     (spec.el || []).forEach(sel => document.querySelectorAll('#sheet ' + sel).forEach(e => e.classList.add('sntut')));
   }
   function tgTutClear() { const g = $('#tgTut'); if (g) g.innerHTML = ''; document.querySelectorAll('#sheet .sntut').forEach(e => e.classList.remove('sntut')); }

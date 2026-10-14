@@ -103,11 +103,13 @@ void main() {
       let wN = 16, fv = { x:0, y:0, t:0 };
       const FLY = 7.5, HAND = 16;
       const box = () => { const b = el.getBoundingClientRect(); return { b, w:b.width || 1, h:b.height || 1 }; };
-      const clamp = s => { s.z = Math.max(1, Math.min(MAX, s.z)); const { w, h } = box(), mx = w / 2 * (1 - 1 / s.z), my = h / 2 * (1 - 1 / s.z); s.x = Math.max(-mx, Math.min(mx, s.x)); s.y = Math.max(-my, Math.min(my, s.y)); return s; };
+      /* v43: opt.bound(s, w, h) may widen the pan limits (the town pans at the whole view too, inside its painted ground); it clamps s.x, s.y itself and returns true */
+      const clamp = s => { s.z = Math.max(1, Math.min(MAX, s.z)); const { w, h } = box(); if (opt.bound && opt.bound(s, w, h)) return s; const mx = w / 2 * (1 - 1 / s.z), my = h / 2 * (1 - 1 / s.z); s.x = Math.max(-mx, Math.min(mx, s.x)); s.y = Math.max(-my, Math.min(my, s.y)); return s; };
+      const free = () => tgt.z > 1.02 || !!(opt.room && opt.room());
       /* zoom about a screen point (px from the box centre): the point under it stays put */
       const zoomAt = (s, z1, px, py) => { const z0 = s.z; z1 = Math.max(1, Math.min(MAX, z1)); s.x += px * (1 / z0 - 1 / z1); s.y += py * (1 / z0 - 1 / z1); s.z = z1; clamp(s); };
       const rel = e => { const { b, w, h } = box(); return [e.clientX - b.left - w / 2, e.clientY - b.top - h / 2]; };
-      const ta = () => { el.style.touchAction = tgt.z > 1.02 ? 'none' : 'pan-y'; };
+      const ta = () => { el.style.touchAction = tgt.z > 1.02 ? 'none' : opt.ta ? opt.ta() : 'pan-y'; };
       const snapNow = () => { cur.z = tgt.z; cur.x = tgt.x; cur.y = tgt.y; vel.z = vel.x = vel.y = 0; };
       const down = e => {
         if (dead || (e.pointerType === 'mouse' && e.button !== 0)) return;
@@ -126,7 +128,7 @@ void main() {
         if (drag) {
           const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
           if (!moved && Math.hypot(dx, dy) < 7) return;
-          if (!moved && tgt.z <= 1.02) return;              /* nothing to pan at the whole view: let the page scroll */
+          if (!moved && !free()) return;              /* nothing to pan at the whole view: let the page scroll */
           moved = true; tgt.x = drag.sx - dx / tgt.z; tgt.y = drag.sy - dy / tgt.z; clamp(tgt); snapNow();
           { const now = performance.now(), dt = Math.max(1, now - fv.t); if (dt < 120) { fv.x = fv.x * 0.6 + (e.clientX - fv.px) / dt * 0.4; fv.y = fv.y * 0.6 + (e.clientY - fv.py) / dt * 0.4; } else fv.x = fv.y = 0; fv.t = now; fv.px = e.clientX; fv.py = e.clientY; }
           if (opt.onChange) opt.onChange();
@@ -155,7 +157,7 @@ void main() {
       const wheel = e => {
         if (dead) return;
         wN = HAND; const q = rel(e), pan = !e.ctrlKey && (e.deltaX !== 0 || (e.deltaMode === 0 && Math.abs(e.deltaY) < 40 && e.deltaY % 1 !== 0));
-        if (pan) { if (tgt.z <= 1.02) return; tgt.x += e.deltaX / tgt.z; tgt.y += e.deltaY / tgt.z; clamp(tgt); }
+        if (pan) { if (!free()) return; tgt.x += e.deltaX / tgt.z; tgt.y += e.deltaY / tgt.z; clamp(tgt); }
         else { const k = Math.exp(-(e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY) * (e.ctrlKey ? 0.01 : 0.0018)); if ((k > 1 && tgt.z >= MAX) || (k < 1 && tgt.z <= 1)) return; zoomAt(tgt, tgt.z * k, q[0], q[1]); }
         e.preventDefault(); ta(); if (opt.onChange) opt.onChange();
       };
@@ -185,6 +187,8 @@ void main() {
         /* v33: ease to zoom z with the view centred on pan x, y (screen px at z = 1 from the fit centre) */
         go(z, x, y) { wN = FLY; tgt.z = z; tgt.x = x; tgt.y = y; clamp(tgt); ta(); if (opt.onChange) opt.onChange(); },
         reset(now) { wN = FLY; tgt.z = 1; tgt.x = 0; tgt.y = 0; if (now) snapNow(); ta(); if (opt.onChange) opt.onChange(); },
+        /* v43: the limits changed (new fit): pull the view back inside them, refresh the touch action */
+        fix() { const x = tgt.x, y = tgt.y; clamp(tgt); if (x !== tgt.x || y !== tgt.y) { wN = FLY; if (opt.onChange) opt.onChange(); } ta(); },
         dragging() { return moved && P.size > 0; },
         destroy() { dead = true; el.removeEventListener('pointerdown', down); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); el.removeEventListener('wheel', wheel); el.removeEventListener('dblclick', dbl); el.removeEventListener('click', clickCap, true); el.style.touchAction = ''; }
       };

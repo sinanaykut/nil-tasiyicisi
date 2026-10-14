@@ -776,59 +776,202 @@
         s += '<g transform="translate(' + f(x) + ' ' + f(y) + ') rotate(' + a + ')">' + P(d, i < 2 ? '#7FA8D8' : '#F4F0F8', st(1.5)) + P('M0,' + f(-l * 0.6) + ' L0,' + f(-l), 'none', st(2.4, '#3E6CC8', op('.85'))) + '</g>'; });
       return s + El(x, y + 1, 7, 3.6, '#4E8E3A', st(1.4));
     }
-    function chinHand(g, K) {
-      const y = g.cy - 6, x = C - 2;
-      let s = '<g transform="translate(' + f(x + 20) + ' ' + f(y) + ') scale(1.18) translate(' + f(-x - 20) + ' ' + f(-y) + ')">' + ink('M' + f(x + 38) + ',' + f(y + 40) + ' C' + f(x + 50) + ',' + f(y + 90) + ' ' + f(x + 70) + ',430 ' + f(x + 78) + ',480 L' + f(x + 132) + ',480 C' + f(x + 118) + ',430 ' + f(x + 92) + ',' + f(y + 80) + ' ' + f(x + 72) + ',' + f(y + 34) + ' Z', K.sk, 2.6);
-      s += P('M' + f(x + 72) + ',' + f(y + 40) + ' C' + f(x + 90) + ',' + f(y + 82) + ' ' + f(x + 112) + ',430 ' + f(x + 124) + ',480 L' + f(x + 106) + ',480 C' + f(x + 98) + ',436 ' + f(x + 80) + ',' + f(y + 86) + ' ' + f(x + 64) + ',' + f(y + 44) + ' Z', K.sh, op('.85'));
-      s += ink('M' + f(x + 34) + ',' + f(y + 30) + ' L' + f(x + 72) + ',' + f(y + 20) + ' L' + f(x + 77) + ',' + f(y + 36) + ' L' + f(x + 38) + ',' + f(y + 47) + ' Z', GOLD, 2) + P('M' + f(x + 36) + ',' + f(y + 34) + ' L' + f(x + 73) + ',' + f(y + 24), 'none', st(1.6, '#FFF2B8', op('.8')));
-      /* the back of the hand, then the curled fingers (index on top, touching the chin) */
-      s += ink('M' + f(x + 30) + ',' + f(y - 6) + ' C' + f(x + 52) + ',' + f(y - 10) + ' ' + f(x + 66) + ',' + f(y + 6) + ' ' + f(x + 68) + ',' + f(y + 22) + ' L' + f(x + 70) + ',' + f(y + 32) + ' L' + f(x + 34) + ',' + f(y + 40) + ' Z', K.sk, 2.4);
-      s += P('M' + f(x + 56) + ',' + f(y + 2) + ' C' + f(x + 64) + ',' + f(y + 10) + ' ' + f(x + 68) + ',' + f(y + 20) + ' ' + f(x + 68) + ',' + f(y + 30) + ' L' + f(x + 56) + ',' + f(y + 34) + ' Z', K.sh, op('.8'));
-      for (let k = 3; k >= 0; k--) {
-        const yy = y + 2 + k * 9.5, x0 = x + 4 + k * 5, x1 = x + 52 - k * 1.5, hh = 5.2 - k * 0.3;
-        s += ink('M' + f(x0) + ',' + f(yy - hh) + ' L' + f(x1) + ',' + f(yy - hh - 1.5) + ' Q' + f(x1 + 7) + ',' + f(yy) + ' ' + f(x1) + ',' + f(yy + hh) + ' L' + f(x0) + ',' + f(yy + hh) + ' Q' + f(x0 - 6) + ',' + f(yy) + ' ' + f(x0) + ',' + f(yy - hh) + ' Z', K.sk, 2);
-        s += P('M' + f(x0 + 12) + ',' + f(yy - hh + 1.5) + ' q-2,' + f(hh - 1.5) + ' 0,' + f(2 * hh - 3), 'none', st(1.2, K.sh2, op('.7'))) + P('M' + f(x0 + 2) + ',' + f(yy + hh - 1) + ' L' + f(x1 - 2) + ',' + f(yy + hh - 1), 'none', st(2, K.sh, op('.6')));
+    /* ---------------- v43 arms and hands (owner: "the merchant's scratching does not look nice") ----------------
+       A limb is a smooth tube through centre points with a width at each point (Catmull-Rom centre line, round ends);
+       it gets the ink edge, a cel shadow strip on the side away from the light (the light comes from the upper left),
+       a soft rim light on the lit side and creases at the joints. Hands are built from a palm and real fingers
+       (two or three segments, knuckle creases, nails where they face us). Used by the scratch, tap and arms tells
+       and the thinking hand under the chin. */
+    const crm = (a, b, c, d, t) => { const t2 = t * t, t3 = t2 * t; return 0.5 * (2 * b + (c - a) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (3 * b - a - 3 * c + d) * t3); };
+    function limbS(pts, ws, n) {
+      n = n || 8; const S = [], m = pts.length;
+      for (let i = 0; i < m - 1; i++) {
+        const a = pts[Math.max(0, i - 1)], b = pts[i], c = pts[i + 1], d = pts[Math.min(m - 1, i + 2)];
+        for (let k = 0; k < n; k++) { const t = k / n, e = t * t * (3 - 2 * t); S.push([crm(a[0], b[0], c[0], d[0], t), crm(a[1], b[1], c[1], d[1], t), ws[i] + (ws[i + 1] - ws[i]) * e]); }
       }
-      return s + '</g>';
+      S.push([pts[m - 1][0], pts[m - 1][1], ws[m - 1]]);
+      for (let i = 0; i < S.length; i++) { const p = S[Math.max(0, i - 1)], q = S[Math.min(S.length - 1, i + 1)], dx = q[0] - p[0], dy = q[1] - p[1], l = Math.hypot(dx, dy) || 1; S[i].push(-dy / l, dx / l); }
+      return S;
     }
-    function tellParts(tell, g, K) {
+    /* points along one side of a limb: side +1 / -1, k = fraction of the half width (1 = the edge) */
+    const lside = (S, side, k, a, b) => S.slice(a || 0, b == null ? S.length : b).map(q => [q[0] + q[3] * q[2] / 2 * side * k, q[1] + q[4] * q[2] / 2 * side * k]);
+    const lpoly = A => A.map((q, i) => (i ? 'L' : 'M') + f(q[0]) + ',' + f(q[1])).join(' ');
+    const lcap = (e, sgn) => { const tx = e[4] * sgn, ty = -e[3] * sgn, r = e[2] / 2, k = r * 1.33; return [e[0] + e[3] * r + tx * k, e[1] + e[4] * r + ty * k, e[0] - e[3] * r + tx * k, e[1] - e[4] * r + ty * k]; };
+    function limbD(S, cap0, cap1) {
+      const A = lside(S, 1, 1), B = lside(S, -1, 1).reverse(), e = S[S.length - 1], s0 = S[0];
+      let d = lpoly(A);
+      if (cap1) { const c = lcap(e, 1); d += ' C' + f(c[0]) + ',' + f(c[1]) + ' ' + f(c[2]) + ',' + f(c[3]) + ' ' + f(B[0][0]) + ',' + f(B[0][1]); }
+      d += ' ' + lpoly(B).replace(/^M/, 'L');
+      if (cap0) { const c = lcap(s0, -1); d += ' C' + f(c[2]) + ',' + f(c[3]) + ' ' + f(c[0]) + ',' + f(c[1]) + ' ' + f(A[0][0]) + ',' + f(A[0][1]); }
+      return d + ' Z';
+    }
+    /* a shaded limb: o = { fill, shade (side of the shadow, +1 / -1), cap0, cap1, w (ink width), rim (false = none) } */
+    function limb(pts, ws, K, o) {
+      o = o || {}; const S = limbS(pts, ws, o.n || 8), fill = o.fill || K.sk, sd = o.shade || 1, sh = fill === K.sk ? K.sh : mx(fill, '#6A4A34', 0.3);
+      let s = ink(limbD(S, o.cap0, o.cap1), fill, o.w || 2.4);
+      const a = o.a || 0, b = o.b == null ? S.length : o.b;
+      s += P(lpoly(lside(S, sd, 0.96, a, b)) + ' ' + lpoly(lside(S, sd, o.sk == null ? 0.25 : o.sk, a, b).reverse()).replace(/^M/, 'L') + ' Z', sh, op(o.so || '.7'));
+      if (o.rim !== false) s += P(lpoly(lside(S, -sd, 0.55, a + 2, Math.max(a + 3, b - 2))), 'none', st(o.rimw || 3, fill === K.sk ? K.hl : mx(fill, '#FFFFFF', 0.45), op('.45')));
+      return s;
+    }
+    /* a crease across a limb at sample i (elbow, wrist, knuckle) */
+    const lcrease = (S, i, k, col, w, o2) => { const q = S[Math.max(0, Math.min(S.length - 1, i))], r = q[2] / 2 * k, tx = q[4], ty = -q[3]; return P('M' + f(q[0] + q[3] * r) + ',' + f(q[1] + q[4] * r) + ' Q' + f(q[0] + tx * r * 0.35) + ',' + f(q[1] + ty * r * 0.35) + ' ' + f(q[0] - q[3] * r * 0.4) + ',' + f(q[1] - q[4] * r * 0.4), 'none', st(w || 1.3, col, op(o2 || '.75'))); };
+    /* a finger: points from the knuckle to the tip, base width w; o.nail draws the nail (when it faces us) */
+    function finger(pts, w, K, o) {
+      o = o || {}; const n = pts.length, ws = pts.map((_, i) => w * (1 - 0.16 * i / (n - 1)));
+      const S = limbS(pts, ws, 6);
+      let s = ink(limbD(S, false, true), K.sk, o.iw || 1.7);
+      s += P(lpoly(lside(S, o.shade || 1, 0.92)) + ' ' + lpoly(lside(S, o.shade || 1, 0.15).reverse()).replace(/^M/, 'L') + ' Z', K.sh, op('.55'));
+      for (let j = 1; j < n - 1; j++) s += lcrease(S, j * 6, 0.75, K.sh2, 1.1, '.7');
+      if (o.nail) { const e = S[S.length - 3], tx = e[4], ty = -e[3], r = e[2] * 0.3; s += P('M' + f(e[0] + e[3] * r - tx * r * 0.2) + ',' + f(e[1] + e[4] * r - ty * r * 0.2) + ' Q' + f(e[0] + tx * r * 2.2) + ',' + f(e[1] + ty * r * 2.2) + ' ' + f(e[0] - e[3] * r - tx * r * 0.2) + ',' + f(e[1] - e[4] * r - ty * r * 0.2) + ' Z', mx(K.sk, '#FFE8D8', 0.45), st(0.9, K.sh2, op('.8'))); }
+      return s;
+    }
+    /* the silhouette of the head with its hair or wig (for a hand that rests on it): an ellipse */
+    function headShape(Rc, g) {
+      const s = (Rc.hair || {}).s || 'bald', fw = g.fw;
+      if (s === 'bob' || s === 'shortwig' || s === 'longbob' || s === 'shoulder' || s === 'long') return { cx:C, cy:150, rx:fw + 22, ry:102, hair:true };
+      if (s === 'braids') return { cx:C, cy:150, rx:fw + 30, ry:106, hair:true };
+      if (s === 'curly' || s === 'curls') return { cx:C, cy:146, rx:fw + 22, ry:112, hair:true };
+      if (s === 'wrap') return { cx:C, cy:150, rx:fw + 20, ry:110, hair:true, cloth:true };
+      if (s === 'crop') return { cx:C, cy:150, rx:fw + 5, ry:92, hair:true, short:true };
+      return { cx:C, cy:150, rx:fw + 3, ry:150 - g.top + 2, hair:false };
+    }
+    const onHead = (h, deg, out) => { const a = deg * Math.PI / 180; return [h.cx - Math.sin(a) * (h.rx + (out || 0)), h.cy - Math.cos(a) * (h.ry + (out || 0))]; };
+    /* robes cover the upper arm (the forearm is bare); the other clothes leave the arms bare */
+    const sleeveOf = Rc => { const cl = Rc.cl || {}; return cl.k === 'robe' ? cl.c : null; };
+    function bandOn(S, i, Rc) {
+      const xs = Rc.x || [], q = S[Math.max(0, Math.min(S.length - 1, i))], r = q[2] / 2 + 1, tx = q[4], ty = -q[3];
+      const one = (dt, col, w) => { const x = q[0] + tx * dt, y = q[1] + ty * dt, d = 'M' + f(x + q[3] * r) + ',' + f(y + q[4] * r) + ' Q' + f(x + tx * 4) + ',' + f(y + ty * 4) + ' ' + f(x - q[3] * r) + ',' + f(y - q[4] * r); return P(d, 'none', st(w + 3, INK)) + P(d, 'none', st(w, col)); };
+      if (xs.includes('armband')) return one(0, GOLD, 6);
+      if (xs.includes('copperBands')) return one(-6, '#C9733E', 4.5) + one(6, '#C9733E', 4.5);
+      return '';
+    }
+    /* a bangle at the wrist (women, and anyone with gold on the arms) */
+    function bangle(S, i, Rc, g) {
+      if (!g.fem && !(Rc.x || []).includes('armband')) return '';
+      const q = S[Math.max(0, Math.min(S.length - 1, i))], r = q[2] / 2 + 1.5, tx = q[4], ty = -q[3];
+      const d = 'M' + f(q[0] + q[3] * r) + ',' + f(q[1] + q[4] * r) + ' Q' + f(q[0] + tx * 5) + ',' + f(q[1] + ty * 5) + ' ' + f(q[0] - q[3] * r) + ',' + f(q[1] - q[4] * r);
+      return P(d, 'none', st(7.5, INK)) + P(d, 'none', st(4.6, GOLD)) + P(d, 'none', st(1.4, '#FFF2B8', op('.8') + ' transform="translate(' + f(-tx * 1.4) + ' ' + f(-ty * 1.4) + ')"'));
+    }
+    const pt = p => f(p[0]) + ',' + f(p[1]);
+
+    /* a hand as one piece: the back of the hand and the four fingers held together (finger lines, knuckle bumps), the thumb apart.
+       o = { x, y (wrist), ang (wrist -> fingertips), len (back of the hand), wid, fl (finger length), curl (the fingers bend toward +b),
+       thumb (+1 / -1: the side of the thumb, 0 = hidden), tl (thumb length), shade (+1 / -1), nails } */
+    function handBlock(K, o) {
+      const ca = Math.cos(o.ang), sa = Math.sin(o.ang), Lp = (a, b) => [o.x + ca * a - sa * b, o.y + sa * a + ca * b];
+      const w = o.wid, L = o.len, fl = o.fl, cu = o.curl || 0, sd = o.shade || 1;
+      let s = '';
+      if (o.thumb && o.thumbBack) s += finger([Lp(L * 0.2, o.thumb * w * 0.42), Lp(L * 0.62, o.thumb * w * 0.78), Lp(L * 0.95 + (o.tl || 0), o.thumb * w * 0.74)], w * 0.36, K, { shade:sd, nail:o.nails });
+      /* the fingers: a bent block from the knuckles to the rounded tips */
+      const fp = [Lp(L - 2, 0), Lp(L + fl * 0.5, cu * fl * 0.18), Lp(L + fl * (1 - cu * 0.25), cu * fl * 0.62)];
+      const FS = limbS(fp, [w * 0.98, w * 0.92, w * 0.8], 8);
+      s += ink(limbD(FS, false, true), K.sk, 2.1);
+      s += P(lpoly(lside(FS, sd, 0.94)) + ' ' + lpoly(lside(FS, sd, 0.35).reverse()).replace(/^M/, 'L') + ' Z', K.sh, op('.55'));
+      /* the lines between the fingers, and the nails at the tip row when they face us */
+      [-0.5, 0, 0.5].forEach(k => { s += P(lpoly(lside(FS, 1, k, 2, FS.length - 2)), 'none', st(1.3, K.sh2, op('.75'))); });
+      if (o.nails) { const e = FS[FS.length - 4]; [-0.72, -0.24, 0.24, 0.7].forEach(k => { const x = e[0] + e[3] * e[2] / 2 * k, y = e[1] + e[4] * e[2] / 2 * k; s += El(x, y, e[2] * 0.09, e[2] * 0.07, mx(K.sk, '#FFE8D8', 0.5), st(0.8, K.sh2, op('.7'))); }); }
+      /* the back of the hand (over the finger roots) with the knuckle bumps */
+      const pd = 'M' + pt(Lp(0, -w * 0.4)) + ' C' + pt(Lp(L * 0.35, -w * 0.46)) + ' ' + pt(Lp(L * 0.7, -w * 0.52)) + ' ' + pt(Lp(L, -w * 0.5)) +
+        ' Q' + pt(Lp(L + 4, -w * 0.25)) + ' ' + pt(Lp(L + 2, 0)) + ' Q' + pt(Lp(L + 4, w * 0.25)) + ' ' + pt(Lp(L, w * 0.5)) +
+        ' C' + pt(Lp(L * 0.7, w * 0.52)) + ' ' + pt(Lp(L * 0.35, w * 0.46)) + ' ' + pt(Lp(0, w * 0.4)) + ' Z';
+      s += ink(pd, K.sk, 2.2) + P('M' + pt(Lp(0, sd * w * 0.14)) + ' C' + pt(Lp(L * 0.4, sd * w * 0.3)) + ' ' + pt(Lp(L * 0.8, sd * w * 0.34)) + ' ' + pt(Lp(L, sd * w * 0.5)) + ' C' + pt(Lp(L * 0.7, sd * w * 0.52)) + ' ' + pt(Lp(L * 0.35, sd * w * 0.46)) + ' ' + pt(Lp(0, sd * w * 0.4)) + ' Z', K.sh, op('.55'));
+      s += P([-0.36, -0.12, 0.12, 0.36].map(b => 'M' + pt(Lp(L * 0.3, b * w * 0.7)) + ' L' + pt(Lp(L * 0.86, b * w))).join(' '), 'none', st(1.1, K.sh2, op('.3')));
+      s += P([-0.36, -0.12, 0.12, 0.36].map(b => 'M' + pt(Lp(L - 3, b * w - 3)) + ' Q' + pt(Lp(L + 1, b * w)) + ' ' + pt(Lp(L - 3, b * w + 3))).join(' '), 'none', st(1.2, K.sh2, op('.5')));
+      if (o.thumb && !o.thumbBack) s += finger([Lp(L * 0.15, o.thumb * w * 0.36), Lp(L * 0.58, o.thumb * w * 0.7), Lp(L * 0.92 + (o.tl || 0), o.thumb * w * 0.62)], w * 0.36, K, { shade:sd, nail:o.nails });
+      return s;
+    }
+
+    /* --- scratch: the right arm is raised, the hand goes behind the head and the fingertips scratch the crown.
+       The arm is drawn behind the hair (draw() puts scratchBack in the back layer), so the wig and the skull hide the hand;
+       the fingertips curl over the top of the head in front. --- */
+    function scratchBack(Rc, g, K) {
+      const sw = g.sw, h = headShape(Rc, g), hs = g.fem ? 0.88 : 1 + (g.fat || 0) * 0.08, sl = sleeveOf(Rc);
+      const ex = Math.max(48, C - Math.min(sw + 2, 156)), ey = 206 + (g.fem ? 8 : 0);
+      const [hx, hy] = onHead(h, 22, -26);                          /* the hand, behind the crown */
+      let s = '';
+      /* the upper arm rises from behind the shoulder to the elbow out at the side */
+      const U = [[C - sw + 44, 470], [C - sw + 46, 380], [ex + 6, 290], [ex, ey]], Uw = [70 * hs, 62 * hs, 54 * hs, 46 * hs];
+      const SU = limbS(U, Uw, 8);
+      s += limb(U, Uw, K, { fill:sl || K.sk, shade:1, cap1:true, w:2.6 });
+      if (!sl) s += P(lpoly(lside(SU, -1, 0.42, 4, 14)), 'none', st(1.4, K.sh2, op('.3'))) + bandOn(SU, 12, Rc);
+      else s += P(lpoly(lside(SU, 1, 0.5, 2, 18)), 'none', st(1.4, mx(sl, INK, 0.35), op('.5')));
+      /* the forearm: from the elbow up and in, behind the head */
+      const dx = hx - ex, dy = hy - ey;
+      const Fp = [[ex + 2, ey - 2], [ex + dx * 0.45 - 6, ey + dy * 0.45 - 8], [hx, hy]], Fw = [44 * hs, 39 * hs, 30 * hs];
+      const SF = limbS(Fp, Fw, 8);
+      s += limb(Fp, Fw, K, { shade:1, cap0:true, cap1:true, w:2.5 }) + lcrease(SF, 2, 0.75, K.sh2, 1.5, '.55') + bangle(SF, SF.length - 4, Rc, g);
+      return '<g class="c40sc">' + s + '</g>';
+    }
+    function scratchFront(Rc, g, K) {
+      const h = headShape(Rc, g), hs = g.fem ? 0.88 : 1 + (g.fat || 0) * 0.08;
+      let s = '';
+      /* three fingertips hook over the crown from behind, the nails toward us */
+      [[11, 0.96], [19, 1.04], [27, 1]].forEach(([deg, wk], j) => {
+        const a0 = onHead(h, deg + 6, 9 * hs), a1 = onHead(h, deg + 1, -10 * hs), a2 = onHead(h, deg - 5, -29 * hs);
+        s += '<g class="c40fs f' + j + '">' + P('M' + pt(onHead(h, deg + 2, -6)) + ' L' + pt(onHead(h, deg - 4, -26 * hs)), 'none', st(9 * hs, '#000', op('.12'))) + finger([a0, a1, a2], 12.5 * hs * wk, K, { nail:true, shade:-1 }) + '</g>';
+      });
+      const t = onHead(h, 20, 18);
+      return '<g class="c40sc2">' + s + '</g>' + P('M' + f(t[0] - 14) + ',' + f(t[1] - 4) + ' l-6,-8 M' + f(t[0]) + ',' + f(t[1] - 12) + ' l0,-11 M' + f(t[0] + 15) + ',' + f(t[1] - 6) + ' l6,-8', 'none', st(2.2, INK, 'class="c40sm"'));
+    }
+
+    /* --- tap: the forearm rests on the counter, the fingers drum on the wood --- */
+    function tapArm(Rc, g, K) {
+      const hs = g.fem ? 0.88 : 1 + (g.fat || 0) * 0.08, top = 374, sl = sleeveOf(Rc);
+      let s = P('M-200,' + top + ' L600,' + top + ' L600,440 L-200,440 Z', '#9A6838', st(2.6)) + P('M-200,' + (top + 6) + ' L600,' + (top + 6), 'none', st(2, '#C99A5E', op('.8'))) + P('M-200,' + (top + 22) + ' L600,' + (top + 22) + ' M-200,' + (top + 34) + ' L600,' + (top + 34), 'none', st(1.2, '#7A4E28', op('.5')));
+      /* the forearm lies across from the left, the wrist a little raised */
+      const wx = C - 30, wy = 358, F = [[C - 240, 384], [C - 130, 376], [wx, wy]], Fw = [52 * hs, 46 * hs, 32 * hs];
+      s += P('M' + f(C - 220) + ',' + (top + 1) + ' L' + f(wx + 92) + ',' + (top + 1) + ' Q' + f(wx + 98) + ',' + (top + 8) + ' ' + f(wx + 82) + ',' + (top + 11) + ' L' + f(C - 220) + ',' + (top + 13) + ' Z', '#000', op('.16'));
+      const SF = limbS(F, Fw, 8);
+      s += limb(F, Fw, K, { shade:1, w:2.5 }) + lcrease(SF, SF.length - 3, 0.8, K.sh2, 1.3, '.5');
+      if (sl) s += limb([[C - 240, 386], [C - 150, 380]], [56 * hs, 52 * hs], K, { fill:sl, shade:1, cap1:true, w:2.5 }); else s += bangle(SF, SF.length - 2, Rc, g);
+      /* the hand, a little raised at the wrist: the back of the hand, the fingers curled down onto the wood, the thumb on the near side; it drums */
+      s += '<g class="c40f">' + handBlock(K, { x:wx - 2, y:wy, ang:0.12, len:34 * hs, wid:31 * hs, fl:30 * hs, curl:0.6, thumb:1, tl:2, shade:1, nails:true }) + '</g>';
+      s += P('M' + f(wx + 80) + ',' + f(wy - 18) + ' l8,-8 M' + f(wx + 86) + ',' + f(wy - 4) + ' l10,-2', 'none', st(2, INK, 'class="c40tm"'));
+      return s;
+    }
+
+    /* --- arms: the forearms folded across the chest, the top hand gripping the far upper arm, the other hand tucked away --- */
+    function crossedArms(Rc, g, K) {
+      const sw = g.sw, hs = g.fem ? 0.88 : 1 + (g.fat || 0) * 0.08, y0 = 382, ux = Math.min(sw - 20, 150);
+      let s = '';
+      /* the lower forearm: from the left elbow (below the frame) across and out under the right arm */
+      const A = [[C - ux - 30, y0 + 58], [C - 50, y0 + 18], [C + ux + 40, y0 - 8]], Aw = [58 * hs, 50 * hs, 42 * hs];
+      s += limb(A, Aw, K, { shade:1, w:2.5 });
+      /* the upper forearm: from the right elbow across, on top, to the left upper arm */
+      const B = [[C + ux + 30, y0 + 62], [C + 40, y0 + 30], [C - ux + 70, y0 + 6]], Bw = [60 * hs, 50 * hs, 38 * hs];
+      const SB = limbS(B, Bw, 8);
+      s += P(limbD(SB, false, true), '#000', op('.16') + ' transform="translate(3 10)"');
+      s += limb(B, Bw, K, { shade:1, w:2.6 }) + bangle(SB, SB.length - 3, Rc, g);
+      /* its hand wraps the upper arm: the fingers curl down around it */
+      s += handBlock(K, { x:C - ux + 74, y:y0 + 6, ang:Math.PI + 0.55, len:22 * hs, wid:33 * hs, fl:28 * hs, curl:-0.9, thumb:-1, tl:0, shade:1 });
+      /* clipped to the body: the forearms run on under the upper arms at the sides */
+      return '<g class="c40ar"><g ' + clip('tc') + '>' + s + '</g></g>';
+    }
+
+    /* --- thinking: the forearm rises from below, the chin rests on the loose fist, the index finger along the jaw --- */
+    function chinHand(g, K, Rc) {
+      Rc = Rc || {};
+      const hs = g.fem ? 0.9 : 1 + (g.fat || 0) * 0.06, cx = C + g.cw - 2, cy = g.cy + 4;
+      let s = '';
+      const F = [[cx + 104, 520], [cx + 82, 440], [cx + 50, cy + 66]], Fw = [56 * hs, 48 * hs, 34 * hs];
+      const SF = limbS(F, Fw, 8);
+      s += limb(F, Fw, K, { fill:sleeveOf(Rc) || K.sk, shade:1, cap1:true, w:2.6 }) + bangle(SF, SF.length - 4, Rc, g);
+      /* the fist: wrist below right, the curled fingers under the chin (the knuckle row toward us), the index finger up the jaw */
+      s += handBlock(K, { x:cx + 46, y:cy + 62, ang:-2.3, len:30 * hs, wid:34 * hs, fl:20 * hs, curl:-1, thumb:0, shade:1 });
+      s += finger([[cx + 22, cy + 24], [cx + 6, cy + 8], [cx - 3, cy - 8], [cx - 5, cy - 24]], 11.5 * hs, K, { nail:true, shade:-1 });
+      return '<g class="c40ch">' + s + '</g>';
+    }
+    function tellParts(tell, g, K, Rc) {
       let s = '';
       if (tell === 'sweat') {
         const drop = (x, y, sc, cls) => '<g class="' + cls + '">' + P('M' + f(x) + ',' + f(y - 9 * sc) + ' C' + f(x + 6 * sc) + ',' + f(y) + ' ' + f(x + 5 * sc) + ',' + f(y + 6 * sc) + ' ' + f(x) + ',' + f(y + 6 * sc) + ' C' + f(x - 5 * sc) + ',' + f(y + 6 * sc) + ' ' + f(x - 6 * sc) + ',' + f(y) + ' ' + f(x) + ',' + f(y - 9 * sc) + ' Z', '#9FDCEA', st(1.8)) + El(x - 1.5 * sc, y + 1 * sc, 1.4 * sc, 2.2 * sc, '#FFFFFF', op('.8')) + '</g>';
         s += drop(R(g.fw - 6), 150, 1.3, 'c40sw a') + drop(L(g.fw - 10), 160, 1, 'c40sw b') + drop(R(g.fw + 8), 196, 0.9, 'c40sw c');
         s += El(C - 10, g.by - 22, 12, 4, '#FFFFFF', op('.5') + ' class="c40shn"');
       }
-      if (tell === 'tap') {
-        s += '<g transform="translate(0 -84)">' + P('M-200,452 L600,452 L600,520 L-200,520 Z', '#9A6838', st(2.6)) + P('M-200,458 L600,458', 'none', st(2, '#C99A5E', op('.8')));
-        s += ink('M' + L(210) + ',418 C' + L(150) + ',418 ' + L(90) + ',424 ' + L(40) + ',428 L' + L(36) + ',456 C' + L(90) + ',456 ' + L(150) + ',458 ' + L(210) + ',462 Z', K.sk, 2.4);
-        s += ink('M' + L(46) + ',426 C' + L(30) + ',418 ' + R(4) + ',420 ' + R(18) + ',430 L' + R(22) + ',452 L' + L(44) + ',456 Z', K.sk, 2.2);
-        let fg = ''; for (let k = 0; k < 4; k++) fg += '<g class="c40f f' + k + '">' + ink('M' + R(10) + ',' + f(430 + k * 6) + ' C' + R(30) + ',' + f(428 + k * 6) + ' ' + R(38) + ',' + f(432 + k * 6) + ' ' + R(38) + ',' + f(437 + k * 6) + ' C' + R(36) + ',' + f(441 + k * 6) + ' ' + R(26) + ',' + f(440 + k * 6) + ' ' + R(10) + ',' + f(440 + k * 6) + ' Z', K.sk, 1.8) + '</g>';
-        s += fg + P('M' + R(44) + ',420 l8,-8 M' + R(50) + ',432 l10,-2', 'none', st(2, INK, 'class="c40tm"')) + '</g>';
-      }
-      if (tell === 'arms') {
-        /* forearms folded across the chest, the top hand resting on the other arm */
-        const limb = (x0, y0, x1, y1, w0, w1, sag) => {
-          const dx = x1 - x0, dy = y1 - y0, l = Math.hypot(dx, dy), nx = -dy / l, ny = dx / l, mx2 = (x0 + x1) / 2, my2 = (y0 + y1) / 2 + sag, wm = (w0 + w1) / 2;
-          return 'M' + f(x0 + nx * w0 / 2) + ',' + f(y0 + ny * w0 / 2) + ' Q' + f(mx2 + nx * wm / 2) + ',' + f(my2 + ny * wm / 2) + ' ' + f(x1 + nx * w1 / 2) + ',' + f(y1 + ny * w1 / 2) +
-            ' Q' + f(x1 + dx / l * w1 * 0.5) + ',' + f(y1 + dy / l * w1 * 0.5) + ' ' + f(x1 - nx * w1 / 2) + ',' + f(y1 - ny * w1 / 2) + ' Q' + f(mx2 - nx * wm / 2) + ',' + f(my2 - ny * wm / 2) + ' ' + f(x0 - nx * w0 / 2) + ',' + f(y0 - ny * w0 / 2) + ' Z';
-        };
-        const lo = limb(C - 182, 420, C + 98, 360, 46, 30, 10), hi = limb(C + 182, 420, C - 92, 360, 46, 30, 10);
-        let a = ink(lo, K.sk, 2.6) + P(limb(C - 176, 432, C + 92, 372, 18, 8, 10), K.sh, op('.55'));
-        a += ink('M' + f(C + 92) + ',340 C' + f(C + 114) + ',338 ' + f(C + 124) + ',352 ' + f(C + 120) + ',366 C' + f(C + 116) + ',378 ' + f(C + 102) + ',382 ' + f(C + 90) + ',376 Z', K.sk, 2.2);
-        a += P(hi, '#000', op('.18') + ' transform="translate(2 9)"') + ink(hi, K.sk, 2.6) + P(limb(C + 176, 432, C - 86, 372, 16, 8, 10), K.sh, op('.5'));
-        a += ink('M' + f(C - 86) + ',340 C' + f(C - 108) + ',338 ' + f(C - 122) + ',350 ' + f(C - 120) + ',364 C' + f(C - 118) + ',378 ' + f(C - 104) + ',382 ' + f(C - 88) + ',376 Z', K.sk, 2.2) + P('M' + f(C - 116) + ',352 q8,2 14,0 M' + f(C - 118) + ',364 q9,2 16,0', 'none', st(1.4, K.sh2, op('.8')));
-        s += '<g transform="translate(0 -30)"><g class="c40ar">' + a + '</g></g>';
-      }
-      if (tell === 'scratch') {
-        /* the arm comes up from the left shoulder, elbow out, fingers scratching the top of the head */
-        const fw = g.fw, hx = C - fw * 0.55, hy = 92;
-        let a = ink('M' + L(g.sw - 22) + ',430 C' + L(g.sw - 6) + ',360 ' + L(g.sw + 2) + ',280 ' + L(g.sw - 6) + ',214 L' + L(g.sw - 52) + ',204 C' + L(g.sw - 52) + ',280 ' + L(g.sw - 60) + ',350 ' + L(g.sw - 72) + ',430 Z', K.sk, 2.6);
-        a += P('M' + L(g.sw - 46) + ',230 C' + L(g.sw - 48) + ',300 ' + L(g.sw - 56) + ',360 ' + L(g.sw - 66) + ',430 L' + L(g.sw - 50) + ',430 C' + L(g.sw - 40) + ',360 ' + L(g.sw - 34) + ',300 ' + L(g.sw - 30) + ',232 Z', K.sh, op('.7'));
-        a += ink('M' + L(g.sw - 4) + ',226 C' + L(g.sw - 14) + ',196 ' + f(hx - 40) + ',' + f(hy + 40) + ' ' + f(hx - 14) + ',' + f(hy + 24) + ' L' + f(hx + 4) + ',' + f(hy + 44) + ' C' + f(hx - 26) + ',' + f(hy + 66) + ' ' + L(g.sw - 40) + ',214 ' + L(g.sw - 50) + ',236 C' + L(g.sw - 40) + ',250 ' + L(g.sw - 10) + ',248 ' + L(g.sw - 4) + ',226 Z', K.sk, 2.6);
-        a += ink('M' + f(hx - 18) + ',' + f(hy + 26) + ' C' + f(hx - 22) + ',' + f(hy + 4) + ' ' + f(hx - 6) + ',' + f(hy - 10) + ' ' + f(hx + 14) + ',' + f(hy - 10) + ' C' + f(hx + 30) + ',' + f(hy - 10) + ' ' + f(hx + 40) + ',' + f(hy) + ' ' + f(hx + 38) + ',' + f(hy + 10) + ' C' + f(hx + 30) + ',' + f(hy + 12) + ' ' + f(hx + 22) + ',' + f(hy + 22) + ' ' + f(hx + 10) + ',' + f(hy + 34) + ' C' + f(hx + 2) + ',' + f(hy + 42) + ' ' + f(hx - 12) + ',' + f(hy + 38) + ' ' + f(hx - 18) + ',' + f(hy + 26) + ' Z', K.sk, 2.3);
-        a += P('M' + f(hx + 6) + ',' + f(hy - 9) + ' q4,8 2,16 M' + f(hx + 16) + ',' + f(hy - 9) + ' q4,8 1,15 M' + f(hx + 26) + ',' + f(hy - 6) + ' q3,6 0,12', 'none', st(1.5, K.sh2, op('.85')));
-        s += '<g class="c40sc">' + a + '</g>' + P('M' + f(hx - 4) + ',' + f(hy - 24) + ' l-4,-10 M' + f(hx + 12) + ',' + f(hy - 28) + ' l0,-12 M' + f(hx + 28) + ',' + f(hy - 24) + ' l4,-10', 'none', st(2.2, INK, 'class="c40sm"'));
-      }
+      if (tell === 'tap') s += tapArm(Rc, g, K);
+      if (tell === 'arms') s += crossedArms(Rc, g, K);
+      if (tell === 'scratch') s += scratchFront(Rc, g, K);
       return s;
     }
 
@@ -844,7 +987,7 @@
       K.defs += '<clipPath id="fc§"><path d="' + fd + '"/></clipPath>';
       const tilt = X.tilt || 0, dy = X.dy || 0, ht = (tilt || dy ? ' transform="rotate(' + tilt + ' 200 300) translate(0 ' + dy + ')"' : '');
       /* back layer: props, hair */
-      let back = propsBack(Rc, g, K) + '<g class="c40h"><g' + ht + '>' + hairBack(Rc, g, K) + '</g></g>';
+      let back = propsBack(Rc, g, K) + (tell === 'scratch' ? scratchBack(Rc, g, K) : '') + '<g class="c40h"><g' + ht + '>' + hairBack(Rc, g, K) + '</g></g>';
       /* body */
       let body = bodyParts(Rc, g, K, X) + neck(Rc, g, K) + collar(Rc, g, K) + propsFront(Rc, g, K);
       /* head */
@@ -861,8 +1004,8 @@
       if (o.live && !X.mo) { const tk = TALK[mood] || 'talk'; head += '<g class="c40m m1">' + mouth(tk, 1, g, K, 'mB') + '</g><g class="c40m m2">' + mouth(tk, 0.35, g, K, 'mC') + '</g>'; }
       head += hairFront(Rc, g, K) + penBehindEar(Rc, g, K) + lotus(Rc, g);
       let front = '';
-      if (X.hand === 'chin') front += chinHand(g, K);
-      if (tell) front += tellParts(tell, g, K);
+      if (X.hand === 'chin') front += chinHand(g, K, Rc);
+      if (tell) front += tellParts(tell, g, K, Rc);
       let fig = back + body + '<g class="c40h"><g' + ht + '>' + head + '</g></g>' + front;
       if (tell === 'lean') fig = '<g transform="translate(200 500) scale(1.08) translate(-200 -490)">' + fig + '</g>';
       const bg = o.bg === false ? '' : o.frame === 'face' ? '<rect x="0" y="0" width="400" height="480" fill="' + (o.bg || Rc.bg || '#F3E2B8') + '"/>' : '';

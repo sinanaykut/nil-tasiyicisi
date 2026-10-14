@@ -205,7 +205,9 @@
           if (dim && tier < 1 && sub.length > 15) sub = '';
           let bh = '';
           if (bd.crisis) bh += '<span class="v3m-b cr" title="Kriz">⚠</span>';
-          if (bd.order) bh += '<span class="v3m-b or" title="Sipariş">' + icoS('i-scroll', '✉') + '</span>';
+          /* v43: orders you carry there (gold) and orders waiting on its board (light); a donkey marks a caravan job */
+          if (bd.order) bh += '<span class="v3m-b or' + (bd.orderDz ? ' dz' : '') + '" title="' + (bd.orderDz ? 'Kervan işi' : 'Sipariş') + '">' + icoS(bd.orderDz ? 'i-donkey' : 'i-scroll', '✉') + '</span>';
+          else if (bd.post) bh += '<span class="v3m-b or of' + (bd.postDz ? ' dz' : '') + '" title="' + (bd.postDz ? 'Kervan işi bekliyor' : 'Sipariş bekliyor') + '">' + icoS(bd.postDz ? 'i-donkey' : 'i-scroll', '✉') + '</span>';
           if (bd.work) bh += '<span class="v3m-b wk" title="Atölye hazır">' + icoS('i-workshop', '⚒') + '</span>';
           if (bd.sethi) bh += '<span class="v3m-b se" title="Sethi">' + icoS('i-boat', '⛵') + '</span>';
           let hint = '';

@@ -8,8 +8,8 @@
 .tgsvg{width:100%;height:auto;display:block;-webkit-tap-highlight-color:transparent}
 .tgov{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;overflow:visible}
 .tgsvg [data-tgsq]{cursor:pointer}
-.tgnum{font:800 9.5px Nunito,sans-serif;fill:#FBF3DF;pointer-events:none}
-.tg-hounds .tgnum{fill:#5A3A22}
+.tgnum{font:800 14px Nunito,sans-serif;fill:#FFF8E6;pointer-events:none;paint-order:stroke;stroke:#22400E;stroke-width:3px;stroke-linejoin:round}
+.tg-hounds .tgnum{font-size:12px;fill:#5A3A22;stroke:#FBF0D4;stroke-width:3px}
 .tglab{font:800 10px Nunito,sans-serif;fill:#2B1D14;letter-spacing:.05em}
 #tgHl,#tgTut{pointer-events:none}
 .tgpc{transition:transform .13s ease-out,opacity .3s}
@@ -34,12 +34,15 @@
 #tgV.again{color:#1E7D74}
 .tg .snv b{display:block;font:800 32px/1 Nunito,sans-serif;color:var(--ink)}
 /* phones: the board on top, a compact two-column panel below */
-.tg:not(.w) .tgpn{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"a p" "th msg" "act act" "leg leg";gap:6px 8px;align-items:center}
-.tg:not(.w) .snpl.a{grid-area:a}.tg:not(.w) .snpl.p{grid-area:p}.tg:not(.w) .tgthrow{grid-area:th}.tg:not(.w) .snmsg{grid-area:msg}.tg:not(.w) .tgact{grid-area:act}.tg:not(.w) .snleg{grid-area:leg;justify-content:center}
-.tg-mehen:not(.w) .tgbd{max-width:min(100%,calc(100dvh - 430px))}
-.tg-mehen.tgtm:not(.w) .tgbd{max-width:min(100%,calc(100dvh - 520px))}
-.tg-hounds:not(.w) .tgbd{max-width:min(100%,calc((100dvh - 420px) * .664))}
-.tg-hounds.tgtm:not(.w) .tgbd{max-width:min(100%,calc((100dvh - 545px) * .664))}
+.tg:not(.w) .tgpn{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"a p" "th msg" "act act";gap:6px 8px;align-items:center}
+.tg:not(.w) .snpl.a{grid-area:a}.tg:not(.w) .snpl.p{grid-area:p}.tg:not(.w) .tgthrow{grid-area:th}.tg:not(.w) .snmsg{grid-area:msg}.tg:not(.w) .tgact{grid-area:act}
+.tg-mehen:not(.w) .tgbd{max-width:min(100%,calc(100dvh - 330px))}
+.tg-mehen.tgtm:not(.w) .tgbd{max-width:min(100%,calc(100dvh - 430px))}
+.tg-hounds:not(.w) .tgbd{max-width:min(100%,calc((100dvh - 330px) * .714))}
+.tg-hounds.tgtm:not(.w) .tgbd{max-width:min(100%,calc((100dvh - 430px) * .714))}
+/* v43: the footer on phones: legend + "Pes et" in one row */
+.snfoot.tgft{justify-content:space-between}
+.snfoot.tgft .snleg{flex:1;min-width:0;gap:2px 10px;font-size:12.5px}
 .tg .snpl{display:grid;grid-auto-flow:column;grid-template-rows:auto auto;justify-content:start;align-items:center;column-gap:7px;row-gap:1px;padding:3px 10px 3px 7px}
 .tg .snpl > svg,.tg .snpl > .snav{grid-row:1 / span 2}
 .tg .snpl b{grid-row:1;line-height:1.1}
@@ -49,10 +52,22 @@
 .tg.w.tg-hounds{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
 @media (max-width:560px){
   .veil:has(.tg){padding:8px}
-  .sh-in:has(.tg){padding:12px 10px 14px;gap:10px}
+  .sh-in:has(.tg){padding:10px 10px 12px;gap:8px}
   .sheet:has(.tg){max-height:calc(100vh - 16px);max-height:calc(100dvh - 16px)}
   .tg + .snfoot .muted{font-size:11.5px}
   .tg.tgtm + .snfoot .muted{display:none}
+  /* v43 phones: the sheet takes the whole screen and the board takes every pixel the panel leaves (never a scroll) */
+  .sheet:has(.tg:not(.w)){height:calc(100vh - 16px);height:calc(100dvh - 16px)}
+  .sheet:has(.tg:not(.w)) > .sh-in{height:calc(100% - 12px);min-height:0;box-sizing:border-box}   /* 12px = the frieze band (.sheet::before) */
+  .sh-in:has(.tg:not(.w)) > .tg{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:8px}
+  .tg:not(.w) .tgbd{flex:1 1 auto;min-height:200px;max-width:none!important;width:100%}
+  .tg:not(.w) .tgbd > .tgsvg,.tg:not(.w) .tgbd > .tgov{position:absolute;left:0;top:0;width:100%;height:100%}
+  .tg:not(.w) .tgpn{flex:none}
+  .sh-in:has(.tg:not(.w)) .sh-h h2{font-size:21px}
+  .sh-in:has(.tg:not(.w)) .sncoach{padding:5px 8px 5px 5px;gap:8px}
+  .sh-in:has(.tg:not(.w)) .sncp{width:58px;height:64px}
+  .sh-in:has(.tg:not(.w)) .sncb p{font-size:13.5px;line-height:1.25}
+  .tg:not(.w) .snmsg{min-height:0}
 }
 /* landscape phones: the board fills the left side; title, Paneb, panel and footer stack on the right */
 @media (min-width:700px) and (max-height:520px){
@@ -61,8 +76,8 @@
   .sh-in:has(.tg) > *{grid-column:2}
   .sh-in:has(.tg) > .tg{display:contents}
   .sh-in:has(.tg) .tgbd{grid-column:1;grid-row:1 / span 6;margin:0;max-width:none}
-  .sh-in:has(.tg-mehen) .tgbd{width:calc(100dvh - 54px)}
-  .sh-in:has(.tg-hounds) .tgbd{width:calc((100dvh - 54px) * .664)}
+  .sh-in:has(.tg-mehen) .tgbd{width:calc(100dvh - 46px)}
+  .sh-in:has(.tg-hounds) .tgbd{width:calc((100dvh - 46px) * .714)}
   .sh-in:has(.tg) .tgpn{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"a p" "th msg" "act act" "leg leg";gap:4px 8px;align-items:center}
   .sh-in:has(.tg) .snpl.a{grid-area:a}.sh-in:has(.tg) .snpl.p{grid-area:p}.sh-in:has(.tg) .tgthrow{grid-area:th}.sh-in:has(.tg) .snmsg{grid-area:msg;min-height:0}.sh-in:has(.tg) .tgact{grid-area:act;min-height:46px}.sh-in:has(.tg) .snleg{grid-area:leg}
   .sh-in:has(.tg) .snpl{min-height:36px}
@@ -84,6 +99,6 @@
 @media (min-height:521px){
 .tg.w.tg-mehen .tgbd{max-width:min(400px,calc(min(92vh,760px) - 200px))}
 .tg.w.tg-mehen.tgtm .tgbd{max-width:min(400px,calc(min(92vh,760px) - 310px))}
-.tg.w.tg-hounds .tgbd{max-width:min(330px,calc((min(92vh,760px) - 200px) * .664))}
-.tg.w.tg-hounds.tgtm .tgbd{max-width:min(330px,calc((min(92vh,760px) - 310px) * .664))}
+.tg.w.tg-hounds .tgbd{max-width:min(330px,calc((min(92vh,760px) - 200px) * .714))}
+.tg.w.tg-hounds.tgtm .tgbd{max-width:min(330px,calc((min(92vh,760px) - 310px) * .714))}
 }

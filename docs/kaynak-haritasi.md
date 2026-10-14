@@ -136,3 +136,17 @@ real buttons. `tavern42.txt`: Mehen (snake board, 2 lions, 3 sticks, hits send h
 Paneb's first-game coaching (meta.mehenTaught / houndsTaught) and a rules card; `tavernGames(ci, day)` picks today's game and the
 alternative the host offers (ui/13 showTavern). Debug: `fn.playTavernGame`, `fn.tavernAuto({ fast })` (also drives Senet), `fn.TG`.
 Images: docs/qa42-oyun.
+v43 fixes (owner report): tavern boards on phones (`tavern42.css`/`.txt`): portrait sheets take the whole screen and the board takes
+the room the panel leaves (both board SVGs absolute in `.tgbd`, `meet` keeps them aligned); legend + "Pes et" share the footer
+(`.snfoot.tgft`, the foot line lives in the rules card); bigger Mehen cells/numbers, transparent finger-sized tap circles on cells
+and pieces (`D.hit`, `D.ps` piece scale, `D.hr` highlight radius); Hounds & Jackals: drawers at the top of the palm right above
+hole 1 (`HJ_H` 420, start pins at y 128); Senet's upright board shrinks on short phones and the landscape sheet never scrolls.
+Town pan (`v3/06` zoomPan `opt.bound/room/ta`, `fix()`; `town29` `townBound`/`townBox`): the town pans at zoom 1 inside the
+built town's box (merged geometry AABB in screen px), never tighter than the fit; touch-action `none` when there is room and
+the page does not scroll. Orders on the map (`ui/13` `ordInfo`): gold mark = an order you carry there, dashed = an order waiting
+on that town's board or where this board's order goes; a donkey marks caravan jobs; same marks on the travel chips (`ordChip`),
+notes in the travel card, "Başka panolarda" list on the board. CH40 arms and hands (`chars40.txt` limbS/limb/finger/handBlock):
+scratch = arm raised behind the head (drawn in the back layer, `scratchBack`) with fingertips over the crown (`scratchFront`),
+tap = forearm on the counter + drumming hand, arms = forearms folded (clipped to the body), thinking = fist under the chin.
+Road `ruin` nodes open the tomb seal (no light puzzle). chars33: the carry clip raises the left arm, so only head loads and
+the shoulder jar use it; sack carriers and empty-handed walkers walk. Images: docs/qa43.
