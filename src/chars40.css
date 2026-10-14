@@ -32,9 +32,8 @@ svg.c40.f-card,svg.c40.f-face{width:100%;height:100%}
 .c40s.t-tap .c40f.f1{animation-delay:.08s}.c40s.t-tap .c40f.f2{animation-delay:.16s}.c40s.t-tap .c40f.f3{animation-delay:.24s}
 .c40s.t-tap .c40tm{animation:c40fl .5s step-end infinite}
 .c40s.t-arms .c40ar{animation:c40hf 3s ease-in-out infinite}
-.c40s.t-scratch .c40sc{transform-box:view-box;transform-origin:60px 420px;animation:c40scr .45s ease-in-out infinite}
-.c40s.t-scratch .c40fs{transform-box:view-box;transform-origin:150px 90px;animation:c40fsc .45s ease-in-out infinite}
-.c40s.t-scratch .c40fs.f1{animation-delay:-.15s}.c40s.t-scratch .c40fs.f2{animation-delay:-.3s}
+.c40s.t-scratch .c40sc{transform-box:view-box;animation:c40scr .9s ease-in-out infinite}
+.c40s.t-scratch .c40sk{transform-box:view-box;animation:c40fsc .3s ease-in-out infinite}
 .c40s.t-scratch .c40h,.c40s.t-scratch.talk .c40h{animation:none}
 .c40s.t-scratch .c40sm{animation:c40fl .45s step-end infinite}
 .c40s.t-smile .m0,.c40s.t-eyebrow .c40h{animation-duration:2.4s}
@@ -58,8 +57,8 @@ svg.c40.f-card,svg.c40.f-face{width:100%;height:100%}
 @keyframes c40tp{0%,100%{transform:translateY(0)}40%{transform:translateY(-5px)}}
 @keyframes c40tq{0%,100%{transform:rotate(0)}40%{transform:rotate(-6deg)}}
 @keyframes c40hf{0%,70%,100%{transform:translateY(0)}82%{transform:translateY(-4px)}}
-@keyframes c40scr{0%,100%{transform:rotate(0)}50%{transform:rotate(-.7deg)}}
-@keyframes c40fsc{0%,100%{transform:translate(0,0)}50%{transform:translate(1.5px,2px)}}
+@keyframes c40scr{0%,100%{transform:rotate(0)}50%{transform:rotate(1.6deg)}}
+@keyframes c40fsc{0%,100%{transform:rotate(0)}50%{transform:rotate(-5deg)}}
 @media (prefers-reduced-motion: reduce){ .c40s *,.c40s .c40l,.c40s.talk *{animation:none!important} .c40s .c40bl{opacity:0} }
 /* small faces in rings and badges */
 .c40i{display:block;width:100%;height:100%;border-radius:inherit}

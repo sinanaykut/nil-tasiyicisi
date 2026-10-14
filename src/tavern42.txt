@@ -129,18 +129,20 @@
   };
 
   /* ---------- Hounds & Jackals ---------- */
-  const HJ_GOAL = 30, HJ_JUMP = { 6:20, 8:12, 24:16 }, HJ_W = 300, HJ_H = 420, HJ_CX = 150;
+  const HJ_GOAL = 30, HJ_JUMP = { 6:20, 8:12, 24:16 }, HJ_W = 300, HJ_H = 440, HJ_CX = 150, HJ_AY = 162, HJ_RX = 124, HJ_RY = 128;
+  /* v45 (owner: "Hounds and Jackals looks small"): bigger holes (r 10 / 12), bigger pins, the holes spread over the whole palm:
+     down the middle 1..10, up the edge 11..21, over the crown 22..29 (an ellipse), the shen hole at the very top */
   function hjXY(side, q) {
     const sg = side === 'p' ? 1 : -1;
-    if (q >= HJ_GOAL) return [HJ_CX, 44];
-    if (q <= 10) return [HJ_CX + sg * 30, 150 + (q - 1) * 25];
-    if (q <= 20) return [HJ_CX + sg * 118, 392 - (q - 11) * 24];
-    const a = (q - 20) / 9.6 * Math.PI / 2 * 0.92, R = 118;
-    return [HJ_CX + sg * Math.cos(a) * R, 176 - Math.sin(a) * R * 1.02];
+    if (q >= HJ_GOAL) return [HJ_CX, 36];
+    if (q <= 10) return [HJ_CX + sg * 36, 162 + (q - 1) * 28.4];
+    if (q <= 21) return [HJ_CX + sg * HJ_RX, 414 - (q - 11) * 25.2];
+    const a = (q - 21) / 8.6 * Math.PI / 2 * 0.93;
+    return [HJ_CX + sg * Math.cos(a) * HJ_RX, HJ_AY - Math.sin(a) * HJ_RY];
   }
   TG.hounds = {
-    id:'hounds', title:'Tazı ve Çakal', N:3, GOAL:HJ_GOAL, W:HJ_W, H:HJ_H, lab:'tazı', ps:1, hr:16,
-    hit:'<rect x="-11" y="-46" width="22" height="54" rx="6" fill="transparent"/>',
+    id:'hounds', title:'Tazı ve Çakal', N:3, GOAL:HJ_GOAL, W:HJ_W, H:HJ_H, lab:'tazı', ps:1.4, hr:17,
+    hit:'<rect x="-13" y="-34" width="26" height="42" rx="7" fill="transparent"/>',
     throw() { const r = Math.random(), v = r < 0.1 ? 1 : r < 0.5 ? 3 : r < 0.9 ? 4 : 6; return { f:[v], v }; },
     again:v => v === 1 || v === 6,
     againTxt:'1 · 6<br>bir daha',
@@ -170,8 +172,8 @@
     steps(m) { const out = []; for (let q = m.f + 1; q <= m.t; q++) out.push(q); return out; },
     xy(side, q, i) {
       /* v43: the pins wait in little drawers at the top of the palm, right above hole 1 (the first move no longer jumps across the board) */
-      if (q <= 0) return [HJ_CX + (side === 'p' ? 1 : -1) * (21 + i * 16), 128];
-      if (q >= HJ_GOAL) return [HJ_CX + (side === 'p' ? 1 : -1) * (6 + i * 9), 44 + (i % 2 ? 3 : -2)];
+      if (q <= 0) return [HJ_CX + (side === 'p' ? 1 : -1) * (29 + i * 16), 132];
+      if (q >= HJ_GOAL) return [HJ_CX + (side === 'p' ? 1 : -1) * (6 + i * 9), 40 + (i % 2 ? 3 : -2)];
       return hjXY(side, q);
     },
     cellXY(q) { return q <= 0 ? null : hjXY('p', q); },
@@ -179,31 +181,31 @@
       const u = PZ.uid;
       let s = '<svg viewBox="0 0 ' + HJ_W + ' ' + HJ_H + '" class="tgsvg" role="img" aria-label="Tazı ve Çakal tahtası: palmiye">';
       s += '<defs>' + grad('hjWd' + u, [[0, '#B98552'], [1, '#8E5A33']], true) + grad('hjIv' + u, [[0, '#FBF0D4'], [1, '#E5CF9C']], true) + '</defs>';
-      const out = 'M8 ' + (HJ_H - 6) + 'V176A142 142 0 0 1 292 176V' + (HJ_H - 6) + 'Z';
+      const out = 'M6 ' + (HJ_H - 6) + 'V' + HJ_AY + 'A144 144 0 0 1 294 ' + HJ_AY + 'V' + (HJ_H - 6) + 'Z';
       s += '<path d="' + out + '" fill="url(#hjWd' + u + ')" stroke="' + INK + '" stroke-width="3"/>';
-      s += '<path d="M20 ' + (HJ_H - 18) + 'V178A130 130 0 0 1 280 178V' + (HJ_H - 18) + 'Z" fill="url(#hjIv' + u + ')" stroke="' + INK + '" stroke-width="2"/>';
+      s += '<path d="M16 ' + (HJ_H - 16) + 'V' + HJ_AY + 'A134 134 0 0 1 284 ' + HJ_AY + 'V' + (HJ_H - 16) + 'Z" fill="url(#hjIv' + u + ')" stroke="' + INK + '" stroke-width="2"/>';
       /* the palm: trunk rings and fronds */
-      let tr = ''; for (let y = 146; y < HJ_H - 30; y += 13) tr += 'M' + (HJ_CX - 9) + ' ' + y + 'q9 6 18 0';
-      s += '<rect x="' + (HJ_CX - 10) + '" y="132" width="20" height="' + (HJ_H - 26 - 132) + '" rx="6" fill="#B07A44" stroke="' + INK + '" stroke-width="2"/>' + pth(tr, 'none', 'stroke="#7A4E28" stroke-width="2"');
+      let tr = ''; for (let y = 150; y < HJ_H - 30; y += 13) tr += 'M' + (HJ_CX - 9) + ' ' + y + 'q9 6 18 0';
+      s += '<rect x="' + (HJ_CX - 10) + '" y="136" width="20" height="' + (HJ_H - 26 - 136) + '" rx="6" fill="#B07A44" stroke="' + INK + '" stroke-width="2"/>' + pth(tr, 'none', 'stroke="#7A4E28" stroke-width="2"');
       /* the crown rises between the two drawers */
-      s += [-1, 1].map(sg => [[0.55, 48], [0.95, 50], [1.3, 42], [1.52, 30]].map(([a, L]) => { const ex = HJ_CX + sg * Math.cos(a) * L, ey = 116 - Math.sin(a) * L; return pth('M' + HJ_CX + ' 118Q' + (HJ_CX + sg * Math.cos(a) * L * 0.55 - sg * 8).toFixed(1) + ' ' + (ey - 4).toFixed(1) + ' ' + ex.toFixed(1) + ' ' + ey.toFixed(1) + 'Q' + (HJ_CX + sg * Math.cos(a) * L * 0.5 + sg * 4).toFixed(1) + ' ' + (ey + 12).toFixed(1) + ' ' + HJ_CX + ' 124Z', '#3E8A4A', ink(1.8)); }).join('')).join('');
-      s += '<circle cx="' + (HJ_CX - 5) + '" cy="126" r="4.6" fill="#8E3B2A" stroke="' + INK + '" stroke-width="1.4"/><circle cx="' + (HJ_CX + 5) + '" cy="127" r="4.6" fill="#8E3B2A" stroke="' + INK + '" stroke-width="1.4"/>';
+      s += [-1, 1].map(sg => [[0.55, 48], [0.95, 50], [1.3, 42], [1.52, 30]].map(([a, L]) => { const ex = HJ_CX + sg * Math.cos(a) * L, ey = 120 - Math.sin(a) * L; return pth('M' + HJ_CX + ' 122Q' + (HJ_CX + sg * Math.cos(a) * L * 0.55 - sg * 8).toFixed(1) + ' ' + (ey - 4).toFixed(1) + ' ' + ex.toFixed(1) + ' ' + ey.toFixed(1) + 'Q' + (HJ_CX + sg * Math.cos(a) * L * 0.5 + sg * 4).toFixed(1) + ' ' + (ey + 12).toFixed(1) + ' ' + HJ_CX + ' 128Z', '#3E8A4A', ink(1.8)); }).join('')).join('');
+      s += '<circle cx="' + (HJ_CX - 5) + '" cy="130" r="4.6" fill="#8E3B2A" stroke="' + INK + '" stroke-width="1.4"/><circle cx="' + (HJ_CX + 5) + '" cy="131" r="4.6" fill="#8E3B2A" stroke="' + INK + '" stroke-width="1.4"/>';
       /* shortcut lines (both sides) */
       ['p', 'a'].forEach(sd => Object.keys(HJ_JUMP).forEach(k => {
         const a = hjXY(sd, +k), b = hjXY(sd, HJ_JUMP[k]), up = HJ_JUMP[k] > +k, mx = (a[0] + b[0]) / 2 + (sd === 'p' ? 1 : -1) * (up ? -10 : 18), my = (a[1] + b[1]) / 2 + (up ? 14 : 0);
-        s += '<path d="M' + a[0] + ' ' + a[1] + 'Q' + mx + ' ' + my + ' ' + b[0] + ' ' + b[1] + '" fill="none" stroke="' + (up ? '#1E7D74' : '#B7412E') + '" stroke-width="3.2" stroke-linecap="round"' + (up ? '' : ' stroke-dasharray="5 4"') + ' opacity=".8"/>';
+        s += '<path d="M' + a[0] + ' ' + a[1] + 'Q' + mx + ' ' + my + ' ' + b[0] + ' ' + b[1] + '" fill="none" stroke="' + (up ? '#1E7D74' : '#B7412E') + '" stroke-width="4" stroke-linecap="round"' + (up ? '' : ' stroke-dasharray="6 5"') + ' opacity=".8"/>';
       }));
       /* the holes */
       ['p', 'a'].forEach(sd => { for (let q = 1; q < HJ_GOAL; q++) {
         const [x, y] = hjXY(sd, q), sp = HJ_JUMP[q], land = Object.values(HJ_JUMP).includes(q);
-        s += '<g' + (sd === 'p' ? ' data-tgsq="' + q + '"' : '') + '>' + (sd === 'p' ? '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="12" fill="transparent"/>' : '') + '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + (sp ? 9 : 7) + '" fill="' + (sp ? (sp > q ? '#2BA59A' : '#B7412E') : land ? '#E9C46A' : '#5A3A22') + '" stroke="' + INK + '" stroke-width="' + (sp ? 2.2 : 1.6) + '"/><circle cx="' + x.toFixed(1) + '" cy="' + (y + 1).toFixed(1) + '" r="' + (sp ? 4 : 3.4) + '" fill="#2B1D14"/>';
-        if (sd === 'p' && (q % 5 === 0 || q === 1)) { const lx = q <= 10 ? x + 14 : q <= 20 ? x - 15 : x + (x - HJ_CX) / 118 * 17, ly = q <= 20 ? y + 4 : y + (y - 176) / 118 * 17 + 4; s += '<text x="' + lx.toFixed(1) + '" y="' + ly.toFixed(1) + '" text-anchor="middle" class="tgnum">' + q + '</text>'; }
+        s += '<g' + (sd === 'p' ? ' data-tgsq="' + q + '"' : '') + '>' + (sd === 'p' ? '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + (q <= 21 ? 14 : 12) + '" fill="transparent"/>' : '') + '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + (sp ? 11.5 : q > 21 ? 9.2 : 10) + '" fill="' + (sp ? (sp > q ? '#2BA59A' : '#B7412E') : land ? '#E9C46A' : '#6A4428') + '" stroke="' + INK + '" stroke-width="' + (sp ? 2.4 : 1.8) + '"/><circle cx="' + x.toFixed(1) + '" cy="' + (y + 1.2).toFixed(1) + '" r="' + (sp ? 5.4 : 4.8) + '" fill="#2B1D14"/><path d="M' + (x - 5).toFixed(1) + ' ' + (y - 5).toFixed(1) + 'a7 7 0 0 1 8 -2" fill="none" stroke="#FFF2D0" stroke-width="1.6" stroke-linecap="round" opacity=".45"/>';
+        if (sd === 'p' && (q % 5 === 0 || q === 1) && q <= 21) { const lx = q <= 10 ? x + 20 : q <= 21 ? x - 21 : x - (x - HJ_CX) / HJ_RX * 22, ly = q <= 21 ? y + 5 : y - (y - HJ_AY) / HJ_RY * 22 + 5; s += '<text x="' + lx.toFixed(1) + '" y="' + ly.toFixed(1) + '" text-anchor="middle" class="tgnum">' + q + '</text>'; }
         s += '</g>';
       } });
       /* the shen hole at the top */
-      s += '<g data-tgsq="' + HJ_GOAL + '"><circle cx="' + HJ_CX + '" cy="44" r="17" fill="#E9C46A" stroke="' + INK + '" stroke-width="2.4"/><circle cx="' + HJ_CX + '" cy="44" r="10" fill="#2B1D14"/><path d="M' + (HJ_CX - 14) + ' 64h28" stroke="' + INK + '" stroke-width="3" stroke-linecap="round"/></g>';
+      s += '<g data-tgsq="' + HJ_GOAL + '"><circle cx="' + HJ_CX + '" cy="36" r="16" fill="#E9C46A" stroke="' + INK + '" stroke-width="2.4"/><circle cx="' + HJ_CX + '" cy="36" r="9.5" fill="#2B1D14"/><path d="M' + (HJ_CX - 13) + ' 55h26" stroke="' + INK + '" stroke-width="3" stroke-linecap="round"/></g>';
       /* the drawers */
-      s += '<g data-tgsq="0"><rect x="' + (HJ_CX + 11) + '" y="106" width="58" height="30" rx="8" fill="#E9C46A" stroke="' + INK + '" stroke-width="2" stroke-dasharray="5 3"/><rect x="' + (HJ_CX - 69) + '" y="106" width="58" height="30" rx="8" fill="#E9B5A6" stroke="' + INK + '" stroke-width="2" stroke-dasharray="5 3"/></g>';
+      s += '<g data-tgsq="0"><rect x="' + (HJ_CX + 12) + '" y="112" width="66" height="30" rx="8" fill="#E9C46A" stroke="' + INK + '" stroke-width="2" stroke-dasharray="5 3"/><rect x="' + (HJ_CX - 78) + '" y="112" width="66" height="30" rx="8" fill="#E9B5A6" stroke="' + INK + '" stroke-width="2" stroke-dasharray="5 3"/></g>';
       return s + '</svg>';
     },
     piece(side) {
@@ -264,6 +266,7 @@
     ['a', 'p'].forEach(sd => PZ.pos[sd].forEach((q, i) => { const [x, y] = D.xy(sd, q, i); s += '<g class="tgpc ' + sd + '" id="tgP' + sd + i + '" data-tgpc="' + (sd === 'p' ? i : '') + '" style="transform:translate(' + x + 'px,' + y + 'px)"><g class="tgpcb"><g transform="scale(' + (D.ps || 1) + ')">' + (sd === 'p' ? D.hit || '' : '') + D.piece(sd) + '</g></g></g>'; }));
     s += '</g></svg></div><div class="tgpn">';
     const oppK = (() => { try { if (typeof CAST !== 'undefined') for (const c in CAST) if (CAST[c].name === who) return c; } catch (e) {} return null; })();
+    PZ.oppK = oppK;
     s += '<div class="snpl a" id="tgPa"><svg viewBox="-18 -' + (id === 'hounds' ? 44 : 20) + ' 36 ' + (id === 'hounds' ? 50 : 36) + '" width="26" height="30" aria-hidden="true">' + D.piece('a') + '</svg>' + (oppK ? '<span class="snav" data-k="' + oppK + '">' + CH40.icon(oppK, 'neutral') + '</span>' : '') + '<b>' + esc(who) + '</b>' + dots + '</div>';
     s += '<div class="tgthrow"><div id="tgStk">' + D.sticks(PZ.faces) + '</div><div class="snv"><b id="tgV">?</b><small>' + D.againTxt + '</small></div></div>';
     s += '<p class="snmsg" id="tgMsg" aria-live="polite"></p>';
@@ -389,13 +392,14 @@
       t += 560;
       msg = side === 'p' ? 'Vurdun! Rakibin aslanı <b>kuyruğa</b> döndü.' : esc(PZ.who) + ' aslanını vurdu: <b>kuyruğa</b> döndü!';
       if (side === 'a' && PZ.tut) PZ.tut.hitMe = 1;
+      tgLater(() => snFace(side === 'p' ? 'angry' : 'laugh', 1600), t - 500);
     } else if (m.kind === 'jump' || m.kind === 'slide') {
       const [fx, fy] = D.xy(side, m.fin, m.i);
-      tgLater(() => { tgSetPos(el, fx, fy, 520); play(m.kind === 'jump' ? 'good' : 'bad'); }, t); t += 560;
+      tgLater(() => { tgSetPos(el, fx, fy, 520); play(m.kind === 'jump' ? 'good' : 'bad'); snFace((m.kind === 'jump') === (side === 'p') ? 'surprised' : side === 'a' ? 'sad' : 'laugh', 1500); }, t); t += 560;
       msg = m.kind === 'jump' ? (side === 'p' ? 'Kestirme! Tazın <b>' + m.fin + '</b>. deliğe atladı.' : esc(PZ.who) + ' kestirmeden <b>' + m.fin + '</b>\'e atladı.') : (side === 'p' ? 'Çukur! Tazın <b>' + m.fin + '</b>. deliğe kaydı.' : esc(PZ.who) + '\'nin çakalı çukura düştü.');
     } else if (m.kind === 'off') {
       const [gx, gy] = D.xy(side, D.GOAL, m.i);
-      tgLater(() => { tgSetPos(el, gx, gy, 260); if (el) el.classList.add('home'); play(side === 'p' ? 'coin' : 'no'); tgDots(); }, t); t += 300;
+      tgLater(() => { tgSetPos(el, gx, gy, 260); if (el) el.classList.add('home'); play(side === 'p' ? 'coin' : 'no'); tgDots(); snFace(side === 'p' ? 'sad' : 'happy', 1400); }, t); t += 300;
       msg = side === 'p' ? 'Bir ' + D.lab + ' <b>vardı</b>!' : esc(PZ.who) + ' bir taşını <b>vardırdı</b>.';
     }
     tgLater(() => {
@@ -414,7 +418,7 @@
     PZ.phase = 'over';
     const bd = $('#tgBd');
     if (bd) bd.insertAdjacentHTML('beforeend', '<div class="snend ' + (win ? 'win' : 'lose') + '"><b>' + (win ? 'Kazandın!' : 'Kaybettin') + '</b><span>' + (win ? '+' : '−') + fmt(PZ.stake) + ' deben</span></div>');
-    tgAct(win ? 'Kazandın!' : 'Kaybettin', false);
+    tgAct(win ? 'Kazandın!' : 'Kaybettin', false); snFace(win ? 'sad' : 'laugh', 0);
     const gv = document.querySelector('#sheet [data-tggive]'); if (gv) gv.disabled = true;
     tgMsg(win ? 'Hepsi vardı. Bahis senin!' : esc(PZ.who) + ' hepsini vardırdı.');
     play(win ? 'fanfare' : 'bad'); buzz(win ? 'big' : 'caught');
@@ -432,7 +436,7 @@
     if (PZ.phase === 'throw') { tgThrow(); return; }
     if (PZ.phase !== 'move') return;
     const cur = PZ.ms[PZ.sel];
-    if (cur && cur.i === i) { tgMove(PZ.sel); return; }
+    if (cur && (cur.i === i || cur.f === PZ.pos.p[i])) { tgMove(PZ.sel); return; }   /* v45: any pin in the same hole/drawer moves (legal() lists one per hole) */
     const k = PZ.ms.findIndex(m => m.i === i || m.f === PZ.pos.p[i]);
     if (k >= 0) { PZ.sel = k; play('click'); tgHl(); }
     else { play('no'); tgMsg('Bu ' + PZ.D.lab + ' ' + PZ.v + ' gidemez.'); }
@@ -512,6 +516,7 @@
   /* test helper: the player's turns play themselves (fast = short animations); also drives Senet */
   function tavernAuto(opt) {
     if (PZ && PZ.kind === 'senet') return senetAuto(opt);
+    if (PZ && PZ.kind === 'quick' && typeof quickAuto === 'function') return quickAuto(opt);
     if (!tgMine() || PZ.fin) return false;
     PZ.auto = true; if (opt && opt.fast) PZ.speed = 0.12; else if (opt && opt.speed) PZ.speed = opt.speed;
     if (PZ.tut && PZ.tut.wait) { tgTutOk(); return true; }

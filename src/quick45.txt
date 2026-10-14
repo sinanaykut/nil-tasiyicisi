@@ -1,0 +1,410 @@
+  /* ================= v45 quick tavern bets (owner: "every gambling game takes a while; there should be short ones too") =================
+     Three 20–60 s bets next to the long board games, QK_MAX a day at each tavern (S.tq[city] = { d:day, n:bets }):
+       asik    knucklebones duel: the host throws four bones (faces 1, 3, 4, 6) and throws his lowest again while he has less
+               than 16; you throw four and, when you are not ahead, may throw one bone of your choice again. The higher total
+               wins, a tie is the host's, four different faces (the "Hathor throw") beats everything. Player ≈ 47 % (qkSim).
+       bakla   the shell game: the bean goes under the middle cup, the cups swap, tap the cup with the bean. The swaps get
+               faster and more numerous while you keep winning and slower after losses (meta.qShell.r), so it settles
+               near one win in two for any pair of eyes.
+       tekcift odd or even with the four throw sticks: call it, throw, count the light sides; all dark is a "blind throw"
+               and the host takes it. Odd 50 %, even 43.75 %.
+     The money moves the moment the outcome is fixed (an interrupted animation never loses or doubles a bet); the HUD,
+     the banner and the host's face follow when the animation shows it. Menu: quickMenuHtml(ci) in the tavern dialogue
+     (ui/13 showTavern), the game: showQuick(id); debug fn.quickAuto({ fast }), fn.quickSim(id, n), fn.showQuick. */
+  const QK_MAX = 3, QK_STAKES = [50, 100, 300], QK_ORDER = ['asik', 'bakla', 'tekcift'];
+  const QK = {
+    asik:{ name:'Aşık', sub:'Aşık kemiği düellosu', time:'~40 sn',
+      rule:'Dört aşık at, toplamın rakibinkini <b>geçsin</b>. Geçemezsen bir kemiği <b>bir kez</b> yeniden atarsın. Beraberlik ev sahibinin; dört farklı yüz (<b>Hathor atışı</b>) her şeyi yener.' },
+    bakla:{ name:'Bakla nerede?', sub:'Bardak oyunu', time:'~30 sn',
+      rule:'Bakla ortadaki bardağın altına girer, bardaklar karışır. <b>Gözünü ayırma</b>, sonra baklalı bardağa dokun.' },
+    tekcift:{ name:'Tek mi çift mi?', sub:'Atış değnekleri', time:'~20 sn',
+      rule:'<b>Tek</b> ya da <b>çift</b> de, dört değneği at. Açık (çizgili) yüzleri say, tutarsa kazanırsın. Hepsi kapalı gelirse <b>kör atış</b>: ev kazanır.' }
+  };
+  const qkUsed = (S, ci) => { const t = (S.tq || {})[ci]; return t && t.d === S.day ? t.n : 0; };
+  /* bets left today at this tavern (0 when the purse is too thin for the smallest stake) */
+  function quickLeft(S, ci) {
+    if (!S || S.over || typeof TAVERN === 'undefined' || TAVERN[ci] == null || S.cash < QK_STAKES[0]) return 0;
+    return Math.max(0, QK_MAX - qkUsed(S, ci));
+  }
+  const qkMine = () => PZ && PZ.kind === 'quick';
+  const qkT = ms => Math.max(0, Math.round(ms * (PZ ? PZ.speed : 1)));
+  function qkLater(fn, ms) { const tok = PZ.tok; PZ.timers.push(setTimeout(() => { if (!PZ || PZ.tok !== tok) return; fn(); }, qkT(ms))); }
+  const qkR = () => Math.random();
+
+  /* ---------- the rules as pure functions (the game and qkSim use the same ones) ---------- */
+  const QK_BONE = [[1, 0.1], [3, 0.4], [4, 0.4], [6, 0.1]];
+  function qkBoneRoll(r) { r = r == null ? qkR() : r; let a = 0; for (const [v, p] of QK_BONE) { a += p; if (r < a) return v; } return 6; }
+  const qkHathor = b => b.length === 4 && b.slice().sort((x, y) => x - y).join() === '1,3,4,6';
+  const qkScore = b => qkHathor(b) ? 100 : b.reduce((a, x) => a + x, 0);
+  /* the host's throw: four bones, the lowest thrown again while the total is under 16 (once) */
+  function qkHostThrow() {
+    const b = [0, 1, 2, 3].map(() => qkBoneRoll()), first = b.slice();
+    let re = -1;
+    if (!qkHathor(b) && qkScore(b) < 16) { re = b.indexOf(Math.min(...b)); b[re] = qkBoneRoll(); }
+    return { first, b, re };
+  }
+  /* which bone a careful player throws again: the one with the best chance to pass the host */
+  function qkBestRe(mine, host) {
+    const H = qkScore(host); let best = -1, bp = -1;
+    mine.forEach((_, i) => { let p = 0; QK_BONE.forEach(([v, q]) => { const nb = mine.slice(); nb[i] = v; if (qkScore(nb) > H) p += q; }); if (p > bp + 1e-9) { bp = p; best = i; } });
+    return { i:best, p:bp };
+  }
+  const qkSticks = () => [0, 1, 2, 3].map(() => qkR() < 0.5 ? 1 : 0);
+  /* tek/çift: light sides counted; all dark = blind throw (the host's) */
+  function qkTekWin(call, f) { const n = f.reduce((a, x) => a + x, 0); if (!n) return false; return (n % 2 === 1) === (call === 'tek'); }
+  /* the simulated win rate (debug / QA): asik with careful play, tekcift for one call */
+  function qkSim(id, n, call) {
+    n = n || 20000; let w = 0;
+    for (let k = 0; k < n; k++) {
+      if (id === 'asik') { const h = qkHostThrow(), m = [0, 1, 2, 3].map(() => qkBoneRoll()); if (qkScore(m) > qkScore(h.b)) { w++; continue; } const r = qkBestRe(m, h.b); m[r.i] = qkBoneRoll(); if (qkScore(m) > qkScore(h.b)) w++; }
+      else if (id === 'tekcift') { if (qkTekWin(call || (k % 2 ? 'tek' : 'cift'), qkSticks())) w++; }
+      else if (id === 'bakla') { if (Math.floor(qkR() * 3) === 0) w++; }   /* a blind guess; the eyes do the rest */
+    }
+    return w / n;
+  }
+
+  /* ---------- pictures ---------- */
+  /* a knucklebone lying on its face: the waisted ivory bone, its shading and the face's pips */
+  function qkBone(v, o) {
+    o = o || {};
+    const dots = { 1:[[0, 0]], 3:[[-8, -6], [0, 0], [8, 6]], 4:[[-7, -6], [7, -6], [-7, 6], [7, 6]], 6:[[-8, -7], [8, -7], [-8, 0], [8, 0], [-8, 7], [8, 7]] }[v] || [];
+    const body = 'M-25 -10C-31 -18 -22 -25 -13 -20C-6 -26 6 -26 13 -20C22 -25 31 -18 25 -10C29 -4 29 4 25 10C31 18 22 25 13 20C6 26 -6 26 -13 20C-22 25 -31 18 -25 10C-29 4 -29 -4 -25 -10Z';
+    return '<svg viewBox="-34 -30 68 60" class="qkbsvg" aria-hidden="true"><ellipse cx="2" cy="24" rx="24" ry="5" fill="#2B1D14" opacity=".22"/>' +
+      pth(body, '#F4E9CF', 'stroke="' + INK + '" stroke-width="2.6" stroke-linejoin="round"') +
+      pth('M-22 8C-16 18 -4 21 8 20C18 19 24 14 25 10C29 4 29 -2 27 -6C26 4 16 12 2 13C-10 14 -18 12 -22 8Z', '#D9C49A', 'opacity=".8"') +
+      pth('M-20 -12C-14 -18 -4 -19 4 -18', 'none', 'stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" opacity=".7"') +
+      dots.map(([x, y]) => '<circle cx="' + x + '" cy="' + y + '" r="3.7" fill="#8E3B2A"/><circle cx="' + (x - 1) + '" cy="' + (y - 1.2) + '" r="1.1" fill="#E7A88E"/>').join('') + '</svg>';
+  }
+  /* a clay cup, mouth down */
+  function qkCup(k) {
+    return '<svg viewBox="0 0 100 110" class="qkcsvg" aria-hidden="true"><defs>' + grad('qkc' + k, [[0, '#E08A55'], [0.55, '#C0602F'], [1, '#8E3F1E']]) + '</defs>' +
+      '<ellipse cx="50" cy="103" rx="40" ry="6" fill="#2B1D14" opacity=".25"/>' +
+      pth('M22 14Q50 4 78 14L90 92Q50 106 10 92Z', 'url(#qkc' + k + ')', 'stroke="' + INK + '" stroke-width="3" stroke-linejoin="round"') +
+      pth('M10 92Q50 106 90 92L92 99Q50 114 8 99Z', '#A9502A', 'stroke="' + INK + '" stroke-width="3" stroke-linejoin="round"') +
+      pth('M22 14Q50 4 78 14Q50 22 22 14Z', '#F0B07A', 'stroke="' + INK + '" stroke-width="2.4"') +
+      pth('M30 26L22 84', 'none', 'stroke="#FFE2C2" stroke-width="5" stroke-linecap="round" opacity=".45"') +
+      pth('M16 60Q50 70 84 60', 'none', 'stroke="#7A3216" stroke-width="2.4" opacity=".55"') + pth('M14 70Q50 80 86 70', 'none', 'stroke="#E9C46A" stroke-width="3" opacity=".9"') + '</svg>';
+  }
+  const QK_BEAN = '<svg viewBox="0 0 40 26" class="qkbean" aria-hidden="true"><ellipse cx="20" cy="22" rx="14" ry="3" fill="#2B1D14" opacity=".25"/><path d="M6 13C4 5 14 1 20 6C26 1 36 5 34 13C33 20 26 22 20 19C14 22 7 20 6 13Z" fill="#8A5A2A" stroke="#2B1D14" stroke-width="2.2"/><path d="M12 9Q16 6 19 9" fill="none" stroke="#D9A86A" stroke-width="2" stroke-linecap="round"/><path d="M20 8V17" stroke="#5A3414" stroke-width="1.6" stroke-linecap="round"/></svg>';
+  /* one throw stick: the light (flat, painted) side or the dark (rounded) side */
+  function qkStick(l) {
+    return '<svg viewBox="0 0 30 120" class="qkssvg" aria-hidden="true"><rect x="3" y="3" width="24" height="114" rx="11" fill="' + (l ? '#F6E7C1' : '#6B4528') + '" stroke="' + INK + '" stroke-width="2.6"/>' +
+      (l ? pth('M9 24h12M9 46h12M9 68h12M9 90h12', 'none', 'stroke="#B7412E" stroke-width="3" stroke-linecap="round"') + pth('M8 10v100', 'none', 'stroke="#FFFFFF" stroke-width="2" opacity=".5" stroke-linecap="round"')
+        : pth('M11 12v96', 'none', 'stroke="#8E6440" stroke-width="2.4" stroke-linecap="round"') + pth('M20 14v92', 'none', 'stroke="#4A2E18" stroke-width="2" stroke-linecap="round" opacity=".6"')) + '</svg>';
+  }
+  /* the little picture on each menu tile */
+  function qkPic(id) {
+    if (id === 'asik') return '<svg viewBox="0 0 64 44" aria-hidden="true"><g transform="translate(20 22) scale(.5) rotate(-14)">' + qkBone(4).replace(/^<svg[^>]*>|<\/svg>$/g, '') + '</g><g transform="translate(44 24) scale(.5) rotate(12)">' + qkBone(3).replace(/^<svg[^>]*>|<\/svg>$/g, '') + '</g></svg>';
+    if (id === 'bakla') return '<svg viewBox="0 0 64 44" aria-hidden="true"><g transform="translate(2 6) scale(.3)">' + qkCup('m1').replace(/^<svg[^>]*>|<\/svg>$/g, '') + '</g><g transform="translate(33 6) scale(.3)">' + qkCup('m2').replace(/^<svg[^>]*>|<\/svg>$/g, '') + '</g><g transform="translate(25 30) scale(.4)">' + QK_BEAN.replace(/^<svg[^>]*>|<\/svg>$/g, '') + '</g></svg>';
+    return '<svg viewBox="0 0 64 44" aria-hidden="true">' + [1, 0, 1, 1].map((l, k) => '<g transform="translate(' + (12 + k * 11) + ' 4) rotate(' + (k * 6 - 9) + ' 4 18) scale(.3)">' + qkStick(l).replace(/^<svg[^>]*>|<\/svg>$/g, '') + '</g>').join('') + '</svg>';
+  }
+
+  /* ---------- the menu section in the tavern dialogue (ui/13 showTavern) ---------- */
+  function quickMenuHtml(ci) {
+    const left = quickLeft(S, ci);
+    if (!left) return '';
+    qkBind();
+    return '<div class="tvqs"><div class="tvqh"><b>Kısa oyunlar</b><small>20–40 sn · bugün ' + left + ' bahis hakkın var</small></div><div class="tvqg">' +
+      QK_ORDER.map(id => '<button type="button" class="tvq" data-tvq="' + id + '"><span class="tvqp">' + qkPic(id) + '</span><b>' + esc(QK[id].name) + '</b><small>' + esc(QK[id].time) + (meta.qTaught && meta.qTaught[id] ? '' : ' · yeni') + '</small></button>').join('') + '</div></div>';
+  }
+
+  /* ---------- the game sheet ---------- */
+  function showQuick(id) {
+    if (!QK[id] || typeof S === 'undefined' || !S) return;
+    const ci = S.city;
+    if (!quickLeft(S, ci)) { if (typeof showTavern === 'function') showTavern(); return; }
+    if (DLG) { clearInterval(DLG.tm); DLG = null; }
+    pzClear();
+    const who = 'tv' + ci, host = (typeof TAVERN_WHO !== 'undefined' && TAVERN_WHO[ci]) || 'Ev sahibi';
+    meta.qTaught = meta.qTaught || {};
+    const fresh = !meta.qTaught[id];
+    PZ = { kind:'quick', id, ci, who, host, tok:Math.random(), timers:[], speed:1, auto:false, phase:'bet', stake:0, fin:false };
+    qkBind();
+    const stakes = QK_STAKES.filter(x => x <= S.cash), st0 = stakes.includes(100) ? 100 : stakes[0];
+    PZ.pick = st0;
+    let s = '<div class="sh-h qkhd"><span class="qkhost" id="qkHost"></span><h2 id="shTitle">' + esc(QK[id].name) + '<small>Kısa oyun · Rakip: ' + esc(host) + '</small></h2>' + xBtn + '</div>';
+    s += '<p class="qkrule' + (fresh ? ' new' : '') + '">' + (fresh ? '<i>Yeni oyun!</i> ' : '') + QK[id].rule + '</p>';
+    s += '<div class="qk qk-' + id + '"><div class="qkst" id="qkSt">' + qkStage(id) + '</div>';
+    s += '<div class="qkpn"><p class="qkmsg" id="qkMsg" aria-live="polite"></p>';
+    s += '<div class="qkbet" id="qkBet" role="group" aria-label="Bahis"><span>Bahis</span>' + stakes.map(x => '<button type="button" class="chip qkchip' + (x === st0 ? ' on' : '') + '" data-qkst="' + x + '" aria-pressed="' + (x === st0) + '">' + fmt(x) + '</button>').join('') + '</div>';
+    s += '<div class="qkbtns" id="qkBtns"></div></div></div>';
+    s += '<div class="snfoot qkft"><span class="muted" id="qkLeft"></span><button class="btn sm" type="button" data-qk="menu">Meyhaneye dön</button><button class="btn sm" type="button" data-act="pzCancel">Kalk</button></div>';
+    openSheet(s, true, 'pz');
+    const hb = $('#qkHost');
+    if (hb && CH40.has(who)) { PZ.face = CH40.stage(hb, who, { mood:'neutral', frame:'head' }); if (PZ.face) H3.push(PZ.face); }
+    qkReady();
+  }
+  function qkFace(mood, act) { if (!PZ || !PZ.face) return; try { if (act) PZ.face.react(act); else PZ.face.update({ mood }); } catch (e) {} }
+  function qkMsg(t) { const m = $('#qkMsg'); if (m) m.innerHTML = t; }
+  function qkLeftTxt() { const e = $('#qkLeft'); if (e && PZ) { const n = quickLeft(S, PZ.ci); e.textContent = n ? 'Bugün ' + n + ' bahis hakkın kaldı' : 'Bugünlük bahis hakkın bitti'; } }
+  function qkBtns(h) { const b = $('#qkBtns'); if (b) b.innerHTML = h; }
+  const qkBig = (attr, label, cls) => '<button type="button" class="btn ' + (cls || 'go1') + ' qkgo" ' + attr + '>' + label + '</button>';
+  /* the starting position of each game, and the "place your bet" buttons */
+  function qkReady() {
+    if (!qkMine()) return;
+    const id = PZ.id; PZ.phase = 'bet'; PZ.res = null;
+    const bet = $('#qkBet'); if (bet) bet.hidden = false;
+    const st = $('#qkSt'); if (st) st.innerHTML = qkStage(id);
+    if (id === 'bakla') { PZ.slot = [0, 1, 2]; PZ.bean = 1; qkCupsPlace(); }
+    qkLeftTxt(); qkFace('neutral');
+    if (id === 'asik') { qkBtns(qkBig('data-qk="go" data-first', 'Bahsi koy, ' + esc(PZ.host) + ' atsın')); qkMsg('Bahsini seç. Önce <b>' + esc(PZ.host) + '</b> atar, sonra sen.'); }
+    else if (id === 'bakla') { qkBtns(qkBig('data-qk="go" data-first', 'Bahsi koy, karıştırsın')); qkMsg('Bakla <b>ortadaki</b> bardağın altına girecek. Gözünü ayırma!'); }
+    else { qkBtns('<div class="qkcall">' + qkBig('data-qk="tek" data-first', '<b>Tek</b><small>1 ya da 3</small>', 'gold') + qkBig('data-qk="cift"', '<b>Çift</b><small>2 ya da 4</small>', 'gold') + '</div>'); qkMsg('Bahsini seç, sonra <b>tek</b> ya da <b>çift</b> de.'); }
+  }
+  function qkStage(id) {
+    if (id === 'asik') {
+      const row = (sd, nm) => '<div class="qkrow ' + sd + '"><span class="qkwho">' + (sd === 'h' && PZ && CH40.has(PZ.who) ? '<span class="qkav">' + CH40.icon(PZ.who, 'neutral') + '</span>' : '') + '<b>' + esc(nm) + '</b></span><div class="qkbones" id="qkB' + sd + '">' +
+        [0, 1, 2, 3].map(k => '<button type="button" class="qkbn" data-qkb="' + (sd === 'p' ? k : '') + '" style="--k:' + k + '" disabled>' + qkBone(3 + (k % 2)) + '</button>').join('') + '</div><b class="qksum" id="qkS' + sd + '">–</b></div>';
+      return '<div class="qktable">' + row('h', PZ ? PZ.host : 'Ev sahibi') + '<div class="qkvs">karşı</div>' + row('p', 'Sen') + '</div>';
+    }
+    if (id === 'bakla') return '<div class="qktable qkcups" id="qkCups">' + [0, 1, 2].map(k => '<button type="button" class="qkcup" data-qkc="' + k + '" id="qkC' + k + '" disabled aria-label="' + (k + 1) + '. bardak">' + qkCup(k + '' + (PZ ? PZ.tok : 0).toString(36).slice(2, 6)) + '</button>').join('') + '<span class="qkbn2" id="qkBean">' + QK_BEAN + '</span></div>';
+    return '<div class="qktable qksticks" id="qkSticks">' + [1, 0, 1, 0].map((l, k) => '<span class="qkstk" style="--k:' + k + '">' + qkStick(l) + '</span>').join('') + '<b class="qkcount" id="qkCount"></b></div>';
+  }
+  /* the bet: check the purse and today's count, take the slot */
+  function qkCommit() {
+    const ci = PZ.ci, stake = PZ.pick;
+    if (!quickLeft(S, ci) || S.cash < stake || !stake) { play('no'); qkMsg('Kesende bu kadar yok.'); return false; }
+    S.tq = S.tq || {};
+    S.tq[ci] = { d:S.day, n:qkUsed(S, ci) + 1 };
+    PZ.stake = stake; PZ.phase = 'play';
+    meta.qTaught[PZ.id] = 1; saveMeta();
+    const bet = $('#qkBet'); if (bet) bet.hidden = true;
+    const r = document.querySelector('#sheet .qkrule.new'); if (r) { r.classList.remove('new'); const t = r.querySelector('i'); if (t) t.remove(); }
+    qkBtns(''); qkLeftTxt();
+    return true;
+  }
+  /* the outcome is fixed: the purse and the log change now, the show comes after */
+  function qkSettle(win) {
+    if (PZ.res) return; PZ.res = { win };
+    S.cash += win ? PZ.stake : -PZ.stake;
+    S.stats = S.stats || {}; if (win) S.stats.quick = (S.stats.quick || 0) + 1;
+    S.log.push({ d:S.day, t:TAVERN[PZ.ci] + ': ' + QK[PZ.id].name.replace('?', '') + ' bahsinde ' + fmt(PZ.stake) + ' deben ' + (win ? 'kazandın.' : 'kaybettin.') });
+    save();
+  }
+  /* the show: banner, purse, the host's face, what next */
+  function qkShow(win, line) {
+    if (!qkMine()) return;
+    PZ.phase = 'done';
+    renderHud();
+    play(win ? 'coin' : 'bad'); buzz(win ? 'big' : 'caught');
+    if (win) play('fanfare');
+    qkFace(win ? 'sad' : 'laugh', win ? 'sad' : 'laugh');
+    const st = $('#qkSt'); if (st) st.insertAdjacentHTML('beforeend', '<div class="snend qkend ' + (win ? 'win' : 'lose') + '"><b>' + (win ? 'Kazandın!' : 'Kaybettin') + '</b><span>' + (win ? '+' : '−') + fmt(PZ.stake) + ' deben</span></div>');
+    qkMsg('<span class="qkres ' + (win ? 'win' : 'lose') + '">' + (win ? 'Kazandın +' : 'Kaybettin −') + fmt(PZ.stake) + '</span> ' + line);
+    const more = quickLeft(S, PZ.ci);
+    qkBtns(more ? qkBig('data-qk="again" data-first', 'Bir daha (' + more + ' hak)') : '<p class="qkdone">Bugünlük bu kadar. Yarın yine gel!</p>');
+    qkLeftTxt();
+    if (PZ.auto) qkLater(() => { if (PZ.autoLeft-- > 0 && quickLeft(S, PZ.ci)) qkAgain(); else { pzClear(); closeSheet(); } }, 900);
+  }
+  function qkAgain() { if (!qkMine()) return; const stakes = QK_STAKES.filter(x => x <= S.cash); if (!stakes.length) { pzClear(); closeSheet(); return; } if (!stakes.includes(PZ.pick)) PZ.pick = stakes[stakes.length - 1]; PZ.tok = Math.random(); qkReady(); qkPaintChips(); if (PZ.auto) qkAutoStep(); }
+  function qkPaintChips() {
+    const bet = $('#qkBet'); if (!bet) return;
+    const stakes = QK_STAKES.filter(x => x <= S.cash);
+    bet.innerHTML = '<span>Bahis</span>' + stakes.map(x => '<button type="button" class="chip qkchip' + (x === PZ.pick ? ' on' : '') + '" data-qkst="' + x + '" aria-pressed="' + (x === PZ.pick) + '">' + fmt(x) + '</button>').join('');
+  }
+
+  /* ---------- Aşık ---------- */
+  function qkTossBones(sd, vals, ks, done) {
+    /* the bones fly in tumbling; the faces flicker while they roll, then land */
+    const box = $('#qkB' + sd); if (!box) { done && done(); return; }
+    const els = [...box.querySelectorAll('.qkbn')];
+    ks = ks || [0, 1, 2, 3];
+    ks.forEach(k => { const e = els[k]; if (!e) return; e.classList.remove('land', 'toss', 'pick', 'low'); void e.offsetWidth; e.classList.add('toss'); });
+    play('lash');
+    const n = reduce ? 0 : 6;
+    for (let i = 0; i < n; i++) qkLater(() => { ks.forEach(k => { const e = els[k]; if (e) e.innerHTML = qkBone(QK_BONE[Math.floor(qkR() * 4)][0]); }); }, i * 80);
+    qkLater(() => {
+      ks.forEach(k => { const e = els[k]; if (!e) return; e.innerHTML = qkBone(vals[k]); e.classList.remove('toss'); e.classList.add('land'); });
+      play('tick'); done && done();
+    }, n * 80 + 60);
+  }
+  function qkSum(sd, b) { const e = $('#qkS' + sd); if (!e) return; const h = qkHathor(b); e.innerHTML = h ? '<i>Hathor!</i>' : String(qkScore(b)); e.classList.remove('pop'); void e.offsetWidth; e.classList.add('pop'); e.classList.toggle('hathor', h); }
+  function qkAsikGo() {
+    if (!qkCommit()) return;
+    const h = qkHostThrow(), m = [0, 1, 2, 3].map(() => qkBoneRoll());
+    PZ.h = h; PZ.m = m; PZ.re = false;
+    qkMsg('<b>' + esc(PZ.host) + '</b> kemikleri sallıyor…'); qkFace('sly');
+    qkLater(() => qkTossBones('h', h.first, null, () => {
+      qkSum('h', h.first);
+      if (h.re < 0) { qkLater(qkAsikMine, 600); return; }
+      qkMsg('<b>' + esc(PZ.host) + '</b> ' + h.first[h.re] + ' gelen kemiğini <b>bir daha</b> atıyor…');
+      const e = $('#qkBh').querySelectorAll('.qkbn')[h.re]; if (e) e.classList.add('low');
+      qkLater(() => qkTossBones('h', h.b, [h.re], () => { qkSum('h', h.b); qkLater(qkAsikMine, 650); }), 650);
+    }), 350);
+  }
+  function qkAsikMine() {
+    if (!qkMine()) return;
+    const H = qkScore(PZ.h.b);
+    qkMsg(qkHathor(PZ.h.b) ? '<b>Hathor atışı!</b> Dört farklı yüz. Bunu yenmek zor…' : 'Hedef: <b>' + (H + 1) + '</b> ya da daha fazla. Sıra sende!');
+    qkFace(qkHathor(PZ.h.b) ? 'happy' : H >= 16 ? 'happy' : 'neutral');
+    qkBtns(qkBig('data-qk="throw" data-first', 'Kemikleri at'));
+    if (PZ.auto) qkLater(() => qkAsikThrow(), 200);
+  }
+  function qkAsikThrow() {
+    if (!qkMine() || PZ.phase !== 'play') return;
+    qkBtns('');
+    qkTossBones('p', PZ.m, null, () => {
+      qkSum('p', PZ.m);
+      const H = qkScore(PZ.h.b), M = qkScore(PZ.m);
+      if (M > H) { qkSettle(true); qkLater(() => qkShow(true, qkHathor(PZ.m) ? '<b>Hathor atışı!</b> Dört farklı yüz her şeyi yener.' : '<b>' + M + '</b> &gt; ' + H + ': geçtin!'), 450); return; }
+      /* not ahead: one bone may be thrown again; the most hopeful one glows */
+      const best = qkBestRe(PZ.m, PZ.h.b);
+      PZ.reIdx = best.i;
+      if (best.p <= 0) { qkSettle(false); qkLater(() => qkShow(false, 'Hiçbir kemik seni öne geçiremezdi. <b>' + M + '</b> ≤ ' + H + '.'), 500); return; }
+      const els = [...$('#qkBp').querySelectorAll('.qkbn')];
+      els.forEach((e, k) => { e.disabled = false; e.classList.toggle('pick', k === best.i); });
+      qkMsg((M === H ? '<b>Berabere</b>: beraberlik ev sahibinin. ' : '<b>' + M + '</b>, geride kaldın. ') + 'Bir kemiğe dokun, <b>bir kez</b> daha at.');
+      qkBtns(qkBig('data-qk="re" data-first', 'Parlayanı at') + qkBig('data-qk="keep"', 'Atmadan bitir', 'plain'));
+      qkFace('thinking');
+      if (PZ.auto) qkLater(() => qkAsikRe(best.i), 250);
+    });
+  }
+  function qkAsikRe(i) {
+    if (!qkMine() || PZ.phase !== 'play' || PZ.re) return;
+    if (i == null) i = PZ.reIdx;
+    PZ.re = true;
+    const H = qkScore(PZ.h.b);
+    if (i < 0) { qkSettle(false); qkShow(false, 'Kemiklerini bıraktın: <b>' + qkScore(PZ.m) + '</b> ≤ ' + H + '.'); return; }
+    PZ.m[i] = qkBoneRoll();
+    const M = qkScore(PZ.m), win = M > H;
+    qkSettle(win);
+    [...$('#qkBp').querySelectorAll('.qkbn')].forEach(e => { e.disabled = true; e.classList.remove('pick'); });
+    qkBtns(''); qkFace('surprised');
+    qkTossBones('p', PZ.m, [i], () => { qkSum('p', PZ.m); qkLater(() => qkShow(win, win ? 'Son atış tuttu: <b>' + M + '</b> &gt; ' + H + '!' : M === H ? '<b>Berabere</b> (' + M + '): beraberlik ev sahibinin.' : '<b>' + M + '</b> &lt; ' + H + ': olmadı.'), 450); });
+  }
+
+  /* ---------- Bakla ---------- */
+  const qkCupX = (w, k) => (k - 1) * Math.min(118, w * 0.31);
+  function qkCupsPlace() {
+    const box = $('#qkCups'); if (!box) return;
+    const w = box.clientWidth || 320;
+    PZ.slot.forEach((sl, c) => { const e = $('#qkC' + c); if (e) e.style.transform = 'translate(' + qkCupX(w, sl) + 'px,0)'; });
+  }
+  function qkBaklaGo() {
+    if (!qkCommit()) return;
+    const sh = meta.qShell = meta.qShell || { r:0.5 };
+    const r = Math.max(0, Math.min(1, sh.r));
+    /* winners get faster, longer shuffles; losers slower, shorter ones */
+    PZ.swaps = 5 + Math.round(r * 5); PZ.dur = Math.round(470 - r * 250);
+    PZ.slot = [0, 1, 2];  /* cup c sits in slot PZ.slot[c]; the bean is under cup 1 */
+    PZ.bean = 1;
+    qkCupsPlace();
+    const bean = $('#qkBean'), box = $('#qkCups');
+    qkMsg('Bakla <b>ortadaki</b> bardağın altına giriyor…'); qkFace('sly');
+    if (bean) bean.classList.add('show');
+    const c1 = $('#qkC1'); if (c1) c1.classList.add('up');
+    qkLater(() => { if (c1) c1.classList.remove('up'); play('tick'); }, 700);
+    qkLater(() => { if (bean) bean.classList.remove('show'); if (box) box.classList.add('mix'); qkMsg('Karışıyor… <b>gözünü ayırma!</b>'); qkSwap(0); }, 1150);
+  }
+  function qkSwap(n) {
+    if (!qkMine() || PZ.phase !== 'play') return;
+    if (n >= PZ.swaps) { qkPickTime(); return; }
+    /* two slots trade places: one cup arcs over the front, the other slides behind */
+    const a = Math.floor(qkR() * 3); let b = Math.floor(qkR() * 2); if (b >= a) b++;
+    const ca = PZ.slot.indexOf(a), cb = PZ.slot.indexOf(b);
+    const box = $('#qkCups'), w = box ? box.clientWidth || 320 : 320, d = qkT(PZ.dur);
+    [[ca, a, b, -1], [cb, b, a, 1]].forEach(([c, from, to, dir]) => {
+      const e = $('#qkC' + c); if (!e) return;
+      const x0 = qkCupX(w, from), x1 = qkCupX(w, to), lift = 16 + Math.abs(to - from) * 10;
+      e.style.zIndex = dir < 0 ? 3 : 1;
+      if (e.animate && d > 0) {
+        const an = e.animate([{ transform:'translate(' + x0 + 'px,0) scale(1)' }, { transform:'translate(' + ((x0 + x1) / 2) + 'px,' + (dir * lift * 0.35) + 'px) scale(' + (dir < 0 ? 1.06 : 0.94) + ')', offset:0.5 }, { transform:'translate(' + x1 + 'px,0) scale(1)' }], { duration:d, easing:'ease-in-out', fill:'forwards' });
+        an.onfinish = () => { e.style.transform = 'translate(' + x1 + 'px,0)'; try { an.cancel(); } catch (er) {} };
+      } else e.style.transform = 'translate(' + x1 + 'px,0)';
+    });
+    PZ.slot[ca] = b; PZ.slot[cb] = a;
+    play('click');
+    qkLater(() => qkSwap(n + 1), PZ.dur + 40);
+  }
+  function qkPickTime() {
+    const box = $('#qkCups'); if (box) box.classList.remove('mix');
+    document.querySelectorAll('#qkCups .qkcup').forEach(e => { e.disabled = false; e.style.zIndex = ''; });
+    PZ.phase = 'pick'; qkFace('neutral');
+    qkMsg('Bakla <b>hangi bardakta</b>? Dokun.');
+    if (PZ.auto) qkLater(() => qkPick(PZ.autoCheat ? PZ.bean : Math.floor(qkR() * 3)), 200);
+  }
+  function qkPick(c) {
+    if (!qkMine() || PZ.phase !== 'pick') return;
+    PZ.phase = 'play';
+    const win = c === PZ.bean;
+    qkSettle(win);
+    const sh = meta.qShell = meta.qShell || { r:0.5 }; sh.r = sh.r * 0.7 + (win ? 1 : 0) * 0.3; saveMeta();
+    document.querySelectorAll('#qkCups .qkcup').forEach(e => { e.disabled = true; });
+    const box = $('#qkCups'), w = box ? box.clientWidth || 320 : 320, bean = $('#qkBean');
+    if (bean) { bean.style.transform = 'translate(' + qkCupX(w, PZ.slot[PZ.bean]) + 'px,0)'; }
+    const e = $('#qkC' + c); if (e) e.classList.add('sel');
+    play('tick');
+    qkLater(() => { if (bean) bean.classList.add('show'); if (e) e.classList.add('up'); }, 300);
+    if (!win) qkLater(() => { const be = $('#qkC' + PZ.bean); if (be) be.classList.add('up', 'right'); }, 1000);
+    qkLater(() => qkShow(win, win ? 'Buldun! Bakla <b>bu bardakta</b>.' : 'Boş! Bakla <b>öbür bardaktaymış</b>.'), win ? 900 : 1500);
+  }
+
+  /* ---------- Tek mi çift mi ---------- */
+  function qkTekGo(call) {
+    if (!qkCommit()) return;
+    PZ.call = call;
+    const f = qkSticks(), n = f.reduce((a, x) => a + x, 0), win = qkTekWin(call, f);
+    qkSettle(win);
+    qkMsg('<b>' + (call === 'tek' ? 'Tek' : 'Çift') + '</b> dedin. Değnekler havada…'); qkFace('sly');
+    const box = $('#qkSticks'); const els = box ? [...box.querySelectorAll('.qkstk')] : [];
+    els.forEach(e => { e.classList.remove('land'); void e.offsetWidth; e.classList.add('toss'); });
+    play('lash');
+    const k = reduce ? 0 : 7;
+    for (let i = 0; i < k; i++) qkLater(() => els.forEach(e => { e.innerHTML = qkStick(qkR() < 0.5 ? 1 : 0); }), i * 75);
+    qkLater(() => {
+      els.forEach((e, i) => { e.innerHTML = qkStick(f[i]); e.classList.remove('toss'); e.classList.add('land'); e.classList.toggle('lit', !!f[i]); });
+      play('tick');
+      const c = $('#qkCount'); if (c) { c.innerHTML = n ? n + ' <small>' + (n % 2 ? 'tek' : 'çift') + '</small>' : '0 <small>kör atış</small>'; c.classList.add('pop'); }
+    }, k * 75 + 80);
+    qkLater(() => qkShow(win, !n ? 'Hepsi kapalı: <b>kör atış</b>. Ev sahibi kazanır.' : n + ' açık yüz: <b>' + (n % 2 ? 'tek' : 'çift') + '</b>. ' + (win ? 'Tuttu!' : 'Tutmadı.')), k * 75 + 650);
+  }
+
+  /* ---------- input ---------- */
+  function qkBind() {
+    const sh = $('#sheet');
+    if (sh && !sh._qkBound) {
+      sh._qkBound = true;
+      sh.addEventListener('click', e => {
+        const tv = e.target.closest && e.target.closest('[data-tvq]');
+        if (tv) { play('click'); showQuick(tv.getAttribute('data-tvq')); return; }
+        if (!qkMine()) return;
+        const b = e.target.closest && e.target.closest('button');
+        if (!b || b.disabled) return;
+        const q = b.getAttribute('data-qk'), stv = b.getAttribute('data-qkst'), bn = b.getAttribute('data-qkb'), cup = b.getAttribute('data-qkc');
+        if (stv && PZ.phase === 'bet') { PZ.pick = +stv; play('click'); qkPaintChips(); return; }
+        if (q === 'menu') { pzClear(); play('click'); if (typeof showTavern === 'function') showTavern(); return; }
+        if (q === 'again') { play('click'); qkAgain(); return; }
+        if (PZ.id === 'asik') {
+          if (q === 'go' && PZ.phase === 'bet') qkAsikGo();
+          else if (q === 'throw') qkAsikThrow();
+          else if (q === 're') qkAsikRe();
+          else if (q === 'keep') qkAsikRe(-1);
+          else if (bn != null && bn !== '' && PZ.phase === 'play' && !PZ.re && PZ.reIdx != null) {
+            PZ.reIdx = +bn; play('click');
+            [...$('#qkBp').querySelectorAll('.qkbn')].forEach((x, k) => x.classList.toggle('pick', k === +bn));
+            qkBtns(qkBig('data-qk="re" data-first', 'Bu kemiği at') + qkBig('data-qk="keep"', 'Atmadan bitir', 'plain'));
+          }
+        } else if (PZ.id === 'bakla') {
+          if (q === 'go' && PZ.phase === 'bet') qkBaklaGo();
+          else if (cup != null) qkPick(+cup);
+        } else if ((q === 'tek' || q === 'cift') && PZ.phase === 'bet') qkTekGo(q);
+      });
+    }
+  }
+  /* debug / QA: play the open quick game by itself (opt.fast, opt.n more rounds, opt.cheat: the shell bot follows the bean) */
+  function qkAutoStep() {
+    if (!qkMine() || PZ.phase !== 'bet') return;
+    PZ.pick = QK_STAKES.filter(x => x <= S.cash)[0] || PZ.pick;
+    qkLater(() => { if (!qkMine() || PZ.phase !== 'bet') return; if (PZ.id === 'asik') qkAsikGo(); else if (PZ.id === 'bakla') qkBaklaGo(); else qkTekGo(qkR() < 0.5 ? 'tek' : 'cift'); }, 150);
+  }
+  function quickAuto(opt) {
+    opt = opt || {};
+    if (!qkMine()) return false;
+    PZ.auto = true; PZ.autoLeft = opt.n || 0; PZ.autoCheat = !!opt.cheat;
+    if (opt.fast) PZ.speed = 0.15;
+    if (PZ.phase === 'bet') qkAutoStep();
+    else if (PZ.phase === 'pick') qkPick(PZ.autoCheat ? PZ.bean : 0);
+    else if (PZ.phase === 'done') { if (PZ.autoLeft-- > 0 && quickLeft(S, PZ.ci)) qkAgain(); else { pzClear(); closeSheet(); } }
+    return true;
+  }
+  setTimeout(() => { if (window.__nil && window.__nil.fn) Object.assign(window.__nil.fn, { showQuick, quickAuto, quickSim:qkSim, quickLeft:ci => quickLeft(S, ci == null ? S.city : ci) }); }, 0);
