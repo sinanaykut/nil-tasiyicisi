@@ -96,3 +96,13 @@ cancelled outline normals fall back to the vertex normal (no black wedges). Path
 each other (debug: `T3.debug()` returns B (with B.puts), figs, movs, dyn, zp, frame). Saww reached by caravan: donkeys on the quay, not our
 ship in the sea. Map: river boats fade at both ends of their run, caravan beasts follow in phase and turn smoothly. 2D map in caravan
 prep: town buttons scaled with the smaller map. Images: docs/qa41.
+
+v42 map miniatures & logo: `v3/04-map-table.txt` CITYK builds each token's diorama as `CITYK[id](k, L, S)`: k = still parts (baked into
+the still image), L = moving parts (palm crowns sway, pennants swing via the SWING define, Kharga's shaduf), S = smoke vents. Helpers:
+`slab`/`plate`/`furrows` (ground layers: no hull ink, rims inked by drawn lines), `mPalm`, `mFlag`, `tower`, `cornice`, `bastet`, `nubian`,
+`chapel`, `rock`, `mElephant`; W33 protos are stamped through `wput` (sphinx, osiris, rams, cats, baboon, incense trees, jars, tent).
+`v3/05-map-table-2.txt`: city crease lines become drawn lines (short ones dropped, the LINE_V still-time bend removed) with their own small
+depth bias (`cityL`); `lifeSet()` merges every visible town's L into one toon+ink mesh and S into one points mesh (SM_V/SM_F), rebuilt only
+when a town appears/moves/dims; `uRow` drives the swing. The plinth is a 24-sided bevelled drum. 2D fallback map tokens: `MTOK`/`mapTok` in
+`ui/13-hub-sheets.txt`. `logo31.txt`: `TITLE_SVG` (code-drawn seal) → `TITLE_LOGO`; title CSS (cartouche wordmark) in `motion35.css`;
+site icons rendered from the same SVG. Images: docs/qa42-harita.

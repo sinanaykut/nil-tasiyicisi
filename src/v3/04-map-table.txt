@@ -313,6 +313,20 @@ void main() { vQ = position.xz; float x = mod(aC.x + uTime * 0.9 + 70.0, 140.0) 
     const CL_F = `varying vec2 vQ;
 void main() { float d = min(length(vQ - vec2(-0.25, 0.05)) * 1.5, min(length(vQ - vec2(0.2, -0.05)) * 1.4, length(vQ - vec2(0.0, 0.18)) * 1.9)); float a = (1.0 - smoothstep(0.35, 0.75, d)) * 0.13; if (a < 0.003) discard; gl_FragColor = vec4(vec3(0.17, 0.11, 0.08) * a, a); }`;
 
+    /* v42: smoke from the towns: three puffs per vent rise, drift and fade in a loop (all in the shader) */
+    const SM_V = `attribute float aPh; uniform float uTime, uPR, uFocal; varying float vA; varying float vF;
+void main() {
+  float f = fract(uTime * 0.14 + aPh), w = aPh * 6.2831;
+  vec3 p = position + vec3(sin(f * 4.0 + w) * 0.18 * f + f * 0.45, f * 2.4, -f * 0.25);
+  vec4 v = viewMatrix * vec4(p, 1.0);
+  gl_PointSize = max(1.0, (0.32 + f * 0.75) * uPR * uFocal / -v.z);
+  vA = smoothstep(0.0, 0.12, f) * (1.0 - smoothstep(0.55, 1.0, f)); vF = f;
+  gl_Position = projectionMatrix * v;
+}`;
+    const SM_F = `varying float vA; varying float vF;
+void main() { vec2 q = gl_PointCoord - 0.5; float d = length(q); if (d > 0.5) discard;
+  float rim = smoothstep(0.36, 0.47, d); vec3 c = mix(vec3(0.97, 0.94, 0.88), vec3(0.62, 0.55, 0.5), rim * 0.8 + vF * 0.15);
+  float a = vA * 0.85 * (1.0 - smoothstep(0.47, 0.5, d)); gl_FragColor = vec4(c * a, a); }`;
     /* ---------- the city landmarks (kit units: 10 = one map unit; the token top is y = 0, radius 44).
        v33: one bold, readable landmark per city, a couple of houses behind it, nothing that shimmers at phone size ---------- */
     function elephant(k, x, z, ry) { const e0 = k.ed; k.ed = false; elephant0(k, x, z, ry); k.ed = e0; }
@@ -336,86 +350,283 @@ void main() { float d = min(length(vQ - vec2(-0.25, 0.05)) * 1.5, min(length(vQ 
       if (load) { k.add('box', load, 0, 15, -5, 9, 4, 6); k.add('box', K.red, 0, 18.2, -1, 8, 1.2, 6); }
       k.at(); k.ed = e0;
     }
+    /* ---------- v42: the city miniatures. Every token carries a small diorama: bevelled ground layers, the landmark, a few
+       houses and trees. k gets the still parts (baked once into the still image); L gets the parts that move (palm crowns,
+       pennants, a shaduf beam): all towns' L are merged into one moving mesh (swing + sway in the toon shader); S collects
+       smoke vents (one points mesh). Readable at every zoom: big plain shapes first, small touches only for the close view. ---------- */
+    let MMG = null;
+    const mmg = () => MMG || (MMG = {
+      c24:new T.CylinderGeometry(1, 1, 1, 24), b24:new T.CylinderGeometry(0.93, 1, 1, 24), t24:new T.CylinderGeometry(0.8, 1, 1, 24),
+      peb:new T.SphereGeometry(1, 10, 7), tap8:new T.CylinderGeometry(0.8, 1, 1, 8), leaf:new T.OctahedronGeometry(1, 0), dome:new T.SphereGeometry(1, 12, 5, 0, Math.PI * 2, 0, Math.PI / 2),
+      vault:new T.CylinderGeometry(1, 1, 1, 10, 1, false, -Math.PI / 2, Math.PI).rotateZ(Math.PI / 2)
+    });
+    const MC = { sand:'#E9CF98', sand2:'#DDBB7E', field:'#7DB858', field2:'#5E9A44', field3:'#93C460', water:'#3F7CC4', deep:'#2A62A8', foam:'#E8FAFC',
+      lime:'#F4E7C6', lime2:'#EAD3A0', gran:'#B5675A', gran2:'#9C5248', mud:'#B8895A', mud2:'#A57748', mud3:'#C99D6C', dark:'#4A3523', turq:'#2BA59A' };
+    const ad = (k, t, col, x, y, z, sx, sy, sz, rx, ry, rz) => k.geo(mmg()[t], col, mtx(x, y, z, sx, sy, sz, rx, ry, rz));
+    const g24 = (k, t, col, x, y, z, rx, h, rz, ry) => k.geo(mmg()[t], col, mtx(x, y + h / 2, z, rx, h, rz == null ? rx : rz, 0, ry || 0, 0));
+    /* a ground layer: a bevelled slab (an ellipse) whose top is at y0 + h */
+    /* ground layers carry no inverted-hull ink (at the far zoom the hull is ~3 units thick and would swallow these thin
+       layers from below); their rims are inked with drawn lines instead (negative width = drawn, see bakeLines) */
+    const flat = (k, f) => { const a = k.noOut, b = k.ed; k.noOut = true; k.ed = false; f(); k.noOut = a; k.ed = b; };
+    const rimE = (k, x, y, z, rx, rz, ry, w) => { const c = Math.cos(ry || 0), s = Math.sin(ry || 0), P = []; for (let i = 0; i <= 32; i++) { const a = i / 32 * Math.PI * 2, px = Math.cos(a) * rx, pz = Math.sin(a) * rz; P.push([x + px * c + pz * s, y, z - px * s + pz * c]); } for (let i = 0; i < 32; i++) k.line(P[i], P[i + 1], w || -0.9); };
+    /* a ground layer: a bevelled slab (an ellipse) whose top is at y0 + h */
+    function slab(k, col, x, z, rx, rz, y0, h, ry) { flat(k, () => g24(k, 'b24', col, x, y0, z, rx, h, rz, ry)); rimE(k, x, y0 + h, z, rx * 0.93, (rz == null ? rx : rz) * 0.93, ry); }
+    /* a flat ground shape from a star-shaped outline (points [x, z]): top + sides, bevelled by a slight inset at the top */
+    function plate(k, col, pts, y0, h, inset) {
+      const n = pts.length, cx = pts.reduce((s, p) => s + p[0], 0) / n, cz = pts.reduce((s, p) => s + p[1], 0) / n, y1 = y0 + h, f = 1 - (inset || 0.03);
+      let ar = 0; for (let i = 0; i < n; i++) { const a = pts[i], b = pts[(i + 1) % n]; ar += (b[1] - cz) * (a[0] - cx) - (b[0] - cx) * (a[1] - cz); }
+      if (ar < 0) pts = pts.slice().reverse();
+      const T0 = pts.map(p => [cx + (p[0] - cx) * f, y1, cz + (p[1] - cz) * f]), B0 = pts.map(p => [p[0], y0, p[1]]), C = [cx, y1, cz];
+      flat(k, () => { for (let i = 0; i < n; i++) { const j = (i + 1) % n; k.tri(C, T0[j], T0[i], col); k.quad(B0[j], B0[i], T0[i], T0[j], col); } });
+      for (let i = 0; i < n; i++) k.line(T0[i], T0[(i + 1) % n], -0.9);
+    }
+    /* a smooth outline from a few control points (closed Catmull-Rom) */
+    const loop = (P, n) => { const out = []; for (let i = 0; i < P.length; i++) { const a = P[(i + P.length - 1) % P.length], b = P[i], c = P[(i + 1) % P.length], d = P[(i + 2) % P.length]; for (let j = 0; j < n; j++) { const t = j / n, t2 = t * t, t3 = t2 * t, f = q => 0.5 * ((2 * b[q]) + (-a[q] + c[q]) * t + (2 * a[q] - 5 * b[q] + 4 * c[q] - d[q]) * t2 + (-a[q] + 3 * b[q] - 3 * c[q] + d[q]) * t3); out.push([f(0), f(1)]); } } return out; };
+    const circ = (x, z, rx, rz, n) => Array.from({ length:n || 28 }, (_, i) => [x + Math.cos(i / (n || 28) * Math.PI * 2) * rx, z + Math.sin(i / (n || 28) * Math.PI * 2) * (rz || rx)]);
+    /* field furrows: darker strips (turned by ry) filling an outline, inset from its edge */
+    function furrows(k, pts, y, col, ry, gap) {
+      const c = Math.cos(ry || 0), s = Math.sin(ry || 0), Q = pts.map(p => [p[0] * c - p[1] * s, p[0] * s + p[1] * c]);
+      let z0 = 1e9, z1 = -1e9; Q.forEach(q => { z0 = Math.min(z0, q[1]); z1 = Math.max(z1, q[1]); });
+      flat(k, () => { for (let z = z0 + 2.4; z < z1 - 1.6; z += gap || 3.4) {
+        const xs = []; for (let i = 0; i < Q.length; i++) { const a = Q[i], b = Q[(i + 1) % Q.length]; if ((a[1] > z) !== (b[1] > z)) xs.push(a[0] + (z - a[1]) / (b[1] - a[1]) * (b[0] - a[0])); }
+        xs.sort((a, b) => a - b);
+        for (let i = 0; i + 1 < xs.length; i += 2) { const xa = xs[i] + 2, xb = xs[i + 1] - 2; if (xb - xa < 3) continue; const mx = (xa + xb) / 2; k.add('box', col, mx * c + z * s, y, -mx * s + z * c, xb - xa, 0.3, 1.2, 0, ry || 0, 0); }
+      } });
+    }
+    const wave = (k, x, y, z, s, ry) => flat(k, () => k.add('sph5', MC.foam, x, y, z, 2.6 * (s || 1), 0.25, 0.7 * (s || 1), 0, ry || 0, 0));
+    /* a date palm: the trunk is still (k), the crown sways (L) */
+    function mPalm(k, L, x, z, s, y0) {
+      y0 = y0 || 0; const F = L || k, h = 44 * s, dir = Math.abs(x * 0.37 + z * 0.61 + 1.3) % 6.28, lean = 6 * s, lx = Math.cos(dir) * lean, lz = Math.sin(dir) * lean;
+      const P = f => [x + lx * Math.pow(f, 1.6), y0 + h * f, z + lz * Math.pow(f, 1.6)], n = 5;
+      for (let i = 0; i < n; i++) { const a = P(i / n), b = P((i + 1) / n), r = (2.6 - 0.8 * i / n) * s; k.stick(a, b, r, i % 2 ? '#8E5A33' : '#7A4A2A', 'c8'); k.add('c8', '#5E3A22', b[0], b[1] - 0.3 * s, b[2], r * 1.14, 1.1 * s, r * 1.14); }
+      k.add('c8', '#6B4226', x, y0 + 0.6, z, 3.4 * s, 1.2, 3.4 * s);
+      const t = P(1), cols = ['#4E9A5A', '#3C8450', '#5AA866', '#357E50'];
+      F.sway = 1;
+      for (let j = 0; j < 8; j++) {
+        const a = j / 8 * Math.PI * 2 + dir + (j % 2) * 0.22, ca = Math.cos(a), sa = Math.sin(a), c = cols[j % 4], up = j % 2 ? 0 : 1;
+        [[5, 2.4 + up, -0.28, 6.6, 2.7], [11.6, 2.2 + up, 0.2, 6.6, 2.4], [16.6, -1.2 + up * 0.8, 0.7, 4.6, 1.6]].forEach(([r, y, p, l, w]) => ad(F, 'leaf', c, t[0] + ca * r * s, t[1] + y * s, t[2] + sa * r * s, l * s, 0.9 * s, w * s, 0, -a, -p));
+      }
+      for (let j = 0; j < 3; j++) { const a = j / 3 * Math.PI * 2 + dir; ad(F, 'leaf', '#68B070', t[0] + Math.cos(a) * 2 * s, t[1] + 5 * s, t[2] + Math.sin(a) * 2 * s, 4 * s, 0.9 * s, 1.6 * s, 0, -a, 0.9); }
+      F.sway = 0;
+      [[2.2, -2.2, 1], [-2, -2.6, 0.6]].forEach(([dx, dy, dz], j) => k.add('sph5', j ? '#B8682A' : '#D08436', t[0] + dx * s, t[1] + dy * s, t[2] + dz * s, 2 * s, 2.6 * s, 2 * s));
+      k.add('sph5', '#5E3A22', t[0], t[1] + 0.2 * s, t[2], 2.4 * s, 1.8 * s, 2.4 * s);
+    }
+    /* a temple pennant on a tall mast: the mast is still, the cloth swings about it (L) */
+    function mFlag(k, L, x, y0, z, h, col, ph, ry) {
+      const F = L || k; ry = ry || 0;
+      k.stick([x, y0, z], [x, y0 + h, z], 0.85, K.wood2, 'c6'); k.add('sph5', K.gold, x, y0 + h + 0.9, z, 1.2);
+      F.swing(x, y0, z, ph || 0, 0, 0.3);
+      F.at(x, y0 + h - 4.2, z, ry, 1); F.add('box', col, 5.2, 0, 0, 9.6, 3.6, 0.7); F.add('cone4', col, 12, 0, 0, 1.8, 4.6, 0.35, 0, 0, -Math.PI / 2); F.at();
+      F.swing();
+    }
+    const W33 = () => (_x && _x.W && _x.W.put) ? _x.W : null;
+    const wput = (k, key, x, y, z, ry, s) => { const W = W33(); if (!W) return false; try { return !!W.put(k, key, x, y, z, ry, s); } catch (e) { return false; } };
+    /* a cavetto cornice + painted band over a block (the temple look) */
+    function cornice(k, x, y, z, w, d, band) { k.add('box', band || K.red, x, y - 1.6, z, w + 0.2, 1.2, d + 0.2); k.add('box', K.lapis, x, y - 2.6, z, w + 0.2, 0.8, d + 0.2); k.add('box', '#F4E3B8', x, y + 0.7, z, w + 1.8, 1.4, d + 1.8); }
+    /* a tapered pylon tower (front face on +z) with a cornice and a relief panel */
+    function tower(k, x, y0, z, w, h, d, col, panel) {
+      const W = W33();
+      if (W && W.tb) W.tb(k, col, x, y0, z, w, d, h, 0.8); else k.add('tap', col, x, y0 + h / 2, z, w * 0.72, h, d * 0.72, 0, Math.PI / 4);
+      k.add('box', '#F4E3B8', x, y0 + h + 0.7, z, w * 0.84, 1.4, d * 0.84 + 0.6);
+      k.add('box', K.red, x, y0 + h - 1.2, z, w * 0.82, 1, d * 0.82 + 0.4);
+      if (panel) { const zf = z + d / 2 * 0.9 + 0.1; k.add('box', panel, x, y0 + h * 0.5, zf - 0.3, w * 0.5, h * 0.42, 0.6, -0.07, 0, 0); }
+    }
+    /* a seated cat, Bastet (k, at x z on a podium top y) */
+    function bastet(k, x, y, z, s, col) {
+      const B = col || '#2F2B3C', G2 = K.gold;
+      k.at(x, y, z, 0, s);
+      k.add('sph', B, 0, 6, -1.2, 5.4, 6.4, 6.2); k.add('sph', B, 0, 11, 1.4, 3.7, 7, 3.6, -0.22);
+      [-1, 1].forEach(sd => { k.stick([sd * 1.9, 8.6, 3.6], [sd * 1.9, 0.6, 4.8], 1.25, B, 'c6'); k.add('sph5', B, sd * 1.9, 0.7, 5.6, 1.5, 0.9, 1.8); });
+      k.add('sph5', B, 0, 18.4, 2.6, 3.7, 3.5, 3.5); k.add('sph5', B, 0, 17.2, 5.4, 1.8, 1.5, 1.5);
+      [-1, 1].forEach(sd => { k.add('cone4', B, sd * 2.1, 22.4, 2.2, 1.5, 3.8, 1, 0, Math.PI / 4, -sd * 0.2); k.add('sph5', G2, sd * 1.5, 18.8, 5.5, 0.7, 0.6, 0.4); });
+      k.add('sph5', G2, 3.6, 17.2, 3, 0.8); k.geo(G.tor, G2, mtx(0, 14.2, 2.2, 3.6, 3.6, 2.6, Math.PI / 2 - 0.3));
+      k.stick([3.4, 0.8, -5], [5.4, 0.8, 2], 1, B); k.stick([5.4, 0.8, 2], [3.6, 0.8, 6], 0.9, B);
+      k.at();
+    }
+    /* a Nubian house: whitewashed cube, a mud vault, a painted door */
+    function nubian(k, x, y, z, w, d, h, wall, door, ry) {
+      k.at(x, y, z, ry || 0, 1);
+      k.add('box', wall, 0, h / 2, 0, w, h, d); k.geo(mmg().vault, MC.mud3, mtx(0, h, 0, w * 0.94, d * 0.42, d * 0.5));
+      k.add('box', door, 0, 3.2, d / 2 + 0.25, 3.6, 6.4, 0.5); k.add('box', MC.dark, 0, 2.8, d / 2 + 0.4, 2.2, 5.4, 0.4);
+      for (let i = -1; i <= 1; i++) k.add('cone4', door, i * 2.4, h - 1.6, d / 2 + 0.3, 1, 1.6, 0.3, 0, Math.PI / 4);
+      k.at();
+    }
+    /* a domed mud chapel (Bagawat) */
+    function chapel(k, x, y, z, w, h, col) {
+      k.add('box', col, x, y + h / 2, z, w, h, w); k.geo(mmg().dome, MC.mud3, mtx(x, y + h, z, w * 0.46, w * 0.42, w * 0.46));
+      k.add('box', MC.dark, x, y + h * 0.36, z + w / 2 + 0.2, w * 0.3, h * 0.6, 0.4); k.add('c12', MC.dark, x, y + h * 0.66, z + w / 2 + 0.2, w * 0.15, 0.4, w * 0.15, Math.PI / 2);
+    }
+    /* a smooth granite boulder (half sunk), with a pale top */
+    function rock(k, x, y, z, a, b, c, col, ry) { k.geo(mmg().peb, col, mtx(x, y, z, a, b, c, 0.12, ry || 0, 0.08)); }
+    /* an elephant (Abu) */
+    function mElephant(k, x, y, z, ry, s) { const e0 = k.ed; k.ed = false; k.at(x, y, z, ry, s); const E = '#8E8A98', E2 = '#77738A';
+      k.add('sph', E, 0, 13, 0, 9, 7.5, 12); [[-5, -6], [5, -6], [-5, 6], [5, 6]].forEach(([a, b]) => k.add('c6', E2, a, 4.5, b, 2.6, 9, 2.6));
+      k.add('sph5', E, 0, 17, 12, 6.5, 6.5, 6);
+      [-1, 1].forEach(sd => { k.add('sph5', E2, sd * 6.5, 17.5, 9.5, 1.4, 6, 5); k.add('cone4', '#FBF3DF', sd * 2.6, 11, 16, 0.9, 5, 0.9, 1.9); k.add('sph5', K.ink, sd * 3, 19, 16.5, 0.9); });
+      k.stick([0, 14, 16.5], [0, 7, 20], 2, E); k.stick([0, 7, 20], [0, 1.5, 19], 1.6, E); k.stick([0, 14, -11], [0, 7, -13.5], 0.6, E2);
+      k.at(); k.ed = e0; }
     const CITYK = {
-      perbastet(k) {
-        /* Bastet: a big seated black cat on a temple podium, papyrus at the sides */
-        k.add('box', K.stone2, 0, 4, -2, 44, 8, 32); k.add('box', K.stone, 0, 8.6, -2, 46, 1.4, 34); k.add('box', K.red, 0, 5, 14.3, 44, 2.4, 0.6);
-        for (let j = -2; j <= 2; j++) k.add('box', K.stone, j * 4.5, 1, 17, 4, 2, 6);
-        const B = '#33303F', y0 = 9.3, S2 = 1.25;
-        k.at(0, y0, -4, 0, S2);
-        k.add('sph', B, 0, 9, -5, 9.5, 10, 10); k.add('sph', B, 0, 17, 1, 6.6, 11, 6.6, -0.18);
-        [-1, 1].forEach(sd => { k.stick([sd * 2.8, 15, 4], [sd * 2.8, 0.5, 6.5], 1.9, B); k.add('sph5', B, sd * 2.8, 0.8, 7.2, 2.3, 1.4, 2.8); });
-        k.add('sph5', B, 0, 30, 2.5, 6.4, 6, 6); k.add('sph5', B, 0, 27.6, 6.6, 3, 2.4, 2.4);
-        [-1, 1].forEach(sd => { k.add('cone4', B, sd * 3.5, 36.4, 2, 2.4, 6, 1.6, 0, Math.PI / 4, -sd * 0.22); k.add('sph5', K.gold, sd * 2.4, 31, 7.4, 1.2, 1.2, 0.8); });
-        k.add('sph5', K.gold, 4.8, 27.5, 3.5, 1.3); k.geo(G.tor, K.gold, mtx(0, 23.4, 2.4, 6.2, 6.2, 4, Math.PI / 2 - 0.3));
-        k.stick([5, 2, -12], [11, 1, 2], 1.5, B); k.stick([11, 1, 2], [9, 1.5, 9], 1.3, B);
-        k.at();
-        miniHouse(k, -30, -26, 13, 11, 13, '#F1DDB0', K.lapis); miniHouse(k, 30, -24, 12, 10, 10, '#EAD3A0', '#2BA59A');
-        papyrus(k, -32, 16, 0.42); papyrus(k, 31, 18, 0.38);
-      },
-      mennefer(k) {
-        /* the pyramids of Giza with gold caps, and the Sphinx in front */
-        [[-12, -12, 22, 40], [16, -6, 17, 30], [30, 16, 10, 18]].forEach(([x, z, r, h]) => {
-          k.add('cone4', '#EBD6A2', x, h / 2, z, r, h, r, 0, Math.PI / 4);
-          k.add('cone4', K.gold, x, h - h * 0.12, z, r * 0.24, h * 0.24, r * 0.24, 0, Math.PI / 4);
+      mennefer(k, L) {
+        /* Memphis: the three pyramids of Giza (white casing, gold caps), the Sphinx before them, the little temple of Ptah,
+           the green valley on the river side */
+        slab(k, MC.sand, 0, 0, 40, 40, 0, 1.6);
+        const vEdge = loop([[22, -34], [30, -24], [38, -6], [37, 12], [30, 26], [20, 34], [16, 22], [21, 6], [20, -10], [17, -24]], 4);
+        plate(k, MC.field, vEdge, 1.6, 0.9); furrows(k, vEdge, 2.6, MC.field2, 0.3);
+        slab(k, '#D6B072', -8, -12, 33, 22, 1.6, 0.6, 0.1);
+        [[-11, -14, 15, 31], [14, -19, 11, 24], [-28, 6, 7, 14]].forEach(([x, z, a, h], j) => {
+          k.add('box', MC.lime2, x, 2.6, z, a * 2 + 2.4, 0.8, a * 2 + 2.4);
+          k.add('cone4', j === 1 ? '#F0DDAE' : '#EDD6A2', x, 3 + h / 2, z, a * 1.414, h, a * 1.414, 0, Math.PI / 4);
+          k.add('cone4', '#FBF3DF', x, 3 + h * 0.84, z, a * 1.414 * 0.3, h * 0.3, a * 1.414 * 0.3, 0, Math.PI / 4);
+          k.add('cone4', K.gold, x, 3 + h * 0.955, z, a * 1.414 * 0.1, h * 0.1, a * 1.414 * 0.1, 0, Math.PI / 4);
         });
-        const SP = '#D9BF86';
-        k.add('box', SP, -20, 4, 22, 9, 8, 20); k.add('box', SP, -20, 2, 33, 8, 4, 6);
-        k.add('box', SP, -20, 11, 15.5, 7.5, 9, 7); k.add('box', K.lapis, -20, 12, 15.5, 9, 7, 6); k.add('box', K.gold, -20, 15.8, 15.5, 7.6, 1.4, 6.4); k.add('box', SP, -20, 11.5, 19.3, 5.4, 6.4, 1.4);
-        k.add('box', '#3A2418', -22, 13, 20.1, 1.1, 1.1, 0.4); k.add('box', '#3A2418', -18, 13, 20.1, 1.1, 1.1, 0.4);
-        miniHouse(k, 4, 28, 11, 9, 9, '#F4E7C6', K.red);
+        if (!wput(k, 'sphinx', -6, 1.6, 15, 0, 0.92)) { k.add('box', '#D9BF86', -5, 5, 15, 7, 7, 18); k.add('box', K.lapis, -5, 11, 22, 6, 6, 5); }
+        /* Ptah's temple: a small pylon with pennants, the hall behind */
+        const tx = 15, tz = 18;
+        k.add('box', K.stone2, tx, 2.4, tz - 2, 20, 1.6, 20);
+        k.add('box', K.stone, tx, 8, tz - 7, 14, 10, 9); cornice(k, tx, 13.6, tz - 7, 14, 9, K.red);
+        tower(k, tx - 5.6, 3.2, tz + 2, 8, 13, 5, K.stone, null); tower(k, tx + 5.6, 3.2, tz + 2, 8, 13, 5, K.stone, null);
+        k.add('box', K.stone2, tx, 7.6, tz + 2, 3.6, 8.8, 4.6); k.add('box', MC.dark, tx, 6.2, tz + 4.4, 2.2, 6, 0.4); k.add('box', K.gold, tx, 11.6, tz + 4.5, 3.2, 1, 0.4);
+        mFlag(k, L, tx - 5.6, 3.2, tz + 4.9, 17, K.red, 0.3); mFlag(k, L, tx + 5.6, 3.2, tz + 4.9, 17, K.lapis, 1.7);
+        mPalm(k, L, 30, -16, 0.46, 2.5); mPalm(k, L, 33, 2, 0.4, 2.5); mPalm(k, L, 25, 28, 0.42, 2.5); mPalm(k, L, -32, 20, 0.36, 1.6);
       },
-      abidos(k) {
-        /* the Osiris temple: an open colonnade (papyrus capitals) in front of the roofed hall, a gold shrine on top */
-        k.add('box', K.stone2, 0, 2.5, 0, 70, 5, 50); k.add('box', K.stone, 0, 6, 0, 72, 2, 52);
-        k.add('box', K.stone, 0, 17, -12, 60, 22, 22); k.add('box', K.red, 0, 26.4, -0.9, 60, 1.6, 0.6); k.add('box', K.lapis, 0, 24.6, -0.9, 60, 1.2, 0.6); k.add('box', '#F4E3B8', 0, 28.6, -12, 62, 2.4, 24);
-        k.add('box', K.mud, 0, 13, -0.8, 9, 14, 0.8);
-        for (let j = 0; j < 7; j++) { const x = -27 + j * 9; k.add('c8', '#F4E3B8', x, 15, 12, 3, 18, 3); k.add('cone6', '#4C9A62', x, 25.4, 12, 4.4, 3.6, 4.4, Math.PI); }
-        k.add('box', '#F4E3B8', 0, 28.2, 12, 62, 2.4, 5); k.add('box', K.red, 0, 27.2, 14.6, 62, 1.2, 0.4);
-        k.add('box', K.stone2, 0, 32, -14, 14, 6, 10); k.add('cone4', K.gold, 0, 38, -14, 6, 7, 5, 0, Math.PI / 4);
-        [-1, 1].forEach(sd => { k.stick([sd * 34, 7, 20], [sd * 34, 34, 20], 0.9, K.wood2); k.add('box', sd < 0 ? K.red : K.lapis, sd * 34 + 4, 31, 20, 7, 4, 0.6); });
-        papyrus(k, -36, 24, 0.3);
+      perbastet(k, L) {
+        /* Bubastis: the red-granite temple of Bastet on an island ringed by its two canals, the great black cat in front */
+        slab(k, MC.field, 0, 0, 40, 40, 0, 1.6); furrows(k, circ(0, 0, 37), 1.7, MC.field2, 0.5);
+        slab(k, MC.deep, 0, -2, 34, 31, 1.6, 0.5); slab(k, MC.water, 0, -2, 33, 30, 2.1, 0.2);
+        slab(k, '#E5CB92', 0, -2, 27, 24, 1.6, 1.6);
+        [[-24, -14, 0.4], [20, -18, -0.6], [-16, 22, 1.4], [26, 10, 2.2]].forEach(([x, z, r]) => wave(k, x * 1.12, 2.35, z * 1.15, 1, r));
+        k.add('box', K.stone2, 0, 3.6, 25.5, 7, 1.2, 10); k.add('box', K.stone, 0, 4.4, 25.5, 7.6, 0.4, 10.4);
+        k.add('box', K.stone2, 0, 3.8, -8, 40, 1, 22);
+        k.add('box', MC.gran, 0, 10.4, -13, 32, 12.2, 11); cornice(k, 0, 17.2, -13, 32, 11, K.gold);
+        for (let j = 0; j < 4; j++) { const x = -10.5 + j * 7; k.add('c8', MC.gran2, x, 10, -6.6, 1.9, 12, 1.9); k.add('box', '#E6C688', x, 15.6, -6.6, 3.6, 2.4, 3.6); k.add('box', K.lapis, x, 16.9, -6.6, 4, 0.6, 4); }
+        k.add('box', '#F4E3B8', 0, 17.6, -8.6, 30, 1, 5.8);
+        k.add('box', MC.dark, 0, 7.6, -7.4, 4, 7, 0.4);
+        mFlag(k, L, -16, 4.3, -6, 22, K.red, 0.2); mFlag(k, L, 17.5, 4.3, -6, 22, MC.turq, 2.1);
+        k.add('box', '#D9BC86', 0, 5.6, 10, 10, 4, 11); k.add('box', K.red, 0, 7.4, 10, 10.4, 0.6, 11.4); k.add('box', K.stone, 0, 3.8, 10, 12, 0.6, 13);
+        bastet(k, 0, 7.6, 9.4, 0.92);
+        wput(k, 'catT', -15, 3.2, 8, 0.6, 1.1); wput(k, 'catS', 15, 3.2, 12, -0.5, 1.1);
+        papyrus(k, -31, 18, 0.3); papyrus(k, 32, -4, 0.28);
+        mPalm(k, L, -35, -10, 0.4, 1.6); mPalm(k, L, 32, -25, 0.42, 1.6); mPalm(k, L, -26, -30, 0.36, 1.6);
       },
-      vaset(k) {
-        /* Karnak: the great pylon with flag masts, two obelisks, the ram avenue */
-        k.add('box', K.stone2, 0, 11, -26, 46, 22, 16); k.add('box', K.red, 0, 20.5, -17.9, 46, 1.4, 0.4);
-        pylon(k, 0, -4);
-        obelisk(k, -34, 14, 0.62); obelisk(k, 34, 14, 0.62);
-        [-1, 1].forEach(sd => { for (let j = 0; j < 3; j++) { k.add('box', K.stone2, sd * 9, 2, 10 + j * 9, 4, 4, 7); k.add('sph5', K.stone, sd * 9, 5.5, 12.5 + j * 9, 2.4); } });
+      abidos(k, L) {
+        /* Abydos: Osiris' temple on two terraces with a ramp, the papyrus colonnade, the hall with its gilded shrine of the atef */
+        slab(k, MC.sand, 0, 0, 40, 40, 0, 1.6);
+        plate(k, MC.field, loop([[-36, 18], [-20, 30], [0, 37], [20, 33], [36, 20], [30, 27], [12, 38], [-14, 37], [-30, 28]], 3), 1.6, 0.8);
+        k.add('box', K.stone2, 0, 3.2, -6, 62, 3.2, 40); k.add('box', '#E2C68E', 0, 4.9, -6, 63, 0.4, 41);
+        k.add('box', K.stone2, 0, 6.6, -10, 52, 3, 30); k.add('box', '#E2C68E', 0, 8.2, -10, 53, 0.4, 31);
+        for (let j = 0; j < 5; j++) k.add('box', K.stone, 0, 1.9 + j * 1.3, 18.8 - j * 1.9, 10, 1.3, 2.4);
+        for (let j = 0; j < 4; j++) k.add('box', K.stone, 0, 5.5 + j * 0.85, 4.4 - j * 1.6, 9, 0.85, 2.2);
+        k.add('box', K.stone, 0, 15.4, -16, 48, 14, 16); cornice(k, 0, 23, -16, 48, 16, K.red);
+        k.add('box', MC.dark, 0, 12.6, -7.9, 5, 8.4, 0.4); k.add('box', K.gold, 0, 17.6, -7.8, 6, 1, 0.4);
+        for (let j = 0; j < 7; j++) { const x = -21 + j * 7; if (j === 3) continue; k.add('c8', '#F4E3B8', x, 14, 3, 2, 11.6, 2); k.add('cone6', '#4C9A62', x, 21, 3, 3.2, 2.8, 3.2, Math.PI); k.add('box', K.red, x, 10, 4.6, 2.6, 0.6, 0.3); }
+        k.add('box', '#F4E3B8', 0, 22.9, -3, 48, 1.6, 15); k.add('box', K.lapis, 0, 21.9, 4.4, 48.2, 0.8, 0.4);
+        k.add('box', K.stone2, 0, 25.6, -15, 12, 3.6, 9); k.add('box', K.gold, 0, 27.6, -15, 12.6, 0.6, 9.6);
+        ad(k, 'tap8', '#F4EEDE', 0, 31.6, -15, 2.4, 7, 2.4, Math.PI); k.add('sph5', '#F4EEDE', 0, 35.4, -15, 1.4); [-1, 1].forEach(sd => k.add('box', K.gold, sd * 3.1, 32, -15, 1, 7.6, 1.6, 0, 0, sd * 0.16));
+        if (!wput(k, 'osiris', -9, 5.1, 15, 0, 0.42)) ad(k, 'tap8', '#F4EEDE', -9, 11, 15, 2, 12, 2, Math.PI);
+        wput(k, 'osiris', 9, 5.1, 15, 0, 0.42);
+        for (let j = 0; j < 3; j++) wput(k, j % 2 ? 'stela2' : 'stela', -27 + j * 5, 5.1, 10, 0, 0.8);
+        mFlag(k, L, -16, 5.1, 16, 21, K.red, 0.6); mFlag(k, L, 16, 5.1, 16, 21, K.lapis, 2.4);
+        mPalm(k, L, -34, -16, 0.44, 1.6); mPalm(k, L, 35, -10, 0.4, 1.6); mPalm(k, L, -31, 24, 0.36, 2.4);
       },
-      abu(k) {
-        /* Elephantine: granite boulders, the elephant rock, a little Khnum kiosk */
-        [[-16, -10, 17, 13, 15, '#A9725F', 'dod'], [12, -16, 13, 11, 12, '#8E5A4A', 'dod'], [24, 8, 9, 8, 9, '#B98472', 'ico'], [-26, 14, 9, 7, 9, '#9C6555', 'dod']].forEach(([x, z, a, b, c, col, t], j) => k.add(t, col, x, b * 0.45, z, a, b, c, j * 0.7, j * 1.3, 0.2));
-        elephant(k, 4, 18, -0.5);
-        k.add('box', K.stone2, -4, 14, -24, 18, 2, 14); [[-11, -29], [3, -29], [-11, -19], [3, -19]].forEach(([x, z]) => k.add('c8', '#F4E3B8', x, 20, z, 1.8, 10, 1.8)); k.add('box', K.stone, -4, 25.6, -24, 20, 1.8, 15);
+      vaset(k, L) {
+        /* Thebes, Karnak: the great pylon with four pennant masts, two gilded obelisks, the avenue of rams, the sacred lake */
+        slab(k, MC.sand, 0, 0, 40, 40, 0, 1.6);
+        plate(k, MC.field, loop([[-38, 4], [-34, 22], [-22, 33], [-10, 38], [-16, 26], [-26, 12], [-30, -4]], 3), 1.6, 0.8);
+        k.add('box', K.stone2, 4, 2.1, -6, 50, 1, 44); k.add('box', '#E2C68E', 4, 2.7, -6, 50.6, 0.2, 44.6);
+        k.add('box', K.stone, 0, 9, -21, 30, 13, 14); cornice(k, 0, 15.5, -21, 30, 14, K.red);
+        for (let j = 0; j < 4; j++) k.add('c8', '#E8D3A2', -9 + j * 6, 16.8, -21, 1.8, 2.6, 1.8);
+        tower(k, -12, 2.6, -4, 17, 26, 8, K.stone, K.lapis); tower(k, 12, 2.6, -4, 17, 26, 8, K.stone, K.lapis);
+        [-1, 1].forEach(sd => { k.add('box', K.gold, sd * 12, 15.6, 0.15, 5.4, 7.4, 0.5, -0.07, 0, 0); k.add('box', K.red, sd * 12, 10.4, 0.5, 6.4, 1.2, 0.5, -0.07, 0, 0); });
+        k.add('box', K.stone2, 0, 11, -4, 7.4, 16.8, 6.6); k.add('box', MC.dark, 0, 8, -0.6, 3.6, 10.6, 0.4);
+        k.add('c12', K.gold, 0, 16.6, -0.5, 1.5, 0.5, 1.5, Math.PI / 2); [-1, 1].forEach(sd => k.add('box', K.lapis, sd * 2.6, 16.6, -0.5, 2.6, 0.9, 0.4, 0, 0, sd * 0.12));
+        [[-16, K.red, 0.1], [-7.6, K.gold, 1.2], [7.6, MC.turq, 2.3], [16, K.lapis, 3.1]].forEach(([x, c, ph]) => mFlag(k, L, x, 2.6, 0.6, 34, c, ph));
+        [-1, 1].forEach(sd => { const x = sd * 5.4, z = 6.4; k.add('box', K.stone2, x, 3.4, z, 4.4, 1.6, 4.4); k.add('tap', '#EFD49A', x, 18.2, z, 2.6, 28, 2.6, 0, Math.PI / 4); k.add('cone4', K.gold, x, 33.7, z, 1.9, 3.4, 1.9, 0, Math.PI / 4); });
+        for (let j = 0; j < 3; j++) [-1, 1].forEach(sd => { if (!wput(k, 'ramK', sd * 9, 2.7, 14 + j * 8.4, -sd * Math.PI / 2, 0.36)) k.add('box', K.stone2, sd * 9, 4, 14 + j * 8.4, 9, 3, 4); });
+        const lx = 25, lz = -16;
+        k.add('box', K.stone2, lx, 2.9, lz, 15, 0.6, 18); k.add('box', MC.deep, lx, 3.1, lz, 11.6, 0.6, 14.6); k.add('box', MC.water, lx, 3.3, lz, 10.6, 0.3, 13.6);
+        wave(k, lx - 1, 3.55, lz - 2, 0.9, 0.2); wave(k, lx + 2, 3.55, lz + 3, 0.7, 0.2);
+        for (let j = 0; j < 3; j++) k.add('box', K.stone, lx - 8.5, 2.9 + j * 0.0, lz + 4 - j * 2.2, 2.4, 0.6, 2);
+        mPalm(k, L, -30, -16, 0.44, 1.6); mPalm(k, L, -33, 9, 0.38, 2.4); mPalm(k, L, -20, 28, 0.34, 2.4); mPalm(k, L, 34, 12, 0.36, 1.6);
       },
-      siwa(k) {
-        /* the mud-brick citadel of Shali on its hill, palms all round */
-        const M1 = '#B58A5A', M2 = '#C79D68', DK = '#4A3523';
-        k.add('box', M1, 0, 7, -2, 58, 14, 42); k.add('box', M2, -5, 20, -6, 42, 13, 30); k.add('box', M1, 2, 31.5, -10, 24, 11, 18); k.add('c8', M2, 21, 13, 12, 8, 26, 8);
-        for (let x = -27; x <= 27; x += 6) k.add('box', M2, x, 15, 19.2, 3.4, 3, 3.4);
-        for (let x = -24; x <= 14; x += 6) k.add('box', M1, x, 28, 9.2, 3, 3, 3);
-        [[-18, 8, 19.4], [-6, 8, 19.4], [6, 8, 19.4], [-14, 21, 9.4], [-2, 21, 9.4], [2, 32, -0.6]].forEach(([x, y, z]) => k.add('box', DK, x, y, z, 3.4, 4.4, 0.8));
-        k.add('cone6', M1, 21, 28, 12, 9, 6, 9);
-        palm(k, -33, 24, 0.42); palm(k, 35, -16, 0.38); palm(k, 30, 28, 0.34);
+      abu(k, L, S) {
+        /* Elephantine: an island at the first cataract: smooth granite boulders in white water, Nubian houses with painted
+           doors, the little kiosk of Khnum, the nilometer stairs, an elephant (the island's name) and a felucca */
+        slab(k, MC.deep, 0, 0, 40, 40, 0, 1.2); slab(k, MC.water, 0, 0, 39, 39, 1.2, 0.3);
+        const isl = loop([[-30, -24], [-12, -34], [8, -32], [22, -22], [24, -6], [16, 8], [4, 16], [-12, 22], [-28, 16], [-35, 0]], 4);
+        plate(k, '#D8B27A', isl, 1, 1.4, 0.0); plate(k, MC.sand, isl, 2.4, 0.8, 0.05);
+        plate(k, MC.field, loop([[-30, 2], [-22, 14], [-10, 18], [-14, 8], [-24, -2]], 3), 3.2, 0.5);
+        [[18, 20, 7, 5, 6, '#A8786C'], [28, 10, 5.4, 4.2, 5, '#8E625A'], [10, 30, 5, 3.6, 4.6, '#B88A7C'], [31, -14, 6, 5, 5, '#9A6C62'], [24, 31, 3.6, 2.6, 3.4, '#8E625A'], [-34, 24, 4.6, 3, 4, '#A8786C'], [30, 22, 3, 2.4, 3, '#B88A7C']].forEach(([x, z, a, b, c, col], j) => { rock(k, x, 1.4, z, a, b, c, col, j); k.add('sph5', MC.foam, x - a * 0.2, 1.55, z + c * 0.9, a * 0.9, 0.3, 1.4); });
+        [[6, 36, 0.3], [-20, 32, 1.2], [36, 0, 1.6], [-38, -10, 2]].forEach(([x, z, r]) => wave(k, x, 1.6, z, 1, r));
+        k.add('box', K.stone2, -10, 4.2, -21, 20, 1.6, 14); k.add('box', '#E2C68E', -10, 5.1, -21, 20.6, 0.2, 14.6);
+        [[-17, -26], [-3, -26], [-17, -16], [-3, -16]].forEach(([x, z]) => { k.add('c8', '#F4E3B8', x, 9.5, z, 1.5, 8.6, 1.5); k.add('cone6', '#4C9A62', x, 14.2, z, 2.2, 1.6, 2.2, Math.PI); });
+        k.add('box', K.stone, -10, 15.6, -21, 18.6, 1.6, 13.4); k.add('box', K.red, -10, 14.6, -14.3, 18.6, 0.6, 0.3);
+        nubian(k, 6, 3.2, -18, 11, 9, 8, MC.lime, MC.turq, -0.15); nubian(k, 13, 3.2, -6, 9, 8, 7, '#F2D9A8', K.lapis, -0.4); nubian(k, -2, 3.2, 4, 10, 8, 7.4, MC.lime, K.gold, 0.1);
+        S.push([16, 13, -5, 0]);
+        for (let j = 0; j < 4; j++) k.add('box', K.stone, 21.5 + j * 1.6, 3 - j * 0.55, -3 + j * 0.9, 3, 1, 5, 0, -0.5, 0);
+        mElephant(k, -18, 3.2, 10, 0.5, 0.42);
+        k.at(-25, 1.3, 30, 1.1, 0.3); boatKit(k, { boat:'feluka', up:{ yelken:1 }, col:{ hull:'#A86F3E', sail:'#FBF3DF', sailBand:K.red, tip:K.gold }, flagCol:K.lapis }); k.at();
+        mPalm(k, L, -28, -8, 0.4, 3.2); mPalm(k, L, -8, 14, 0.34, 3.2); mPalm(k, L, 18, -24, 0.36, 3.2);
       },
-      kharga(k) {
-        /* Hibis: the oasis temple by a spring pool among palms */
-        k.add('c12', '#2A62A8', -14, 0.6, 22, 13, 1.2, 9); k.add('c12', '#4D8DD2', -14, 0.9, 22, 9, 1.2, 6);
-        k.add('box', K.stone2, 12, 2, 6, 34, 4, 30); k.add('box', K.stone, 12, 12, 0, 26, 17, 16); [-8, 0, 8].forEach(x => k.add('c8', '#F4E3B8', 12 + x, 11, 10.5, 2.4, 15, 2.4)); k.add('box', K.stone, 12, 20.6, 4, 28, 2.2, 22); k.add('box', K.red, 12, 19, 15.1, 28, 1.3, 0.5);
-        [[-26, -18, 0.62], [-6, -26, 0.56], [-32, 4, 0.5], [34, -14, 0.46], [33, 22, 0.42]].forEach(([x, z, s]) => palm(k, x, z, s));
+      siwa(k, L, S) {
+        /* Siwa: the mud-brick citadel of Shali stacked up its hill, a round tower, the spring pool, salt flats, a thick palm grove */
+        slab(k, MC.sand, 0, 0, 40, 40, 0, 1.6);
+        plate(k, MC.field, loop([[-36, 10], [-30, 26], [-12, 36], [12, 37], [30, 26], [37, 8], [28, 14], [12, 24], [-10, 24], [-26, 16]], 3), 1.6, 0.8);
+        slab(k, '#EEF3EA', -27, -18, 9, 6, 1.6, 0.4, 0.5); slab(k, '#B6DBE4', -27, -18, 6.4, 4, 2, 0.2, 0.5);
+        g24(k, 't24', MC.mud2, 0, 1.6, -6, 31, 5, 25);
+        const M = [MC.mud, MC.mud3, MC.mud2], tb2 = (x, y, z, w, d, h, c) => { const W = W33(); if (W && W.tb) W.tb(k, c, x, y, z, w, d, h, 0.9); else k.add('box', c, x, y + h / 2, z, w, h, d); };
+        tb2(-6, 6.6, -2, 34, 22, 7, M[0]); tb2(9, 6.6, 6, 14, 10, 5, M[2]);
+        tb2(-4, 13.6, -6, 24, 15, 7, M[1]); tb2(10, 13.6, -10, 10, 9, 10, M[0]);
+        tb2(-6, 20.6, -9, 13, 10, 7, M[2]); tb2(-14, 13.6, 2, 8, 6, 4, M[2]);
+        [[-16, 10.2, 9.1], [-9, 10.2, 9.1], [-2, 10.2, 9.1], [5, 10.2, 9.1], [9, 9.6, 11.1], [-10, 17.2, 1.6], [-3, 17.2, 1.6], [4, 17.2, 1.6], [-8, 24.2, -3.9], [-3, 24.2, -3.9], [10, 19, -5.5]].forEach(([x, y, z]) => k.add('box', MC.dark, x, y, z, 1.8, 2.4, 0.5));
+        for (let x = -21; x <= 9; x += 4) k.add('sph5', M[1], x, 13.9, 8.4, 1.4, 1.2, 1.2);
+        for (let x = -14; x <= 3; x += 4) k.add('sph5', M[0], x, 20.9, 1.2, 1.3, 1.1, 1.1);
+        ad(k, 'tap8', MC.mud3, 18, 9.6, -12, 3.6, 16, 3.6, Math.PI); k.add('c8', MC.mud, 18, 18.2, -12, 3.2, 1.2, 3.2); k.geo(mmg().dome, MC.lime2, mtx(18, 18.6, -12, 2.6, 2.8, 2.6)); k.add('box', MC.dark, 18, 15, -9.2, 1.2, 2, 0.4);
+        S.push([-5, 27.8, -10, 0.2]);
+        g24(k, 'c24', K.stone2, 22, 2.4, 22, 9, 1.2, 7); g24(k, 'c24', MC.deep, 22, 2.6, 22, 7.4, 1.2, 5.6); g24(k, 'c24', '#5FA3D2', 22, 2.9, 22, 6.6, 1.1, 4.9);
+        wave(k, 21, 4.1, 21, 0.8, 0.3);
+        [[-33, 6, 0.42], [-24, 26, 0.46], [-8, 32, 0.38], [8, 30, 0.44], [33, 6, 0.4], [32, -14, 0.36], [-34, -6, 0.34]].forEach(([x, z, s]) => mPalm(k, L, x, z, s, 2.4));
       },
-      saww(k) {
-        /* the Red Sea harbour: a jetty, a sea-going ship, incense jars */
-        k.add('c12', '#2A62A8', 6, 0.6, 4, 36, 1.2, 32); k.add('c12', '#4D8DD2', 6, 0.9, 4, 28, 1.2, 24);
-        k.add('box', K.wood, -26, 2, 2, 12, 4, 44); [-14, -2, 10].forEach(z => k.add('c6', K.wood2, -20, 1, z, 1.2, 6, 1.2));
-        k.at(8, 1, 4, Math.PI * 0.5, 0.62); boatKit(k, { boat:'kadirga', up:{ yelken:1 }, col:{ hull:'#7A4426', sail:'#FBF3DF', sailBand:K.red, tip:K.gold }, flagCol:K.lapis }); k.at();
-        acacia(k, -32, -24, 0.5); [[-28, 18], [-23, 23], [-30, 26]].forEach(([x, z], j) => k.add('sph5', j % 2 ? '#C98E62' : '#E9CFA0', x, 3.4, z, 3.6, 3.8, 3.6));
+      kharga(k, L, S) {
+        /* Kharga: the Hibis temple behind its gate, the domed chapels of Bagawat, a stone well with a swinging shaduf, palms */
+        slab(k, MC.sand, 0, 0, 40, 40, 0, 1.6);
+        const gard = loop([[-8, -36], [16, -36], [32, -24], [38, -6], [30, -4], [18, -14], [2, -20], [-12, -22]], 3); plate(k, MC.field, gard, 1.6, 0.8); furrows(k, gard, 2.5, MC.field2, 0.35);
+        k.add('box', K.stone2, 6, 2.4, -6, 34, 1.6, 30); k.add('box', '#E2C68E', 6, 3.3, -6, 34.6, 0.2, 30.6);
+        k.add('box', K.stone, 6, 10.4, -12, 26, 14, 14); cornice(k, 6, 17.4, -12, 26, 14, K.red);
+        for (let j = 0; j < 4; j++) { const x = -3 + j * 6; k.add('c8', '#F4E3B8', x, 9.6, -3.6, 1.7, 12.4, 1.7); k.add('cone6', '#4C9A62', x, 16.2, -3.6, 2.6, 2, 2.6, Math.PI); }
+        k.add('box', '#F4E3B8', 6, 17.6, -4.4, 26, 1.2, 3.4);
+        tower(k, 0.4, 3.4, 6, 6, 10, 3.6, K.stone, null); tower(k, 11.6, 3.4, 6, 6, 10, 3.6, K.stone, null);
+        k.add('box', K.stone2, 6, 7.6, 6, 5.4, 8.4, 3.4); k.add('box', MC.dark, 6, 6.6, 7.8, 2.6, 6.2, 0.3); k.add('box', K.gold, 6, 10.6, 7.8, 3, 0.8, 0.3);
+        [[-26, 4, 9, 7], [-17, 14, 8, 6.4], [-29, 16, 7, 6], [-21, 24, 6.4, 5.6]].forEach(([x, z, w, h], j) => chapel(k, x, 1.6, z, w, h, j % 2 ? MC.mud : MC.mud2));
+        const wx = 21, wz = 22;
+        g24(k, 'c24', K.stone2, wx, 1.6, wz, 5.4, 2.6, 5.4); g24(k, 'c24', '#24466E', wx, 2.4, wz, 3.8, 2, 3.8);
+        k.stick([wx + 6.5, 1.6, wz], [wx + 6.5, 14, wz], 1, K.wood2, 'c6'); k.stick([wx + 8, 1.6, wz], [wx + 7, 12, wz], 0.7, K.wood2);
+        L.swing(wx + 6.5, 14, wz, 0, 1, 0.18); L.stick([wx + 6.5, 14, wz - 9], [wx + 6.5, 14, wz + 8], 0.6, '#8E5A33'); L.add('sph5', '#94776A', wx + 6.5, 14, wz - 9.6, 2); L.stick([wx + 6.5, 14, wz + 8], [wx + 6.5, 7, wz + 8], 0.2, K.ink); ad(L, 'tap8', '#C0703E', wx + 6.5, 6, wz + 8, 1.2, 2.2, 1.2, Math.PI); L.swing();
+        if (!wput(k, 'camelL', 30, 1.6, 6, -2.2, 0.5)) camel(k, 30, 6, -2.2, 0.5, '#E9CFA0');
+        [[33, 16, 0], [31, 19, 1]].forEach(([x, z], j) => k.add('sph5', j ? '#9C6E4A' : '#B08A64', x, 2.2, z, 1.4, 0.9, 1.4));
+        S.push([33, 3.4, 18, 0.5]);
+        mPalm(k, L, -31, -12, 0.42, 1.6); mPalm(k, L, -16, -28, 0.4, 1.6); mPalm(k, L, 34, -16, 0.38, 2.4); mPalm(k, L, -8, 32, 0.34, 1.6);
+      },
+      saww(k, L, S) {
+        /* Saww, the Red Sea harbour of the Punt voyages: a stone quay, the tall-sailed Punt ship, myrrh trees in baskets, jars,
+           a storehouse, a baboon from Punt, incense smoke */
+        slab(k, MC.deep, 0, 0, 40, 40, 0, 1.2); slab(k, '#3572BC', 0, 0, 39, 39, 1.2, 0.3);
+        const shore = loop([[-38, -12], [-30, -28], [-12, -38], [10, -37], [26, -28], [20, -18], [6, -12], [-8, -4], [-18, 8], [-28, 16], [-36, 8]], 4);
+        plate(k, '#D8B27A', shore, 1, 1.2, 0); plate(k, '#E7C88E', shore, 2.2, 0.8, 0.05);
+        [[16, 30, 0.2], [-6, 34, 0.1], [32, 4, 1.3], [30, 22, 0.8], [-22, 28, 0.4], [6, 22, 0.1]].forEach(([x, z, r]) => wave(k, x, 1.6, z, 1.1, r));
+        k.at(-2, 0, -6, -0.62, 1); k.add('box', K.stone2, 0, 2.4, 6, 36, 2.6, 7); k.add('box', '#E2C68E', 0, 3.8, 6, 36.6, 0.3, 7.6);
+        [-14, -4, 6, 15].forEach(x => k.add('c6', K.wood2, x, 4.6, 8.6, 0.9, 2.2, 0.9)); k.at();
+        k.at(8, 1.2, 12, -0.62 + Math.PI / 2, 0.42); boatKit(k, { boat:'kadirga', up:{ yelken:1 }, col:{ hull:'#7A4426', sail:'#FBF3DF', sailBand:K.red, tip:K.gold }, flagCol:K.lapis }); k.at();
+        k.add('box', MC.mud, -16, 6, -22, 16, 8, 10); k.add('box', MC.mud3, -16, 10.6, -22, 17, 1.2, 11); k.add('box', MC.dark, -16, 4.6, -16.8, 3, 5, 0.4); k.add('box', MC.dark, -10, 7, -16.8, 1.6, 1.6, 0.4);
+        if (!wput(k, 'tentS', 6, 3, -26, 0.4, 0.5)) k.add('box', '#E9CFA0', 6, 5, -26, 12, 4, 8);
+        wput(k, 'incenseT', -24, 3, -6, 0, 0.9); wput(k, 'incenseT', -20, 3, -12, 1.2, 0.8); wput(k, 'jars', -6, 3, -16, 0, 0.8); wput(k, 'baboon', -27, 3, 2, 0.8, 0.85);
+        k.add('c8', K.stone, -11, 4.6, -2, 1.2, 3.2, 1.2); k.add('c8', '#C0703E', -11, 6.6, -2, 1.6, 0.9, 1.6); S.push([-11, 7.2, -2, 0.7]);
+        mFlag(k, L, -22, 3, -16, 20, K.red, 0.9, 0.3);
+        acacia(k, -30, -20, 0.36);
       },
       def(k) { house(k, -8, -4, 26, 18, '#E6CB95'); house(k, 14, 8, 20, 14, '#DCBB82'); }
     };
 
     /* ---------- one live map table ---------- */
-    const MAPS = new Set(), CS = 1.3, TOK = 44;              /* the city token radius in kit units (x 0.1 * CS = world) */
+    const MAPS = new Set(), CS = 1.3, TOK = 44, LSC = 0.98;   /* TOK: the city token radius in kit units (x 0.1 * CS = world); LSC: the miniature's scale on it */
     let mapSlow = false;
     const RED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;

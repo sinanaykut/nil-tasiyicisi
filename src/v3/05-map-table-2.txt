@@ -36,6 +36,8 @@
         const inst = { owner:null, dead:false, t0:0, firstMs:0 };
         const mT = MT.toon({ lite:1 }), mI = MT.ink({ lite:1 }), tint = (h, a) => ({ uTint:{ value:col(h) }, uTintA:{ value:a } });
         const mTD = MT.toon({ lite:1, u:tint('#8F8578', 0.5) }), mID = MT.ink({ lite:1, u:tint('#8F8578', 0.5) }), mTH = MT.toon({ lite:1, u:tint('#EBB43A', 0.55) });
+        /* v42: the towns' lines sit much closer to their faces (a small depth bias): the miniatures are only a few units deep */
+        const uwC = { uRes:uw.uRes, uLW:uw.uLW, uBias:{ value:0.0004 } }, cityL = kp(lineMat(uwC)), cityLD = kp(lineMat(uwC, { col:'#5A4A3C', a:0.6 }));
         const lineM = kp(lineMat(uw)), lineMD = kp(lineMat(uw, { col:'#5A4A3C', a:0.6 })), addLines = (k2, grp, m) => { const lg = k2.bakeLines(); if (!lg) return null; kp(lg); const lm = new T.Mesh(lg, m || lineM); lm.frustumCulled = false; lm.renderOrder = 2; grp.add(lm); return lm; };
         const setL = (o, n) => o.traverse(q => q.layers.set(n));
         /* the relief: one smooth terraced plane (shared geometry), painted top, toon walls, ink on every plate lip */
@@ -99,9 +101,12 @@
             const sp = document.createElement('span'); sp.className = 'v3m-v v3m-off'; sp.textContent = nm; labs.appendChild(sp); v[2] = sp; }); }
         /* shared bits for the city tokens: a round sandstone token with a painted band (one geometry for all) */
         const pk = new Kit(); pk.ed = true;
-        pk.add('c12', '#9C7448', 0, -8.5, 0, TOK + 2.5, 3, TOK + 2.5); pk.add('c12', '#D9BC86', 0, -4, 0, TOK, 8, TOK); pk.add('c12', K.red, 0, -4.4, 0, TOK + 0.5, 2, TOK + 0.5); pk.add('c12', '#EFE2C2', 0, -0.2, 0, TOK - 0.6, 0.6, TOK - 0.6); pk.add('c12', '#E6D2A8', 0, 0.15, 0, TOK - 7, 0.4, TOK - 7);
+        /* v42: a round, bevelled plinth: dark foot, sandstone drum with a red band and a gold line, a pale bevelled lip */
+        g24(pk, 'b24', '#8A6440', 0, -10, 0, TOK + 3, 2.4); g24(pk, 'c24', '#D9BC86', 0, -7.8, 0, TOK + 0.8, 6.6);
+        g24(pk, 'c24', K.red, 0, -6.6, 0, TOK + 1.2, 1.8); g24(pk, 'c24', K.gold, 0, -4.4, 0, TOK + 1.1, 0.6);
+        g24(pk, 'b24', '#EFE2C2', 0, -1.4, 0, TOK + 0.4, 1.4); g24(pk, 'c24', '#E6D2A8', 0, -0.3, 0, TOK - 3.2, 0.3);
         pk.w = pk.w.map(() => 0);
-        const pedGeo = kp(pk.bake()), pedLG = kp(pk.bakeLines());
+        const pedGeo = kp(pk.bake());
         const flk = new Kit(); flk.add('c6', K.wood2, 0, 18, 0, 1.2, 36, 1.2); flk.add('box', K.red, 6.5, 30, 0, 12, 9, 0.8); flk.add('sph5', K.gold, 0, 36.5, 0, 2); const flagGeo = kp(flk.bake());
         const ringG = kp(new T.RingGeometry(0.84, 1, 64).rotateX(-Math.PI / 2)), ringT = kp(new T.RingGeometry(0.93, 1, 64).rotateX(-Math.PI / 2));
         const hereM = kp(new T.MeshBasicMaterial({ color:0xE9B23C, transparent:true, opacity:0.95, depthWrite:false, polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-4 }));
@@ -171,15 +176,22 @@
         let awake = 0, selT = 0, tier = -1, rtChip = null;
         const _v = new T.Vector3(), _n = new T.Vector2(), rc = new T.Raycaster(), hits = []; if (rc.layers) rc.layers.enableAll();
         /* ---- the towns ---- */
-        const cityKit = id => { const k = new Kit(); k.ed = true; (CITYK[id] || CITYK.def)(k); k.w = k.w.map(v => v * 0.02); return k; };
+        /* v42: k = the still model, k.life = the moving parts (swing / sway), k.smoke = smoke vents [x, y, z, phase] */
+        const cityKit = id => { const k = new Kit(), L = new Kit(), S = []; k.ed = true; (CITYK[id] || CITYK.def)(k, L, S); k.w = k.w.map(v => v * 0.02); k.life = L; k.smoke = S; return k; };
         function mkCity(c, k0) {
           const id = c.id || 'c' + c.i, g = new T.Group(), s = new T.Group(); g.add(s); s.scale.setScalar(0.1 * CS); sc.add(g);
-          const k = k0 || cityKit(id), LS = 0.92;
-          const geo = kp(k.bake()), o = { id, g, s, ph:Math.random() * 6 };
+          const k = k0 || cityKit(id), LS = LSC;
+          const geo = kp(k.bake()), o = { id, g, s, ph:Math.random() * 6, lg:k.life && k.life.p.length ? k.life.bake({ swing:true }) : null, smk:k.smoke || [] };
           o.ped = new T.Mesh(pedGeo, mT); o.mod = [new T.Mesh(geo, mT), new T.Mesh(geo, mI)];
           const mg = new T.Group(); mg.scale.setScalar(LS); s.add(mg); o.mg = mg;
           s.add(o.ped); o.mod.forEach(m => mg.add(m));
-          o.lines = addLines(k, mg); o.pedL = new T.Mesh(pedLG, lineM); o.pedL.frustumCulled = false; o.pedL.renderOrder = 2; s.add(o.pedL);
+          /* v42: the miniatures are inked by drawn lines: every crease edge longer than a window becomes a drawn (negative width)
+             line; drawn lines are bent by the foliage sway of LINE_V (here at a still time 0), so that fixed bend is taken out first */
+          { const e = k.e, kept = [], un = (x, y, z) => x - Math.sin(z * 0.02) * 0.9 * Math.max(0, Math.min(1.5, y / 40));
+            for (let i = 0; i < e.length; i += 7) { const w = e[i + 6]; if (w > 0 && Math.hypot(e[i + 3] - e[i], e[i + 4] - e[i + 1], e[i + 5] - e[i + 2]) < 3.2) continue;
+              kept.push(un(e[i], e[i + 1], e[i + 2]), e[i + 1], e[i + 2], un(e[i + 3], e[i + 4], e[i + 5]), e[i + 4], e[i + 5], w > 0 ? -0.75 * w : w); }
+            k.e = kept; }
+          o.lines = addLines(k, mg, cityL);
           o.flag = [new T.Mesh(flagGeo, mT), new T.Mesh(flagGeo, mI)]; o.flag.forEach(m => { m.position.set(-TOK + 3, 0, 14); s.add(m); });
           o.ring = new T.Mesh(ringG, hereM); o.ring.scale.set(5.7 * CS, 1, 5.7 * CS); o.ring.position.y = -0.45; o.ring.renderOrder = 1; g.add(o.ring);
           o.hit = new T.Mesh(hitG, hitM); o.hit.scale.set(6.2 * CS, 9 * CS, 6.2 * CS); o.hit.position.y = 3.6 * CS; g.add(o.hit); o.hit.userData.o = o;
@@ -221,12 +233,47 @@
           if (o.look !== look) {
             o.look = look; bakeOK = false;
             o.ped.material = here ? mTH : dim ? mTD : mT; o.mod[0].material = dim ? mTD : mT; o.mod[1].material = dim ? mID : mI;
-            if (o.lines) o.lines.material = dim ? lineMD : lineM; if (o.pedL) o.pedL.material = dim ? lineMD : lineM;
+            if (o.lines) o.lines.material = dim ? cityLD : cityL;
             o.flag.forEach((m, j) => { m.visible = !!bd.crisis; m.material = j ? (dim ? mID : mI) : (dim ? mTD : mT); });
             o.ring.visible = here;
           }
           o.here = here; o.sel = sl; o.reach = reach; o.dim = dim;
           setLab(o);
+        }
+        /* ---- v42: the towns' moving parts: one merged mesh (toon + ink) for every visible town, one points mesh for the smoke;
+           rebuilt only when a town appears, moves or dims (a few thousand vertices), drawn in the moving layer ---- */
+        const uRow = { value:0 }, lifeT = MT.toon({ lite:1, swing:1, u:{ uRow } }), lifeI = MT.ink({ lite:1, swing:1, u:{ uRow } });
+        const smM = kp(new T.ShaderMaterial({ uniforms:{ uTime:U.uTime, uPR:U.uPR, uFocal:U.uFocal }, vertexShader:SM_V, fragmentShader:SM_F, transparent:true, depthWrite:false, blending:T.CustomBlending, blendSrc:T.OneFactor, blendDst:T.OneMinusSrcAlphaFactor }));
+        let lifeKey = '', lifeG = null, smG = null; const lifeM = [new T.Mesh(undefined, lifeT), new T.Mesh(undefined, lifeI)], smP = new T.Points(undefined, smM);
+        lifeM.concat([smP]).forEach(m => { m.frustumCulled = false; m.visible = false; m.layers.set(1); sc.add(m); }); smP.renderOrder = 4;
+        function lifeSet() {
+          const on = CA.filter(o => o.g.visible), key = on.map(o => o.id + (o.dim ? 'd' : '') + o.g.position.x.toFixed(2) + ',' + o.g.position.y.toFixed(2) + ',' + o.g.position.z.toFixed(2)).join('|');
+          if (key === lifeKey) return; lifeKey = key;
+          [lifeG, smG].forEach(g0 => { if (g0) { g0.dispose(); const i = own.indexOf(g0); if (i >= 0) own.splice(i, 1); } }); lifeG = smG = null;
+          const sc0 = 0.1 * CS * LSC, gr = col3('#8F8578'), list = on.filter(o => o.lg); let n = 0; list.forEach(o => { n += o.lg.attributes.position.count; });
+          if (n) {
+            const A = { position:3, normal:3, aCol:3, aSway:1, aOut:3, aPiv:3, aSwP:3 }, out = {}; Object.keys(A).forEach(a => { out[a] = new Float32Array(n * A[a]); });
+            let v = 0;
+            list.forEach(o => {
+              const P = o.g.position, src = {}, c = o.lg.attributes.position.count; Object.keys(A).forEach(a => { src[a] = o.lg.attributes[a].array; });
+              for (let i = 0; i < c; i++) {
+                const j = i * 3, d = (v + i) * 3, sw = src.aSwP[j + 2] !== 0;
+                out.position[d] = P.x + src.position[j] * sc0; out.position[d + 1] = P.y + src.position[j + 1] * sc0; out.position[d + 2] = P.z + src.position[j + 2] * sc0;
+                out.aPiv[d] = sw ? P.x + src.aPiv[j] * sc0 : 0; out.aPiv[d + 1] = sw ? P.y + src.aPiv[j + 1] * sc0 : 0; out.aPiv[d + 2] = sw ? P.z + src.aPiv[j + 2] * sc0 : 0;
+                for (let q = 0; q < 3; q++) { out.normal[d + q] = src.normal[j + q]; out.aOut[d + q] = src.aOut[j + q]; out.aSwP[d + q] = src.aSwP[j + q]; }
+                const cr = src.aCol[j], cg = src.aCol[j + 1], cb = src.aCol[j + 2], f = o.dim ? 0.5 : 0;
+                out.aCol[d] = cr + (gr.r - cr) * f; out.aCol[d + 1] = cg + (gr.g - cg) * f; out.aCol[d + 2] = cb + (gr.b - cb) * f;
+                out.aSway[v + i] = src.aSway[i] * 0.14;
+              }
+              v += c;
+            });
+            lifeG = kp(new T.BufferGeometry()); Object.keys(A).forEach(a => lifeG.setAttribute(a, new T.BufferAttribute(out[a], A[a])));
+            lifeM.forEach(m => { m.geometry = lifeG; m.visible = true; });
+          } else lifeM.forEach(m => { m.visible = false; });
+          const sp = [], sa = [];
+          on.forEach(o => { if (o.dim) return; o.smk.forEach(q => { for (let j = 0; j < 3; j++) { sp.push(o.g.position.x + q[0] * sc0, o.g.position.y + q[1] * sc0, o.g.position.z + q[2] * sc0); sa.push(q[3] + j / 3); } }); });
+          if (sp.length) { smG = kp(new T.BufferGeometry()); smG.setAttribute('position', new T.Float32BufferAttribute(sp, 3)); smG.setAttribute('aPh', new T.Float32BufferAttribute(sa, 1)); smP.geometry = smG; smP.visible = true; } else smP.visible = false;
+          dirty = true;
         }
         /* ---- routes: river parts follow the Nile, desert roads bend over the sand ---- */
         function strip(P, pts, w, cl, hi) {
@@ -346,6 +393,7 @@
           const seen = new Set();
           (Array.isArray(mdl.cities) ? mdl.cities : []).forEach(c => { if (!c) return; const id = c.id || 'c' + c.i; seen.add(id); setCity(cities.get(id) || mkCity(c), c); });
           cities.forEach((o, id) => { if (!seen.has(id)) { if (o.g.visible) bakeOK = false; o.g.visible = false; o.lab.hidden = true; o.sel = o.here = o.reach = false; } else o.lab.hidden = false; });
+          lifeSet();
           const prevSel = sel; sel = null; cities.forEach(o => { if (o.sel && o.g.visible) sel = o; });
           if (sel !== prevSel) { selT = performance.now(); if (sel) { selG.position.set(sel.g.position.x, sel.base - 0.75, sel.g.position.z); } selG.visible = !!sel; }
           const s = mdl.sethi;
@@ -385,7 +433,7 @@
           if (asp < 1.3 && !yw) { const a = mX(0.055), b = mX(0.97), need = (y1 - y0) / (H - pt - pb) * (W - 2 * px); if (b - a < x1 - x0) { const span = Math.max(b - a, Math.min(x1 - x0, need)), c = (a + b) / 2; x0 = c - span / 2; x1 = c + span / 2; } }
           const upp = Math.max((x1 - x0) / (W - 2 * px), (y1 - y0) / (H - pt - pb)), cx = (x0 + x1) / 2, cy = (y0 + y1) / 2 + (pt - pb) / 2 * upp;
           zb = { cx, cy, upp }; zApply();
-          r.getDrawingBufferSize(_n); uw.uRes.value.set(_n.x, _n.y); uw.uBias.value = 0.8 * 2 / (ocam.far - ocam.near); bakeOK = false;
+          r.getDrawingBufferSize(_n); uw.uRes.value.set(_n.x, _n.y); uw.uBias.value = 0.8 * 2 / (ocam.far - ocam.near); uwC.uBias.value = 0.12 * 2 / (ocam.far - ocam.near); bakeOK = false;
         }
         /* the user's zoom / pan on top of the fit (zb); the still image is redone when it settles */
         let zb = null, zp = null, zLastU = 0;
@@ -534,7 +582,7 @@
         /* ---- the moving things; true while something must be redrawn every frame ---- */
         const ease = t => 1 - Math.pow(1 - Math.min(1, t), 3);
         function step(t, now, amb) {
-          U.uTime.value = t;
+          U.uTime.value = t; uRow.value = RED ? 0 : t * 2.1;
           let moving = false;
           if (sel) {
             const k = RED ? 1 : ease((now - selT) / 420), br = amb && !RED ? 1 + Math.sin(t * 2.4) * 0.025 : 1, s2 = (4.9 + 1.1 * k) * CS * br;
