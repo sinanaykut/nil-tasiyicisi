@@ -56,18 +56,22 @@
     renderPlate();
   }
   /* ---------- v29: the isometric 3D town on top of the painting (V3.town); the painting stays underneath as the fallback ---------- */
-  let T3 = null, T3fail = 0, T3warm = '', T3hi = null, lastHtml = '';
+  let T3 = null, T3last = null, T3fail = 0, T3warm = '', T3hi = null, lastHtml = '';
   const town3On = () => !!T3 && $('#port').classList.contains('v3-on');
   const can3 = () => { try { return typeof V3 !== 'undefined' && typeof V3.town === 'function' && V3.available() && V3.pref(); } catch (e) { return false; } };
-  function town3Opts(crates, nar) {
-    const o = townOpts(crates, nar), pr = $('#port').getBoundingClientRect(), av = [];
-    o.ci = S.city;
-    if (S.hero && HEROES[S.hero]) o.hero = 'h_' + S.hero;
+  function town3Avoid() {
+    const pr = $('#port').getBoundingClientRect(), av = [];
     /* the plaques keep clear of the cartouche, the quest chip and the hold box */
     ['#cart', '#goal:not([hidden])', '#hold'].forEach(q => { const e = document.querySelector(q); if (!e) return; const b = e.getBoundingClientRect(); if (b.width) av.push({ x:b.left - pr.left, y:b.top - pr.top, w:b.width, h:b.height }); });
     /* v36: and of the zoom buttons (right edge, middle) - before they exist, where they will be */
-    { const z = document.getElementById('z3'), b = z && z.getBoundingClientRect(); if (b && b.width) av.push({ x:b.left - pr.left - 6, y:b.top - pr.top - 6, w:b.width + 12, h:b.height + 12 }); else if (pr.width) av.push({ x:pr.width - 66, y:pr.height / 2 - 84, w:66, h:168 }); }
-    o.avoid = av;
+    { const z = document.getElementById('z3'), b = z && z.getBoundingClientRect(); if (b && b.width) av.push({ x:b.left - pr.left - 6, y:b.top - pr.top - 6, w:b.width + 12, h:b.height + 12 }); else if (!z && pr.width) av.push({ x:pr.width - 66, y:pr.height / 2 - 84, w:66, h:168 }); }
+    return av;
+  }
+  function town3Opts(crates, nar) {
+    const o = townOpts(crates, nar);
+    o.ci = S.city;
+    if (S.hero && HEROES[S.hero]) o.hero = 'h_' + S.hero;
+    o.avoid = town3Avoid();
     return o;
   }
   /* floating zoom buttons over a zoomable 3D view (town 'z3' or map 'zm') */
@@ -89,7 +93,7 @@
   }
   function town3(crates, nar) {
     if (phase !== 'port' || !S || !can3() || T3fail > 2) { town3Off(); return; }
-    const o = town3Opts(crates, nar);
+    const o = town3Opts(crates, nar); T3last = o;
     if (T3) { T3.update(o); return; }
     const me = T3 = V3.town($('#port'), o, k => { if ($('#veil').hidden) openSpot(k); });
     if (!me) { T3fail++; return; }
@@ -230,6 +234,8 @@
     mkOn = !!on && phase === 'port' && !!S && !S.over;
     document.body.classList.toggle('mk-open', mkOn);
     renderMbar();
+    /* v36: the town slides up under a fixed cartouche: once it has moved, the plaques re-place around it */
+    clearTimeout(market.t); market.t = setTimeout(() => { if (T3 && T3last && phase === 'port' && town3On()) T3.update(Object.assign({}, T3last, { avoid:town3Avoid() })); }, reduce ? 30 : 380);
     if (mkOn) requestAnimationFrame(placeTutor); else { msel = null; hgSide = false; if (phase === 'port' && S) renderPanel(); requestAnimationFrame(() => { if (S && phase === 'port') { layoutStage(); placeTutor(); } }); }
   }
   /* the bar under the town on phones: the market and the road */
