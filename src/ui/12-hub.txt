@@ -44,7 +44,7 @@
     const sp = S.rival.plan, notes = [];
     if (sp && sp.to === S.city && sp.g === g.id && S.day < sp.arrive) notes.push('Sethi ' + sp.arrive + '. gün buraya boşaltacak');
     (S.mods || []).forEach(m => { if (m.city !== S.city || (m.g && m.g !== g.id) || S.day < m.from || S.day > m.until) return; notes.push(m.src === 'sethi' ? (m.mult < 1 ? 'Sethi boşalttı: ' + m.until + '. güne kadar ucuz' : 'Sethi topladı: ' + m.until + '. güne kadar kıt') : 'Kriz: ' + m.until + '. güne kadar ' + (m.mult > 1 ? 'pahalı' : 'ucuz')); });
-    const info = [dl ? '<em class="tw ' + tg + '">' + TAGW[tg] + '</em>' : '', it.n ? 'Elinde ' + it.n + ' · ort. ' + fmt(avg) : 'Elinde yok', b ? cIco(b.i, 12) + fmt(b.p) + '↗' : ''].filter(Boolean).map(x => '<span class="abi">' + x + '</span>').join(' · ') + (notes.length ? '<span class="abw">⚠ ' + esc(notes[0]) + '</span>' : '');
+    const info = [dl ? '<em class="tw ' + tg + '">' + TAGW[tg] + '</em>' : '', it.n ? 'Elinde ' + it.n + ' · ort. ' + fmt(avg) : 'Elinde yok', b ? cIco(b.i, 12) + fmt(b.p) + '↗' : ''].filter(Boolean).map(x => '<span class="abi">' + x + '</span>').join('\u00a0· ') + (notes.length ? '<span class="abw">⚠ ' + esc(notes[0]) + '</span>' : '');
     let s = '<div class="ab1"><span class="abg">' + gIco(g.id, 30) + '<span><b>' + esc(g.short) + '</b><small>' + info + '</small></span></span>' +
       (dl ? '<span class="chips" role="group" aria-label="Miktar">' + [[1, '1'], [10, '10'], [Infinity, 'Hepsi']].map(([q, l]) => '<button type="button" class="chip" data-qty="' + q + '" aria-pressed="' + (qty === q) + '">' + l + '</button>').join('') + '</span>' : '') +
       '<button type="button" class="x sm abx" data-act="unpick" aria-label="Seçimi kapat">' + ico('i-close', 16) + '</button></div>';
