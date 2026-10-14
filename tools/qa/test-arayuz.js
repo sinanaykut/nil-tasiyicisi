@@ -13,7 +13,7 @@ async function settle(p, max = 30) {
   /* close whatever sheet stands between us and the port */
   for (let i = 0; i < max; i++) {
     const st = await p.evaluate(() => { const N = window.__nil; return { veil:!document.querySelector('#veil').hidden, pz:N.PZ && N.PZ.kind, sea:document.body.classList.contains('at-sea'), map:!document.querySelector('#voy').hidden }; });
-    if (st.pz) { await p.evaluate(async () => { const N = window.__nil; if (!N.PZ) return; if (N.PZ.kind === 'temple') N.fn.templeAutoSolve(); else if (N.PZ.kind === 'senet') N.fn.senetAuto({ fast:true }); else if (N.PZ.kind === 'baboon') N.fn.baboonAuto(); else document.querySelector('[data-act="pzCancel"]') && document.querySelector('[data-act="pzCancel"]').click(); }); await W(st.pz === 'senet' ? 12000 : st.pz === 'baboon' ? 14000 : 2500); continue; }
+    if (st.pz) { await p.evaluate(async () => { const N = window.__nil; if (!N.PZ) return; if (N.PZ.kind === 'temple') N.fn.templeAutoSolve(); else if (N.PZ.kind === 'senet') N.fn.senetAuto({ fast:true }); else if ((N.PZ.kind === 'mehen' || N.PZ.kind === 'hounds') && N.fn.tavernAuto) N.fn.tavernAuto({ fast:true }); else if (N.PZ.kind === 'baboon') N.fn.baboonAuto(); else document.querySelector('[data-act="pzCancel"]') && document.querySelector('[data-act="pzCancel"]').click(); }); await W(/^(senet|mehen|hounds)$/.test(st.pz) ? 12000 : st.pz === 'baboon' ? 14000 : 2500); continue; }
     if (st.sea) { await p.evaluate(() => { const b = document.querySelector('[data-act="quick"]'); if (b) b.click(); }); await W(500); continue; }
     if (!st.veil) return true;
     await p.evaluate(() => {
@@ -240,7 +240,7 @@ async function newGame(p, meta) {
     await q.evaluate(() => window.__nil.fn.openSpot('tavern')); await W(300); await dlgAll(q);
     await q.screenshot({ path:PRE + '-' + vp.n + '-tavern.png' });
     await q.evaluate(() => { const b = document.querySelector('#dlgCh [data-dlg="0"]'); if (b) b.click(); }); await W(600);
-    ok(await q.evaluate(() => window.__nil.PZ && window.__nil.PZ.kind === 'senet'), 'tavern dialogue starts Senet');
+    ok(await q.evaluate(() => window.__nil.PZ && /^(senet|mehen|hounds)$/.test(window.__nil.PZ.kind)), 'tavern dialogue starts today\'s game (' + await q.evaluate(() => window.__nil.PZ && window.__nil.PZ.kind) + ')');
     await settle(q);
     ok(await q.evaluate(() => window.__nil.S.tavern[1] === window.__nil.S.day), 'Senet played today');
     /* travel to two cities */
