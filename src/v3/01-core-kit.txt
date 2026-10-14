@@ -224,12 +224,12 @@ void main() {
 
     /* ---------- geometry kit: merge parts into one vertex-coloured mesh (+ smooth outline directions) ---------- */
     const GEO = {};
-    let G = null, _M, _M2, _Q, _E, _V, _S, _N3, _U;
+    let G = null, _M, _M2, _Q, _E, _V, _S, _N3, _U, _JC;
     const cols = new Map();
     const col3 = h => { let c = cols.get(h); if (!c) { c = new T.Color(h); cols.set(h, c); } return c; };
     function tpl() {
       if (G) return G;
-      _M = new T.Matrix4(); _M2 = new T.Matrix4(); _Q = new T.Quaternion(); _E = new T.Euler(); _V = new T.Vector3(); _S = new T.Vector3(); _N3 = new T.Matrix3(); _U = new T.Vector3(0, 1, 0);
+      _M = new T.Matrix4(); _M2 = new T.Matrix4(); _Q = new T.Quaternion(); _E = new T.Euler(); _V = new T.Vector3(); _S = new T.Vector3(); _N3 = new T.Matrix3(); _U = new T.Vector3(0, 1, 0); _JC = new T.Color();
       const C = (rt, rb, s, o) => new T.CylinderGeometry(rt, rb, 1, s, 1, !!o);
       G = { box:new T.BoxGeometry(1, 1, 1), c4:C(1, 1, 4), c6:C(1, 1, 6), c8:C(1, 1, 8), c12:C(1, 1, 12), tap:C(0.7, 1, 4), cone3:new T.ConeGeometry(1, 1, 3), cone4:new T.ConeGeometry(1, 1, 4), cone6:new T.ConeGeometry(1, 1, 6),
         sph:new T.SphereGeometry(1, 8, 6), sph5:new T.SphereGeometry(1, 6, 4), hemi:new T.SphereGeometry(1, 14, 5, 0, Math.PI * 2, 0, Math.PI / 2), ico:new T.IcosahedronGeometry(1, 0), dod:new T.DodecahedronGeometry(1, 0),
@@ -261,8 +261,11 @@ void main() {
       /* swing about a pivot (oars, legs): phase offset, axis 0 = Y / 1 = X, amplitude in radians */
       swing(px, py, pz, ph, ax, amp) { if (px == null) { this.sw = null; return this; } _V.set(px, py, pz); if (this.base) _V.applyMatrix4(this.base); this.sw = [_V.x, _V.y, _V.z, ph, ax, amp]; return this; }
       geo(g, col, m) {
-        const c = col3(col), P = g.attributes.position.array, N = g.attributes.normal.array, I = g.index ? g.index.array : null, cnt = I ? I.length : P.length / 3;
+        let c = col3(col); const P = g.attributes.position.array, N = g.attributes.normal.array, I = g.index ? g.index.array : null, cnt = I ? I.length : P.length / 3;
         const mm = this.base ? _M2.multiplyMatrices(this.base, m) : m, e = mm.elements, nm = _N3.getNormalMatrix(mm).elements;
+        /* v35: natural variation: each part's colour shifts a touch (stable: hashed from where it stands), so rows of
+           crates, pots, palms and houses never look stamped. Parts that sit together (one house) share their 8-unit cell. */
+        if (this.jit) { const hx = Math.floor(e[12] / 8), hz = Math.floor(e[14] / 8), h = Math.abs(Math.sin(hx * 127.1 + hz * 311.7 + c.r * 17.3 + c.g * 7.1) * 43758.5453) % 1, f = 1 + (h - 0.5) * this.jit; _JC.setRGB(Math.min(1, c.r * f), Math.min(1, c.g * f), Math.min(1, c.b * f)); c = _JC; }
         const no0 = this.noOut; if (this.ed && g.userData.edS) this.noOut = true;   /* box-like parts get their ink from the crease lines */
         if (this.ed && g.userData.ed) { const q = g.userData.ed, w = this.lw; for (let k = 0; k < q.length; k += 3) { const x = q[k], y = q[k + 1], z = q[k + 2]; this.e.push(e[0] * x + e[4] * y + e[8] * z + e[12], e[1] * x + e[5] * y + e[9] * z + e[13], e[2] * x + e[6] * y + e[10] * z + e[14]); if (k % 6 === 3) this.e.push(w); } }
         for (let k = 0; k < cnt; k++) {

@@ -96,19 +96,23 @@ void main() {
        x, y = pan in screen pixels at z = 1 (+x shows more to the right, +y more to the bottom), clamped to the fit. Eased. ---------- */
     function zoomPan(el, opt) {
       opt = opt || {};
-      const MAX = opt.max || 3, P = new Map(), cur = { z:1, x:0, y:0 }, tgt = { z:1, x:0, y:0 };
+      const MAX = opt.max || 3, P = new Map(), cur = { z:1, x:0, y:0 }, tgt = { z:1, x:0, y:0 }, vel = { z:0, x:0, y:0 };
       let drag = null, pinch = null, moved = false, lastUp = 0, lastTap = null, quietUntil = 0, dead = false;
+      /* v35: a critically damped spring toward the target (soft start, soft stop): stiff for the fingers and the wheel,
+         gentler for flights (buttons, double tap, reset); a flick keeps gliding for a moment (fling) */
+      let wN = 16, fv = { x:0, y:0, t:0 };
+      const FLY = 7.5, HAND = 16;
       const box = () => { const b = el.getBoundingClientRect(); return { b, w:b.width || 1, h:b.height || 1 }; };
       const clamp = s => { s.z = Math.max(1, Math.min(MAX, s.z)); const { w, h } = box(), mx = w / 2 * (1 - 1 / s.z), my = h / 2 * (1 - 1 / s.z); s.x = Math.max(-mx, Math.min(mx, s.x)); s.y = Math.max(-my, Math.min(my, s.y)); return s; };
       /* zoom about a screen point (px from the box centre): the point under it stays put */
       const zoomAt = (s, z1, px, py) => { const z0 = s.z; z1 = Math.max(1, Math.min(MAX, z1)); s.x += px * (1 / z0 - 1 / z1); s.y += py * (1 / z0 - 1 / z1); s.z = z1; clamp(s); };
       const rel = e => { const { b, w, h } = box(); return [e.clientX - b.left - w / 2, e.clientY - b.top - h / 2]; };
       const ta = () => { el.style.touchAction = tgt.z > 1.02 ? 'none' : 'pan-y'; };
-      const snapNow = () => { cur.z = tgt.z; cur.x = tgt.x; cur.y = tgt.y; };
+      const snapNow = () => { cur.z = tgt.z; cur.x = tgt.x; cur.y = tgt.y; vel.z = vel.x = vel.y = 0; };
       const down = e => {
         if (dead || (e.pointerType === 'mouse' && e.button !== 0)) return;
         P.set(e.pointerId, [e.clientX, e.clientY]);
-        if (P.size === 1) { drag = { x:e.clientX, y:e.clientY, sx:tgt.x, sy:tgt.y }; moved = false; }
+        if (P.size === 1) { drag = { x:e.clientX, y:e.clientY, sx:tgt.x, sy:tgt.y }; moved = false; fv.x = fv.y = 0; fv.t = performance.now(); fv.px = e.clientX; fv.py = e.clientY; if (cur.x !== tgt.x || cur.y !== tgt.y) { tgt.x = cur.x; tgt.y = cur.y; drag.sx = tgt.x; drag.sy = tgt.y; vel.x = vel.y = 0; } }
         if (P.size === 2) { const [a, b] = [...P.values()], { b:bb, w, h } = box(); pinch = { d:Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, z:tgt.z, mx:(a[0] + b[0]) / 2 - bb.left - w / 2, my:(a[1] + b[1]) / 2 - bb.top - h / 2, sx:tgt.x, sy:tgt.y }; drag = null; moved = true; }
       };
       const move = e => {
@@ -123,7 +127,9 @@ void main() {
           const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
           if (!moved && Math.hypot(dx, dy) < 7) return;
           if (!moved && tgt.z <= 1.02) return;              /* nothing to pan at the whole view: let the page scroll */
-          moved = true; tgt.x = drag.sx - dx / tgt.z; tgt.y = drag.sy - dy / tgt.z; clamp(tgt); snapNow(); if (opt.onChange) opt.onChange();
+          moved = true; tgt.x = drag.sx - dx / tgt.z; tgt.y = drag.sy - dy / tgt.z; clamp(tgt); snapNow();
+          { const now = performance.now(), dt = Math.max(1, now - fv.t); if (dt < 120) { fv.x = fv.x * 0.6 + (e.clientX - fv.px) / dt * 0.4; fv.y = fv.y * 0.6 + (e.clientY - fv.py) / dt * 0.4; } else fv.x = fv.y = 0; fv.t = now; fv.px = e.clientX; fv.py = e.clientY; }
+          if (opt.onChange) opt.onChange();
         }
       };
       const up = e => {
@@ -132,17 +138,23 @@ void main() {
         if (P.size < 2) pinch = null;
         if (P.size === 1) { const [a] = [...P.values()]; drag = { x:a[0], y:a[1], sx:tgt.x, sy:tgt.y }; }
         if (!P.size) {
-          drag = null; lastUp = performance.now(); if (moved) { quietUntil = lastUp + 350; return; }
+          const wasDrag = !!drag; drag = null; lastUp = performance.now();
+          if (moved) {
+            quietUntil = lastUp + 350;
+            /* fling: a quick flick glides on and slows down (px/ms of the finger -> pan units/s) */
+            if (wasDrag && !RED && lastUp - fv.t < 90 && Math.hypot(fv.x, fv.y) > 0.25) { vel.x = -fv.x * 1000 / tgt.z; vel.y = -fv.y * 1000 / tgt.z; wN = 5; tgt.x += vel.x * 0.2; tgt.y += vel.y * 0.2; clamp(tgt); if (opt.onChange) opt.onChange(); }
+            return;
+          }
           /* double tap (touch): toggle a close-up at the finger */
                     if (e.pointerType !== 'mouse') { const now = lastUp, q = rel(e); if (lastTap && now - lastTap.t < 320 && Math.hypot(q[0] - lastTap.x, q[1] - lastTap.y) < 30) { if (!(opt.dbl && opt.dbl(q[0], q[1]))) toggle(q[0], q[1]); lastTap = null; quietUntil = now + 350; } else lastTap = { t:now, x:q[0], y:q[1] }; }
         }
       };
-      const toggle = (px, py) => { if (tgt.z > 1.3) { tgt.z = 1; tgt.x = 0; tgt.y = 0; } else zoomAt(tgt, Math.min(MAX, 2.2), px, py); ta(); if (opt.onChange) opt.onChange(); };
+      const toggle = (px, py) => { wN = FLY; if (tgt.z > 1.3) { tgt.z = 1; tgt.x = 0; tgt.y = 0; } else zoomAt(tgt, Math.min(MAX, 2.2), px, py); ta(); if (opt.onChange) opt.onChange(); };
       const dbl = e => { if (dead) return; e.preventDefault(); if (performance.now() < quietUntil) return;   /* the dblclick a touch double tap also fires: already handled */
         const q = rel(e); if (!(opt.dbl && opt.dbl(q[0], q[1]))) toggle(q[0], q[1]); e.preventDefault(); };
       const wheel = e => {
         if (dead) return;
-        const q = rel(e), pan = !e.ctrlKey && (e.deltaX !== 0 || (e.deltaMode === 0 && Math.abs(e.deltaY) < 40 && e.deltaY % 1 !== 0));
+        wN = HAND; const q = rel(e), pan = !e.ctrlKey && (e.deltaX !== 0 || (e.deltaMode === 0 && Math.abs(e.deltaY) < 40 && e.deltaY % 1 !== 0));
         if (pan) { if (tgt.z <= 1.02) return; tgt.x += e.deltaX / tgt.z; tgt.y += e.deltaY / tgt.z; clamp(tgt); }
         else { const k = Math.exp(-(e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY) * (e.ctrlKey ? 0.01 : 0.0018)); if ((k > 1 && tgt.z >= MAX) || (k < 1 && tgt.z <= 1)) return; zoomAt(tgt, tgt.z * k, q[0], q[1]); }
         e.preventDefault(); ta(); if (opt.onChange) opt.onChange();
@@ -154,12 +166,25 @@ void main() {
       return {
         cur, tgt,
         /* ease the drawn state toward the target; true while still moving */
-        step(dt) { const k = Math.min(1, (dt || 0.016) * 14); let m = false; ['z', 'x', 'y'].forEach(q => { const d = tgt[q] - cur[q]; if (Math.abs(d) > (q === 'z' ? 0.002 : 0.2)) { cur[q] += d * k; m = true; } else cur[q] = tgt[q]; }); return m; },
+        step(dt) {
+          dt = Math.min(0.1, dt || 0.016); if (RED) { const m0 = cur.z !== tgt.z || cur.x !== tgt.x || cur.y !== tgt.y; snapNow(); return m0; }
+          const n = Math.ceil(dt / 0.017), h = dt / n, w = wN; let m = false;
+          for (let a = 0; a < 3; a++) {
+            const q = a === 0 ? 'z' : a === 1 ? 'x' : 'y', eps = a === 0 ? 0.0015 : 0.15; let x = cur[q], v = vel[q]; const t = tgt[q];
+            if (x === t && v === 0) continue;
+            for (let i = 0; i < n; i++) { v += (w * w * (t - x) - 2 * w * v) * h; x += v * h; }
+            if (Math.abs(t - x) < eps && Math.abs(v) < eps * 8) { x = t; v = 0; } else m = true;
+            cur[q] = x; vel[q] = v;
+          }
+          if (cur.z < 1) cur.z = 1;
+          if (!m) wN = HAND;
+          return m;
+        },
         busy() { return P.size > 0 || cur.z !== tgt.z || cur.x !== tgt.x || cur.y !== tgt.y; },
-        set(z, px, py) { zoomAt(tgt, z, px || 0, py || 0); ta(); if (opt.onChange) opt.onChange(); },
+        set(z, px, py) { wN = FLY; zoomAt(tgt, z, px || 0, py || 0); ta(); if (opt.onChange) opt.onChange(); },
         /* v33: ease to zoom z with the view centred on pan x, y (screen px at z = 1 from the fit centre) */
-        go(z, x, y) { tgt.z = z; tgt.x = x; tgt.y = y; clamp(tgt); ta(); if (opt.onChange) opt.onChange(); },
-        reset(now) { tgt.z = 1; tgt.x = 0; tgt.y = 0; if (now) snapNow(); ta(); if (opt.onChange) opt.onChange(); },
+        go(z, x, y) { wN = FLY; tgt.z = z; tgt.x = x; tgt.y = y; clamp(tgt); ta(); if (opt.onChange) opt.onChange(); },
+        reset(now) { wN = FLY; tgt.z = 1; tgt.x = 0; tgt.y = 0; if (now) snapNow(); ta(); if (opt.onChange) opt.onChange(); },
         dragging() { return moved && P.size > 0; },
         destroy() { dead = true; el.removeEventListener('pointerdown', down); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); el.removeEventListener('wheel', wheel); el.removeEventListener('dblclick', dbl); el.removeEventListener('click', clickCap, true); el.style.touchAction = ''; }
       };

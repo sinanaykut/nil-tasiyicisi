@@ -60,9 +60,11 @@ void main() {
 #endif
 }`;
     const TW_F = `
-uniform vec3 uSun, uLit, uShd, uTint, uGlow, uInkC; uniform float uTintA, uNight;
+uniform vec3 uSun, uLit, uShd, uTint, uGlow, uInkC, uHaze; uniform float uTintA, uNight; uniform vec4 uLamp[12];
 varying vec3 vC; varying vec3 vN; varying vec3 vW; varying float vE;
 float hh(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+/* v35: warm pools of lamplight at night (12 nearest lamps; uniform branch, so free by day) */
+vec3 lampPool(vec3 w) { vec3 lp = vec3(0.0); for (int i = 0; i < 12; i++) { vec3 d = w - uLamp[i].xyz; float r = max(0.0, 1.0 - dot(d, d) / (uLamp[i].w * uLamp[i].w)); lp += vec3(r * r); } return lp; }
 void main() {
 #ifdef INK
   gl_FragColor = vec4(uInkC, 1.0);
@@ -77,14 +79,27 @@ void main() {
     c *= 0.94 + 0.1 * hh(id);
     c = mix(c, c * 0.72, 1.0 - smoothstep(0.5 - aa * 1.6, 0.5 - aa * 0.2, max(f.x, f.y)));
   }
+  vec3 alb = c;
   c *= mix(uShd, uLit, (tone - 0.42) / 0.58);
+  /* v35: soft contact shade at the foot of every wall (a cheap ambient occlusion) */
+  if (n.y < 0.86) c *= mix(0.8, 1.0, smoothstep(0.0, 9.0, vW.y));
+  if (uNight > 0.01) {
+    c = mix(c, uHaze, uNight * 0.14 * (1.0 - smoothstep(0.0, 28.0, vW.y)));
+    c += alb * uGlow * min(lampPool(vW), vec3(1.2)) * uNight * 0.85;
+  }
   if (vE > 0.5 && vE < 1.5) c = mix(c, uGlow * 1.15, uNight);
   gl_FragColor = vec4(mix(c, uTint, uTintA), 1.0);
 #endif
 }`;
     const GR_V = `varying vec2 vUv; varying vec3 vW; void main() { vUv = uv; vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`;
-    const GR_F = `uniform sampler2D uMap; uniform vec3 uLit, uTint, uFar; uniform float uTintA; varying vec2 vUv; varying vec3 vW;
-void main() { vec3 c = texture2D(uMap, vUv).rgb; vec2 e = abs(vUv - 0.5) * 2.0; c = mix(c, uFar, smoothstep(0.82, 1.0, max(e.x, e.y))); gl_FragColor = vec4(mix(c * uLit, uTint, uTintA), 1.0); }`;
+    const GR_F = `uniform sampler2D uMap; uniform vec3 uLit, uTint, uFar, uGlow, uHaze; uniform float uTintA, uNight; uniform vec4 uLamp[12]; varying vec2 vUv; varying vec3 vW;
+vec3 lampPool(vec3 w) { vec3 lp = vec3(0.0); for (int i = 0; i < 12; i++) { vec3 d = w - uLamp[i].xyz; float r = max(0.0, 1.0 - dot(d, d) / (uLamp[i].w * uLamp[i].w)); lp += vec3(r * r); } return lp; }
+void main() {
+  vec3 a = texture2D(uMap, vUv).rgb; vec2 e = abs(vUv - 0.5) * 2.0; a = mix(a, uFar, smoothstep(0.82, 1.0, max(e.x, e.y)));
+  vec3 c = a * uLit;
+  if (uNight > 0.01) { c = mix(c, uHaze, uNight * 0.16); c += a * uGlow * min(lampPool(vW + vec3(0.0, 6.0, 0.0)), vec3(1.2)) * uNight * 0.9; }
+  gl_FragColor = vec4(mix(c, uTint, uTintA), 1.0);
+}`;
     const WA_F = `uniform vec3 uW1, uW2, uFoam, uLit, uTint; uniform float uTime, uShore, uTintA; varying vec2 vUv; varying vec3 vW;
 float hh(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 void main() {
@@ -100,12 +115,27 @@ void main() {
 }`;
     const PT_V = `attribute vec3 aCol; attribute float aA; attribute float aS; uniform float uPx; varying vec3 vC; varying float vA;
 void main() { vC = aCol; vA = aA; gl_PointSize = aS * uPx; gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0); }`;
+    /* v35: lamp halos: a soft round falloff that flickers a little, faded in with the night (additive) */
+    const GL_V = `attribute vec3 aCol; attribute float aA; attribute float aS; uniform float uPx, uTime, uNight; varying vec3 vC; varying float vA;
+void main() { vC = aCol; vA = aA * uNight * (0.88 + 0.12 * sin(uTime * 8.0 + position.x * 0.7) * sin(uTime * 5.3 + position.z)); gl_PointSize = aS * uPx; gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0); }`;
+    const GL_F = `varying vec3 vC; varying float vA; void main() { vec2 q = gl_PointCoord - 0.5; float r = dot(q, q) * 4.0; float a = (exp(-r * 3.4) - 0.034) * vA; if (a <= 0.004) discard; gl_FragColor = vec4(vC, a); }`;
+    /* v35: birds: little ink chevrons wheeling over the roofs and the water; all the motion is in the shader (no per-frame work) */
+    const BD_V = `attribute vec4 aB; attribute vec3 aW; uniform float uTime; varying float vA;
+void main() {
+  float t = uTime * aB.w + aB.z, r = aW.z;
+  vec3 ctr = vec3(aB.x + cos(t) * r, 78.0 + sin(t * 0.7 + aB.z) * 6.0, aB.y + sin(t) * r * 0.8);
+  vec2 dir = normalize(vec2(-sin(t) * r, cos(t) * r * 0.8) * sign(aB.w) + 1e-4), side = vec2(-dir.y, dir.x);
+  float fl = sin(uTime * 10.0 + aB.z * 7.0) * 0.6;
+  vec3 p = ctr + vec3(side.x, 0.0, side.y) * aW.x * 2.6 + vec3(dir.x, 0.0, dir.y) * aW.y * 1.1 + vec3(0.0, abs(aW.x) * fl * 2.0, 0.0);
+  vA = 1.0; gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0);
+}`;
+    const BD_F = `uniform float uNight; void main() { float a = 0.85 * (1.0 - uNight); if (a < 0.02) discard; gl_FragColor = vec4(vec3(0.169, 0.114, 0.078) * a, a); }`;
     const PT_F = `varying vec3 vC; varying float vA; void main() { vec2 q = gl_PointCoord - 0.5; float r = dot(q, q); if (r > 0.25) discard; gl_FragColor = vec4(vC * vA, vA) * (1.0 - smoothstep(0.12, 0.25, r) * 0.6); }`;
 
     /* ---------- the kit: buildings, stairs, awnings, props (static parts merged into one mesh + one ink-line mesh) ---------- */
     function Bld(ci, si) {
       const k = new X.Kit(), id = CID[ci] || 'mennefer', pal = CP[id];
-      k.ed = true; k.lw = 1; k.noSwing = true;
+      k.ed = true; k.lw = 1; k.noSwing = true; k.jit = 0.09;   /* v35: a little colour variation part to part */
       return { k, id, ci, si, pal, sh:[], blobs:[], gnd:[], lamps:[], smoke:[], spots:{}, walk:[], idle:[], R:X.rng(ci * 97 + 13) };
     }
     const B3 = (k, col, x, y, z, w, h, d, ry) => k.add('box', col, x, y + h / 2, z, w, h, d, 0, ry || 0, 0);
@@ -801,7 +831,7 @@ void main() { vC = aCol; vA = aA; gl_PointSize = aS * uPx; gl_Position = project
       if (SH) return SH;
       T = X.T(); const U = X.mkU(), col = h => new T.Color(h);
       const uw = { uRes:{ value:new T.Vector2(1, 1) }, uLW:{ value:1.55 }, uBias:{ value:0.004 }, uTime:U.uTime };
-      const tu = Object.assign({}, U, { uSun:{ value:new T.Vector3(sunH[0], sunH[1], sunH[2]) }, uLit:{ value:col('#FFFFFF') }, uShd:{ value:col('#9C7464') }, uTint:{ value:col('#FF9A5C') }, uTintA:{ value:0 }, uNight:{ value:0 }, uGlow:{ value:col('#FFB838') }, uInkC:{ value:col(INK) } });
+      const tu = Object.assign({}, U, { uSun:{ value:new T.Vector3(sunH[0], sunH[1], sunH[2]) }, uLit:{ value:col('#FFFFFF') }, uShd:{ value:col('#9C7464') }, uTint:{ value:col('#FF9A5C') }, uTintA:{ value:0 }, uNight:{ value:0 }, uGlow:{ value:col('#FFB838') }, uInkC:{ value:col(INK) }, uHaze:{ value:col('#3E4272') }, uLamp:{ value:Array.from({ length:12 }, () => new T.Vector4(0, -1e4, 0, 1)) } });
       const mk = (defs, side) => new T.ShaderMaterial({ uniforms:tu, vertexShader:TW_V, fragmentShader:TW_F, defines:defs || {}, side:side || T.FrontSide, extensions:{ derivatives:true } });
       const fm = new Map(), figMat = hex => { const k = String(hex); let m = fm.get(k); if (!m) { m = new T.ShaderMaterial({ uniforms:Object.assign({}, tu, { uCol:{ value:new T.Color(hex) } }), vertexShader:TW_V, fragmentShader:TW_F, defines:{ UCOL:1 }, extensions:{ derivatives:true } }); fm.set(k, m); } return m; };
       return (SH = { U, uw, tu, figMat, mats:{ toon:mk(), ink:mk({ INK:1 }, T.BackSide), line:X.lineMat(uw) } });
@@ -879,7 +909,10 @@ void main() { vC = aCol; vA = aA; gl_PointSize = aS * uPx; gl_Position = project
       tu.uTint.value.set(t < 0.5 ? '#FFB0A0' : '#FF7A40'); tu.uTintA.value = w > 0.35 ? (w - 0.35) * (t < 0.5 ? 0.16 : 0.24) : 0;
       if (P && P.tint) { try { tu.uTint.value.set(P.sun); } catch (e) {} }
       tu.uNight.value = t > 0.8 ? Math.min(1, (t - 0.8) / 0.15) : 0;
-      if (o2.crisis === 'cekirge') tu.uTintA.value = Math.max(tu.uTintA.value, 0.08);
+      /* v35: a real (but friendly) night: cool moonlight on the walls, the dusk tint fades, lamps do the rest */
+      const nn = o2.noNight ? 0 : tu.uNight.value;
+      if (nn > 0) { tu.uLit.value.lerp(col('#B9B6E0'), nn * 0.7); tu.uShd.value.lerp(col('#58527F'), nn * 0.7); tu.uTintA.value *= 1 - nn * 0.6; }
+      if (o2.crisis === 'cekirge') { tu.uTintA.value = Math.max(tu.uTintA.value, 0.1); tu.uTint.value.set('#6E5A2A'); }
     }
     const phaseOf = day => { const t = Math.max(0, Math.min(1, ((+day || 1) - 1) / 29)); return t < 0.2 ? 0 : t < 0.62 ? 1 : t < 0.82 ? 2 : 3; };
     const PHASE_DAY = [2, 12, 22, 29];
@@ -909,7 +942,7 @@ void main() { vC = aCol; vA = aA; gl_PointSize = aS * uPx; gl_Position = project
           const sc = new T.Scene(), g = new T.Group(); sc.add(g);
           g.add(new T.Mesh(t.geo, SHd.mats.toon)); g.add(new T.Mesh(t.geo, SHd.mats.ink)); if (t.lines) { const lm = new T.Mesh(t.lines, SHd.mats.line); lm.frustumCulled = false; lm.renderOrder = 2; g.add(lm); }
           const p = CP[CID[ci]] || CP.mennefer;
-          const gm = new T.ShaderMaterial({ uniforms:{ uMap:{ value:t.gtex }, uLit:tu.uLit, uTint:tu.uTint, uTintA:tu.uTintA, uFar:{ value:col(p.ground) } }, vertexShader:GR_V, fragmentShader:GR_F });
+          const gm = new T.ShaderMaterial({ uniforms:{ uMap:{ value:t.gtex }, uLit:tu.uLit, uTint:tu.uTint, uTintA:tu.uTintA, uFar:{ value:col(p.ground) }, uGlow:tu.uGlow, uHaze:tu.uHaze, uNight:tu.uNight, uLamp:tu.uLamp }, vertexShader:GR_V, fragmentShader:GR_F });
           const gg = p.water ? new T.PlaneGeometry(GX + 82, GX * 2).rotateX(-Math.PI / 2) : new T.PlaneGeometry(GX * 2, GX * 2).rotateX(-Math.PI / 2);
           if (p.water) { const uv = gg.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setX(i, uv.getX(i) * (GX + 82) / (GX * 2)); gg.translate((82 - GX) / 2, 0, 0); }
           const ground = new T.Mesh(gg, gm); ground.renderOrder = -2; sc.add(ground);
@@ -925,7 +958,7 @@ void main() { vC = aCol; vA = aA; gl_PointSize = aS * uPx; gl_Position = project
           cam.left = cx - w / 2 * upp; cam.right = cx + w / 2 * upp; cam.top = cy + h / 2 * upp; cam.bottom = cy - h / 2 * upp; cam.near = D - 700; cam.far = D + 700; cam.updateProjectionMatrix();
           /* the shared light and line uniforms belong to the live views: borrow them for this one draw */
           const keep = ['uLit', 'uShd', 'uTint'].map(k2 => tu[k2].value.clone()), keepA = tu.uTintA.value, keepN = tu.uNight.value, uw = SHd.uw, kr = uw.uRes.value.clone(), kl = uw.uLW.value, kb = uw.uBias.value, U = SHd.U, kf = U.uFocal ? U.uFocal.value : 0;
-          lightU(tu, { day:PHASE_DAY[ph], si }); tu.uNight.value = 0;
+          lightU(tu, { day:PHASE_DAY[ph], si, noNight:true }); tu.uNight.value = 0;
           uw.uRes.value.set(w * 2, h * 2); uw.uLW.value = 2.6; uw.uBias.value = 3 * 2 / (cam.far - cam.near); if (U.uFocal) U.uFocal.value = D / (upp / 2);
           const url = X.snap ? X.snap(sc, cam, w, h) : null;
           ['uLit', 'uShd', 'uTint'].forEach((k2, i) => tu[k2].value.copy(keep[i])); tu.uTintA.value = keepA; tu.uNight.value = keepN; uw.uRes.value.copy(kr); uw.uLW.value = kl; uw.uBias.value = kb; if (U.uFocal) U.uFocal.value = kf;
@@ -966,7 +999,7 @@ void main() { vC = aCol; vA = aA; gl_PointSize = aS * uPx; gl_Position = project
       U.uInk.value = 1.5; U.uPR.value = pr;
       const sc = new T.Scene(), cam = new T.OrthographicCamera(-1, 1, 1, -1, 1, 4000), ODIST = 1800;
       /* ground: painted canvas on a plane, and a wide plain under it */
-      const gmat = kp(new T.ShaderMaterial({ uniforms:{ uMap:{ value:null }, uLit:tu.uLit, uTint:tu.uTint, uTintA:tu.uTintA, uFar:{ value:col('#E2C68E') } }, vertexShader:GR_V, fragmentShader:GR_F }));
+      const gmat = kp(new T.ShaderMaterial({ uniforms:{ uMap:{ value:null }, uLit:tu.uLit, uTint:tu.uTint, uTintA:tu.uTintA, uFar:{ value:col('#E2C68E') }, uGlow:tu.uGlow, uHaze:tu.uHaze, uNight:tu.uNight, uLamp:tu.uLamp }, vertexShader:GR_V, fragmentShader:GR_F }));
       /* the painted ground stops at the quay in river towns (the water lies lower) */
       const gFull = kp(new T.PlaneGeometry(GX * 2, GX * 2).rotateX(-Math.PI / 2)), gCut = kp(new T.PlaneGeometry(GX + 82, GX * 2).rotateX(-Math.PI / 2));
       { const uv = gCut.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setX(i, uv.getX(i) * (GX + 82) / (GX * 2)); gCut.translate((82 - GX) / 2, 0, 0); }
@@ -1042,8 +1075,16 @@ void main() { vC = aCol; vA = aA; gl_PointSize = aS * uPx; gl_Position = project
       const pu = { uPx:{ value:1 } };
       const pts = new T.Points(pgeo, kp(new T.ShaderMaterial({ uniforms:pu, vertexShader:PT_V, fragmentShader:PT_F, transparent:true, depthWrite:false, blending:T.CustomBlending, blendSrc:T.OneFactor, blendDst:T.OneMinusSrcAlphaFactor })));
       pts.frustumCulled = false; pts.renderOrder = 5; sc.add(pts);
-      const glow = new T.Points(kp(new T.BufferGeometry()), kp(new T.ShaderMaterial({ uniforms:pu, vertexShader:PT_V, fragmentShader:PT_F, transparent:true, depthWrite:false, blending:T.AdditiveBlending })));
+      const glow = new T.Points(kp(new T.BufferGeometry()), kp(new T.ShaderMaterial({ uniforms:{ uPx:pu.uPx, uTime:U.uTime, uNight:tu.uNight }, vertexShader:GL_V, fragmentShader:GL_F, transparent:true, depthWrite:false, blending:T.AdditiveBlending })));
       glow.frustumCulled = false; glow.renderOrder = 6; sc.add(glow);
+      /* v35: two loose flocks (one over the roofs, one over the river or the sand) */
+      const birds = (() => {
+        const B = [], W2 = [], ix = [];
+        [[-30, -40, 0.28, 46], [190, 10, -0.22, 60], [40, 60, 0.33, 30]].forEach(([cx, cz, sp, r], f) => { for (let n = 0; n < 5; n++) { const o = B.length / 4, ph = f * 2.3 + n * 0.21, rr = r + (n % 3) * 5; [[-1, -0.6], [0, 0.6], [1, -0.6], [0, 0.1]].forEach(w => { B.push(cx + (n % 2) * 4, cz + n * 3, ph, sp); W2.push(w[0], w[1], rr); }); ix.push(o, o + 1, o + 3, o + 1, o + 2, o + 3); } });
+        const g = kp(new T.BufferGeometry()); g.setAttribute('position', new T.Float32BufferAttribute(new Float32Array(W2.length), 3)); g.setAttribute('aB', new T.Float32BufferAttribute(B, 4)); g.setAttribute('aW', new T.Float32BufferAttribute(W2, 3)); g.setIndex(ix);
+        const m = new T.Mesh(g, kp(new T.ShaderMaterial({ uniforms:{ uTime:U.uTime, uNight:tu.uNight }, vertexShader:BD_V, fragmentShader:BD_F, side:T.DoubleSide, transparent:true, depthWrite:false, blending:T.CustomBlending, blendSrc:T.OneFactor, blendDst:T.OneMinusSrcAlphaFactor })));
+        m.frustumCulled = false; m.renderOrder = 7; sc.add(m); return m;
+      })();
       /* the boats / caravan (dynamic), spot glow ring */
       const dyn = new T.Group(); sc.add(dyn);
       const ring = new T.Mesh(kp(new T.RingGeometry(0.8, 1, 40).rotateX(-Math.PI / 2)), kp(new T.MeshBasicMaterial({ color:0xFFF0B0, transparent:true, opacity:0.9, depthWrite:false }))); ring.visible = false; ring.renderOrder = 4; sc.add(ring);
@@ -1105,7 +1146,7 @@ void main() { vC = aCol; vA = aA; gl_PointSize = aS * uPx; gl_Position = project
         dirty = true;
       }
       /* time of day across the run: dawn -> noon -> dusk (dayPal colours), lamps and windows at dusk */
-      function light(o2) { lightU(tu, o2); dirty = true; }
+      function light(o2) { lightU(tu, o2); far.material.color.copy(gmat.uniforms.uFar.value).multiply(tu.uLit.value); dirty = true; }
       /* labels: plaques over the spots, avoiding each other */
       function labels(o2) {
         const sp = o2.spots || {}, desert = !(CP[CID[o2.ci]] || {}).water, notes = o2.notes || {};
@@ -1153,7 +1194,7 @@ void main() { vC = aCol; vA = aA; gl_PointSize = aS * uPx; gl_Position = project
       }
       /* the camera window: the fit, then the user's zoom and pan (zp), plus a slow drift at the whole view */
       function frame(t) {
-        const z = zp.cur.z, u = upp / z, dr = z > 1.01 ? 0 : 1, dx = RED ? 0 : Math.sin(t * 0.07) * 1.5 * dr, dy = RED ? 0 : Math.sin(t * 0.05) * 0.8 * dr;
+        const z = zp.cur.z, u = upp / z, dr = Math.max(0, Math.min(1, 1 - (z - 1) * 6)), dx = RED ? 0 : Math.sin(t * 0.07) * 1.5 * dr, dy = RED ? 0 : Math.sin(t * 0.05) * 0.8 * dr;
         const cx = fitT.cx + zp.cur.x * upp + dx, cy = fitT.cy - zp.cur.y * upp + dy;
         cam.left = cx - W / 2 * u; cam.right = cx + W / 2 * u; cam.top = cy + H / 2 * u; cam.bottom = cy - H / 2 * u;
         cam.near = ODIST - 700; cam.far = ODIST + 700; cam.updateProjectionMatrix();
@@ -1170,7 +1211,7 @@ void main() { vC = aCol; vA = aA; gl_PointSize = aS * uPx; gl_Position = project
         keys.forEach(k2 => { const s = spotOf(k2); if (!s) return; const c = scr(s.x, s.y, s.z); placed.push({ x:c[0] - 15, y:c[1] - 15, w:30, h:30, own:k2 }); });
         keys.forEach(k2 => {
           const L = lab[k2], s = spotOf(k2); if (!s) return;
-          { const m = scr(s.x, s.y, s.z), off = m[0] < 4 || m[0] > W - 4 || m[1] < 4 || m[1] > H - 4; L.style.visibility = off ? 'hidden' : ''; if (off) { L._r = null; return; } }
+          { const m = scr(s.x, s.y, s.z), off = m[0] < 4 || m[0] > W - 4 || m[1] < 4 || m[1] > H - 4; if (L.classList.contains('v3t-off') !== off) L.classList.toggle('v3t-off', off); if (off) { L._r = null; return; } }
           const w = L.offsetWidth, h = L.offsetHeight, top = scr(s.x, s.top + 4, s.z), mid = scr(s.x, s.y, s.z);
           const cands = [[top[0] - w / 2, top[1] - h], [top[0] - w / 2, top[1] - h - 14], [mid[0] + 18, mid[1] - h / 2], [mid[0] - w - 18, mid[1] - h / 2], [mid[0] - w / 2, mid[1] + 14], [top[0] - w / 2, top[1] - h - 30]];
           let best = null, bo = 1e9;
@@ -1203,7 +1244,7 @@ void main() { vC = aCol; vA = aA; gl_PointSize = aS * uPx; gl_Position = project
       function highlight(k2, on) {
         Object.keys(lab).forEach(q => lab[q].classList.toggle('hi', on && q === k2));
         hi = on ? k2 : (hi === k2 ? null : hi);
-        const s = hi && spotOf(hi); ring.visible = !!s; if (s) { ring.position.set(s.x, 0.6, s.z); ring.scale.set(s.r, 1, s.r); }
+        const s = hi && spotOf(hi); ring.visible = !!s; if (s) { ring.position.set(s.x, 0.6, s.z); ring.scale.set(s.r, 1, s.r); ring.userData.r = s.r; }
         dirty = true;
       }
       try { ro = new ResizeObserver(() => { need = true; }); ro.observe(el); } catch (e) { ro = null; }
@@ -1234,13 +1275,15 @@ void main() { vC = aCol; vA = aA; gl_PointSize = aS * uPx; gl_Position = project
           }
           try { FIG.animate(f.g, RED ? 0 : t + f.ph, f.st); } catch (e) {}
         }
+        /* v35: the spot ring breathes while it is shown */
+        if (ring.visible && !RED) { const rr = (ring.userData.r || 10) * (1 + Math.sin(t * 4.2) * 0.06); ring.scale.set(rr, 1, rr); ring.material.opacity = 0.75 + Math.sin(t * 4.2) * 0.15; }
         for (let i = 0; i < dynParts.length; i++) { const d = dynParts[i]; if (d.boat) { d.g.position.y = d.y + (RED ? 0 : Math.sin(t * 1.6 + d.z) * 0.5) - (d.list || 0) * 20; d.g.rotation.z = (RED ? 0 : Math.sin(t * 1.1 + d.z) * 0.02) + (d.list || 0); } }
         /* points: smoke columns, our ship's smoke at damage 3, locusts */
         pN = 0; pT = t; const sm = town0 ? town0.B.smoke : EMPTY;
         for (let i = 0; i < sm.length; i++) puff(sm[i][0], sm[i][1], sm[i][2], i, 10, 0.62);
         for (let i = 0; i < dynParts.length; i++) { const d = dynParts[i]; if (d.dmg >= 3) puff(d.x - 2, 14, d.z + 6, 5, 14, 0.3); }
         let n = pN;
-        if (cur.crisis === 'cekirge') for (let q = 0; q < 70 && n < PN; q++) { const a = t * (0.6 + (q % 7) * 0.05) + q * 2.4, rr = 30 + (q % 11) * 7; pP[n * 3] = 10 + Math.cos(a) * rr; pP[n * 3 + 1] = 28 + Math.sin(a * 1.7 + q) * 10; pP[n * 3 + 2] = Math.sin(a) * rr * 0.7; pC[n * 3] = 0.3; pC[n * 3 + 1] = 0.26; pC[n * 3 + 2] = 0.12; pA[n] = 0.95; pS[n] = 2.2; n++; }
+        if (cur.crisis === 'cekirge') for (let q = 0; q < 100 && n < PN; q++) { const a = t * (0.6 + (q % 7) * 0.05) + q * 2.4, rr = 30 + (q % 11) * 7; pP[n * 3] = 10 + Math.cos(a) * rr; pP[n * 3 + 1] = 28 + Math.sin(a * 1.7 + q) * 10; pP[n * 3 + 2] = Math.sin(a) * rr * 0.7; pC[n * 3] = 0.3; pC[n * 3 + 1] = 0.26; pC[n * 3 + 2] = 0.12; pA[n] = 0.95; pS[n] = 2.2 + (q % 3) * 0.5; n++; }
         pgeo.setDrawRange(0, n); pgeo.attributes.position.needsUpdate = true; pgeo.attributes.aCol.needsUpdate = true; pgeo.attributes.aA.needsUpdate = true; pgeo.attributes.aS.needsUpdate = true;
         if (fitT && !RED) frame(t);
       }
@@ -1248,8 +1291,11 @@ void main() { vC = aCol; vA = aA; gl_PointSize = aS * uPx; gl_Position = project
       function puff(x, y, z, k2, cnt, c0) { const t = pT; for (let q = 0; q < cnt && pN < PN; q++) { const n = pN, ph = (t * 0.25 + q / cnt + k2 * 0.37) % 1, c = c0 + ph * 0.3; pP[n * 3] = x + Math.sin(q * 2.1 + t) * 2 * ph + ph * 10; pP[n * 3 + 1] = y + ph * 40; pP[n * 3 + 2] = z - ph * 8; pC[n * 3] = c; pC[n * 3 + 1] = c * 0.96; pC[n * 3 + 2] = c * 0.92; pA[n] = 0.55 * (1 - ph) * Math.min(1, ph * 5); pS[n] = 4 + ph * 9; pN++; } }
       function lampsFor() {
         const L = town0 ? town0.B.lamps : [], n = L.length, gg = glow.geometry, P = new Float32Array(n * 3), C = new Float32Array(n * 3), A = new Float32Array(n), S2 = new Float32Array(n);
-        L.forEach((q, i) => { P.set(q, i * 3); C.set([1, 0.78, 0.4], i * 3); A[i] = 0.9; S2[i] = 22; });
+        L.forEach((q, i) => { P.set(q, i * 3); C.set([1, 0.74, 0.38], i * 3); A[i] = 0.62; S2[i] = 34; });
         ['position', 'aCol', 'aA', 'aS'].forEach((a, j) => gg.setAttribute(a, new T.BufferAttribute([P, C, A, S2][j], j < 2 ? 3 : 1)));
+        /* v35: the 12 lamps nearest the town's heart light the ground and the walls around them at night */
+        const near = L.slice().sort((a, b) => (a[0] * a[0] + a[2] * a[2]) - (b[0] * b[0] + b[2] * b[2])), UL = tu.uLamp.value;
+        for (let i = 0; i < UL.length; i++) { const q = near[i]; if (q) UL[i].set(q[0], q[1] - 4, q[2], 30); else UL[i].set(0, -1e4, 0, 1); }
       }
       let lampsKey = null;
       const veilEl = document.getElementById('veil');
@@ -1270,9 +1316,9 @@ void main() { vC = aCol; vA = aA; gl_PointSize = aS * uPx; gl_Position = project
             if (!dirty && lastR && X.visOK(now) && now - lastR < 3000) { gapA = gapA * 0.8 + Math.min(1000, now - lastR) * 0.2; if (++gapN > 12 && gapA > 140) { slowT = townSlow = true; need = true; } }
             const dt = Math.min(0.1, (now - (lastR || now)) / 1000); lastR = now; dirty = false;
             if (town0 && lampsKey !== town0) { lampsKey = town0; lampsFor(); }
-            glow.visible = tu.uNight.value > 0.05; glow.material.opacity = tu.uNight.value;
+            glow.visible = tu.uNight.value > 0.05; birds.visible = !RED && tu.uNight.value < 0.95 && cur.crisis !== 'cekirge';
             const zm = zp.step(dt) || zp.busy();
-            try { step((now - t0) / 1000, dt); if (zm || zLay) { frame((now - t0) / 1000); layout(); zLay = zm; } r.render(sc, cam); } catch (e) { try { console.warn('town draw:', e); } catch (e2) {} el.classList.remove('v3-on'); kill(); return; }
+            try { step((now - t0) / 1000, dt); if (zm || zLay) { frame((now - t0) / 1000); layout(); if (zLay !== zm) labs.classList.toggle('zm', zm); zLay = zm; } r.render(sc, cam); } catch (e) { try { console.warn('town draw:', e); } catch (e2) {} el.classList.remove('v3-on'); kill(); return; }
             if (!el.classList.contains('v3-on')) { el.classList.add('v3-on'); inst.firstMs = performance.now() - inst.t0; }
           }
         }
