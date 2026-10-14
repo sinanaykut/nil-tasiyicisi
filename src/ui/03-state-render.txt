@@ -65,6 +65,8 @@
     if (S.hero && HEROES[S.hero]) o.hero = 'h_' + S.hero;
     /* the plaques keep clear of the cartouche, the quest chip and the hold box */
     ['#cart', '#goal:not([hidden])', '#hold'].forEach(q => { const e = document.querySelector(q); if (!e) return; const b = e.getBoundingClientRect(); if (b.width) av.push({ x:b.left - pr.left, y:b.top - pr.top, w:b.width, h:b.height }); });
+    /* v36: and of the zoom buttons (right edge, middle) - before they exist, where they will be */
+    { const z = document.getElementById('z3'), b = z && z.getBoundingClientRect(); if (b && b.width) av.push({ x:b.left - pr.left - 6, y:b.top - pr.top - 6, w:b.width + 12, h:b.height + 12 }); else if (pr.width) av.push({ x:pr.width - 66, y:pr.height / 2 - 84, w:66, h:168 }); }
     o.avoid = av;
     return o;
   }
