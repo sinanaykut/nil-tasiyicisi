@@ -1,5 +1,5 @@
 /* Nil Kervancısı — çevrimdışı önbellek */
-const VER = 'nil-v38';
+const VER = 'nil-v39';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './three.min.js'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VER).then(c => c.addAll(CORE)).then(() => self.skipWaiting()));

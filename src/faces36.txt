@@ -4,7 +4,9 @@
      Life without 3D: a slow breath, blinks, the mouth while text types, a laugh on tap, a soft crossfade between moods. */
   var GF36 = (() => {
     const IMG = typeof GF36_IMG !== 'undefined' ? GF36_IMG : {};
-    const ALIAS = { sly:'laugh', sad:'thinking', think:'thinking', surprise:'surprised', glad:'happy', sour:'angry' };
+    const ALIAS = { sly:'laugh', think:'thinking', surprise:'surprised', glad:'happy', sour:'angry' };
+    /* the open-mouth frame that goes with each mood (falls back to the plain one) */
+    const TALK = { happy:'talk_happy', laugh:'talk_happy', angry:'talk_angry', surprised:'talk_surprised', sad:'talk' };
     const has = key => !!IMG[String(key)];
     const pick = (key, mood) => { const p = IMG[String(key)]; if (!p) return ''; const m = ALIAS[mood] || mood || 'neutral'; return p[m] || p.neutral || ''; };
     const RED = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
@@ -26,8 +28,9 @@
       let talkTm = 0, mouth = false;
       const talkLoop = () => {
         clearTimeout(talkTm); if (!h.alive) return;
-        if (!h.talk || h.once || !P.talk || /^(laugh|surprised|thinking)$/.test(ALIAS[h.mood] || h.mood)) { mouth = false; show(face()); return; }
-        mouth = !mouth; show(mouth ? P.talk : face());
+        const m = ALIAS[h.mood] || h.mood, tk = P[TALK[m]] || (m === 'surprised' ? null : P.talk);
+        if (!h.talk || h.once || !tk || /^(laugh|thinking)$/.test(m)) { mouth = false; show(face()); return; }
+        mouth = !mouth; show(mouth ? tk : face());
         talkTm = setTimeout(talkLoop, mouth ? 110 + Math.random() * 70 : 90 + Math.random() * 90);
       };
       /* blinking every few seconds */
