@@ -5,8 +5,8 @@
     { n:5, k:[3, 3], dec:1, fixP:0, fixD:0, pil:0, pri:0, par:2 },
     { n:5, k:[3, 4], dec:1, fixP:1, fixD:0, pil:1, pri:0, par:2 },
     { n:6, k:[4, 5], dec:2, fixP:1, fixD:1, pil:2, pri:0, par:3 },
-    { n:6, k:[5, 6], dec:2, fixP:1, fixD:1, pil:2, pri:1, par:3 },
-    { n:7, k:[6, 7], dec:3, fixP:1, fixD:1, pil:3, pri:1, par:4 }
+    { n:6, k:[5, 6], dec:2, fixP:1, fixD:1, pil:2, pri:1, par:3, two:true },
+    { n:7, k:[6, 7], dec:3, fixP:1, fixD:1, pil:3, pri:1, par:4, two:true }
   ];
   const TM_C = 60, TM_W = 26;
   function tmRng(seed) {
@@ -19,9 +19,8 @@
   }
   /* follow the light: returns the drawn segments and whether the statue is reached. o:0 = "\", o:1 = "/" */
   function tmTrace(R) {
-    const n = R.n, segs = [], seen = new Set(), E = R.entry, touched = new Set();
+    const n = R.n, segs = [], seen = new Set(), E = R.entry, touched = new Set(), lit = new Set();
     const q = [[E.x - E.dx, E.y - E.dy, E.dx, E.dy, true]];
-    let hit = false;
     while (q.length && segs.length < 80) {
       const [sx, sy, dx, dy, first] = q.pop(); let x = sx, y = sy, end = 'wall';
       for (;;) {
@@ -30,7 +29,8 @@
         const key = (y * n + x) * 4 + (dx === 1 ? 0 : dx === -1 ? 1 : dy === 1 ? 2 : 3);
         if (seen.has(key)) { end = 'loop'; break; }
         seen.add(key);
-        if (x === R.target.x && y === R.target.y) { end = 'target'; hit = true; break; }
+        const ti = R.tg.findIndex(t => t.x === x && t.y === y);
+        if (ti >= 0) { end = 'target'; lit.add(ti); break; }
         const it = R.g[y * n + x];
         if (!it) continue;
         if (it.t === 'p') { end = 'pillar'; break; }
@@ -40,7 +40,7 @@
       }
       segs.push({ sx, sy, x, y, dx, dy, end, first:!!first });
     }
-    return { segs, hit, touched };
+    return { segs, hit:lit.size === R.tg.length, lit, touched };
   }
   /* brute force every orientation of the rotatable mirrors: the solution nearest to the current state */
   function tmNearest(R) {
@@ -81,6 +81,7 @@
       /* the statue should not sit against the entry wall right beside the gap */
       if (Math.abs(x - E.x) + Math.abs(y - E.y) < 2) continue;
       const R = { n, level, entry:E, target:{ x, y }, g:Array(n * n).fill(null), rot:[], items:[] };
+      R.tg = [R.target];
       const put = (cx, cy, it) => { it.x = cx; it.y = cy; R.g[cy * n + cx] = it; R.items.push(it); return it; };
       const pm = path.map(p => put(p.x, p.y, { t:'m', o:p.sol, sol:p.sol, fix:false, path:true }));
       /* a prism on the path splits the light both ways; one branch carries on */
@@ -95,6 +96,19 @@
       for (let i = 0; i < L.fixD; i++) if ((c = take())) put(c[0], c[1], { t:'m', o:ri(2), sol:-1, fix:true, path:false });
       for (let i = 0; i < L.pil; i++) if ((c = take())) put(c[0], c[1], { t:'p' });
       R.rot = R.items.filter(it => it.t === 'm' && !it.fix);
+      /* v42: with a prism, the other half of the light can wake a second (lapis) statue */
+      if (L.two && R.items.some(it => it.t === 'x')) {
+        const keep = R.rot.map(m => m.o); pm.forEach(m => { if (m.t === 'm') m.o = m.sol; });
+        const tr = tmTrace(R), gaps = [];
+        tr.segs.forEach(g => {
+          if (g.end !== 'wall' && g.end !== 'pillar') return;
+          const cx = g.x - g.dx, cy = g.y - g.dy, len = Math.abs(cx - g.sx) + Math.abs(cy - g.sy);
+          if (len >= 2 && !R.g[cy * n + cx] && !used.has(cy * n + cx) && !(cx === R.target.x && cy === R.target.y)) gaps.push({ x:cx, y:cy });
+        });
+        R.rot.forEach((m, i) => { m.o = keep[i]; });
+        if (!gaps.length) continue;
+        R.target2 = gaps[ri(gaps.length)]; R.tg.push(R.target2);
+      }
       const need = Math.min(L.par, cand.filter(p => !p.fix).length);
       for (let s = 0; s < 40; s++) {
         R.rot.forEach(m => { m.o = ri(2); });
@@ -161,6 +175,12 @@
     s += '<g class="tmrays" stroke="#FFD24A" stroke-width="3" stroke-linecap="round">' + Array.from({ length:12 }, (_, i) => { const a = i * Math.PI / 6; return '<path d="M' + (Math.cos(a) * 30).toFixed(1) + ' ' + (Math.sin(a) * 30).toFixed(1) + 'L' + (Math.cos(a) * 44).toFixed(1) + ' ' + (Math.sin(a) * 44).toFixed(1) + '"/>'; }).join('') + '</g>';
     s += '<rect x="-22" y="-20" width="44" height="42" rx="5" fill="#1F5FA8" stroke="' + INK + '" stroke-width="2.2"/><rect x="-17" y="-15" width="34" height="32" rx="3" fill="#E9D7A8" stroke="' + INK + '" stroke-width="1.6"/>';
     s += pth('M0 -2c-7 0 -7 -12 0 -12s7 12 0 12zM-9 -1h18M0 -2v15', 'none', 'stroke="' + INK + '" stroke-width="7" stroke-linecap="round"') + pth('M0 -2c-7 0 -7 -12 0 -12s7 12 0 12zM-9 -1h18M0 -2v15', 'none', 'class="tmank" stroke="#D9A43A" stroke-width="3.6" stroke-linecap="round"') + '</g>';
+    if (R.target2) {
+      const bx = tmCX(R.target2.x), by = tmCX(R.target2.y);
+      s += '<g class="tmtgt b" transform="translate(' + bx + ' ' + by + ')"><circle r="40" fill="url(#tmGl' + u + ')" class="tmhalo"/>';
+      s += '<rect x="-20" y="-19" width="40" height="40" rx="5" fill="#D9A43A" stroke="' + INK + '" stroke-width="2.2"/><rect x="-15" y="-14" width="30" height="30" rx="3" fill="#E9D7A8" stroke="' + INK + '" stroke-width="1.6"/>';
+      s += pth('M-9 4c0 -8 4 -12 9 -12s9 4 9 12zM0 -8v-4M-11 8h22', '#1F5FA8', ink(2)) + '<circle cy="-1" r="2" fill="#FFD24A"/></g>';
+    }
     /* pillars, prisms and mirrors */
     R.items.forEach((it, k) => {
       const cx = tmCX(it.x), cy = tmCX(it.y);
@@ -190,6 +210,7 @@
     let s = sw('<circle r="23" fill="none" stroke="#2BA59A" stroke-width="3" stroke-dasharray="6 5"/><rect x="-22" y="-5" width="44" height="10" rx="5" fill="#D9A43A" stroke="#2B1D14" stroke-width="2.2" transform="rotate(45)"/>', 'döner');
     if (has(it => it.t === 'm' && it.fix)) s += sw('<rect x="-22" y="-22" width="44" height="44" rx="6" fill="#A79A82" stroke="#2B1D14" stroke-width="2.4"/><rect x="-22" y="-5" width="44" height="10" rx="5" fill="#8F7B5A" stroke="#2B1D14" stroke-width="2.2" transform="rotate(45)"/>', 'sabit');
     if (has(it => it.t === 'x')) s += sw('<path d="M0 -20L20 0 0 20 -20 0Z" fill="#7FD6CF" stroke="#2B1D14" stroke-width="2.4"/>', 'ikiye böler');
+    if (R.target2) s += sw('<rect x="-20" y="-20" width="40" height="40" rx="5" fill="#D9A43A" stroke="#2B1D14" stroke-width="2.4"/><path d="M-11 6c0 -9 5 -14 11 -14s11 5 11 14z" fill="#1F5FA8" stroke="#2B1D14" stroke-width="2.2"/>', 'ikinci heykel');
     if (has(it => it.t === 'p')) s += sw('<circle r="21" fill="#D6B676" stroke="#2B1D14" stroke-width="2.4"/><circle r="13" fill="#B7412E" stroke="#2B1D14" stroke-width="2"/>', 'sütun');
     return '<div class="tmleg">' + s + '</div>';
   }
@@ -198,8 +219,9 @@
   function pzTemple(o) {
     o = o || {};
     pzClear();
+    if (o.type && o.type !== 'light' && typeof TPK !== 'undefined' && TPK[o.type]) { tpOpen(o.type, o); return; }
     const level = Math.max(0, Math.min(4, (o.level | 0)));
-    PZ = { kind:'temple', tok:Math.random(), timers:[], cb:o.cb, uid:++uid, moves:0, hint:false, done:false, fin:false };
+    PZ = { kind:'temple', type:'light', tok:Math.random(), timers:[], cb:o.cb, uid:++uid, moves:0, hint:false, done:false, fin:false };
     let R = tmBuild(level, o.seed == null ? undefined : o.seed);
     if (!R) R = tmBuild(level, Math.random());
     PZ.R = R;
@@ -207,7 +229,7 @@
     if (window.__nil && window.__nil.fn) window.__nil.fn.templeAutoSolve = templeAutoSolve;
     const T = R.n * TM_C + TM_W * 2, pc = v => (v / T * 100).toFixed(3) + '%';
     let s = '<div class="sh-h"><h2 id="shTitle">' + esc(o.title || 'Tapınak odası') + '<small>' + esc(o.sub || 'Işık ve ayna bulmacası') + '</small></h2></div>';
-    s += '<p class="tmhow">' + ico('i-sun', 18) + '<span>Aynalara dokun: ışık <b>altın heykele</b> varsın.</span></p>';
+    s += '<p class="tmhow">' + ico('i-sun', 18) + '<span>Aynalara dokun: ışık ' + (R.target2 ? '<b>iki heykele</b> de' : '<b>altın heykele</b>') + ' varsın.' + (R.items.some(it => it.t === 'x') ? ' Kristal ışığı <b>ikiye böler</b>.' : '') + '</span></p>';
     s += '<div class="tmroom" id="tmRoom">' + tmRoomSVG(R) + '<svg viewBox="0 0 ' + T + ' ' + T + '" class="tmov" aria-hidden="true"><g id="tmBeam"></g></svg>';
     R.items.forEach((it, k) => {
       if (it.t === 'p') return;
@@ -249,7 +271,7 @@
       if (!PZ || PZ.tok !== tok) return;
       const room = $('#tmRoom'); if (room) room.classList.add('win');
       const bar = document.querySelector('#sheet .tmbar'); if (bar) bar.classList.add('won');
-      const st = $('#tmSt'); if (st) st.innerHTML = '<b class="tmok">' + (q === 'perfect' ? 'Kusursuz! ' : '') + 'Işık heykele ulaştı!</b>';
+      const st = $('#tmSt'); if (st) st.innerHTML = '<b class="tmok">' + (q === 'perfect' ? 'Kusursuz! ' : '') + (R.target2 ? 'Işık iki heykele de ulaştı!' : 'Işık heykele ulaştı!') + '</b>';
       play('fanfare'); buzz('big');
     }, reduce ? 0 : 200));
     PZ.timers.push(setTimeout(() => tmFin(q), 1400));
@@ -258,10 +280,11 @@
     if (!PZ || PZ.kind !== 'temple' || PZ.fin) return;
     PZ.fin = true; const cb = PZ.cb; pzClear();
     try { if (typeof cb === 'function') cb(q); }
-    finally { if (document.querySelector('#sheet .tmroom')) closeSheet(); }
+    finally { if (document.querySelector('#sheet .tmroom,#sheet .tpbox')) closeSheet(); }
   }
   function tmHint() {
     if (!PZ || PZ.kind !== 'temple' || PZ.done) return;
+    if (PZ.type !== 'light') { tpHint(); return; }
     const R = PZ.R, nb = tmNearest(R); if (!nb) return;
     const wrong = R.rot.filter((m, i) => m.o !== nb.sol[i]); if (!wrong.length) return;
     const lit = tmTrace(R).touched, m = wrong.find(w => lit.has(w.y * R.n + w.x)) || wrong[0];
@@ -273,8 +296,11 @@
   /* test helper: solve the current room by tapping the nearest solution's mirrors (the real tap path) */
   function templeAutoSolve(gap) {
     if (!PZ || PZ.kind !== 'temple' || PZ.done) return 0;
+    if (PZ.type !== 'light') return tpAuto(gap);
+    if (PZ.autoOn) return PZ.autoOn;
     const R = PZ.R, nb = tmNearest(R); if (!nb) return 0;
     const todo = R.rot.filter((m, i) => m.o !== nb.sol[i]).map(m => m.i), tok = PZ.tok, ms = gap == null ? 260 : gap;
+    if (ms) PZ.autoOn = todo.length || 1;
     todo.forEach((i, n) => {
       if (!ms) { tmTap(i); return; }
       PZ.timers.push(setTimeout(() => { if (!PZ || PZ.tok !== tok) return; const b = document.querySelector('#sheet [data-tm="' + i + '"]'); if (b && !b.disabled) b.click(); else tmTap(i); }, (n + 1) * ms));
@@ -288,6 +314,7 @@
       sh.addEventListener('click', e => {
         if (!PZ || PZ.kind !== 'temple') return;
         const t = e.target.closest && e.target.closest('button'); if (!t || t.disabled) return;
+        if (PZ.type !== 'light' && t.dataset.tm != null) return;
         if (t.dataset.tm != null) tmTap(+t.dataset.tm);
         else if (t.dataset.tmf != null) { play('no'); const el = document.querySelector('#tmI' + t.dataset.tmf); if (el && !reduce) { el.classList.remove('tmno'); void el.getBoundingClientRect(); el.classList.add('tmno'); } }
         else if (t.hasAttribute('data-tmh')) tmHint();
@@ -297,7 +324,7 @@
     if (!document._tmKey) {
       document._tmKey = true;
       document.addEventListener('keydown', e => {
-        if (!PZ || PZ.kind !== 'temple' || !/^Arrow/.test(e.key)) return;
+        if (!PZ || PZ.kind !== 'temple' || PZ.type !== 'light' || !/^Arrow/.test(e.key)) return;
         const cur = document.activeElement && document.activeElement.closest && document.activeElement.closest('.tmb');
         const all = Array.from(document.querySelectorAll('#tmRoom .tmb')); if (!all.length) return;
         e.preventDefault();

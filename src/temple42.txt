@@ -1,0 +1,511 @@
+
+  /* ================= v42 temple rooms: five kinds of riddles (owner: bulmaca) =================
+     light (temple.txt: mirrors, prisms, two statues), glyph (spell a pharaoh's name in a cartouche from the priests' sign list),
+     slide (sliding relief stones), scale (balance Maat's scale with deben weights), stars (turn the ceiling rings to the constellation).
+     All share PZ.kind 'temple' (PZ.type), the hint / give-up bar, templeAutoSolve and the cb('perfect'|'good'|'miss') of pzTemple. */
+  const TP_KIND = {
+    light:{ name:'Işık odası', sub:'Ayna bulmacası', ico:'i-sun' },
+    glyph:{ name:'Kartuş odası', sub:'Hiyeroglif bulmacası', ico:'i-scroll' },
+    slide:{ name:'Kabartma odası', sub:'Kayan taşlar', ico:'i-temple' },
+    scale:{ name:'Maat\'ın terazisi', sub:'Ağırlık bulmacası', ico:'i-coin' },
+    stars:{ name:'Yıldız tavanı', sub:'Takımyıldız bulmacası', ico:'i-moon' }
+  };
+  const TP_TYPES = ['light', 'glyph', 'slide', 'scale', 'stars'];
+  /* which riddle a city's temple holds in this run: a shuffled order per run, so neighbouring temples differ */
+  function templeTypeFor(ci, rs) {
+    const cities = Object.keys(TEMPLES).map(Number), rnd = tmRng('tp' + (rs || 7)), ord = TP_TYPES.slice();
+    for (let i = ord.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [ord[i], ord[j]] = [ord[j], ord[i]]; }
+    const k = Math.max(0, cities.indexOf(ci));
+    return ord[k % ord.length];
+  }
+  const tpRI = (rnd, k) => Math.floor(rnd() * k);
+  const tpShuf = (rnd, a) => { for (let i = a.length - 1; i > 0; i--) { const j = tpRI(rnd, i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const tpDbl = (d, c, w) => pth(d, 'none', 'stroke="' + INK + '" stroke-width="' + (w + 2.6) + '" stroke-linecap="round" stroke-linejoin="round"') + pth(d, 'none', 'stroke="' + c + '" stroke-width="' + w + '" stroke-linecap="round" stroke-linejoin="round"');
+
+  function tpOpen(type, o) {
+    const K = TPK[type], level = Math.max(0, Math.min(4, o.level | 0));
+    let rnd = tmRng(o.seed == null ? undefined : o.seed);
+    PZ = { kind:'temple', type, tok:Math.random(), timers:[], cb:o.cb, uid:++uid, moves:0, mist:0, hint:false, done:false, fin:false, level };
+    let G = K.build(level, rnd);
+    if (!G) { rnd = tmRng(Math.random()); G = K.build(level, rnd); }
+    PZ.G = G;
+    tmBind(); tpBind();
+    if (window.__nil && window.__nil.fn) window.__nil.fn.templeAutoSolve = templeAutoSolve;
+    let s = '<div class="sh-h"><h2 id="shTitle">' + esc(o.title || TP_KIND[type].name) + '<small>' + esc(o.sub || TP_KIND[type].sub) + '</small></h2></div>';
+    s += '<p class="tmhow">' + ico(TP_KIND[type].ico, 18) + '<span>' + K.goal(G) + '</span></p>';
+    s += '<div class="tpbox tp-' + type + '" id="tpBox">' + K.html(G) + '</div>';
+    s += '<div class="tmbar"><span class="tmst" id="tmSt" aria-live="polite"></span><button class="btn sm" type="button" data-tmh>' + ico('i-bolt', 14) + 'İpucu</button><button class="btn sm" type="button" data-tmq>Vazgeç</button></div>';
+    openSheet(s, true, 'pz');
+    K.draw(G, true);
+    tpStatus();
+  }
+  function tpStatus(t) {
+    const st = $('#tmSt'); if (!st || !PZ) return;
+    if (t) { st.innerHTML = t; return; }
+    const K = TPK[PZ.type];
+    st.innerHTML = K.status ? K.status(PZ.G) : 'Hamle: <b>' + PZ.moves + '</b> · ideal: <b>' + PZ.G.par + '</b>';
+  }
+  function tpWin(msg) {
+    if (!PZ || PZ.done) return;
+    const tok = PZ.tok, K = TPK[PZ.type]; PZ.done = true;
+    const q = !PZ.hint && K.perfect(PZ.G) ? 'perfect' : 'good';
+    PZ.q = q;
+    document.querySelectorAll('#sheet .tpbox button,#sheet .tpbox [data-tpr],#sheet [data-tmh],#sheet [data-tmq]').forEach(b => { b.disabled = true; b.setAttribute && b.setAttribute('aria-disabled', 'true'); });
+    PZ.timers.push(setTimeout(() => {
+      if (!PZ || PZ.tok !== tok) return;
+      const box = $('#tpBox'); if (box) box.classList.add('win');
+      const bar = document.querySelector('#sheet .tmbar'); if (bar) bar.classList.add('won');
+      tpStatus('<b class="tmok">' + (q === 'perfect' ? 'Kusursuz! ' : '') + msg + '</b>');
+      play('fanfare'); buzz('big');
+    }, reduce ? 0 : 260));
+    PZ.timers.push(setTimeout(() => tmFin(q), 1700));
+  }
+  function tpShake(el) { if (!el || reduce) return; el.classList.remove('tpno'); void el.getBoundingClientRect(); el.classList.add('tpno'); }
+  function tpGlow(el) { if (!el || reduce) return; el.classList.remove('tphint'); void el.getBoundingClientRect(); el.classList.add('tphint'); }
+  function tpHint() {
+    if (!PZ || PZ.done) return;
+    const K = TPK[PZ.type]; PZ.hint = true;
+    const t = K.hint(PZ.G); if (t) toast(t);
+  }
+  /* test helper: plays the remaining solution through the real buttons, one step every gap ms (0 = at once) */
+  function tpAuto(gap) {
+    if (!PZ || PZ.done) return 0;
+    if (PZ.autoOn) return PZ.autoOn;
+    const K = TPK[PZ.type], steps = K.solve(PZ.G), tok = PZ.tok, ms = gap == null ? 220 : gap;
+    PZ.autoOn = steps.length || 1;
+    const run = st => { const b = document.querySelector('#sheet ' + st); if (b) tpClick(b); };
+    if (!ms) steps.forEach(run);
+    else steps.forEach((st, n) => PZ.timers.push(setTimeout(() => { if (PZ && PZ.tok === tok && !PZ.done) run(st); }, (n + 1) * ms)));
+    return steps.length;
+  }
+  function tpClick(t) {
+    if (!PZ || PZ.kind !== 'temple' || !PZ.type || PZ.type === 'light' || PZ.done) return;
+    const K = TPK[PZ.type]; if (K.tap) K.tap(PZ.G, t);
+  }
+  function tpBind() {
+    const sh = $('#sheet');
+    if (sh && !sh._tpBound) {
+      sh._tpBound = true;
+      sh.addEventListener('click', e => {
+        if (!PZ || PZ.kind !== 'temple' || !PZ.type || PZ.type === 'light') return;
+        const t = e.target.closest && e.target.closest('[data-tpg],[data-tps],[data-tpw],[data-tpr]');
+        if (t && !t.disabled && t.getAttribute('aria-disabled') !== 'true') tpClick(t);
+      });
+      sh.addEventListener('keydown', e => {
+        if (!PZ || PZ.kind !== 'temple' || (e.key !== 'Enter' && e.key !== ' ')) return;
+        const t = e.target.closest && e.target.closest('g[data-tpr],g[data-tpw]');
+        if (t) { e.preventDefault(); tpClick(t); }
+      });
+    }
+  }
+
+  /* ================= glyph: the royal name in a cartouche ================= */
+  /* uniliteral signs, drawn in a 40×40 box: [key, label, svg] */
+  const GL_SIGN = {
+    A:['Akbaba', 'A', () => pth('M-8 -12c-3 0 -5 1 -6 4l-2 1 3 1c1 -1 2 -1 3 -1c0 2 -1 4 -1 7c0 7 4 11 11 13l14 4c2 0 3 -2 1 -3l-8 -6c-1 -9 -5 -15 -11 -18c-1 -1 -3 -2 -4 -2z', '#D9A43A', ink(1.8)) + pth('M-2 11v7M3 12v6M-5 18h6M0 18h6', 'none', ink(1.8)) + '<circle cx="-8" cy="-8" r="1.3" fill="' + INK + '"/>' + pth('M-1 -3c3 3 5 7 6 12', 'none', 'stroke="#8E5A1E" stroke-width="1.6" stroke-linecap="round"')],
+    B:['Ayak', 'B', () => pth('M1 -18h6v24c0 3 2 6 5 8v4h-23c-1 -2 0 -3 2 -4h6c3 -1 4 -3 4 -7z', '#E0B07A', ink(1.8)) + pth('M-9 18h21', 'none', ink(1.8))],
+    D:['El', 'D', () => pth('M-18 2c0 -3 2 -4 4 -4h13l4 -6c1 -2 4 -1 3 1l-3 5h14c2 0 3 2 3 4s-1 4 -3 4h-31c-3 0 -4 -2 -4 -4z', '#E0B07A', ink(1.8)) + pth('M-8 2h17', 'none', 'stroke="#9C6A3A" stroke-width="1.4" stroke-linecap="round"')],
+    E:['Saz', 'İ/E', () => pth('M2 19V-4', 'none', 'stroke="' + INK + '" stroke-width="5" stroke-linecap="round"') + pth('M2 19V-4', 'none', 'stroke="#2BA59A" stroke-width="2.4" stroke-linecap="round"') + pth('M2 -3c0 -7 -5 -12 -10 -15c0 7 4 12 10 15z', '#2BA59A', ink(1.8))],
+    F:['Engerek', 'F', () => tpDbl('M-14 2c4 -4 7 -4 10 0s6 4 9 0s6 -3 10 1c2 2 2 5 1 8', '#C9A227', 4.2) + pth('M-18 2c0 -3 2 -5 5 -5s4 2 4 4', '#C9A227', ink(1.6)) + pth('M-15 -3l-2 -5M-11 -3l1 -5', 'none', ink(1.8)) + '<circle cx="-14" cy="0" r="1.1" fill="' + INK + '"/>'],
+    H:['Avlu', 'H', () => tpDbl('M-12 13V-12H12V13H3', '#1F5FA8', 4.4)],
+    K:['Sepet', 'K', () => pth('M-15 -3h26c0 10 -6 15 -13 15s-13 -5 -13 -15z', '#B7412E', ink(1.8)) + pth('M11 -2c4 0 6 2 6 5s-3 5 -6 4', 'none', ink(1.8)) + pth('M-12 2h20M-10 6h16', 'none', 'stroke="#7E2B1E" stroke-width="1.4"')],
+    M:['Baykuş', 'M', () => pth('M-8 -14c-5 0 -7 3 -7 7c0 3 2 5 4 6c-1 7 2 14 9 17l13 2c1 -1 0 -2 -1 -3c-4 -6 -6 -15 -9 -20c-1 -6 -4 -9 -9 -9z', '#C08A4A', ink(1.8)) + '<circle cx="-11" cy="-8" r="2.4" fill="#FBF3DF" stroke="' + INK + '" stroke-width="1.2"/><circle cx="-5" cy="-8" r="2.4" fill="#FBF3DF" stroke="' + INK + '" stroke-width="1.2"/><circle cx="-11" cy="-8" r=".9" fill="' + INK + '"/><circle cx="-5" cy="-8" r=".9" fill="' + INK + '"/>' + pth('M-3 15v4M2 16v3M-6 19h5M0 19h5', 'none', ink(1.6))],
+    N:['Su', 'N', () => tpDbl('M-17 1l3 -4 3 4 3 -4 3 4 3 -4 3 4 3 -4 3 4 3 -4 3 4 3 -4', '#1F5FA8', 2.8)],
+    P:['Hasır', 'P', () => '<rect x="-14" y="-7" width="28" height="14" rx="1.5" fill="#E2B04A" stroke="' + INK + '" stroke-width="1.8"/>' + pth('M-8 -7v14M-2 -7v14M4 -7v14M10 -7v14', 'none', 'stroke="#9C6A2A" stroke-width="1.4"')],
+    R:['Ağız', 'R', () => pth('M-16 0c6 -9 26 -9 32 0c-6 9 -26 9 -32 0z', '#B7412E', ink(1.8)) + pth('M-11 0h22', 'none', 'stroke="#E9A08F" stroke-width="1.6" stroke-linecap="round"')],
+    S:['Bez', 'S', () => pth('M-5 19V-6c0 -7 4 -12 9 -12c4 0 5 4 1 6c-3 1 -4 3 -4 6v25z', '#E9D7A8', ink(1.8)) + pth('M-5 -2l6 3M-5 6l6 3', 'none', 'stroke="#9C7A4A" stroke-width="1.4"')],
+    Ş:['Havuz', 'Ş', () => '<rect x="-15" y="-8" width="30" height="16" rx="1.5" fill="#7FB3E6" stroke="' + INK + '" stroke-width="1.8"/>' + pth('M-9 -8v16M-3 -8v16M3 -8v16M9 -8v16', 'none', 'stroke="#1F5FA8" stroke-width="1.5"')],
+    T:['Ekmek', 'T', () => pth('M-13 8c0 -12 26 -12 26 0z', '#C9853A', ink(1.8)) + pth('M-15 8h30', 'none', ink(1.8))],
+    U:['Bıldırcın', 'U', () => pth('M-7 -10c-4 0 -6 3 -6 6l-3 1 3 1c0 3 1 6 3 8c2 5 8 7 13 7c3 0 4 -2 2 -4c-3 -3 -4 -7 -6 -11c-1 -5 -3 -8 -6 -8z', '#D9B97E', ink(1.8)) + '<circle cx="-8" cy="-6" r="1.2" fill="' + INK + '"/>' + pth('M-1 12v6M4 13v5M-4 18h5M1 18h5', 'none', ink(1.6))]
+  };
+  const GL_OF = { A:'A', B:'B', D:'D', E:'E', İ:'E', F:'F', H:'H', K:'K', M:'M', N:'N', P:'P', R:'R', S:'S', Ş:'Ş', T:'T', U:'U' };
+  const GL_NAMES = [
+    ['PTAH', 'AMUN', 'NUT', 'MUT', 'HAPİ', 'SETİ', 'MİN', 'BES'],
+    ['BASTET', 'RAMSES', 'SNEFRU', 'TEFNUT', 'MENES', 'ANUBİS'],
+    ['SENUSRET', 'NEFERTARİ', 'HATŞEPSUT', 'AMENEMHAT', 'NEFERTUM']
+  ];
+  const GL_LV = [{ tier:[0], dec:2, ero:0 }, { tier:[1], dec:3, ero:0 }, { tier:[1, 2], dec:4, ero:0 }, { tier:[2], dec:3, ero:2 }, { tier:[2], dec:4, ero:3 }];
+  const glSVG = (k, sz) => '<svg viewBox="-21 -21 42 42" width="' + sz + '" height="' + sz + '" aria-hidden="true">' + GL_SIGN[k][2]() + '</svg>';
+  const glCart = (seq, cls, fill) => '<div class="glcart ' + (cls || '') + '"><span class="glknot"></span>' + seq.map((g, i) => '<span class="glsl' + (fill == null || i < fill ? ' on' : '') + '" data-i="' + i + '">' + (fill == null || i < fill ? glSVG(g, 30) : '') + '</span>').join('') + '</div>';
+  const TPK = {};
+  TPK.glyph = {
+    build(level, rnd) {
+      const L = GL_LV[level], pool = [].concat(...L.tier.map(t => GL_NAMES[t]));
+      const name = pool[tpRI(rnd, pool.length)], letters = Array.from(name), seq = letters.map(c => GL_OF[c]);
+      const need = Array.from(new Set(seq)), others = tpShuf(rnd, Object.keys(GL_SIGN).filter(k => !need.includes(k)));
+      const keys = tpShuf(rnd, need.concat(others.slice(0, L.dec)));
+      let ex = null, ero = [];
+      if (L.ero) {
+        /* an example cartouche from an older king shows some of the worn-off signs */
+        const cands = GL_NAMES[0].concat(GL_NAMES[1]).filter(n => n !== name).map(n => ({ n, seq:Array.from(n).map(c => GL_OF[c]) }))
+          .map(c => ({ c, sh:need.filter(g => c.seq.includes(g)) })).filter(x => x.sh.length >= L.ero);
+        if (cands.length) {
+          const pk = cands[tpRI(rnd, cands.length)]; ex = { name:pk.c.n, seq:pk.c.seq };
+          ero = tpShuf(rnd, pk.sh.slice()).slice(0, L.ero);
+        }
+      }
+      return { name, letters, seq, keys, ex, ero, pos:0, par:seq.length };
+    },
+    goal:G => 'Firavunun adını <b>kartuşa</b> yaz: sözlükten işaretlere sırayla dokun.' + (G.ex ? ' Silinmiş harfleri <b>örnek kartuştan</b> bul.' : ''),
+    html(G) {
+      let s = '<div class="glname" aria-label="Ad: ' + esc(G.name) + '">' + G.letters.map((c, i) => '<b data-i="' + i + '">' + esc(c) + '</b>').join('') + '</div>';
+      s += '<div class="glstage">' + glCart(G.seq, 'main', 0) + '</div>';
+      if (G.ex) s += '<div class="glex"><small>Örnek kartuş: <b>' + esc(G.ex.name) + '</b></small>' + glCart(G.ex.seq, 'ex') + '</div>';
+      s += '<div class="glkey" role="group" aria-label="Rahiplerin sözlüğü">' + G.keys.map(k => {
+        const lab = G.ero.includes(k) ? '?' : GL_SIGN[k][1];
+        return '<button type="button" class="glk' + (G.ero.includes(k) ? ' ero' : '') + '" data-tpg="' + k + '" aria-label="' + esc(GL_SIGN[k][0]) + ': ' + (lab === '?' ? 'silinmiş' : lab) + '">' + glSVG(k, 40) + '<i>' + esc(lab) + '</i></button>';
+      }).join('') + '</div>';
+      return s;
+    },
+    draw(G) {
+      document.querySelectorAll('#tpBox .glname b').forEach((b, i) => { b.classList.toggle('done', i < G.pos); b.classList.toggle('cur', i === G.pos); });
+    },
+    status:G => 'İşaret: <b>' + G.pos + '/' + G.seq.length + '</b>' + (PZ.mist ? ' · yanlış: <b>' + PZ.mist + '</b>' : ''),
+    perfect:G => PZ.mist <= 1,
+    tap(G, t) {
+      const k = t.dataset.tpg; if (k == null) return;
+      PZ.moves++;
+      if (G.seq[G.pos] !== k) { PZ.mist++; play('no'); tpShake(t); const lb = document.querySelector('#tpBox .glname b.cur'); tpShake(lb); tpStatus(); return; }
+      const sl = document.querySelector('#tpBox .glcart.main .glsl[data-i="' + G.pos + '"]');
+      if (sl) { sl.innerHTML = glSVG(k, 30); sl.classList.add('on', 'pop'); }
+      G.pos++; play('tick'); tpGlow(t);
+      TPK.glyph.draw(G); tpStatus();
+      if (G.pos >= G.seq.length) tpWin('Kartuş tamam: ' + G.name + '!');
+    },
+    hint(G) {
+      const k = G.seq[G.pos], b = document.querySelector('#tpBox [data-tpg="' + k + '"]');
+      if (!b) return '';
+      PZ.moves--; TPK.glyph.tap(G, b);
+      return '"' + G.letters[G.pos - 1] + '" sesi: ' + GL_SIGN[k][0].toLowerCase() + ' işareti.';
+    },
+    solve:G => G.seq.slice(G.pos).map(k => '[data-tpg="' + k + '"]')
+  };
+
+  /* ================= slide: put the stone relief back together ================= */
+  const SL_LV = [{ r:3, c:3, d:8 }, { r:3, c:3, d:14 }, { r:3, c:3, d:22 }, { r:4, c:3, d:22 }, { r:4, c:3, d:32 }];
+  const SL_U = 100;
+  function slNbr(G, e) { const r = Math.floor(e / G.c), c = e % G.c, out = []; if (r > 0) out.push(e - G.c); if (r < G.r - 1) out.push(e + G.c); if (c > 0) out.push(e - 1); if (c < G.c - 1) out.push(e + 1); return out; }
+  /* A* over the board (tile in each cell, 0 = gap); falls back to null when it grows too big */
+  function slSolve(G, b0) {
+    const R = G.r, C = G.c, N = R * C, goal = b0.map((_, i) => (i + 1) % N).join(',');
+    const h = b => { let s = 0; for (let i = 0; i < N; i++) { const t = b[i]; if (!t) continue; const g = t - 1; s += Math.abs(Math.floor(g / C) - Math.floor(i / C)) + Math.abs(g % C - i % C); } return s; };
+    const start = b0.slice(), key0 = start.join(','); if (key0 === goal) return [];
+    const heap = [], seen = new Map(); let n = 0;
+    const push = x => { heap.push(x); let i = heap.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (heap[p].f <= heap[i].f) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };
+    const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let i = 0; for (;;) { const l = i * 2 + 1, r = l + 1; let m = i; if (l < heap.length && heap[l].f < heap[m].f) m = l; if (r < heap.length && heap[r].f < heap[m].f) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return top; };
+    push({ b:start, e:start.indexOf(0), g:0, f:h(start), path:null, mv:-1 }); seen.set(key0, 0);
+    while (heap.length && n++ < 160000) {
+      const s = pop(), k = s.b.join(',');
+      if (k === goal) { const out = []; let p = s; while (p && p.mv >= 0) { out.push(p.mv); p = p.path; } return out.reverse(); }
+      for (const q of slNbr(G, s.e)) {
+        const b = s.b.slice(); b[s.e] = b[q]; b[q] = 0;
+        const kk = b.join(','), g = s.g + 1;
+        if (seen.has(kk) && seen.get(kk) <= g) continue;
+        seen.set(kk, g); push({ b, e:q, g, f:g + h(b), path:s, mv:b[s.e] });
+      }
+    }
+    return null;
+  }
+  /* the relief: Khepri pushes the sun over the sun boat, Horus and an ankh at the sides, stars above */
+  function slArt(G, u) {
+    const W = G.c * SL_U, H = G.r * SL_U, k = G.art;
+    let s = '<defs>' + grad('slSt' + u, [[0, '#E9D3A2'], [1, '#C9A46A']], true) + '</defs><g id="slArt' + u + '">';
+    s += '<rect width="' + W + '" height="' + H + '" fill="url(#slSt' + u + ')"/>';
+    s += '<rect x="5" y="5" width="' + (W - 10) + '" height="' + (H - 10) + '" fill="none" stroke="#8E6A3C" stroke-width="3"/>';
+    /* a band of stars on blue */
+    s += '<rect x="9" y="9" width="' + (W - 18) + '" height="34" fill="#1F3F78" stroke="' + INK + '" stroke-width="2"/>';
+    for (let x = 22; x < W - 14; x += 26) s += '<path transform="translate(' + x + ' ' + (26 + ((x / 26) % 2 ? 3 : -3)) + ') scale(.9)" d="M0 -7l2 5 5 0 -4 3 2 6 -5 -4 -5 4 2 -6 -4 -3 5 0z" fill="#F2C53D"/>';
+    /* the winged sun */
+    const cx = W / 2, sy = 66;
+    const wl = W * 0.42, wing = sg => 'M' + (cx + sg * 12) + ' ' + (sy - 7) + 'Q' + (cx + sg * 60) + ' ' + (sy - 26) + ' ' + (cx + sg * wl) + ' ' + (sy - 10) + 'Q' + (cx + sg * (wl - 8)) + ' ' + (sy + 6) + ' ' + (cx + sg * (wl - 30)) + ' ' + (sy + 10) + 'Q' + (cx + sg * 50) + ' ' + (sy + 16) + ' ' + (cx + sg * 12) + ' ' + (sy + 7) + 'Z';
+    const fea = sg => [0.3, 0.55, 0.8].map(f => 'M' + (cx + sg * (12 + (wl - 12) * f)) + ' ' + (sy - 14 - 6 * (1 - f) + 8 * f * f) + 'L' + (cx + sg * (12 + (wl - 26) * f)) + ' ' + (sy + 10)).join('');
+    s += [-1, 1].map(sg => pth(wing(sg), '#2BA59A', ink(2)) + pth(fea(sg), 'none', 'stroke="#1E7D74" stroke-width="1.8"') + pth('M' + (cx + sg * 14) + ' ' + (sy - 1) + 'Q' + (cx + sg * 60) + ' ' + (sy - 14) + ' ' + (cx + sg * (wl - 6)) + ' ' + (sy - 6), 'none', 'stroke="#E9C46A" stroke-width="2.2"')).join('');
+    s += '<circle cx="' + cx + '" cy="' + sy + '" r="13" fill="#D9452B" stroke="' + INK + '" stroke-width="2.2"/>';
+    /* the scarab pushing the big sun */
+    const by = H * (G.r === 4 ? 0.5 : 0.47);
+    s += '<circle cx="' + cx + '" cy="' + (by - 20) + '" r="30" fill="#F2A81E" stroke="' + INK + '" stroke-width="2.6"/><circle cx="' + cx + '" cy="' + (by - 20) + '" r="20" fill="#FFD24A"/>';
+    s += '<g transform="translate(' + cx + ' ' + (by + 30) + ')">' + pth('M-16 -6c0 -14 32 -14 32 0v8c0 12 -32 12 -32 0z', '#1F5FA8', ink(2.2)) + pth('M0 -12v24M-16 2h32', 'none', 'stroke="#0E2E5E" stroke-width="2"') + pth('M-9 -15c0 -7 18 -7 18 0z', '#1F5FA8', ink(2)) + pth('M-16 -4l-9 -6M-16 4l-10 2M-15 10l-8 7M16 -4l9 -6M16 4l10 2M15 10l8 7', 'none', ink(2.4)) + '</g>';
+    /* the eye of Horus at the left, an ankh at the right */
+    const hx = W * 0.25, hy = H * (G.r === 4 ? 0.72 : 0.66);
+    s += '<g transform="translate(' + hx + ' ' + hy + ')">' + tpDbl('M-24 -15q24 -13 50 -1', '#1F3F78', 4) + pth('M-24 0q24 -19 48 0q-24 14 -48 0z', '#FBF3DF', ink(2.2)) + '<circle cx="1" cy="-1.5" r="6.5" fill="#1F3F78" stroke="' + INK + '" stroke-width="1.6"/>' + tpDbl('M24 0h13M-4 9v16M7 9q6 11 15 11q6 0 6 -6q0 -4 -4 -4', '#1F3F78', 3) + '</g>';
+    const ax = W * 0.83, ay = H - 76;
+    s += '<g transform="translate(' + ax + ' ' + ay + ')">' + tpDbl('M0 -8c-9 0 -9 -20 0 -20s9 20 0 20zM-12 -6h24M0 -8v52', '#D9A43A', 5) + '</g>';
+    /* the sun boat on the river */
+    const ry = H - 26;
+    s += '<rect x="9" y="' + (ry - 4) + '" width="' + (W - 18) + '" height="' + (H - ry - 5) + '" fill="#4F8FC9"/>';
+    let wv = ''; for (let x = 12; x < W - 14; x += 14) wv += 'M' + x + ' ' + (ry + 6) + 'l4 -4 4 4 4 -4'; s += pth(wv, 'none', 'stroke="#DCEBF7" stroke-width="2" stroke-linecap="round"');
+    s += pth('M' + (cx - 70) + ' ' + (ry - 16) + 'c10 14 130 14 140 0l-8 14h-124z', '#8E5A33', ink(2.2)) + pth('M' + (cx - 70) + ' ' + (ry - 16) + 'l-6 -10M' + (cx + 70) + ' ' + (ry - 16) + 'l6 -10', 'none', ink(2.6));
+    s += '<rect x="' + (cx - 16) + '" y="' + (ry - 34) + '" width="32" height="20" fill="#B7412E" stroke="' + INK + '" stroke-width="2"/>';
+    /* hieroglyph columns at both sides */
+    const col = (x, y0, ks) => ks.map((g, i) => '<g transform="translate(' + x + ' ' + (y0 + i * 36) + ') scale(.72)">' + GL_SIGN[g][2]() + '</g>').join('');
+    const nCol = G.r === 4 ? 4 : 2, y0 = 112;
+    s += col(W * 0.07, y0 + 8, ['N', 'R', 'A', 'M'].slice(0, nCol)) + col(W * 0.93, y0 + 8, ['M', 'U', 'T', 'S'].slice(0, nCol));
+    if (k) s += pth('M' + (W * 0.3) + ' ' + (H - 50) + 'q8 -30 2 -60M' + (W * 0.7) + ' ' + (H - 50) + 'q-8 -30 -2 -60', 'none', 'stroke="#2BA59A" stroke-width="4" stroke-linecap="round" opacity=".8"');
+    return s + '</g>';
+  }
+  TPK.slide = {
+    build(level, rnd) {
+      const L = SL_LV[level], N = L.r * L.c, G = { r:L.r, c:L.c, b:[], art:tpRI(rnd, 2), par:0, hist:[] };
+      for (let tries = 0; tries < 30; tries++) {
+        const b = Array.from({ length:N }, (_, i) => (i + 1) % N); let e = N - 1, prev = -1;
+        G.hist = [];
+        for (let i = 0; i < L.d; i++) { const ns = slNbr(G, e).filter(q => q !== prev), q = ns[tpRI(rnd, ns.length)]; b[e] = b[q]; b[q] = 0; G.hist.push(b[e]); prev = e; e = q; }
+        G.b = b;
+        const sol = slSolve(G, b);
+        if (sol && sol.length >= Math.max(4, L.d * 0.55)) { G.par = sol.length; return G; }
+      }
+      G.par = (slSolve(G, G.b) || []).length || 1;
+      return G;
+    },
+    goal:G => 'Kabartmayı onar: boşluğun yanındaki taşa dokun, taş kayar. Resim <b>tamamlansın</b>.',
+    html(G) {
+      const u = PZ.uid, W = G.c * SL_U, H = G.r * SL_U, N = G.r * G.c;
+      let s = '<div class="slwrap"><div class="slbd" id="slBd" style="aspect-ratio:' + G.c + '/' + G.r + '"><svg class="slart" viewBox="0 0 ' + W + ' ' + H + '" aria-hidden="true">' + slArt(G, u) + '</svg>';
+      for (let t = 1; t < N; t++) {
+        const g = t - 1, gx = (g % G.c) * SL_U, gy = Math.floor(g / G.c) * SL_U;
+        s += '<button type="button" class="slt" data-tps="' + t + '" aria-label="Taş ' + t + '" style="width:' + (100 / G.c) + '%;height:' + (100 / G.r) + '%"><svg viewBox="' + gx + ' ' + gy + ' ' + SL_U + ' ' + SL_U + '" aria-hidden="true"><use href="#slArt' + u + '"/><rect x="' + (gx + 1.5) + '" y="' + (gy + 1.5) + '" width="' + (SL_U - 3) + '" height="' + (SL_U - 3) + '" rx="5" fill="none" stroke="' + INK + '" stroke-width="3"/><path d="M' + (gx + 5) + ' ' + (gy + SL_U - 5) + 'V' + (gy + 5) + 'H' + (gx + SL_U - 5) + '" fill="none" stroke="#FFF4D6" stroke-width="2.4" opacity=".7"/></svg><i>' + t + '</i></button>';
+      }
+      s += '</div><div class="slpv"><small>Resim böyle olmalı</small><svg viewBox="0 0 ' + W + ' ' + H + '" aria-hidden="true"><use href="#slArt' + u + '"/></svg></div></div>';
+      return s;
+    },
+    draw(G, now) {
+      const N = G.r * G.c;
+      for (let i = 0; i < N; i++) {
+        const t = G.b[i]; if (!t) continue;
+        const el = document.querySelector('#slBd [data-tps="' + t + '"]'); if (!el) continue;
+        if (now) el.style.transition = 'none';
+        el.style.transform = 'translate(' + ((i % G.c) * 100) + '%,' + (Math.floor(i / G.c) * 100) + '%)';
+        el.classList.toggle('ok', t === i + 1);
+        if (now) { void el.offsetWidth; el.style.transition = ''; }
+      }
+    },
+    perfect:G => PZ.moves <= Math.ceil(G.par * 1.5) + 4,
+    /* a tap slides the tile toward the gap; a tile further along the same row or column pushes the whole line */
+    tap(G, t, undo) {
+      const tile = +t.dataset.tps, i = G.b.indexOf(tile), e = G.b.indexOf(0); if (i < 0) return;
+      const h0 = G.hist.length;
+      const ri = Math.floor(i / G.c), ci = i % G.c, re = Math.floor(e / G.c), ce = e % G.c;
+      if (ri !== re && ci !== ce) { play('no'); tpShake(t); return; }
+      const step = ri === re ? (ci > ce ? 1 : -1) : (ri > re ? G.c : -G.c);
+      let cur = e;
+      while (cur !== i) { const nx = cur + step; G.b[cur] = G.b[nx]; G.b[nx] = 0; G.hist.push(G.b[cur]); cur = nx; PZ.moves++; }
+      /* undoing the last slide (the hint's fallback) takes it off the history instead of adding it again */
+      if (undo) G.hist.length = Math.max(0, h0 - 1);
+      play('tick'); TPK.slide.draw(G); tpStatus();
+      if (G.b.every((x, k) => x === (k + 1) % G.b.length)) {
+        const bd = $('#slBd'); if (bd) bd.classList.add('done');
+        tpWin('Kabartma yeniden bütün!');
+      }
+    },
+    hint(G) {
+      const sol = slSolve(G, G.b); let t = sol && sol[0], undo = false;
+      if (!t) { t = G.hist.length ? G.hist[G.hist.length - 1] : 0; undo = true; }
+      const b = t && document.querySelector('#slBd [data-tps="' + t + '"]'); if (!b) return '';
+      tpGlow(b); TPK.slide.tap(G, b, undo);
+      return 'Bu taşı kaydırdım: ' + t + ' numara.';
+    },
+    solve(G) { const sol = slSolve(G, G.b) || []; return sol.map(t => '[data-tps="' + t + '"]'); }
+  };
+
+  /* ================= scale: balance the offering on Maat's scale ================= */
+  const SC_LV = [{ n:4, both:false, k:2 }, { n:5, both:false, k:3 }, { n:5, both:true, k:3 }, { n:6, both:true, k:4, two:true }, { n:6, both:true, all:true, two:true }];
+  const SC_GIFT = [['Altın kap', '#D9A43A'], ['Lapis kolye', '#1F5FA8'], ['Tütsü kâsesi', '#B7412E'], ['Bal küpü', '#C9853A'], ['Kutsal kalp', '#B7412E']];
+  function scSum(G, a, side) { let s = 0; G.w.forEach((w, i) => { if (a[i] === side) s += w; }); return s; }
+  const scOk = (G, a) => scSum(G, a, 1) === G.W + scSum(G, a, 2) && a.some(x => x) && (!G.all || a.every(x => x));
+  function scAll(G) {
+    const n = G.w.length, out = [], m = G.both ? 3 : 2;
+    for (let c = 0; c < Math.pow(m, n); c++) { const a = []; let x = c; for (let i = 0; i < n; i++) { a.push(x % m); x = Math.floor(x / m); } if (scOk(G, a)) out.push(a); }
+    return out;
+  }
+  TPK.scale = {
+    build(level, rnd) {
+      const L = SC_LV[level];
+      for (let tries = 0; tries < 3000; tries++) {
+        const strict = tries < 1800;
+        const vals = new Set(); while (vals.size < L.n) vals.add(1 + tpRI(rnd, level < 2 ? 9 : 13));
+        const w = Array.from(vals).sort((a, b) => a - b), n = w.length, a = Array(n).fill(0), idx = tpShuf(rnd, w.map((_, i) => i));
+        if (L.all) idx.forEach((i, k) => { a[i] = k < 2 || rnd() < 0.6 ? 1 : 2; });
+        else { idx.slice(0, L.k).forEach((i, k) => { a[i] = L.both && k === L.k - 1 ? 2 : 1; }); }
+        const G = { w, W:0, both:L.both, all:!!L.all, a:Array(n).fill(0), gifts:[] };
+        G.W = scSum(G, a, 1) - scSum(G, a, 2);
+        if (G.W < 4 || G.W > 34) continue;
+        const sols = scAll(G); if (!sols.length) continue;
+        /* the easy way out must not exist: no single weight; with both pans, no answer using one pan only */
+        if (sols.some(s => s.filter(x => x).length === 1 && !G.all)) continue;
+        if (level === 1 && sols.some(s => s.filter(x => x).length < 3)) continue;
+        if (strict && L.both && !L.all && sols.some(s => !s.includes(2))) continue;
+        if (sols.length > (strict ? 4 : 12)) continue;
+        const gi = tpRI(rnd, SC_GIFT.length);
+        if (L.two) { const p = 2 + tpRI(rnd, G.W - 3); G.gifts = [[gi, G.W - p], [(gi + 2) % SC_GIFT.length, p]]; } else G.gifts = [[gi, G.W]];
+        G.sols = sols; G.par = Math.min(...sols.map(s => s.reduce((t, x) => t + x, 0)));
+        return G;
+      }
+      return null;
+    },
+    goal:G => 'Teraziyi <b>dengele</b>: taşa dokun, kefeye konsun.' + (G.both ? ' Taş <b>sağ kefe → sol kefe → masa</b> diye gezer.' : ' Bir daha dokun: masaya döner.') + (G.all ? ' <b>Bütün taşlar</b> terazide olmalı.' : ''),
+    html(G) {
+      let s = '<div class="scwrap"><svg class="scsvg" viewBox="0 0 360 270" role="img" aria-label="Terazi"><defs>' + grad('scBz' + PZ.uid, [[0, '#F7D57A'], [0.5, '#D9A43A'], [1, '#9C6A2A']], true) + '</defs>';
+      s += '<ellipse cx="180" cy="256" rx="120" ry="10" fill="#2B1D14" opacity=".14"/>';
+      s += '<rect x="150" y="236" width="60" height="18" rx="4" fill="#8E5A33" stroke="' + INK + '" stroke-width="2.4"/><rect x="171" y="64" width="18" height="174" rx="4" fill="url(#scBz' + PZ.uid + ')" stroke="' + INK + '" stroke-width="2.4"/>';
+      s += pth('M180 22c-10 6 -12 26 -4 44h8c8 -18 6 -38 -4 -44z', '#FBF3DF', ink(2)) + pth('M180 26v38', 'none', 'stroke="#C9B38A" stroke-width="1.6"');
+      s += '<g id="scBeam" class="scbeam"><rect x="56" y="58" width="248" height="11" rx="5.5" fill="url(#scBz' + PZ.uid + ')" stroke="' + INK + '" stroke-width="2.4"/><circle cx="180" cy="63.5" r="7" fill="#B7412E" stroke="' + INK + '" stroke-width="2"/>' + pth('M168 75l12 -10 12 10', 'none', ink(2.2)) + '</g>';
+      ['L', 'R'].forEach(sd => {
+        s += '<g id="scPan' + sd + '" class="scpan"><path d="M0 0L-54 74M0 0L54 74" stroke="' + INK + '" stroke-width="1.8"/><circle r="5" fill="#D9A43A" stroke="' + INK + '" stroke-width="2"/><path d="M-64 74h128c-7 22 -114 22 -128 0z" fill="url(#scBz' + PZ.uid + ')" stroke="' + INK + '" stroke-width="2.4"/><g class="scin" id="scIn' + sd + '"></g></g>';
+      });
+      s += '<text x="64" y="30" class="sctot" id="scTL"></text><text x="296" y="30" class="sctot" id="scTR" text-anchor="end"></text>';
+      s += '</svg></div><div class="sctable" id="scTable" role="group" aria-label="Masadaki taşlar"></div>';
+      return s;
+    },
+    stone(w, x, y, k, on) {
+      const r = 9 + Math.min(5, w * 0.4);
+      return '<g class="scst' + (on ? ' on' : '') + '" transform="translate(' + x + ' ' + y + ')"' + (k != null ? ' data-tpw="' + k + '" role="button" tabindex="0" aria-label="' + w + ' deben taşı: başka yere koy"' : '') + '><path d="M' + (-r) + ' 0c0 -' + (r * 1.15) + ' ' + (r * 2) + ' -' + (r * 1.15) + ' ' + (r * 2) + ' 0z" fill="#6E6A60" stroke="' + INK + '" stroke-width="2"/><path d="M' + (-r * 0.6) + ' ' + (-r * 0.55) + 'q' + (r * 0.4) + ' -' + (r * 0.35) + ' ' + (r * 0.8) + ' -' + (r * 0.3) + '" stroke="#B9B3A4" stroke-width="2" fill="none" stroke-linecap="round"/><text y="-3" text-anchor="middle" class="scnum">' + w + '</text></g>';
+    },
+    gift(gi, wt, x, y) {
+      const c = SC_GIFT[gi][1];
+      let g = '<g transform="translate(' + x + ' ' + y + ') scale(1.3)">';
+      if (gi === 4) g += pth('M0 2c-14 -8 -14 -22 -6 -24c4 -1 6 2 6 5c0 -3 2 -6 6 -5c8 2 8 16 -6 24z', c, ink(2));
+      else if (gi === 1) g += pth('M-14 -20q14 26 28 0', 'none', 'stroke="' + INK + '" stroke-width="5" stroke-linecap="round"') + pth('M-14 -20q14 26 28 0', 'none', 'stroke="' + c + '" stroke-width="3" stroke-linecap="round" stroke-dasharray="1 4"') + '<circle cy="-6" r="6" fill="' + c + '" stroke="' + INK + '" stroke-width="2"/>';
+      else if (gi === 2) g += pth('M-14 -10h28c0 10 -6 12 -14 12s-14 -2 -14 -12z', c, ink(2)) + pth('M-4 -12q-4 -8 2 -12M4 -12q4 -8 -2 -14', 'none', 'stroke="#8E8A80" stroke-width="2" stroke-linecap="round"');
+      else g += pth('M-10 0c-6 -6 -6 -18 0 -22h20c6 4 6 16 0 22z', c, ink(2)) + '<rect x="-7" y="-27" width="14" height="6" rx="2" fill="' + c + '" stroke="' + INK + '" stroke-width="1.8"/>';
+      return g + '<rect x="-11" y="-' + (gi === 4 ? 14 : 16) + '" width="22" height="13" rx="4" fill="#FBF3DF" stroke="' + INK + '" stroke-width="1.4"/><text y="-' + (gi === 4 ? 4.5 : 6.5) + '" text-anchor="middle" class="scgw">' + wt + '</text></g>';
+    },
+    draw(G, now) {
+      const L = scSum(G, G.a, 2) + G.W, R = scSum(G, G.a, 1), d = L - R, ang = -Math.max(-13, Math.min(13, d * 2.2)), rad = ang * Math.PI / 180;
+      const beam = $('#scBeam'); if (beam) beam.style.transform = 'rotate(' + ang + 'deg)';
+      [['L', -1], ['R', 1]].forEach(([sd, sg]) => {
+        const p = $('#scPan' + sd); if (!p) return;
+        p.style.transform = 'translate(' + (180 + sg * 112 * Math.cos(rad)) + 'px,' + (63.5 + sg * 112 * Math.sin(rad)) + 'px)';
+        const inn = $('#scIn' + sd); if (!inn) return;
+        const ks = G.w.map((w, i) => i).filter(i => G.a[i] === (sd === 'R' ? 1 : 2));
+        let h = '';
+        if (sd === 'L') { const gx = G.gifts.length > 1 ? [-44, -18] : [-30]; G.gifts.forEach(([gi, wt], k) => { h += TPK.scale.gift(gi, wt, gx[k], 72); }); }
+        const x0 = sd === "L" ? (G.gifts.length > 1 ? 6 : -6) : -48, per = sd === "L" ? 3 : 5, dx = 24;
+        ks.forEach((i, k) => { h += TPK.scale.stone(G.w[i], x0 + (k % per) * dx, 73 - Math.floor(k / per) * 18, i, true); });
+        inn.innerHTML = h;
+      });
+      const tl = $('#scTL'), tr = $('#scTR');
+      if (tl) tl.textContent = 'Sol: ' + L; if (tr) tr.textContent = 'Sağ: ' + R;
+      const tb = $('#scTable');
+      if (tb) tb.innerHTML = G.w.map((w, i) => G.a[i] ? '<span class="scgap"></span>' : '<button type="button" class="scb" data-tpw="' + i + '" aria-label="' + w + ' deben taşı: sağ kefeye koy"><svg viewBox="-19 -21 38 23" aria-hidden="true">' + TPK.scale.stone(w, 0, 0) + '</svg></button>').join('');
+      const box = $('#tpBox'); if (box) box.classList.toggle('even', d === 0);
+    },
+    status:G => 'Hamle: <b>' + PZ.moves + '</b>' + (G.all ? ' · terazide: <b>' + G.a.filter(x => x).length + '/' + G.w.length + '</b>' : ''),
+    perfect:G => PZ.moves <= G.par + 3,
+    tap(G, t) {
+      const i = +t.dataset.tpw; if (!(i >= 0)) return;
+      const nx = G.a[i] === 0 ? 1 : G.a[i] === 1 && G.both ? 2 : 0;
+      G.a[i] = nx; PZ.moves++;
+      play(nx ? 'weigh' : 'click');
+      TPK.scale.draw(G); tpStatus();
+      if (scOk(G, G.a)) tpWin('Terazi dengede: Maat memnun!');
+    },
+    near(G) { let best = null, bd = 1e9; G.sols.forEach(s => { let d = 0; s.forEach((x, i) => { if (x !== G.a[i]) d++; }); if (d < bd) { bd = d; best = s; } }); return best; },
+    /* taps that move one stone from where it is to where it should be (the cycle table → right → left → table) */
+    taps(G, i, to) { const cyc = G.both ? [0, 1, 2] : [0, 1]; let n = 0, x = G.a[i]; while (x !== to && n < 3) { x = cyc[(cyc.indexOf(x) + 1) % cyc.length]; n++; } return n; },
+    hint(G) {
+      const s = TPK.scale.near(G); if (!s) return '';
+      const i = s.findIndex((x, k) => x !== G.a[k]); if (i < 0) return '';
+      G.a[i] = s[i]; PZ.moves++;
+      play('weigh'); TPK.scale.draw(G); tpStatus();
+      const t = G.w[i] + ' deben taşı ' + (s[i] === 1 ? 'sağ kefeye' : s[i] === 2 ? 'sol kefeye' : 'masaya') + ' koydum.';
+      if (scOk(G, G.a)) tpWin('Terazi dengede: Maat memnun!');
+      return t;
+    },
+    solve(G) {
+      const s = TPK.scale.near(G); if (!s) return [];
+      const out = []; s.forEach((x, i) => { for (let n = TPK.scale.taps(G, i, x); n > 0; n--) out.push('[data-tpw="' + i + '"]'); });
+      return out;
+    }
+  };
+
+  /* ================= stars: turn the ceiling rings until the constellation shines ================= */
+  const ST_LV = [{ k:2, link:0, d:4 }, { k:3, link:0, d:5 }, { k:3, link:1, d:6 }, { k:3, link:2, d:7 }, { k:4, link:1, d:8 }];
+  const ST_P = 8;
+  const ST_CON = [
+    { n:'Sah (Avcı)', s:[[-0.42, -0.62], [0.38, -0.55], [-0.12, -0.02], [0.02, 0.04], [0.16, 0.1], [-0.4, 0.62], [0.46, 0.56], [0.0, -0.84]], l:[[0, 2], [1, 4], [2, 3], [3, 4], [2, 5], [4, 6], [0, 7], [1, 7]] },
+    { n:'Meskhetyu (Boğa budu)', s:[[-0.78, -0.2], [-0.48, -0.3], [-0.2, -0.22], [0.08, -0.04], [0.12, 0.34], [0.56, 0.42], [0.6, 0.02]], l:[[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 3]] },
+    { n:'Sopdet (Sirius)', s:[[0.0, -0.1], [-0.3, -0.5], [0.28, -0.6], [-0.08, 0.32], [-0.5, 0.62], [0.42, 0.5], [0.66, -0.12]], l:[[0, 1], [0, 2], [0, 3], [3, 4], [3, 5], [0, 6]] }
+  ];
+  const ST_C = 170, ST_R0 = 36, ST_R1 = 160;
+  const stStar = (r, big, c) => '<path d="M0 ' + (-r) + 'L' + (r * 0.29) + ' ' + (-r * 0.36) + 'L' + r + ' ' + (-r * 0.31) + 'L' + (r * 0.47) + ' ' + (r * 0.15) + 'L' + (r * 0.59) + ' ' + (r * 0.81) + 'L0 ' + (r * 0.45) + 'L' + (-r * 0.59) + ' ' + (r * 0.81) + 'L' + (-r * 0.47) + ' ' + (r * 0.15) + 'L' + (-r) + ' ' + (-r * 0.31) + 'L' + (-r * 0.29) + ' ' + (-r * 0.36) + 'Z" fill="' + (c || (big ? '#FFD24A' : '#C9B37A')) + '"' + (big ? ' stroke="' + INK + '" stroke-width="1.4"' : ' opacity=".65"') + '/>';
+  /* tapping ring i turns these rings one step */
+  function stLinks(G, i) { if (G.link === 0) return [i]; if (G.link === 1) return i < G.k - 1 ? [i, i + 1] : [i]; return [i, (i + 1) % G.k]; }
+  function stApply(G, o, i, back) { const n = o.slice(); stLinks(G, i).forEach(j => { n[j] = (n[j] + (back ? ST_P - 1 : 1)) % ST_P; }); return n; }
+  function stBFS(G, o0) {
+    const key = o => o.join(','), seen = new Map([[key(o0), null]]), q = [o0];
+    if (o0.every(x => !x)) return [];
+    while (q.length) {
+      const o = q.shift();
+      for (let i = 0; i < G.k; i++) {
+        const n = stApply(G, o, i), kk = key(n); if (seen.has(kk)) continue;
+        seen.set(kk, [key(o), i]);
+        if (n.every(x => !x)) { const out = []; let c = kk; while (seen.get(c)) { const [p, t] = seen.get(c); out.push(t); c = p; } return out.reverse(); }
+        q.push(n);
+      }
+    }
+    return null;
+  }
+  TPK.stars = {
+    build(level, rnd) {
+      const L = ST_LV[level], k = L.k, con = ST_CON[tpRI(rnd, ST_CON.length)], band = (ST_R1 - ST_R0) / k;
+      /* each star goes to a ring by how far it is from the centre (sorted, split evenly) */
+      const pol = con.s.map(([x, y], i) => ({ i, a:Math.atan2(y, x), r:Math.hypot(x, y) })).sort((p, q) => p.r - q.r);
+      const stars = [];
+      pol.forEach((p, n) => { const ring = Math.min(k - 1, Math.floor(n * k / pol.length)); stars[p.i] = { ring, a:p.a, r:ST_R0 + band * (ring + 0.3 + 0.4 * ((p.r * 7) % 1)) }; });
+      const dec = []; for (let r = 0; r < k; r++) for (let j = 0; j < 3; j++) dec.push({ ring:r, a:rnd() * Math.PI * 2, r:ST_R0 + band * (r + 0.25 + rnd() * 0.5), sz:2.4 + rnd() * 2 });
+      const G = { k, link:L.link, con, stars, dec, band, o:Array(k).fill(0), ang:Array(k).fill(0), par:0 };
+      for (let tries = 0; tries < 200; tries++) {
+        let o = Array(k).fill(0);
+        /* scrambled backwards, so turning forward undoes it in about d taps */
+        for (let t = 0; t < L.d; t++) o = stApply(G, o, tpRI(rnd, k), true);
+        if (o.some(x => !x) && tries < 150) continue;
+        const sol = stBFS(G, o);
+        if (sol && sol.length >= L.d - 1) { G.o = o; G.ang = o.map(x => x * 45); G.par = sol.length; return G; }
+      }
+      G.o = Array(k).fill(0).map((_, i) => i === 0 ? 3 : 0); G.ang = G.o.map(x => x * 45); G.par = (stBFS(G, G.o) || []).length;
+      return G;
+    },
+    goal:G => 'Halkalara dokun, bir adım dönsünler. Parlak yıldızlar <b>altın halkaların</b> içine otursun: ' + esc(G.con.n) + '.' + (G.link ? ' <b>Zincirli</b> halkalar birlikte döner.' : ''),
+    html(G) {
+      const u = PZ.uid;
+      let s = '<svg class="stsvg" viewBox="0 0 340 340" role="img" aria-label="Yıldız tavanı: ' + esc(G.con.n) + '"><defs><radialGradient id="stSky' + u + '"><stop offset="0" stop-color="#2E4C92"/><stop offset="1" stop-color="#0F1D45"/></radialGradient></defs>';
+      s += '<rect width="340" height="340" rx="16" fill="#C9A46A"/><rect x="5" y="5" width="330" height="330" rx="13" fill="none" stroke="#8E6A3C" stroke-width="2.5"/>';
+      s += '<circle cx="' + ST_C + '" cy="' + ST_C + '" r="' + (ST_R1 + 6) + '" fill="#E9C46A" stroke="' + INK + '" stroke-width="3"/>';
+      for (let i = G.k - 1; i >= 0; i--) {
+        const r0 = ST_R0 + G.band * i, r1 = r0 + G.band, c = i % 2 ? '#1B2C63' : '#22397A';
+        s += '<g class="stg" id="stR' + i + '" data-tpr="' + i + '" role="button" tabindex="0" aria-label="' + (i + 1) + '. halka: döndür" style="transform:rotate(' + G.ang[i] + 'deg)">';
+        s += '<path d="M' + (ST_C + r1) + ' ' + ST_C + 'A' + r1 + ' ' + r1 + ' 0 1 0 ' + (ST_C - r1) + ' ' + ST_C + 'A' + r1 + ' ' + r1 + ' 0 1 0 ' + (ST_C + r1) + ' ' + ST_C + 'ZM' + (ST_C + r0) + ' ' + ST_C + 'A' + r0 + ' ' + r0 + ' 0 1 1 ' + (ST_C - r0) + ' ' + ST_C + 'A' + r0 + ' ' + r0 + ' 0 1 1 ' + (ST_C + r0) + ' ' + ST_C + 'Z" fill="' + c + '" fill-rule="evenodd" stroke="#D9A43A" stroke-width="2"/>';
+        /* little notches so the turning shows */
+        for (let j = 0; j < ST_P; j++) { const a = j * Math.PI / 4 + Math.PI / 8; s += '<circle cx="' + (ST_C + Math.cos(a) * (r1 - 4)).toFixed(1) + '" cy="' + (ST_C + Math.sin(a) * (r1 - 4)).toFixed(1) + '" r="1.6" fill="#D9A43A" opacity=".7"/>'; }
+        G.dec.filter(d => d.ring === i).forEach(d => { s += '<g transform="translate(' + (ST_C + Math.cos(d.a) * d.r).toFixed(1) + ' ' + (ST_C + Math.sin(d.a) * d.r).toFixed(1) + ')">' + stStar(d.sz, false) + '</g>'; });
+        G.stars.forEach(st => { if (st.ring === i) s += '<g class="stbig" transform="translate(' + (ST_C + Math.cos(st.a) * st.r).toFixed(1) + ' ' + (ST_C + Math.sin(st.a) * st.r).toFixed(1) + ')"><circle r="10" fill="#FFE9A0" opacity=".25"/>' + stStar(7.5, true) + '</g>'; });
+        s += '</g>';
+      }
+      /* the hub: Nut's sun */
+      s += '<circle cx="' + ST_C + '" cy="' + ST_C + '" r="' + (ST_R0 - 2) + '" fill="#F2A81E" stroke="' + INK + '" stroke-width="2.4"/><circle cx="' + ST_C + '" cy="' + ST_C + '" r="' + (ST_R0 - 12) + '" fill="#FFD24A"/>';
+      /* the target: gold rings where the bright stars must sit, and the constellation lines */
+      const P = st => [(ST_C + Math.cos(st.a) * st.r).toFixed(1), (ST_C + Math.sin(st.a) * st.r).toFixed(1)];
+      s += '<g class="stgoal" pointer-events="none">' + G.con.l.map(([a, b]) => { const p = P(G.stars[a]), q = P(G.stars[b]); return '<path d="M' + p.join(' ') + 'L' + q.join(' ') + '"/>'; }).join('');
+      s += G.stars.map(st => { const p = P(st); return '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="11"/>'; }).join('') + '</g>';
+      /* chains between rings that turn together */
+      if (G.link) for (let i = 0; i < G.k; i++) { const ls = stLinks(G, i); if (ls.length < 2) continue; const j = ls[1], ra = ST_R0 + G.band * (i + 0.5), rb = ST_R0 + G.band * (j + 0.5), a = Math.PI / 2 + (j < i ? 0.32 : 0) + i * 0.05; s += '<g class="stchain" pointer-events="none">' + tpDbl('M' + (ST_C + Math.cos(a) * ra).toFixed(1) + ' ' + (ST_C + Math.sin(a) * ra).toFixed(1) + 'L' + (ST_C + Math.cos(a) * rb).toFixed(1) + ' ' + (ST_C + Math.sin(a) * rb).toFixed(1), '#E9C46A', 3) + '<circle cx="' + (ST_C + Math.cos(a) * ra).toFixed(1) + '" cy="' + (ST_C + Math.sin(a) * ra).toFixed(1) + '" r="4" fill="#E9C46A" stroke="' + INK + '" stroke-width="1.6"/><circle cx="' + (ST_C + Math.cos(a) * rb).toFixed(1) + '" cy="' + (ST_C + Math.sin(a) * rb).toFixed(1) + '" r="4" fill="#E9C46A" stroke="' + INK + '" stroke-width="1.6"/></g>'; }
+      return s + '</svg>';
+    },
+    draw(G) {
+      for (let i = 0; i < G.k; i++) { const el = $('#stR' + i); if (el) { el.style.transform = 'rotate(' + G.ang[i] + 'deg)'; el.classList.toggle('ok', G.o[i] === 0); } }
+    },
+    perfect:G => PZ.moves <= G.par + 3,
+    tap(G, t) {
+      const i = +t.dataset.tpr; if (!(i >= 0)) return;
+      stLinks(G, i).forEach(j => { G.o[j] = (G.o[j] + 1) % ST_P; G.ang[j] += 45; });
+      PZ.moves++; play('tick');
+      TPK.stars.draw(G); tpStatus();
+      if (G.o.every(x => !x)) tpWin(G.con.n + ' parlıyor!');
+    },
+    hint(G) {
+      const sol = stBFS(G, G.o); if (!sol || !sol.length) return '';
+      const el = $('#stR' + sol[0]); tpGlow(el); TPK.stars.tap(G, el || { dataset:{ tpr:sol[0] } });
+      return (sol[0] + 1) + '. halkayı çevirdim.';
+    },
+    solve(G) { return (stBFS(G, G.o) || []).map(i => '[data-tpr="' + i + '"]'); }
+  };

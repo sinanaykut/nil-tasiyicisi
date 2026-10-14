@@ -40,7 +40,11 @@ Folders ui/, sea/, v3/ are single files split by section; parts are joined in na
 | sprites27.txt | 14 |
 | sprites28.txt | 2 |
 | temple.css | 3 |
-| temple.txt | 23 |
+| temple.txt | 26 |
+| temple42.css | 9 |
+| temple42.txt | 44 |
+| tavern42.css | 7 |
+| tavern42.txt | 49 |
 | town29.css | 2 |
 | town29.txt | 134 |
 | ui/01-port-scene.txt | 36 |
@@ -96,3 +100,15 @@ cancelled outline normals fall back to the vertex normal (no black wedges). Path
 each other (debug: `T3.debug()` returns B (with B.puts), figs, movs, dyn, zp, frame). Saww reached by caravan: donkeys on the quay, not our
 ship in the sea. Map: river boats fade at both ends of their run, caravan beasts follow in phase and turn smoothly. 2D map in caravan
 prep: town buttons scaled with the smaller map. Images: docs/qa41.
+
+v42 temple & tavern games: `temple42.txt` adds four temple riddles next to the mirror room (`temple.txt`): glyph (spell a king's name in a
+cartouche from the priests' sign list; worn-off signs are read from an example cartouche), slide (sliding relief stones, A* solver),
+scale (balance Maat's scale with deben weights: table → right pan → left pan), stars (turn the ceiling rings, some chained, until the
+constellation sits in its gold rings). All are PZ.kind 'temple' with PZ.type; `pzTemple({ type, level, seed, cb })` dispatches,
+`templeTypeFor(ci, rs)` gives each temple city its type (shuffled per run), goTemple (ui/11) raises the level with every temple solved.
+The mirror room gained a second (lapis) statue lit through the prism at levels 3–4. `templeAutoSolve(gap)` solves every type through the
+real buttons. `tavern42.txt`: Mehen (snake board, 2 lions, 3 sticks, hits send home, eye scales safe) and Hounds & Jackals (palm board,
+3 pins, one knucklebone 1/3/4/6, shortcuts 6→20 and 8→12, pit 24→16) on one race engine (`TG`, `playTavernGame(id, o)`) with
+Paneb's first-game coaching (meta.mehenTaught / houndsTaught) and a rules card; `tavernGames(ci, day)` picks today's game and the
+alternative the host offers (ui/13 showTavern). Debug: `fn.playTavernGame`, `fn.tavernAuto({ fast })` (also drives Senet), `fn.TG`.
+Images: docs/qa42-oyun.

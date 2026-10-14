@@ -1,0 +1,554 @@
+
+  /* ================= v42 tavern: Mehen and Hounds & Jackals next to Senet (owner: bulmaca) =================
+     Mehen: the coiled snake board (Old Kingdom). Two lions each start at the tail; three throw sticks (light sides = 1..3, none = 4);
+       race along the coils to the head in the middle; landing on a lone rival lion sends it back to the tail; the golden-eye scales are safe; 4 throws again.
+     Hounds & Jackals ("58 holes", Middle Kingdom): a palm-shaped board, 29 holes per side and the shen hole at the top.
+       Three pins each; one knucklebone (1, 3, 4 or 6; 1 and 6 throw again); down the middle, up the edge; carved lines are shortcuts
+       (6 → 20, 8 → 12), the red pit at 24 slides back to 16; reaching or passing the shen hole brings a pin home.
+     Both share one engine (TG), the Senet look, Paneb's first-game coaching and a rules card. */
+  const TV_GAME = {
+    senet:{ name:'Senet', loc:'Senet\'te', pitch:'Taşlarını benden önce tahtadan çıkar, bahsi al.', ico:'i-senet' },
+    mehen:{ name:'Mehen', loc:'Mehen\'de', pitch:'Yılan tahtası! Aslanlarını kuyruktan yılanın başına benden önce getir.', ico:'i-sun' },
+    hounds:{ name:'Tazı ve Çakal', loc:'Tazı ve Çakal\'da', pitch:'Palmiye tahtası! Üç tazını çakallarımdan önce tepedeki deliğe sok.', ico:'i-ankh' }
+  };
+  const TV_ORDER = ['senet', 'mehen', 'hounds'];
+  /* today's game at this tavern and the one the host also offers (turns with the day, so every visit looks different) */
+  function tavernGames(ci, day) { const k = (ci * 2 + (day | 0)) % 3; return [TV_ORDER[k], TV_ORDER[(k + 1) % 3]]; }
+
+  /* ---------- Mehen ---------- */
+  const MH_N = 20, MH_GOAL = 21, MH_SAFE = [5, 10, 15], MH_C = 180;
+  let MH_PTS = null;
+  function mhPts() {
+    if (MH_PTS) return MH_PTS;
+    /* an Archimedean spiral from the tail (outside) to the head (middle), cells at equal arc length */
+    const R0 = 158, R1 = 50, turns = 2.15, th0 = Math.PI * 0.62, S = [], n = 600;
+    for (let k = 0; k <= n; k++) { const t = k / n, r = R0 - (R0 - R1) * t, a = th0 + t * turns * Math.PI * 2; S.push([MH_C + Math.cos(a) * r, MH_C + Math.sin(a) * r]); }
+    const L = [0]; for (let k = 1; k <= n; k++) L.push(L[k - 1] + Math.hypot(S[k][0] - S[k - 1][0], S[k][1] - S[k - 1][1]));
+    const tot = L[n], at = d => { let k = 1; while (k < n && L[k] < d) k++; const f = (d - L[k - 1]) / (L[k] - L[k - 1] || 1); return [S[k - 1][0] + (S[k][0] - S[k - 1][0]) * f, S[k - 1][1] + (S[k][1] - S[k - 1][1]) * f]; };
+    const cells = [null]; for (let q = 1; q <= MH_N; q++) cells.push(at(tot * (q - 0.5) / MH_N));
+    const cuts = []; for (let q = 0; q <= MH_N; q++) { const d = tot * q / MH_N, p = at(Math.max(0.5, Math.min(tot - 0.5, d))), p2 = at(Math.min(tot, d + 1)); cuts.push([p, Math.atan2(p2[1] - p[1], p2[0] - p[0])]); }
+    const hE = S[n], hP = S[n - 12], hd = Math.hypot(hE[0] - hP[0], hE[1] - hP[1]) || 1;
+    MH_PTS = { S, cells, cuts, tot, head:[hE[0] + (hE[0] - hP[0]) / hd * 10, hE[1] + (hE[1] - hP[1]) / hd * 10] };
+    return MH_PTS;
+  }
+  const TG = {};
+  TG.mehen = {
+    id:'mehen', title:'Mehen', N:2, GOAL:MH_GOAL, W:360, H:360, lab:'aslan',
+    throw() { const f = [0, 1, 2].map(() => Math.random() < 0.5 ? 1 : 0), c = f.reduce((a, b) => a + b, 0); return { f, v:c || 4 }; },
+    again:v => v === 4,
+    againTxt:'4 gelirse<br>bir daha',
+    legal(me, op, v) {
+      const out = [], seenF = new Set();
+      me.forEach((f, i) => {
+        if (f >= MH_GOAL || seenF.has(f)) return; seenF.add(f);
+        const t = f + v;
+        if (t >= MH_GOAL) { out.push({ i, f, t:MH_GOAL, kind:'off', fin:MH_GOAL, v }); return; }
+        if (me.includes(t)) return;
+        const j = op.indexOf(t);
+        if (j >= 0) { if (MH_SAFE.includes(t)) return; out.push({ i, f, t, kind:'cap', j, fin:t, v }); return; }
+        out.push({ i, f, t, kind:'move', fin:t, v });
+      });
+      return out;
+    },
+    score(me, op, m) {
+      let s = (m.fin - m.f) * 0.8 + m.f * 0.05;
+      if (m.kind === 'off') s += 60;
+      if (m.kind === 'cap') s += 25 + op[m.j] * 0.9;
+      if (MH_SAFE.includes(m.fin)) s += 10;
+      if (m.fin < MH_GOAL && !MH_SAFE.includes(m.fin)) s -= op.filter(p => p > 0 && p < m.fin && m.fin - p <= 4).length * 5;
+      if (m.f > 0 && !MH_SAFE.includes(m.f) && op.some(p => p < m.f && m.f - p <= 4)) s += 4;
+      return s;
+    },
+    steps(m) { const out = []; for (let q = m.f + 1; q <= Math.min(m.t, MH_GOAL); q++) out.push(q); return out; },
+    xy(side, q, i) {
+      const P = mhPts();
+      if (q <= 0) return side === 'p' ? [302 + i * 32, 336] : [26 + i * 32, 30];
+      if (q >= MH_GOAL) return [MH_C - 8 + i * 16, MH_C + (side === 'p' ? 12 : -10)];
+      return P.cells[q];
+    },
+    cellXY(q) { return q >= MH_GOAL ? mhPts().head : q <= 0 ? null : mhPts().cells[q]; },
+    board() {
+      const P = mhPts(), d = 'M' + P.S.filter((_, k) => k % 3 === 0 || k === P.S.length - 1).map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join('L');
+      let s = '<svg viewBox="0 0 360 360" class="tgsvg" role="img" aria-label="Mehen tahtası: kıvrılmış yılan">';
+      s += '<defs><radialGradient id="mhBg' + PZ.uid + '"><stop offset="0" stop-color="#F4E1B0"/><stop offset="1" stop-color="#C9A46A"/></radialGradient></defs>';
+      s += '<rect x="2" y="2" width="356" height="356" rx="26" fill="#8E5A33" stroke="' + INK + '" stroke-width="3"/><circle cx="180" cy="180" r="172" fill="url(#mhBg' + PZ.uid + ')" stroke="' + INK + '" stroke-width="2.5"/>';
+      /* the snake: ink, body, belly line, scale bands */
+      s += '<path d="' + d + '" fill="none" stroke="' + INK + '" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/><path d="' + d + '" fill="none" stroke="#6E9A3A" stroke-width="38.5" stroke-linecap="round" stroke-linejoin="round"/><path d="' + d + '" fill="none" stroke="#A9C45A" stroke-width="22" stroke-linecap="round" stroke-linejoin="round" opacity=".75"/>';
+      P.cuts.forEach(([p, a], q) => { if (q === 0 || q === MH_N) return; const nx = -Math.sin(a) * 19, ny = Math.cos(a) * 19; s += '<path d="M' + (p[0] + nx).toFixed(1) + ' ' + (p[1] + ny).toFixed(1) + 'L' + (p[0] - nx).toFixed(1) + ' ' + (p[1] - ny).toFixed(1) + '" stroke="' + INK + '" stroke-width="2"/>'; });
+      for (let q = 1; q <= MH_N; q++) {
+        const [x, y] = P.cells[q], safe = MH_SAFE.includes(q);
+        s += '<g data-tgsq="' + q + '"><circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="15" fill="' + (safe ? '#F2C53D' : '#4E7A28') + '" stroke="' + INK + '" stroke-width="1.6" opacity="' + (safe ? 1 : 0.35) + '"/>';
+        if (safe) s += '<g transform="translate(' + x.toFixed(1) + ' ' + y.toFixed(1) + ')">' + pth('M-9 0q9 -8 18 0q-9 7 -18 0z', '#FBF3DF', ink(1.4)) + '<circle r="3" fill="' + INK + '"/></g>';
+        s += '<text x="' + x.toFixed(1) + '" y="' + (y + 3.5).toFixed(1) + '" text-anchor="middle" class="tgnum' + (safe ? ' s' : '') + '">' + (safe ? '' : q) + '</text></g>';
+      }
+      /* tail tip at the start, the head in the middle (the goal) */
+      const t0 = P.S[0], t1 = P.S[6], ta = Math.atan2(t0[1] - t1[1], t0[0] - t1[0]);
+      s += '<path d="M' + (t0[0] - Math.sin(ta) * 19).toFixed(1) + ' ' + (t0[1] + Math.cos(ta) * 19).toFixed(1) + 'L' + (t0[0] + Math.cos(ta) * 26).toFixed(1) + ' ' + (t0[1] + Math.sin(ta) * 26).toFixed(1) + 'L' + (t0[0] + Math.sin(ta) * 19).toFixed(1) + ' ' + (t0[1] - Math.cos(ta) * 19).toFixed(1) + 'Z" fill="#6E9A3A" stroke="' + INK + '" stroke-width="2.2" stroke-linejoin="round"/>';
+      const hE = P.S[P.S.length - 1], hP = P.S[P.S.length - 12], ha = Math.atan2(hE[1] - hP[1], hE[0] - hP[0]) * 180 / Math.PI;
+      s += '<g data-tgsq="' + MH_GOAL + '" transform="translate(' + hE[0].toFixed(1) + ' ' + hE[1].toFixed(1) + ') rotate(' + ha.toFixed(1) + ')"><path d="M-14 -21c18 -4 38 6 38 21s-20 25 -38 21z" fill="#6E9A3A" stroke="' + INK + '" stroke-width="2.4"/>' + pth('M24 0h9M33 0l5 -4M33 0l5 4', 'none', 'stroke="#B7412E" stroke-width="2.2" stroke-linecap="round"') + '<circle cx="8" cy="-10" r="5" fill="#FBF3DF" stroke="' + INK + '" stroke-width="1.6"/><circle cx="8" cy="10" r="5" fill="#FBF3DF" stroke="' + INK + '" stroke-width="1.6"/><circle cx="9" cy="-10" r="2.2" fill="' + INK + '"/><circle cx="9" cy="10" r="2.2" fill="' + INK + '"/>' + '</g>';
+      /* the two start trays */
+      s += '<g data-tgsq="0"><rect x="280" y="312" width="72" height="42" rx="12" fill="#E9C46A" stroke="' + INK + '" stroke-width="2" stroke-dasharray="5 3"/><rect x="6" y="6" width="72" height="42" rx="12" fill="#E9B5A6" stroke="' + INK + '" stroke-width="2" stroke-dasharray="5 3"/></g>';
+      return s + '</svg>';
+    },
+    piece(side) {
+      const b = side === 'p' ? ['#3E78C9', '#1F4F98', '#9CC0F0'] : ['#C9503A', '#8E2E1E', '#F0A08A'];
+      return '<ellipse cy="12" rx="14" ry="3.6" fill="#2B1D14" opacity=".22"/><path d="M-12 11c-1 -9 4 -15 12 -15h3c7 0 11 5 11 11v4z" fill="' + b[0] + '" stroke="' + INK + '" stroke-width="2" stroke-linejoin="round"/>' + pth('M13 4q7 -4 4 -12q-1 -2 1 -3', 'none', 'stroke="' + INK + '" stroke-width="2" stroke-linecap="round"') + '<circle cx="-8" cy="-6" r="9.5" fill="' + b[1] + '" stroke="' + INK + '" stroke-width="2"/><circle cx="-9" cy="-5" r="5.4" fill="' + b[2] + '" stroke="' + INK + '" stroke-width="1.3"/><circle cx="-11" cy="-6.5" r="1.1" fill="' + INK + '"/><circle cx="-7" cy="-6.5" r="1.1" fill="' + INK + '"/>' + pth('M-10.5 -3q1.5 1.2 3 0', 'none', 'stroke="' + INK + '" stroke-width="1.1" stroke-linecap="round"');
+    },
+    sticks(f, roll) {
+      return '<svg viewBox="0 0 94 64" class="tgstk' + (roll ? ' roll' : '') + '" aria-hidden="true">' + f.map((l, k) => { const x = 6 + k * 30; return '<g class="tgst" style="--k:' + k + '"><rect x="' + x + '" y="4" width="22" height="56" rx="10" fill="' + (l ? '#F6E7C1' : '#6B4528') + '" stroke="' + INK + '" stroke-width="2.2"/>' + (l ? pth('M' + (x + 6) + ' 18h10M' + (x + 6) + ' 32h10M' + (x + 6) + ' 46h10', 'none', 'stroke="#2BA59A" stroke-width="2.4" stroke-linecap="round"') : pth('M' + (x + 8) + ' 10v44', 'none', 'stroke="#8E6440" stroke-width="2" stroke-linecap="round"')) + '</g>'; }).join('') + '</svg>';
+    },
+    face0:[1, 0, 1],
+    legend() { return '<span><svg viewBox="-14 -14 28 28" width="22" height="22"><circle r="12" fill="#F2C53D" stroke="#2B1D14" stroke-width="1.6"/><path d="M-8 0q8 -7 16 0q-8 6 -16 0z" fill="#FBF3DF" stroke="#2B1D14" stroke-width="1.3"/><circle r="2.6" fill="#2B1D14"/></svg>Göz: güvenli</span><span>' + ico('i-sun', 18) + 'Baş: varış</span>'; },
+    foot:'Yalnız aslanın üstüne denk gelirsen onu kuyruğa yollarsın. Gözlü karede kimse vurulmaz.',
+    rules() {
+      const pc = (sd, x, y, sc) => '<g transform="translate(' + x + ' ' + y + ') scale(' + (sc || 1) + ')">' + TG.mehen.piece(sd) + '</g>';
+      const ar = (d, c) => pth(d, 'none', 'stroke="' + (c || INK) + '" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"');
+      const st = (x, l) => '<rect x="' + x + '" y="6" width="12" height="36" rx="6" fill="' + (l ? '#F6E7C1' : '#6B4528') + '" stroke="' + INK + '" stroke-width="1.8"/>' + (l ? pth('M' + (x + 3.5) + ' 16h5M' + (x + 3.5) + ' 24h5M' + (x + 3.5) + ' 32h5', 'none', 'stroke="#2BA59A" stroke-width="2.4" stroke-linecap="round"') : '');
+      const coil = '<path d="M80 25m-22 0a22 18 0 1 0 44 0a22 18 0 1 0 -44 0" fill="none" stroke="#2B1D14" stroke-width="12"/><path d="M80 25m-22 0a22 18 0 1 0 44 0a22 18 0 1 0 -44 0" fill="none" stroke="#6E9A3A" stroke-width="8"/>';
+      return [
+        ['İki aslanını <b>yılanın başına</b> rakipten önce getir.', coil + pc('p', 30, 30, 0.8) + ar('M44 30q8 -12 26 -6', '#1F5FA8') + '<circle cx="80" cy="25" r="8" fill="#6E9A3A" stroke="#2B1D14" stroke-width="2"/><circle cx="83" cy="22" r="1.8" fill="#2B1D14"/>' + ar('M108 25h22M124 18l7 7 -7 7')],
+        ['Üç değnek: çizgili yüz kadar git. Hiç yoksa <b>4</b>.', st(0, 1) + st(15, 0) + st(30, 1) + '<text x="48" y="32" class="snrn">=2</text><g transform="translate(84 0)">' + st(0, 0) + st(15, 0) + st(30, 0) + '</g><text x="130" y="32" class="snrn">=4</text>'],
+        ['<b>4</b> gelirse bir daha at.', '<text x="20" y="34" class="snrn big">4</text>' + ar('M70 30a14 14 0 1 1 6 10', '#1E7D74') + pth('M70 22l0 9 8 -3', 'none', 'stroke="#1E7D74" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"')],
+        ['<b>Yalnız</b> rakip aslana denk gel: o kuyruğa döner.', pc('p', 30, 28, 0.8) + pc('a', 100, 28, 0.8) + ar('M44 14q28 -14 46 0', '#1F5FA8') + ar('M112 40q20 8 34 -6', '#B7412E') + '<text x="128" y="20" class="snrt">kuyruk</text>'],
+        ['<b>Gözlü</b> kareler güvenli.', '<circle cx="40" cy="25" r="16" fill="#F2C53D" stroke="#2B1D14" stroke-width="2"/><path d="M28 25q12 -10 24 0q-12 9 -24 0z" fill="#FBF3DF" stroke="#2B1D14" stroke-width="1.6"/><circle cx="40" cy="25" r="3.5" fill="#2B1D14"/>' + pth('M84 8l11 5v8q0 9 -11 13q-11 -4 -11 -13v-8z', '#2BA59A', ink(1.8))],
+        ['Başa varmak için <b>tam sayı gerekmez</b>.', '<text x="10" y="32" class="snrn">19 + 4</text>' + ar('M80 25h22M96 18l7 7 -7 7') + '<circle cx="128" cy="25" r="12" fill="#6E9A3A" stroke="#2B1D14" stroke-width="2"/><circle cx="131" cy="21" r="2" fill="#2B1D14"/>']
+      ];
+    },
+    tips:[
+      { id:'hi', t:() => 'Mehen, yılan oyunu! <b>Mavi aslanlar</b> senin. Kuyruktan başlar, kıvrıla kıvrıla <b>yılanın başına</b> gidersin. İki aslanını önce getiren kazanır.', ok:'Hadi oynayalım!', mood:'happy', hl:() => ({ sq:[1, MH_GOAL] }) },
+      { id:'sticks', at:'throw', t:() => 'Üç değneği at. Kaç değnek <b>çizgili</b> yüzünü gösterirse o kadar gidersin. Hiç yoksa <b>4</b>, ve 4 gelince bir daha atarsın!', hl:() => ({ el:['.tgthrow', '.tgact'] }) },
+      { id:'move', at:'move', t:() => '<b>' + PZ.v + '</b> geldi! Parlayan aslan ' + PZ.v + ' kare gider. <b>Taşı oynat</b>\'a bas ya da aslana dokun.', hl:() => ({ sq:[PZ.ms[PZ.sel].t], el:['.tgact'] }) },
+      { id:'cap', at:'move', when:() => PZ.ms.some(m => m.kind === 'cap'), mood:'sly', pre:() => { PZ.sel = PZ.ms.findIndex(m => m.kind === 'cap'); tgHl(); }, t:() => 'Bak! Rakibin aslanına denk gelebilirsin: onu <b>kuyruğa</b> geri yollarsın!', hl:() => ({ sq:[PZ.ms[PZ.sel].t] }) },
+      { id:'hit', at:'throw', when:() => PZ.tut.hitMe, mood:'surprised', t:() => 'Eyvah! Rakip aslanına denk geldi, aslanın kuyruğa döndü. <b>Altın gözlü</b> karelerde kimse vurulmaz.', hl:() => ({ sq:MH_SAFE }) },
+      { id:'safe', at:'move', when:() => PZ.ms.some(m => MH_SAFE.includes(m.fin)) || PZ.tut.nP >= 6, t:() => '<b>Altın gözlü</b> kareler güvenlidir: orada kimse aslanını vuramaz.', hl:() => ({ sq:MH_SAFE }) },
+      { id:'head', at:'move', when:() => PZ.ms.some(m => m.kind === 'off'), mood:'happy', t:() => 'Başa varmak için <b>tam sayı gerekmez</b>, yeter ki ulaş. Hadi!', hl:() => ({ sq:[MH_GOAL] }) }
+    ]
+  };
+
+  /* ---------- Hounds & Jackals ---------- */
+  const HJ_GOAL = 30, HJ_JUMP = { 6:20, 8:12, 24:16 }, HJ_W = 300, HJ_H = 452, HJ_CX = 150;
+  function hjXY(side, q) {
+    const sg = side === 'p' ? 1 : -1;
+    if (q >= HJ_GOAL) return [HJ_CX, 44];
+    if (q <= 10) return [HJ_CX + sg * 30, 150 + (q - 1) * 25];
+    if (q <= 20) return [HJ_CX + sg * 118, 392 - (q - 11) * 24];
+    const a = (q - 20) / 9.6 * Math.PI / 2 * 0.92, R = 118;
+    return [HJ_CX + sg * Math.cos(a) * R, 176 - Math.sin(a) * R * 1.02];
+  }
+  TG.hounds = {
+    id:'hounds', title:'Tazı ve Çakal', N:3, GOAL:HJ_GOAL, W:HJ_W, H:HJ_H, lab:'tazı',
+    throw() { const r = Math.random(), v = r < 0.1 ? 1 : r < 0.5 ? 3 : r < 0.9 ? 4 : 6; return { f:[v], v }; },
+    again:v => v === 1 || v === 6,
+    againTxt:'1 · 6<br>bir daha',
+    legal(me, op, v) {
+      const out = [], seenF = new Set();
+      me.forEach((f, i) => {
+        if (f >= HJ_GOAL || seenF.has(f)) return; seenF.add(f);
+        const t = f + v;
+        if (t >= HJ_GOAL) { out.push({ i, f, t:HJ_GOAL, kind:'off', fin:HJ_GOAL, v }); return; }
+        if (me.includes(t)) return;
+        const j = HJ_JUMP[t];
+        if (j && !me.includes(j)) { out.push({ i, f, t, kind:j > t ? 'jump' : 'slide', fin:j, v }); return; }
+        out.push({ i, f, t, kind:'move', fin:t, v });
+      });
+      return out;
+    },
+    score(me, op, m) {
+      let s = (m.fin - m.f) + m.f * 0.04;
+      if (m.kind === 'off') s += 40;
+      if (m.kind === 'jump') s += 6;
+      if (m.kind === 'slide') s -= 12;
+      /* keep pins off the pit and in reach of the shen hole */
+      if (m.fin >= 24 && m.fin < HJ_GOAL) s += 2;
+      if (m.f === 0) s += 1.5;
+      return s;
+    },
+    steps(m) { const out = []; for (let q = m.f + 1; q <= m.t; q++) out.push(q); return out; },
+    xy(side, q, i) {
+      if (q <= 0) return [HJ_CX + (side === 'p' ? 1 : -1) * (58 + i * 24), 438];
+      if (q >= HJ_GOAL) return [HJ_CX + (side === 'p' ? 1 : -1) * (6 + i * 9), 44 + (i % 2 ? 3 : -2)];
+      return hjXY(side, q);
+    },
+    cellXY(q) { return q <= 0 ? null : hjXY('p', q); },
+    board() {
+      const u = PZ.uid;
+      let s = '<svg viewBox="0 0 ' + HJ_W + ' ' + HJ_H + '" class="tgsvg" role="img" aria-label="Tazı ve Çakal tahtası: palmiye">';
+      s += '<defs>' + grad('hjWd' + u, [[0, '#B98552'], [1, '#8E5A33']], true) + grad('hjIv' + u, [[0, '#FBF0D4'], [1, '#E5CF9C']], true) + '</defs>';
+      const out = 'M8 ' + (HJ_H - 6) + 'V176A142 142 0 0 1 292 176V' + (HJ_H - 6) + 'Z';
+      s += '<path d="' + out + '" fill="url(#hjWd' + u + ')" stroke="' + INK + '" stroke-width="3"/>';
+      s += '<path d="M20 ' + (HJ_H - 18) + 'V178A130 130 0 0 1 280 178V' + (HJ_H - 18) + 'Z" fill="url(#hjIv' + u + ')" stroke="' + INK + '" stroke-width="2"/>';
+      /* the palm: trunk rings and fronds */
+      let tr = ''; for (let y = 150; y < 396; y += 13) tr += 'M' + (HJ_CX - 9) + ' ' + y + 'q9 6 18 0';
+      s += '<rect x="' + (HJ_CX - 10) + '" y="140" width="20" height="262" rx="6" fill="#B07A44" stroke="' + INK + '" stroke-width="2"/>' + pth(tr, 'none', 'stroke="#7A4E28" stroke-width="2"');
+      s += [-1, 1].map(sg => [[-0.2, 66], [0.25, 72], [0.75, 64], [1.15, 52]].map(([a, L]) => { const ex = HJ_CX + sg * Math.cos(a) * L, ey = 120 - Math.sin(a) * L * 0.8 + 18; return pth('M' + HJ_CX + ' 122Q' + (HJ_CX + sg * L * 0.5) + ' ' + (ey - 26) + ' ' + ex.toFixed(1) + ' ' + ey.toFixed(1) + 'Q' + (HJ_CX + sg * L * 0.45) + ' ' + (ey - 10) + ' ' + HJ_CX + ' 128Z', '#3E8A4A', ink(1.8)); }).join('')).join('');
+      s += '<circle cx="' + (HJ_CX - 6) + '" cy="132" r="5" fill="#8E3B2A" stroke="' + INK + '" stroke-width="1.4"/><circle cx="' + (HJ_CX + 6) + '" cy="133" r="5" fill="#8E3B2A" stroke="' + INK + '" stroke-width="1.4"/>';
+      /* shortcut lines (both sides) */
+      ['p', 'a'].forEach(sd => Object.keys(HJ_JUMP).forEach(k => {
+        const a = hjXY(sd, +k), b = hjXY(sd, HJ_JUMP[k]), up = HJ_JUMP[k] > +k, mx = (a[0] + b[0]) / 2 + (sd === 'p' ? 1 : -1) * (up ? -10 : 18), my = (a[1] + b[1]) / 2 + (up ? 14 : 0);
+        s += '<path d="M' + a[0] + ' ' + a[1] + 'Q' + mx + ' ' + my + ' ' + b[0] + ' ' + b[1] + '" fill="none" stroke="' + (up ? '#1E7D74' : '#B7412E') + '" stroke-width="3.2" stroke-linecap="round"' + (up ? '' : ' stroke-dasharray="5 4"') + ' opacity=".8"/>';
+      }));
+      /* the holes */
+      ['p', 'a'].forEach(sd => { for (let q = 1; q < HJ_GOAL; q++) {
+        const [x, y] = hjXY(sd, q), sp = HJ_JUMP[q], land = Object.values(HJ_JUMP).includes(q);
+        s += '<g' + (sd === 'p' ? ' data-tgsq="' + q + '"' : '') + '><circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + (sp ? 9 : 7) + '" fill="' + (sp ? (sp > q ? '#2BA59A' : '#B7412E') : land ? '#E9C46A' : '#5A3A22') + '" stroke="' + INK + '" stroke-width="' + (sp ? 2.2 : 1.6) + '"/><circle cx="' + x.toFixed(1) + '" cy="' + (y + 1).toFixed(1) + '" r="' + (sp ? 4 : 3.4) + '" fill="#2B1D14"/>';
+        if (sd === 'p' && (q % 5 === 0 || q === 1)) s += '<text x="' + (x + (q <= 10 ? 13 : -13)).toFixed(1) + '" y="' + (y + 3.5).toFixed(1) + '" text-anchor="middle" class="tgnum">' + q + '</text>';
+        s += '</g>';
+      } });
+      /* the shen hole at the top */
+      s += '<g data-tgsq="' + HJ_GOAL + '"><circle cx="' + HJ_CX + '" cy="44" r="17" fill="#E9C46A" stroke="' + INK + '" stroke-width="2.4"/><circle cx="' + HJ_CX + '" cy="44" r="10" fill="#2B1D14"/><path d="M' + (HJ_CX - 14) + ' 64h28" stroke="' + INK + '" stroke-width="3" stroke-linecap="round"/></g>';
+      /* the drawers */
+      s += '<g data-tgsq="0"><rect x="' + (HJ_CX + 36) + '" y="410" width="96" height="32" rx="8" fill="#E9C46A" stroke="' + INK + '" stroke-width="2" stroke-dasharray="5 3"/><rect x="' + (HJ_CX - 132) + '" y="410" width="96" height="32" rx="8" fill="#E9B5A6" stroke="' + INK + '" stroke-width="2" stroke-dasharray="5 3"/></g>';
+      return s + '</svg>';
+    },
+    piece(side) {
+      /* a pin standing in its hole: hound (ivory and lapis, you) or jackal (ebony and gold, the rival) */
+      const c = side === 'p' ? ['#F4E7C6', '#1F5FA8', '#F4E7C6'] : ['#3A2A22', '#D9A43A', '#4A3A30'];
+      let s = '<ellipse cy="2" rx="8" ry="3" fill="#2B1D14" opacity=".3"/><rect x="-3.6" y="-24" width="7.2" height="26" rx="3" fill="' + c[0] + '" stroke="' + INK + '" stroke-width="1.8"/><rect x="-4" y="-12" width="8" height="4" fill="' + c[1] + '" stroke="' + INK + '" stroke-width="1.2"/>';
+      if (side === 'p') s += '<path d="M-6 -24c0 -6 3 -9 7 -9l2 -6 2 6c3 1 4 3 8 4c1 2 0 4 -2 4l-6 1v0c-3 1 -8 1 -11 0z" fill="' + c[2] + '" stroke="' + INK + '" stroke-width="1.8" stroke-linejoin="round"/><circle cx="3" cy="-29" r="1.1" fill="' + INK + '"/>';
+      else s += '<path d="M-6 -24c0 -6 2 -9 5 -10l1 -8 3 7c2 0 3 1 4 2l7 3c1 2 0 3 -2 3l-6 1c-3 2 -8 3 -12 2z" fill="' + c[2] + '" stroke="' + INK + '" stroke-width="1.8" stroke-linejoin="round"/><circle cx="3" cy="-29" r="1.2" fill="#E9C46A"/>';
+      return s;
+    },
+    sticks(f, roll) {
+      /* one knucklebone (astragalus) showing its face value */
+      const v = f[0], dots = { 1:[[0, 0]], 3:[[-7, -6], [0, 0], [7, 6]], 4:[[-6, -6], [6, -6], [-6, 6], [6, 6]], 6:[[-7, -7], [7, -7], [-7, 0], [7, 0], [-7, 7], [7, 7]] }[v] || [];
+      return '<svg viewBox="-32 -30 64 60" class="tgstk tgbone' + (roll ? ' roll' : '') + '" aria-hidden="true"><g class="tgst" style="--k:0"><path d="M-24 -12c-6 -8 4 -16 12 -12c6 -6 18 -6 24 0c8 -4 18 4 12 12c4 8 4 16 0 24c6 8 -4 16 -12 12c-6 6 -18 6 -24 0c-8 4 -18 -4 -12 -12c-4 -8 -4 -16 0 -24z" fill="#F2E6CC" stroke="' + INK + '" stroke-width="2.4"/>' + dots.map(([x, y]) => '<circle cx="' + x + '" cy="' + y + '" r="3.4" fill="#8E3B2A"/>').join('') + '</g></svg>';
+    },
+    face0:[3],
+    legend() { return '<span><svg viewBox="-12 -12 24 24" width="20" height="20"><circle r="9" fill="#2BA59A" stroke="#2B1D14" stroke-width="2"/></svg>Kestirme: ileri</span><span><svg viewBox="-12 -12 24 24" width="20" height="20"><circle r="9" fill="#B7412E" stroke="#2B1D14" stroke-width="2"/></svg>Çukur: geri</span><span><svg viewBox="-12 -12 24 24" width="20" height="20"><circle r="10" fill="#E9C46A" stroke="#2B1D14" stroke-width="2"/><circle r="5" fill="#2B1D14"/></svg>Şen: varış</span>'; },
+    foot:'Tazıların sağda: ortadan aşağı in, kenardan yukarı çık. Yeşil delik kestirme, kırmızı çukur geri kaydırır.',
+    rules() {
+      const pin = (sd, x, y, sc) => '<g transform="translate(' + x + ' ' + y + ') scale(' + (sc || 1) + ')">' + TG.hounds.piece(sd) + '</g>';
+      const ar = (d, c) => pth(d, 'none', 'stroke="' + (c || INK) + '" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"');
+      const hole = (x, y, c) => '<circle cx="' + x + '" cy="' + y + '" r="7" fill="' + (c || '#5A3A22') + '" stroke="#2B1D14" stroke-width="1.8"/><circle cx="' + x + '" cy="' + (y + 1) + '" r="3" fill="#2B1D14"/>';
+      const bone = v => '<g transform="scale(.6)">' + TG.hounds.sticks([v]).replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '') + '</g>';
+      return [
+        ['Üç tazını çakallardan önce <b>Şen</b> deliğine sok.', pin('p', 24, 40, 0.9) + pin('p', 44, 40, 0.9) + pin('p', 64, 40, 0.9) + ar('M80 30h30M104 23l7 7 -7 7') + '<circle cx="134" cy="26" r="13" fill="#E9C46A" stroke="#2B1D14" stroke-width="2"/><circle cx="134" cy="26" r="7" fill="#2B1D14"/>'],
+        ['Aşık kemiği: <b>1, 3, 4</b> ya da <b>6</b> gelir.', [1, 3, 4, 6].map((v, k) => '<g transform="translate(' + (22 + k * 38) + ' 25)">' + bone(v) + '</g>').join('')],
+        ['<b>1</b> ya da <b>6</b> gelirse bir daha at.', '<text x="10" y="34" class="snrn big">1 · 6</text>' + ar('M96 30a14 14 0 1 1 6 10', '#1E7D74') + pth('M96 22l0 9 8 -3', 'none', 'stroke="#1E7D74" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"')],
+        ['Yol: ortadan <b>aşağı</b>, kenardan <b>yukarı</b>.', '<rect x="66" y="4" width="10" height="44" rx="3" fill="#B07A44" stroke="#2B1D14" stroke-width="1.6"/>' + [0, 1, 2].map(k => hole(88, 10 + k * 15)).join('') + [0, 1, 2].map(k => hole(130, 40 - k * 15)).join('') + ar('M98 8v32q0 8 10 8h12', '#1F5FA8') + ar('M140 40V8', '#1F5FA8') + pin('p', 88, 10, 0.6)],
+        ['Yeşil delik: çizgi boyunca <b>ileri atla</b>.', hole(24, 38, '#2BA59A') + hole(130, 12, '#E9C46A') + '<path d="M24 38Q70 46 130 12" fill="none" stroke="#1E7D74" stroke-width="3.2" stroke-linecap="round"/>' + '<text x="20" y="20" class="snrt">6</text><text x="120" y="38" class="snrt">20</text>'],
+        ['Kırmızı çukur: <b>geri kay</b>. Şen\'e varmak için <b>tam sayı gerekmez</b>.', hole(24, 12, '#B7412E') + hole(80, 38, '#E9C46A') + '<path d="M24 12Q50 40 80 38" fill="none" stroke="#B7412E" stroke-width="3.2" stroke-dasharray="5 4" stroke-linecap="round"/><circle cx="134" cy="25" r="13" fill="#E9C46A" stroke="#2B1D14" stroke-width="2"/><circle cx="134" cy="25" r="7" fill="#2B1D14"/>']
+      ];
+    },
+    tips:[
+      { id:'hi', t:() => 'Tazılar ve Çakallar! <b>Tazıların</b> sağda. Ortadan aşağı in, kenardan yukarı çık, tepedeki <b>Şen</b> deliğine gir. Üçünü önce sokan kazanır.', ok:'Hadi oynayalım!', mood:'happy', hl:() => ({ sq:[1, 10, 11, HJ_GOAL] }) },
+      { id:'bone', at:'throw', t:() => 'Aşık kemiğini at: <b>1, 3, 4</b> ya da <b>6</b> gelir. 1 ve 6 nadirdir; gelirse <b>bir daha</b> atarsın!', hl:() => ({ el:['.tgthrow', '.tgact'] }) },
+      { id:'move', at:'move', t:() => '<b>' + PZ.v + '</b> geldi! Parlayan tazı ' + PZ.v + ' delik gider. <b>Taşı oynat</b>\'a bas ya da tazıya dokun.', hl:() => ({ sq:[PZ.ms[PZ.sel].t], el:['.tgact'] }) },
+      { id:'jump', at:'move', when:() => PZ.ms.some(m => m.kind === 'jump'), mood:'sly', pre:() => { PZ.sel = PZ.ms.findIndex(m => m.kind === 'jump'); tgHl(); }, t:() => 'Yeşil delik bir <b>kestirme</b>! Oraya denk gelen tazı çizgi boyunca ileri atlar.', hl:() => ({ sq:[PZ.ms[PZ.sel].t, PZ.ms[PZ.sel].fin] }) },
+      { id:'pit', at:'move', when:() => PZ.ms.some(m => m.kind === 'slide') || PZ.pos.p.some(q => q >= 17 && q <= 23), mood:'surprised', t:() => '<b>24</b> kırmızı çukur: oraya düşen tazı <b>16</b>\'ya geri kayar. Başka tazın varsa onu oynat.', hl:() => ({ sq:[24, 16] }) },
+      { id:'shen', at:'move', when:() => PZ.ms.some(m => m.kind === 'off'), mood:'happy', t:() => 'Bu tazı <b>Şen</b> deliğine girebilir! Tam sayı gerekmez, yeter ki ulaşsın.', hl:() => ({ sq:[HJ_GOAL] }) }
+    ]
+  };
+
+  /* ---------- the shared race engine ---------- */
+  function playTavernGame(id, o) {
+    if (id === 'senet' || !TG[id]) { playSenet(o); return; }
+    o = o || {};
+    pzClear();
+    const D = TG[id], stake = o.stake || 0, who = o.who ? String(o.who) : 'Rakip';
+    const wideOK = !!(window.matchMedia && matchMedia('(min-width:700px)').matches);
+    PZ = { kind:id, D, tok:Math.random(), timers:[], cb:o.cb, stake, who, pos:{ p:Array(D.N).fill(0), a:Array(D.N).fill(0) }, turn:'p', phase:'idle', v:0, faces:D.face0.slice(), ms:[], sel:0, auto:false, speed:1, fin:false, giveUp:0, uid:++uid,
+      tut:o.tutorial ? { seen:{}, wait:null, nP:0, hitMe:0 } : null };
+    tgBind();
+    if (window.__nil && window.__nil.fn) { window.__nil.fn.tavernAuto = tavernAuto; window.__nil.fn.playTavernGame = playTavernGame; }
+    const dots = '<span class="sndots">' + '<i></i>'.repeat(D.N) + '</span>';
+    let s = '<div class="sh-h"><h2 id="shTitle">' + esc(D.title) + '<small>' + (PZ.tut ? 'İlk oyun · ' : '') + 'Bahis: <b>' + fmt(stake) + ' deben</b> · Rakip: ' + esc(who) + '</small></h2><button class="btn sm snrb" type="button" data-tgrules>' + snRulesIco() + 'Kurallar</button></div>';
+    if (PZ.tut) s += '<div class="sncoach" id="tgCoach"><div class="sncp" id="tgCp"></div><div class="sncb"><b>Paneb</b><p id="tgCoachT" aria-live="polite"></p><button class="btn go1 sm sncok" type="button" data-tgok hidden>Tamam</button></div></div>';
+    s += '<div class="tg tg-' + id + (wideOK ? ' w' : '') + (PZ.tut ? ' tgtm' : '') + '"><div class="tgbd" id="tgBd">' + D.board() + '<svg viewBox="0 0 ' + D.W + ' ' + D.H + '" class="tgov" aria-hidden="true"><g id="tgTut"></g><g id="tgHl"></g><g id="tgPcs">';
+    ['a', 'p'].forEach(sd => PZ.pos[sd].forEach((q, i) => { const [x, y] = D.xy(sd, q, i); s += '<g class="tgpc ' + sd + '" id="tgP' + sd + i + '" data-tgpc="' + (sd === 'p' ? i : '') + '" style="transform:translate(' + x + 'px,' + y + 'px)"><g class="tgpcb">' + D.piece(sd) + '</g></g>'; }));
+    s += '</g></svg></div><div class="tgpn">';
+    const oppK = (() => { try { if (typeof CAST !== 'undefined') for (const c in CAST) if (CAST[c].name === who) return c; } catch (e) {} return null; })();
+    s += '<div class="snpl a" id="tgPa"><svg viewBox="-18 -' + (id === 'hounds' ? 44 : 20) + ' 36 ' + (id === 'hounds' ? 50 : 36) + '" width="26" height="30" aria-hidden="true">' + D.piece('a') + '</svg>' + (oppK ? '<span class="snav" data-k="' + oppK + '">' + CH40.icon(oppK, 'neutral') + '</span>' : '') + '<b>' + esc(who) + '</b>' + dots + '</div>';
+    s += '<div class="tgthrow"><div id="tgStk">' + D.sticks(PZ.faces) + '</div><div class="snv"><b id="tgV">?</b><small>' + D.againTxt + '</small></div></div>';
+    s += '<p class="snmsg" id="tgMsg" aria-live="polite"></p>';
+    s += '<button class="btn go1 snact tgact" type="button" data-tgact data-first>' + (id === 'hounds' ? 'Kemiği at' : 'Değnekleri at') + '</button>';
+    s += '<div class="snpl p on" id="tgPp"><svg viewBox="-18 -' + (id === 'hounds' ? 44 : 20) + ' 36 ' + (id === 'hounds' ? 50 : 36) + '" width="26" height="30" aria-hidden="true">' + D.piece('p') + '</svg><b>Sen</b>' + dots + '</div>';
+    s += '<div class="snleg">' + D.legend() + '</div>';
+    s += '</div></div><div class="snfoot"><span class="muted">' + D.foot + '</span><button class="btn sm" type="button" data-tggive>Pes et</button></div>';
+    openSheet(s, true, 'pz', wideOK);
+    if (PZ.tut) tgTip('hi'); else tgTurn('p');
+  }
+  const tgT = ms => Math.max(0, Math.round(ms * (PZ ? PZ.speed : 1)));
+  function tgLater(fn, ms) { const tok = PZ.tok; PZ.timers.push(setTimeout(() => { if (!PZ || PZ.tok !== tok || PZ.fin) return; fn(); }, tgT(ms))); }
+  function tgMsg(t) { const m = $('#tgMsg'); if (m) m.innerHTML = t; }
+  function tgAct(label, on) { const b = document.querySelector('#sheet [data-tgact]'); if (b) { b.innerHTML = label; b.disabled = !on; } }
+  const tgMine = () => PZ && TG[PZ.kind] === PZ.D;
+  const tgThrowLab = () => PZ.kind === 'hounds' ? 'Kemiği at' : 'Değnekleri at';
+  function tgTurn(side) {
+    if (!tgMine() || PZ.fin) return;
+    PZ.turn = side; PZ.phase = 'throw'; PZ.ms = []; tgHl();
+    ['p', 'a'].forEach(k => { const el = $('#tgP' + k); if (el) el.classList.toggle('on', k === side); });
+    if (side === 'a') { tgAct('Rakip oynuyor…', false); tgMsg('<b>' + esc(PZ.who) + '</b> atıyor…'); tgLater(tgThrow, 380); }
+    else {
+      tgAct(tgThrowLab(), true); tgMsg('Sıra sende: <b>' + (PZ.kind === 'hounds' ? 'kemiği' : 'değnekleri') + ' at</b>.'); tgTipAt('throw');
+      if (PZ.auto) tgLater(tgThrow, 250);
+    }
+  }
+  function tgThrow() {
+    if (!tgMine() || PZ.phase !== 'throw' || PZ.fin) return;
+    PZ.phase = 'roll';
+    const D = PZ.D; let r = D.throw();
+    if (PZ.tut) r = tgTutThrow(r);
+    PZ.faces = r.f; PZ.v = r.v;
+    if (PZ.turn === 'p') tgTutClear();
+    tgAct(PZ.turn === 'p' ? 'Atılıyor…' : 'Rakip oynuyor…', false);
+    const vb = $('#tgV'); if (vb) { vb.textContent = '…'; vb.className = ''; }
+    play('lash');
+    const n = reduce || PZ.speed < 0.5 ? 0 : 5;
+    for (let k = 0; k < n; k++) tgLater(() => { const st = $('#tgStk'); if (st) st.innerHTML = D.sticks(D.throw().f, true); }, k * 75);
+    tgLater(tgThrown, n * 75 + 60);
+  }
+  function tgThrown() {
+    const D = PZ.D, v = PZ.v, side = PZ.turn, again = D.again(v);
+    const st = $('#tgStk'); if (st) { st.innerHTML = D.sticks(PZ.faces); const sv = st.querySelector('svg'); if (sv && !reduce) sv.classList.add('land'); }
+    const vb = $('#tgV'); if (vb) { vb.textContent = v; vb.className = again ? 'again' : ''; }
+    play('tick');
+    const ms = D.legal(PZ.pos[side], PZ.pos[side === 'p' ? 'a' : 'p'], v);
+    PZ.ms = ms;
+    if (!ms.length) {
+      PZ.phase = 'busy';
+      tgMsg(v + ' geldi ama oynayacak ' + D.lab + ' yok: <b>sıra geçti</b>.');
+      tgLater(() => tgTurn(side === 'p' ? 'a' : 'p'), 1000);
+      return;
+    }
+    if (side === 'a') {
+      PZ.phase = 'busy'; PZ.sel = PZ.tut ? tgWeak(ms) : tgBest('a', ms, true); tgHl();
+      tgMsg('<b>' + esc(PZ.who) + '</b>: ' + v + (again ? ' · bir daha atacak' : ''));
+      tgLater(() => tgMove(PZ.sel), 420);
+      return;
+    }
+    PZ.phase = 'move'; PZ.sel = tgBest('p', ms, false); tgHl();
+    tgAct('Taşı oynat ▸', true);
+    tgMsg('<b>' + v + '</b> geldi. ' + (ms.length > 1 ? 'Parlayan ' + D.lab + 'lardan birini seç.' : 'Taşı oynat.') + (again ? ' Sonra <b>bir daha</b> atarsın.' : ''));
+    if (PZ.tut) PZ.tut.nP++;
+    tgTipAt('move');
+    if (PZ.auto) tgLater(() => tgMove(tgBest('p', PZ.ms, true)), 300);
+    else if (ms.length === 1 && !PZ.tut) tgLater(() => { if (PZ.phase === 'move' && PZ.turn === 'p') tgMove(0); }, 700);
+  }
+  function tgBest(side, ms, noise) {
+    const me = PZ.pos[side], op = PZ.pos[side === 'p' ? 'a' : 'p'];
+    let b = 0, bs = -1e9; ms.forEach((m, k) => { const s = PZ.D.score(me, op, m) + (noise ? Math.random() * 3 : 0); if (s > bs) { bs = s; b = k; } });
+    return b;
+  }
+  /* the teaching game's rival: often picks the poorer move and lets you lead */
+  function tgWeak(ms) {
+    if (ms.length < 2 || Math.random() < 0.35) return Math.floor(Math.random() * ms.length);
+    let b = 0, bs = 1e9; ms.forEach((m, k) => { const s = PZ.D.score(PZ.pos.a, PZ.pos.p, m); if (s < bs) { bs = s; b = k; } });
+    return b;
+  }
+  function tgHl() {
+    const hl = $('#tgHl'); if (!hl || !PZ) return;
+    const D = PZ.D; let s = '';
+    document.querySelectorAll('#tgPcs .tgpc').forEach(el => el.classList.remove('can', 'sel'));
+    if ((PZ.phase === 'move' || PZ.phase === 'anim' || (PZ.phase === 'busy' && PZ.turn === 'a')) && PZ.ms.length) {
+      const side = PZ.turn, col = side === 'p' ? '#D9A43A' : '#B7412E';
+      PZ.ms.forEach((m, k) => {
+        const el = $('#tgP' + side + m.i); if (el && side === 'p') el.classList.add('can');
+        if (k !== PZ.sel) return;
+        if (el) el.classList.add('sel');
+        const pts = [D.xy(side, m.f, m.i)].concat(D.steps(m).map(q => D.xy(side, q, m.i)));
+        s += '<path d="M' + pts.map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join('L') + '" fill="none" stroke="' + col + '" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1 9" class="snpath"/>';
+        const [tx, ty] = D.xy(side, m.t >= D.GOAL ? D.GOAL : m.t, m.i);
+        s += '<circle cx="' + tx.toFixed(1) + '" cy="' + ty.toFixed(1) + '" r="17" fill="' + col + '" fill-opacity=".2" stroke="' + col + '" stroke-width="3.5" class="sntgt"/>';
+        if (m.fin !== m.t && m.fin < D.GOAL) { const [fx, fy] = D.xy(side, m.fin, m.i); s += '<path d="M' + tx.toFixed(1) + ' ' + ty.toFixed(1) + 'L' + fx.toFixed(1) + ' ' + fy.toFixed(1) + '" fill="none" stroke="' + (m.fin > m.t ? '#1E7D74' : '#B7412E') + '" stroke-width="3.2" stroke-dasharray="6 5"/><circle cx="' + fx.toFixed(1) + '" cy="' + fy.toFixed(1) + '" r="14" fill="none" stroke="' + (m.fin > m.t ? '#1E7D74' : '#B7412E') + '" stroke-width="3"/>'; }
+        if (m.kind === 'cap') s += '<g transform="translate(' + tx.toFixed(1) + ' ' + (ty - 24).toFixed(1) + ')"><circle r="9" fill="#FBF3DF" stroke="' + INK + '" stroke-width="1.6"/>' + pth('M-4 -4l8 8M4 -4l-8 8', 'none', 'stroke="#B7412E" stroke-width="2.2" stroke-linecap="round"') + '</g>';
+      });
+    }
+    hl.innerHTML = s;
+  }
+  function tgSetPos(el, x, y, ms, hop) {
+    if (!el) return;
+    el.style.transitionDuration = reduce ? '0s' : tgT(ms) + 'ms';
+    el.style.transform = 'translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px)';
+    if (hop && !reduce && PZ.speed >= 0.5) { const b = el.firstElementChild; if (b) { b.classList.remove('hop'); void b.getBoundingClientRect(); b.classList.add('hop'); } }
+  }
+  function tgMove(k) {
+    if (!tgMine() || PZ.fin) return;
+    const D = PZ.D, side = PZ.turn, op = side === 'p' ? 'a' : 'p', m = PZ.ms[k];
+    if (!m || (side === 'p' && PZ.phase !== 'move') || (side === 'a' && PZ.phase !== 'busy')) return;
+    PZ.phase = 'anim'; PZ.sel = k; tgHl();
+    if (side === 'p') tgTutClear();
+    tgAct(side === 'p' ? 'Oynanıyor…' : 'Rakip oynuyor…', false);
+    const el = $('#tgP' + side + m.i), step = 150, path = D.steps(m);
+    path.forEach((q, n) => tgLater(() => { const [x, y] = D.xy(side, q, m.i); tgSetPos(el, x, y, 130, true); play('tick'); }, n * step));
+    let t = path.length * step + 60;
+    PZ.pos[side][m.i] = m.fin;
+    let msg = '';
+    if (m.kind === 'cap') {
+      PZ.pos[op][m.j] = 0;
+      const oe = $('#tgP' + op + m.j), [hx, hy] = D.xy(op, 0, m.j);
+      tgLater(() => { tgSetPos(oe, hx, hy, 520); play('haggle'); if (oe) { oe.classList.add('hit'); } }, t);
+      tgLater(() => { if (oe) oe.classList.remove('hit'); }, t + 600);
+      t += 560;
+      msg = side === 'p' ? 'Vurdun! Rakibin aslanı <b>kuyruğa</b> döndü.' : esc(PZ.who) + ' aslanını vurdu: <b>kuyruğa</b> döndü!';
+      if (side === 'a' && PZ.tut) PZ.tut.hitMe = 1;
+    } else if (m.kind === 'jump' || m.kind === 'slide') {
+      const [fx, fy] = D.xy(side, m.fin, m.i);
+      tgLater(() => { tgSetPos(el, fx, fy, 520); play(m.kind === 'jump' ? 'good' : 'bad'); }, t); t += 560;
+      msg = m.kind === 'jump' ? (side === 'p' ? 'Kestirme! Tazın <b>' + m.fin + '</b>. deliğe atladı.' : esc(PZ.who) + ' kestirmeden <b>' + m.fin + '</b>\'e atladı.') : (side === 'p' ? 'Çukur! Tazın <b>' + m.fin + '</b>. deliğe kaydı.' : esc(PZ.who) + '\'nin çakalı çukura düştü.');
+    } else if (m.kind === 'off') {
+      const [gx, gy] = D.xy(side, D.GOAL, m.i);
+      tgLater(() => { tgSetPos(el, gx, gy, 260); if (el) el.classList.add('home'); play(side === 'p' ? 'coin' : 'no'); tgDots(); }, t); t += 300;
+      msg = side === 'p' ? 'Bir ' + D.lab + ' <b>vardı</b>!' : esc(PZ.who) + ' bir taşını <b>vardırdı</b>.';
+    }
+    tgLater(() => {
+      PZ.ms = []; tgHl();
+      if (msg) tgMsg(msg);
+      if (PZ.pos[side].every(q => q >= D.GOAL)) { tgOver(side === 'p'); return; }
+      if (D.again(m.v)) {
+        PZ.phase = 'throw';
+        if (side === 'p') { tgAct('Bir daha at!', true); tgMsg((msg ? msg + ' ' : '') + '<b>Bir daha at!</b>'); tgTipAt('throw'); if (PZ.auto) tgLater(tgThrow, 250); }
+        else { tgMsg((msg ? msg + ' ' : '') + esc(PZ.who) + ' bir daha atıyor…'); tgLater(tgThrow, msg ? 750 : 400); }
+      } else tgLater(() => tgTurn(op), msg ? 650 : 220);
+    }, t);
+  }
+  function tgDots() { ['p', 'a'].forEach(sd => { const n = PZ.pos[sd].filter(q => q >= PZ.D.GOAL).length; document.querySelectorAll('#tgP' + sd + ' .sndots i').forEach((d, k) => d.classList.toggle('on', k < n)); }); }
+  function tgOver(win) {
+    PZ.phase = 'over';
+    const bd = $('#tgBd');
+    if (bd) bd.insertAdjacentHTML('beforeend', '<div class="snend ' + (win ? 'win' : 'lose') + '"><b>' + (win ? 'Kazandın!' : 'Kaybettin') + '</b><span>' + (win ? '+' : '−') + fmt(PZ.stake) + ' deben</span></div>');
+    tgAct(win ? 'Kazandın!' : 'Kaybettin', false);
+    const gv = document.querySelector('#sheet [data-tggive]'); if (gv) gv.disabled = true;
+    tgMsg(win ? 'Hepsi vardı. Bahis senin!' : esc(PZ.who) + ' hepsini vardırdı.');
+    play(win ? 'fanfare' : 'bad'); buzz(win ? 'big' : 'caught');
+    if (PZ.tut) { PZ.tut.win = win; tgCoach(win ? 'Harika! İlk ' + esc(PZ.D.title) + ' oyununu kazandın. Bu meyhanede adın çıkacak!' : 'Olsun ortak, ilk oyundu. Artık kuralları biliyorsun!', { mood:win ? 'happy' : 'sad', ok:'Teşekkürler Paneb!', end:true }); tgLater(() => tgFin(win), 4200); return; }
+    tgLater(() => tgFin(win), 1700);
+  }
+  function tgFin(win) {
+    if (!tgMine() || PZ.fin) return;
+    PZ.fin = true; const cb = PZ.cb, stake = PZ.stake; pzClear();
+    try { if (typeof cb === 'function') cb({ win:!!win, stake }); }
+    finally { if (document.querySelector('#sheet .tg')) closeSheet(); }
+  }
+  function tgTapPiece(i) {
+    if (!tgMine() || PZ.turn !== 'p' || PZ.fin) return;
+    if (PZ.phase === 'throw') { tgThrow(); return; }
+    if (PZ.phase !== 'move') return;
+    const cur = PZ.ms[PZ.sel];
+    if (cur && cur.i === i) { tgMove(PZ.sel); return; }
+    const k = PZ.ms.findIndex(m => m.i === i || m.f === PZ.pos.p[i]);
+    if (k >= 0) { PZ.sel = k; play('click'); tgHl(); }
+    else { play('no'); tgMsg('Bu ' + PZ.D.lab + ' ' + PZ.v + ' gidemez.'); }
+  }
+  function tgTapSq(q) {
+    if (!tgMine() || PZ.turn !== 'p' || PZ.phase !== 'move' || PZ.fin) return;
+    const cur = PZ.ms[PZ.sel];
+    if (cur && (q === cur.t || q === cur.fin || (cur.t >= PZ.D.GOAL && q === PZ.D.GOAL))) { tgMove(PZ.sel); return; }
+    const k = PZ.ms.findIndex(m => m.t === q || m.fin === q || m.f === q);
+    if (k >= 0) { PZ.sel = k; play('click'); tgHl(); }
+  }
+  function tgAction() {
+    if (!tgMine() || PZ.turn !== 'p' || PZ.fin) return;
+    if (PZ.phase === 'throw') tgThrow(); else if (PZ.phase === 'move') tgMove(PZ.sel);
+  }
+  /* ---------- Paneb's first game ---------- */
+  function tgTip(id) { const tp = PZ.D.tips.find(t => t.id === id); if (!tp) return; PZ.tut.seen[id] = 1; tgAct(tgThrowLab(), false); tgCoach(tp.t(), { mood:tp.mood, ok:tp.ok, hl:tp.hl && tp.hl() }); }
+  function tgTipAt(at) {
+    if (!PZ || !PZ.tut || PZ.fin || PZ.turn !== 'p') return;
+    const T = PZ.tut;
+    for (const tp of PZ.D.tips) {
+      if (T.seen[tp.id] || tp.at !== at) continue;
+      if (tp.when && !tp.when()) continue;
+      T.seen[tp.id] = 1; if (tp.pre) tp.pre();
+      tgCoach(tp.t(), { mood:tp.mood || 'neutral', hl:tp.hl && tp.hl() });
+      return;
+    }
+    const c = $('#tgCoach'); if (c) c.classList.add('old');
+  }
+  function tgCoach(html, o) {
+    o = o || {};
+    const c = $('#tgCoach'); if (!c) return;
+    c.classList.remove('old');
+    const cp = $('#tgCp');
+    try { if (cp) {
+      if (!PZ.c40 || !PZ.c40.alive) { PZ.c40 = CH40.stage(cp, 'paneb', { mood:o.mood || 'neutral', frame:'head', greet:false }); try { H3.push(PZ.c40); } catch (e) {} }
+      if (PZ.c40) { PZ.c40.update({ mood:o.mood || 'neutral', talk:!reduce }); const h = PZ.c40, tok = PZ.tok; PZ.timers.push(setTimeout(() => { if (PZ && PZ.tok === tok) h.update({ talk:false }); }, 1800)); }
+    } } catch (e) { if (cp && typeof snPanebSVG === 'function') cp.innerHTML = snPanebSVG(o.mood); }
+    const t = $('#tgCoachT'); if (t) { t.innerHTML = html; t.classList.remove('pop'); void t.offsetWidth; t.classList.add('pop'); }
+    const ok = c.querySelector('[data-tgok]'); if (ok) { ok.hidden = !o.ok; if (o.ok) { ok.textContent = o.ok; if (!PZ.auto) ok.focus({ preventScroll:true }); } }
+    if (o.ok) PZ.tut.wait = o.end ? 'end' : 'hi';
+    tgTutHl(o.hl);
+    if (!PZ.auto) play('tick');
+  }
+  function tgTutOk() {
+    if (!tgMine() || !PZ.tut || !PZ.tut.wait) return;
+    const w = PZ.tut.wait; PZ.tut.wait = null; play('click');
+    const ok = document.querySelector('#sheet [data-tgok]'); if (ok) ok.hidden = true;
+    tgTutClear();
+    if (w === 'hi') tgTurn('p'); else if (w === 'end') tgFin(PZ.tut.win);
+  }
+  function tgTutHl(spec) {
+    tgTutClear(); if (!spec) return;
+    const g = $('#tgTut'), D = PZ.D;
+    if (g && spec.sq) g.innerHTML = spec.sq.map(q => { const p = D.cellXY(q); return p ? '<circle cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="' + (q >= D.GOAL ? 24 : 15) + '" class="sntr"/>' : ''; }).join('');
+    (spec.el || []).forEach(sel => document.querySelectorAll('#sheet ' + sel).forEach(e => e.classList.add('sntut')));
+  }
+  function tgTutClear() { const g = $('#tgTut'); if (g) g.innerHTML = ''; document.querySelectorAll('#sheet .sntut').forEach(e => e.classList.remove('sntut')); }
+  /* gentle luck in the first game: hopeless throws are often thrown again, and the rival rarely throws again */
+  function tgTutThrow(r) {
+    const D = PZ.D;
+    if (PZ.turn === 'p') { if (!D.legal(PZ.pos.p, PZ.pos.a, r.v).length && Math.random() < 0.7) r = D.throw(); return r; }
+    if (D.again(r.v) && Math.random() < 0.6) r = D.throw();
+    return r;
+  }
+  /* ---------- rules card ---------- */
+  function tgRules(open) {
+    const old = document.querySelector('#sheet .snrules'); if (old) old.remove();
+    if (!open || !tgMine()) return;
+    play('click');
+    const tiles = PZ.D.rules();
+    let h = '<div class="snrules" role="dialog" aria-label="' + esc(PZ.D.title) + ' kuralları"><div class="snrh"><b>' + esc(PZ.D.title) + ' kuralları</b><button class="btn go1 sm" type="button" data-tgrx>Oyuna dön</button></div><div class="snrg">';
+    h += tiles.map((t, i) => '<div class="snrc"><svg viewBox="0 0 160 50" aria-hidden="true">' + t[1] + '</svg><p><i>' + (i + 1) + '</i>' + t[0] + '</p></div>').join('');
+    h += '</div></div>';
+    const host = document.querySelector('#sheet .sh-in'); if (host) { host.insertAdjacentHTML('beforeend', h); const b = host.querySelector('[data-tgrx]'); if (b) b.focus({ preventScroll:true }); }
+  }
+  /* test helper: the player's turns play themselves (fast = short animations); also drives Senet */
+  function tavernAuto(opt) {
+    if (PZ && PZ.kind === 'senet') return senetAuto(opt);
+    if (!tgMine() || PZ.fin) return false;
+    PZ.auto = true; if (opt && opt.fast) PZ.speed = 0.12; else if (opt && opt.speed) PZ.speed = opt.speed;
+    if (PZ.tut && PZ.tut.wait) { tgTutOk(); return true; }
+    if (PZ.turn === 'p' && PZ.phase === 'throw') tgThrow();
+    else if (PZ.turn === 'p' && PZ.phase === 'move') tgMove(tgBest('p', PZ.ms, true));
+    return true;
+  }
+  function tgBind() {
+    const sh = $('#sheet');
+    if (sh && !sh._tgBound) {
+      sh._tgBound = true;
+      sh.addEventListener('click', e => {
+        if (!tgMine()) return;
+        const b = e.target.closest && e.target.closest('button');
+        if (b) {
+          if (b.disabled) return;
+          if (b.hasAttribute('data-tgact')) tgAction();
+          else if (b.hasAttribute('data-tgok')) tgTutOk();
+          else if (b.hasAttribute('data-tgrules')) tgRules(true);
+          else if (b.hasAttribute('data-tgrx')) tgRules(false);
+          else if (b.hasAttribute('data-tggive') && !PZ.fin && PZ.phase !== 'over') {
+            if (PZ.giveUp && Date.now() - PZ.giveUp < 3500) { PZ.phase = 'over'; play('bad'); tgFin(false); }
+            else { PZ.giveUp = Date.now(); b.textContent = 'Emin misin?'; b.classList.add('red'); const tok = PZ.tok; PZ.timers.push(setTimeout(() => { if (PZ && PZ.tok === tok) { b.textContent = 'Pes et'; b.classList.remove('red'); } }, 3500)); }
+          }
+          return;
+        }
+        const pc = e.target.closest && e.target.closest('[data-tgpc]');
+        if (pc && pc.getAttribute('data-tgpc') !== '') { tgTapPiece(+pc.getAttribute('data-tgpc')); return; }
+        const g = e.target.closest && e.target.closest('[data-tgsq]');
+        if (g) tgTapSq(+g.getAttribute('data-tgsq'));
+      });
+    }
+    if (!document._tgKey) {
+      document._tgKey = true;
+      document.addEventListener('keydown', e => {
+        if (!tgMine() || PZ.turn !== 'p' || PZ.fin) return;
+        const onBtn = e.target && e.target.closest && e.target.closest('button');
+        if ((e.key === ' ' || e.key === 'Enter') && !onBtn) { e.preventDefault(); tgAction(); }
+        else if (PZ.phase === 'move' && /^Arrow/.test(e.key) && PZ.ms.length > 1) {
+          e.preventDefault(); const d = e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 1;
+          PZ.sel = (PZ.sel + d + PZ.ms.length) % PZ.ms.length; play('click'); tgHl();
+        }
+      });
+    }
+  }
+  /* debug hooks (?debug): boot.txt builds window.__nil after the modules, so add ours once it exists */
+  setTimeout(() => { const N = window.__nil; if (N && N.fn) Object.assign(N.fn, { playTavernGame, tavernAuto, tavernGames, templeTypeFor, TG }); }, 0);

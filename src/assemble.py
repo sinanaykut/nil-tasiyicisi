@@ -20,8 +20,8 @@ SRC = sys.argv[1] if len(sys.argv) > 1 else 'src'
 OUT = sys.argv[2] if len(sys.argv) > 2 else None
 if not os.path.isabs(SRC): SRC = os.path.join(ROOT, SRC)
 MODULES = ['art27.txt', 'art28.txt', 'chars40.txt', 'chars30.txt', 'logo31.txt', 'v3', 'world33.txt', 'town29.txt',
-           'temple.txt', 'senet.txt', 'mini.txt', 'haggle28.txt', 'chars33.txt']
-CSS_MODULES = ['css27.txt', 'art27.css', 'v3.css', 'town29.css', 'temple.css', 'senet.css', 'mini.css', 'css28.txt',
+           'temple.txt', 'temple42.txt', 'senet.txt', 'tavern42.txt', 'mini.txt', 'haggle28.txt', 'chars33.txt']
+CSS_MODULES = ['css27.txt', 'art27.css', 'v3.css', 'town29.css', 'temple.css', 'temple42.css', 'senet.css', 'tavern42.css', 'mini.css', 'css28.txt',
                'art28.css', 'haggle28.css', 'motion35.css', 'chars40.css']
 def r(f, opt=False):
     p = os.path.join(SRC, f)

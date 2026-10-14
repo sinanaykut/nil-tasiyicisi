@@ -263,8 +263,8 @@
   }
   const PANEB = {
     work:['Atölye! Ustalara ham madde bırakırsın, iki gün sonra gelip ürünü alırsın.', 'Tarif kartta yazıyor. Ürünler pazarda pahalı satılır, bazı tüccarlar da hediye diye bayılır.'],
-    temple:['Tapınağın ışık odası. Aynaları çevir, güneş ışığını heykele ulaştır.', 'Çözersen rahipler para ve bir kutsama verir. Her tapınak bir kez.'],
-    tavern:['Meyhane! Burada Senet oynanır, babamın en sevdiği oyun.', 'İlk oyunda ben yanındayım, kuralları oynarken anlatırım.'],
+    temple:['Tapınağın gizli odası! Her tapınakta başka bir bilmece var: ışık ve aynalar, firavun kartuşları, kayan kabartmalar, Maat\'ın terazisi, yıldız tavanı.', 'Çözersen rahipler para ve bir kutsama verir. Takılırsan İpucu\'na bas. Her tapınak bir kez.'],
+    tavern:['Meyhane! Burada bahisle oynanır: Senet, yılan tahtası Mehen, palmiye tahtasında Tazı ve Çakal. Her gün masada başka oyun olur.', 'Her oyunun ilk elinde ben yanındayım, kuralları oynarken anlatırım.'],
     yard:['Tersane. Nehirde aldığımız darbeler teknede kalır; kalafatçılar her yarayı parayla onarır.', 'Mennefer\'in büyük tersanesinde onarım ucuz; yeni tekne ve gemi cihazları da yalnız orada.'],
     board:['Sipariş panosu. Tüccarların siparişleri, Sethi\'nin planı ve pazar krizleri burada asılı.', 'Siparişi kabul et, malı zamanında götür: para ve güven kazanırsın.'],
     haggle:['Pazarlık zamanı! Tüccarın yüzüne ve tezgâhına bak.', 'Tezgâhı doluysa ve mal ona yük oluyorsa indirir. Bir mal bu şehirde çok aranıyorsa sana iyi para verir. Fazla sıkıştırırsan küser.'],
@@ -373,7 +373,7 @@
     tapFx(k); play('click'); buzz('pick');
     if (k === 'market') { if (isPhone()) { market(true); if (guide().step === 'market') { guideTo('buy'); placeTutor(); } } else showMerchant(); }
     else if (k === 'ship') { if (guide().step === 'ship') guideTo('city'); showTravel(); }
-    else if (k === 'temple') { if (!canTemple(S)) { toast(S.temple[S.city] ? 'Bu tapınağın ışık odasını zaten çözdün.' : 'Tapınak şu an kapalı.'); return true; } guideOnce('temple', PANEB.temple, goTemple); }
+    else if (k === 'temple') { if (!canTemple(S)) { toast(S.temple[S.city] ? 'Bu tapınağın bilmecesini zaten gördün.' : 'Tapınak şu an kapalı.'); return true; } guideOnce('temple', PANEB.temple, goTemple); }
     else if (k === 'tavern') showTavern();
     else if (k === 'work') guideOnce('work', PANEB.work, showWork);
     else if (k === 'yard') guideOnce('yard', PANEB.yard, showYard);

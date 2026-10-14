@@ -133,27 +133,37 @@
       { label:'Hoşça kal', ico:'i-close', run() {} }
     ].filter(Boolean) });
   }
-  /* ---------- the tavern: the opponent invites you to Senet ---------- */
-  function showTavern() {
+  /* ---------- the tavern: the host lays out today's game (Senet, Mehen or Hounds & Jackals) and offers another ---------- */
+  function showTavern(game) {
     if (phase !== 'port') return;
     const ci = S.city, who = 'tv' + ci, stakes = [100, 300, 600].filter(x => x <= S.cash);
     if (!canTavern(S)) { say(who, [S.tavern[ci] === S.day ? '"Bugün bir oyun yeter. Yarın gel, rövanş isterim."' : '"Masaya en az 100 deben koymadan oturulmaz, dostum."'], { sub:TAVERN[ci], choices:[{ label:'Tamam', ico:'i-close', run() {} }] }); return; }
-    say(who, ['"' + TAVERN_WHO[ci] + ' derler bana. Taşlarını benden önce tahtadan çıkar, bahsi al."', 'Günde bir oyun. Ne koyuyorsun?'], { sub:TAVERN[ci], mood:'sly', choices:stakes.map((x, k) => ({ label:'Bahis: ' + fmt(x) + ' deben', sub:'Kazanırsan +' + fmt(x), ico:'i-coin', run() { if (guide().off || guide().seen.tavern) tavernPlay(x); else guideOnce('tavern', PANEB.tavern, () => tavernPlay(x)); } })).concat([{ label:'Sonra', ico:'i-close', run() {} }]) });
+    const GM = typeof TV_GAME !== 'undefined' ? TV_GAME : { senet:{ name:'Senet', pitch:'Taşlarını benden önce tahtadan çıkar, bahsi al.' } };
+    const two = typeof tavernGames === 'function' ? tavernGames(ci, S.day) : ['senet', 'senet'];
+    const g = game && GM[game] ? game : two[0], other = two.find(x => x !== g) || null;
+    const first = !game;
+    say(who, [first ? '"' + TAVERN_WHO[ci] + ' derler bana. Bugün masada ' + GM[g].name + ' kurulu. ' + GM[g].pitch + '"' : '"' + GM[g].name + ' mi? Olur. ' + GM[g].pitch + '"', 'Günde bir oyun. Ne koyuyorsun?'], { sub:TAVERN[ci] + ' · ' + GM[g].name, mood:'sly',
+      choices:stakes.map(x => ({ label:GM[g].name + ': ' + fmt(x) + ' deben', sub:'Kazanırsan +' + fmt(x), ico:'i-coin', run() { if (guide().off || guide().seen.tavern) tavernPlay(x, g); else guideOnce('tavern', PANEB.tavern, () => tavernPlay(x, g)); } }))
+        .concat(other && GM[other] ? [{ label:'Başka oyun: ' + GM[other].name, sub:GM[other].pitch.split('!')[0].split('.')[0], ico:GM[other].ico || 'i-senet', run() { showTavern(other); } }] : [])
+        .concat([{ label:'Sonra', ico:'i-close', run() {} }]) });
   }
-  function tavernPlay(stake) {
+  function tavernPlay(stake, game) {
     const ci = S.city; if (!canTavern(S) || S.cash < stake) return;
+    game = game || 'senet';
     S.tavern[ci] = S.day; S.cash -= stake; save(); renderHud();
-    /* the first Senet ever is coached, whoever plays it */
-    const teach = !meta.senetTaught;
-    if (teach) { meta.senetTaught = true; saveMeta(); }
+    /* the first game of each kind is coached, whoever plays it */
+    const tk = game === 'senet' ? 'senetTaught' : game + 'Taught', teach = !meta[tk];
+    if (teach) { meta[tk] = true; saveMeta(); }
+    const loc = typeof TV_GAME !== 'undefined' && TV_GAME[game] ? TV_GAME[game].loc : 'Senet\'te';
     const done = r => {
       if (r.win) { S.cash += stake * 2; S.stats.senet = (S.stats.senet || 0) + 1; }
-      S.log.push({ d:S.day, t:TAVERN[ci] + ': Senet\'te ' + (r.win ? fmt(stake) + ' deben kazandın.' : fmt(stake) + ' deben kaybettin.') });
+      S.log.push({ d:S.day, t:TAVERN[ci] + ': ' + loc + ' ' + (r.win ? fmt(stake) + ' deben kazandın.' : fmt(stake) + ' deben kaybettin.') });
       save(); renderAll(); play(r.win ? 'fanfare' : 'bad');
       say('tv' + ci, [r.win ? 'Kesemi masaya boşaltıyorum: +' + fmt(stake) + ' deben. Yarın rövanş!' : 'Hah! Bahis benim: −' + fmt(stake) + ' deben. Yarın yine gel.'], { mood:r.win ? 'sad' : 'happy', sub:TAVERN[ci], choices:[{ label:'Tamam', ico:'i-close', run() {} }] });
     };
     if (typeof playSenet !== 'function') { done({ win:Math.random() < 0.5 }); return; }
-    playSenet({ stake, who:TAVERN_WHO[ci], tutorial:teach, cb:done });
+    if (game !== 'senet' && typeof playTavernGame === 'function') playTavernGame(game, { stake, who:TAVERN_WHO[ci], tutorial:teach, cb:done });
+    else playSenet({ stake, who:TAVERN_WHO[ci], tutorial:teach, cb:done });
   }
 
   /* ---------- the shipyard: mend the hull everywhere, boats and devices in Mennefer ---------- */
