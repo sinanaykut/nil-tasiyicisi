@@ -1,0 +1,89 @@
+
+/* ---- v42 tavern: Mehen and Hounds & Jackals (bulmaca); reuses the Senet plates, coach and rules card ---- */
+.sh-in:has(.tg){position:relative}
+.tg{display:grid;gap:10px;align-items:start}
+.tgbd{position:relative;width:100%;margin:0 auto}
+.tg-mehen .tgbd{max-width:400px}
+.tg-hounds .tgbd{max-width:330px}
+.tgsvg{width:100%;height:auto;display:block;-webkit-tap-highlight-color:transparent}
+.tgov{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.tgsvg [data-tgsq]{cursor:pointer}
+.tgnum{font:800 9.5px Nunito,sans-serif;fill:#FBF3DF;pointer-events:none}
+.tg-hounds .tgnum{fill:#5A3A22}
+.tglab{font:800 10px Nunito,sans-serif;fill:#2B1D14;letter-spacing:.05em}
+#tgHl,#tgTut{pointer-events:none}
+.tgpc{transition:transform .13s ease-out,opacity .3s}
+.tgpc.p{pointer-events:auto;cursor:pointer}
+.tgpc .tgpcb{transition:transform .2s}
+.tgpc.can .tgpcb{animation:snBob 1s ease-in-out infinite}
+.tgpc.sel .tgpcb{filter:drop-shadow(0 0 3px #FFD24A) drop-shadow(0 0 6px #FFD24A);animation:none;transform:scale(1.14)}
+.tgpc .tgpcb.hop{animation:tgHop .14s ease-out}
+@keyframes tgHop{50%{transform:translateY(-9px) scale(1.06)}}
+.tgpc.hit .tgpcb{animation:tgHit .55s ease-in-out}
+@keyframes tgHit{30%{transform:rotate(-25deg) scale(.85)}70%{transform:rotate(20deg) scale(.9)}}
+.tgpc.home .tgpcb{animation:tgHome .5s cubic-bezier(.2,1.6,.4,1)}
+@keyframes tgHome{from{transform:scale(1.5)}}
+.tgpn{display:flex;flex-direction:column;gap:8px;min-width:0}
+.tgthrow{display:flex;align-items:center;gap:8px;justify-content:center}
+.tgstk{width:80px;height:auto;display:block}
+.tgstk.tgbone{width:58px}
+.tgstk.roll .tgst{animation:tgRoll .15s ease-in-out infinite alternate;animation-delay:calc(var(--k) * -.05s);transform-box:fill-box;transform-origin:center}
+@keyframes tgRoll{from{transform:translateY(0) rotate(-8deg)}to{transform:translateY(-6px) rotate(10deg)}}
+.tgstk.land .tgst{animation:tgLand .32s cubic-bezier(.2,1.6,.4,1);transform-box:fill-box;transform-origin:center bottom}
+@keyframes tgLand{from{transform:translateY(-10px) scale(1.08)}}
+#tgV.again{color:#1E7D74}
+.tg .snv b{display:block;font:800 32px/1 Nunito,sans-serif;color:var(--ink)}
+/* phones: the board on top, a compact two-column panel below */
+.tg:not(.w) .tgpn{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"a p" "th msg" "act act" "leg leg";gap:6px 8px;align-items:center}
+.tg:not(.w) .snpl.a{grid-area:a}.tg:not(.w) .snpl.p{grid-area:p}.tg:not(.w) .tgthrow{grid-area:th}.tg:not(.w) .snmsg{grid-area:msg}.tg:not(.w) .tgact{grid-area:act}.tg:not(.w) .snleg{grid-area:leg;justify-content:center}
+.tg-mehen:not(.w) .tgbd{max-width:min(100%,calc(100dvh - 430px))}
+.tg-mehen.tgtm:not(.w) .tgbd{max-width:min(100%,calc(100dvh - 520px))}
+.tg-hounds:not(.w) .tgbd{max-width:min(100%,calc((100dvh - 420px) * .664))}
+.tg-hounds.tgtm:not(.w) .tgbd{max-width:min(100%,calc((100dvh - 545px) * .664))}
+.tg .snpl{display:grid;grid-auto-flow:column;grid-template-rows:auto auto;justify-content:start;align-items:center;column-gap:7px;row-gap:1px;padding:3px 10px 3px 7px}
+.tg .snpl > svg,.tg .snpl > .snav{grid-row:1 / span 2}
+.tg .snpl b{grid-row:1;line-height:1.1}
+.tg .snpl .sndots{grid-row:2}
+/* wide sheets: the board on the left, the panel on the right */
+.tg.w{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)}
+.tg.w.tg-hounds{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+@media (max-width:560px){
+  .veil:has(.tg){padding:8px}
+  .sh-in:has(.tg){padding:12px 10px 14px;gap:10px}
+  .sheet:has(.tg){max-height:calc(100vh - 16px);max-height:calc(100dvh - 16px)}
+  .tg + .snfoot .muted{font-size:11.5px}
+  .tg.tgtm + .snfoot .muted{display:none}
+}
+/* landscape phones: the board fills the left side; title, Paneb, panel and footer stack on the right */
+@media (min-width:700px) and (max-height:520px){
+  .sheet:has(.tg){width:min(900px,100%);max-height:calc(100dvh - 10px)}
+  .sh-in:has(.tg){display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:14px;row-gap:6px;align-content:start;padding:8px 12px}
+  .sh-in:has(.tg) > *{grid-column:2}
+  .sh-in:has(.tg) > .tg{display:contents}
+  .sh-in:has(.tg) .tgbd{grid-column:1;grid-row:1 / span 6;margin:0;max-width:none}
+  .sh-in:has(.tg-mehen) .tgbd{width:calc(100dvh - 54px)}
+  .sh-in:has(.tg-hounds) .tgbd{width:calc((100dvh - 54px) * .664)}
+  .sh-in:has(.tg) .tgpn{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"a p" "th msg" "act act" "leg leg";gap:4px 8px;align-items:center}
+  .sh-in:has(.tg) .snpl.a{grid-area:a}.sh-in:has(.tg) .snpl.p{grid-area:p}.sh-in:has(.tg) .tgthrow{grid-area:th}.sh-in:has(.tg) .snmsg{grid-area:msg;min-height:0}.sh-in:has(.tg) .tgact{grid-area:act;min-height:46px}.sh-in:has(.tg) .snleg{grid-area:leg}
+  .sh-in:has(.tg) .snpl{min-height:36px}
+  .sh-in:has(.tg) .sh-h h2{font-size:20px}
+  .sh-in:has(.tg) .sncp{width:54px;height:60px}
+  .sh-in:has(.tg) .sncb p{font-size:13px;line-height:1.22}
+  .sh-in:has(.tg) .sncoach{padding:4px 8px 4px 4px;gap:8px}
+  .sh-in:has(.tg) .sncok{min-height:38px}
+  .sh-in:has(.tg) .tgstk{width:64px}.sh-in:has(.tg) .tgstk.tgbone{width:48px}
+  .sh-in:has(.tg) .snfoot .muted{display:none}
+  .sh-in:has(.tg) .snfoot{position:absolute;right:12px;bottom:10px}
+  .sh-in:has(.tg) .tgact{width:calc(100% - 96px)}
+  .sh-in:has(.tg.tgtm) .snleg{display:none}
+}
+@media (prefers-reduced-motion: reduce){ .tgpc,.tgpc .tgpcb{transition:none} .tgpc.can .tgpcb,.tgpc .tgpcb.hop,.tgpc.hit .tgpcb,.tgpc.home .tgpcb,.tgstk.roll .tgst,.tgstk.land .tgst{animation:none} }
+/* the tavern host's choice of game */
+.tvpick{display:flex;gap:6px;align-items:center;font-weight:800}
+/* wide sheets (desktop): keep the board within the sheet height */
+@media (min-height:521px){
+.tg.w.tg-mehen .tgbd{max-width:min(400px,calc(min(92vh,760px) - 200px))}
+.tg.w.tg-mehen.tgtm .tgbd{max-width:min(400px,calc(min(92vh,760px) - 310px))}
+.tg.w.tg-hounds .tgbd{max-width:min(330px,calc((min(92vh,760px) - 200px) * .664))}
+.tg.w.tg-hounds.tgtm .tgbd{max-width:min(330px,calc((min(92vh,760px) - 310px) * .664))}
+}

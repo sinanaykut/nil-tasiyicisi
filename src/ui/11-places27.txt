@@ -37,18 +37,25 @@
   }
   /* ---------- temples ---------- */
   const TEMPLE_LV = { 0:0, 1:1, 2:2, 3:3, 5:4, 6:3 };
+  /* v42: every temple hides another kind of riddle (light, cartouche, relief, scale, stars); it gets harder with each one solved */
+  const TEMPLE_GOD = { 0:'Bastet tapınağı', 1:'Ptah tapınağı', 2:'Osiris tapınağı', 3:'Karnak tapınağı', 5:'Amun kâhininin tapınağı', 6:'Hibis tapınağı' };
+  const TEMPLE_MISS = { light:'Işık yolunu bulamadı.', glyph:'Kartuştaki ad yarım kaldı.', slide:'Kabartma dağınık kaldı.', scale:'Terazi dengeye gelmedi.', stars:'Yıldızlar yerine oturmadı.' };
+  function templeType(ci) { return typeof templeTypeFor === 'function' ? templeTypeFor(ci, S.rs) : 'light'; }
   function goTemple() {
     if (!canTemple(S) || phase !== 'port') return;
-    const ci = S.city; S.temple[ci] = true; save();
-    pzTemple({ title:TEMPLES[ci], sub:CITIES[ci].name + ' · tapınak', level:TEMPLE_LV[ci] || 0, seed:(S.rs || 7) * 31 + ci * 977 + S.day, cb:q => templeDone(ci, q) });
+    const ci = S.city, type = templeType(ci), solved = S.stats.temples || 0;
+    const level = Math.min(4, solved + ((TEMPLE_LV[ci] || 0) >= 3 ? 1 : 0));
+    S.temple[ci] = true; save();
+    const K = typeof TP_KIND !== 'undefined' ? TP_KIND[type] : null;
+    pzTemple({ type, title:type === 'light' ? TEMPLES[ci] : TEMPLE_GOD[ci], sub:CITIES[ci].name + ' · ' + (K ? K.name.toLowerCase() : 'tapınak'), level, seed:(S.rs || 7) * 31 + ci * 977 + S.day, cb:q => templeDone(ci, q, type) });
   }
-  function templeDone(ci, q) {
+  function templeDone(ci, q, type) {
     S.temple[ci] = true;
     let txt;
-    if (q === 'miss') txt = 'Işık yolunu bulamadı. Rahipler başlarını salladı: "Belki bir dahaki sefere."';
+    if (q === 'miss') txt = (TEMPLE_MISS[type] || TEMPLE_MISS.light) + ' Rahipler başlarını salladı: "Belki bir dahaki sefere."';
     else {
       const k = pick(Object.keys(BLESS)), cash = q === 'perfect' ? 300 : 120; S.bless = k; S.cash += cash; addTrust(S, ci, q === 'perfect' ? 180 : 80); S.stats.temples = (S.stats.temples || 0) + 1;
-      txt = (q === 'perfect' ? 'Kusursuz! ' : '') + 'Heykel parladı, rahipler adağını kabul etti: +' + fmt(cash) + ' deben ve ' + BLESS[k].name + ' (' + BLESS[k].desc + ')';
+      txt = (q === 'perfect' ? 'Kusursuz! ' : '') + (type === 'light' || !type ? 'Heykel parladı' : 'Bilmece çözüldü') + ', rahipler adağını kabul etti: +' + fmt(cash) + ' deben ve ' + BLESS[k].name + ' (' + BLESS[k].desc + ')';
     }
     S.log.push({ d:S.day, t:TEMPLES[ci] + ': ' + txt });
     save(); renderAll(); play(q === 'miss' ? 'no' : 'fanfare');
