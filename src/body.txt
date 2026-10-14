@@ -1,3 +1,4 @@
+<div class="boot" id="boot" aria-hidden="true"><div><b>Nil Kervancısı</b><small>Nehir hazırlanıyor…</small><i></i></div></div>
 <div class="app" id="app">
   <header class="hud">
     <button type="button" class="hplate hudp" id="hplate" data-act="heroInfo" aria-label="Kahraman"><span class="hpav" id="hpAv"></span><span class="hpt"><b id="hpName">Nil Kervancısı</b><small id="hpTitle"></small><span class="hearts" id="hHp" aria-label="Gövde"></span></span><i class="hpp" id="hpPow" hidden></i></button>

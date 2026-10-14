@@ -64,7 +64,16 @@
     else if (act === 'event') showEvent();
     else if (act === 'land') landDone();
     else if (act === 'finish') endGame();
-    else if (act === 'wait') { const out = waitDay(S); if (out) { play('click'); save(); lastScene = ''; renderAll(); toast('Bir gün geçti: ' + S.day + '. gün.'); if (!$('#veil').hidden) closeSheet(); } }
+    else if (act === 'wait') {
+      if (CU.busy) return;
+      const si0 = seasonIdx(S), out = waitDay(S);
+      if (out) {
+        play('click'); save();
+        /* the night passes under the papyrus curtain; the town wakes up in the new day's light */
+        const si = seasonIdx(S), se = SEASONS[si];
+        curtain({ kick:'Bir gün bekledin', title:S.day + '. gün', sub:CITIES[S.city].name + ' · ' + se.name, note:si !== si0 ? 'Yeni mevsim başladı' : '' }, () => { lastScene = ''; renderAll(); if (!$('#veil').hidden) closeSheet(); toast('Bir gün geçti: ' + S.day + '. gün.'); }, { hold:si !== si0 ? 700 : 220 });
+      }
+    }
     else if (act === 'cont') { closeSheet(); if (S.voyage) resumeVoyage(); else if (S.pendingEvent && eventDef(S, S.pendingEvent)) showEvent(); else if (!showUnlocks()) qPort(true); }
     else if (act === 'new') { Snd.unlock(); showHeroPick('free'); }
     else if (act === 'daily') { Snd.unlock(); showHeroPick('daily'); }
@@ -152,6 +161,7 @@
     plan = S.voyage; closeSheet(); enterSea(); toast('Yarım kalan yolculuk baştan başlıyor.');
   }
   document.addEventListener('keydown', e => {
+    if (CU.busy && CU.fn) return; /* nothing starts while the curtain is covering a scene change */
     if (!$('#veil').hidden) {
       if (sheetName === 'haggle' && (e.key === ' ' || e.key === 'Enter') && $('#needle') && !$('#needle').className.match(/perfect|good|miss/)) { e.preventDefault(); hagNow(); return; }
       if (sheetName === 'pz' && PZ && PZ.kind === 'mem' && /^[1-4]$/.test(e.key)) { e.preventDefault(); memPress(+e.key - 1); return; }

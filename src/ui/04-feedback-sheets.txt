@@ -11,8 +11,12 @@
 
   /* ================= feedback ================= */
   function toast(t) {
-    const el = $('#toast'); el.textContent = t; el.hidden = false;
-    clearTimeout(toastT); toastT = setTimeout(() => { el.hidden = true; }, 2800);
+    const el = $('#toast'), again = !el.hidden && !el.classList.contains('out');
+    el.textContent = t; el.classList.remove('out');
+    if (!again) { el.hidden = true; void el.offsetWidth; }
+    el.hidden = false;
+    /* longer messages stay a little longer */
+    clearTimeout(toastT); toastT = setTimeout(() => { if (reduce) { el.hidden = true; return; } el.classList.add('out'); toastT = setTimeout(() => { el.hidden = true; el.classList.remove('out'); }, 170); }, Math.min(5200, 2400 + t.length * 22));
   }
   function floatAt(el, text, neg) {
     if (!el || reduce) return;
@@ -27,12 +31,16 @@
 
   /* ================= sheets ================= */
   function openSheet(html, lock, name, wide) {
-    if ($('#veil').hidden) opener = document.activeElement;
+    const wasOpen = !$('#veil').hidden, prevName = sheetName;
+    if (!wasOpen) opener = document.activeElement;
     if ($('#tut')) $('#tut').hidden = true;
+    if ($('#quip')) $('#quip').hidden = true; /* a hero's quip never lingers behind a sheet */
     sheetLock = !!lock; sheetName = name || '';
     $('#sheet').className = 'sheet' + (wide ? ' wide' : '') + (name === 'title' ? ' title31' : '');
     $('#veil').classList.toggle('vtitle', name === 'title');
+    sheetMotion(sheetName, wasOpen, prevName);
     $('#sheet').innerHTML = '<div class="sh-in">' + html + '</div>';
+    if (!wasOpen || prevName !== sheetName) $('#sheet').scrollTop = 0;
     $('#veil').hidden = false;
     const f = $('#sheet').querySelector('[data-first]') || $('#sheet').querySelector('button:not(.x)') || $('#sheet').querySelector('button');
     if (f) f.focus({ preventScroll:true });
@@ -43,8 +51,9 @@
     if (tvMap) { try { tvMap.dispose(); } catch (e) {} tvMap = null; }
     if (DLG) { clearInterval(DLG.tm); DLG = null; }
     disposeHero3();
+    sheetGhost();
     $('#sheet').classList.remove('talk28', 'travel28');
-    $('#veil').hidden = true; $('#sheet').innerHTML = ''; sheetLock = false; requestAnimationFrame(() => { if (!S) return; placeTutor(); /* a hurt hull is mentioned once, as soon as nothing else is open */ if (phase === 'port' && $('#veil').hidden && !departing) repairNag(); });
+    $('#veil').hidden = true; $('#veil').classList.remove('m-cont'); $('#sheet').innerHTML = ''; sheetLock = false; requestAnimationFrame(() => { if (!S) return; placeTutor(); /* a hurt hull is mentioned once, as soon as nothing else is open */ if (phase === 'port' && $('#veil').hidden && !departing) repairNag(); });
     if (phase === 'sea') Sea.pause(false);
     if (sheetName === 'title' || (sheetName === 'music' && musicBack === 'toTitle')) Snd.mode(phase === 'sea' ? 'sea' : 'port');
     sheetName = '';
@@ -62,7 +71,9 @@
     if (S && phase === 'port') { lastScene = ''; try { renderStage(); } catch (e) {} }
     const btn = (act, label, sub, cls) => '<button class="mm-b ' + (cls || '') + '" type="button" data-act="' + act + '"><b>' + label + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</button>';
     const logo = (() => { try { const L = typeof PORTRAITS !== 'undefined' && PORTRAITS && PORTRAITS._logo; return typeof L === 'string' && L ? L : L && L.src ? L.src : null; } catch (e) { return null; } })();
-    openSheet('<div class="title-art t31">' + (logo ? '<img class="logo-img" src="' + logo + '" alt="Nil Kervancısı">' : '') + '<div class="logo-plate' + (logo ? ' sr' : '') + '"><h2 id="shTitle">Nil Kervancısı</h2><small>Kısa, sert, tuzlu bir ticaret seferi</small></div></div>' +
+    /* the market panel and any guide bubble leave the scene behind the title */
+    if (mkOn) market(false);
+    openSheet('<div class="title-art t31">' + (logo ? '<div class="logo-wrap"><img class="logo-img" src="' + logo + '" alt=""><h2 class="logo-name" id="shTitle">Nil Kervancısı</h2></div><small class="logo-sub">Kısa, sert, tuzlu bir ticaret seferi</small>' : '<div class="logo-plate"><h2 id="shTitle">Nil Kervancısı</h2><small>Kısa, sert, tuzlu bir ticaret seferi</small></div>') + '</div>' +
       '<div class="mm">' +
       (has ? btn('cont', 'Devam et', slotLabel(S), 'main') : '') +
       btn('new', 'Yeni sefer', meta.rep || Object.keys(meta.lv).length ? 'Lonca avantajlarınla başlar' : DAYS + ' gün, 1.500 deben borç', has ? '' : 'main') +
@@ -118,7 +129,7 @@
     s += slotsHtml(phase === 'port' && !S.over);
     s += '<p class="muted" style="margin:0">Oyun her adımda kendiliğinden de kaydedilir; bu yuvalar ayrıca saklamak istediğin anlar için.</p>';
     s += '<div class="mgo">' + [['travel', 'i-map', 'Harita'], ['o:defter', 'i-book', 'Defter'], ['o:prices', 'i-stall', 'Fiyatlar'], ['o:ship', 'i-anchor', 'Tersane'], ['o:music', 'i-music', 'Müzik'], ['guide', 'i-whisper', 'Rehber']].map(([a, ic, l]) => '<button class="ib dark" type="button" ' + (a.startsWith('o:') ? 'data-open="' + a.slice(2) + '"' : 'data-act="' + a + '"') + (phase !== 'port' && (a === 'guide' || a === 'travel') ? ' disabled' : '') + '>' + ico(ic, 22) + '<span class="lab">' + l + '</span></button>').join('') + '</div>';
-    s += '<div class="row"><button class="btn" type="button" data-act="newAsk">Baştan başlat</button><button class="btn" type="button" data-act="toTitle">Ana menü</button><button class="btn" type="button" data-act="helpM">Nasıl oynanır</button></div>';
+    s += '<div class="row mrow"><button class="btn" type="button" data-act="newAsk">Baştan başlat</button><button class="btn" type="button" data-act="toTitle">Ana menü</button><button class="btn" type="button" data-act="helpM">Nasıl oynanır</button></div>';
     s += '<div id="installSlot">' + installHtml() + '</div>';
     openSheet(s, false, 'menu');
   }
@@ -224,16 +235,16 @@
   function showEnd(hi, gained) {
     const r = S.result, st = r.stats;
     let s = '<div class="sh-h"><h2 id="shTitle">Sefer bitti<small>' + (S.mode === 'daily' ? 'Günün seferi · ' : '') + S.day + '. gün, ' + esc(CITIES[S.city].name) + '</small></h2></div>' +
-      '<div class="score"><div class="big">' + fmt(r.score) + ' deben</div><div class="rk">' + esc(r.rank) + '</div></div>' +
+      '<div class="score"><div class="big"><span data-count="' + r.score + '" data-pre="">' + fmt(r.score) + '</span> deben</div><div class="rk">' + esc(r.rank) + '</div></div>' +
       '<div class="oi ' + (r.beat ? 'good' : 'bad') + '"><span class="dot"></span><div><b>' + (r.beat ? 'Sethi\'yi geçtin!' : 'Sethi bu sefer önde') + '</b><p>Sethi ' + fmt(r.rival) + ' deben ile döndü.</p></div></div>' +
       '<p class="muted" style="margin:0;text-align:center">' + (r.debtLeft > 0 ? 'Borcun tam kapanmadı: Hapu ' + fmt(r.debtLeft) + ' deben alacaklı.' : 'Kalan mal satıldı, Hapu\'ya ' + fmt(r.paid) + ' deben ödendi.') + '</p>' +
       '<div class="grid2 g5"><div class="kv"><small>Yolculuk</small><b>' + st.trips + '</b></div><div class="kv"><small>Kusursuz</small><b>' + st.perfect + '</b></div><div class="kv"><small>Kaçış</small><b>' + st.escapes + '</b></div><div class="kv"><small>Sipariş</small><b>' + st.orders + '</b></div><div class="kv"><small>Kıl payı</small><b>' + (st.near || 0) + '</b></div></div>';
     const bt = st.best, st0 = r.start == null ? -300 : r.start;
     s += '<div class="box"><h3>Seferin özeti</h3><div class="sum">' +
       '<span><small>Başlangıç → bitiş</small><b>' + fmt(st0) + ' → ' + fmt(r.score) + '</b></span>' +
-      '<span><small>Ödenen faiz</small><b class="neg">−' + fmt(st.interest || 0) + '</b></span>' +
-      '<span><small>Nehirde yitirilen yük</small><b class="neg">−' + fmt(st.lostVal || 0) + '</b></span>' +
-      '<span><small>Nehirden kazanılan</small><b class="pos">+' + fmt(st.river || 0) + '</b></span>' +
+      '<span><small>Ödenen faiz</small><b class="' + (st.interest ? 'neg">−' : '">') + fmt(st.interest || 0) + '</b></span>' +
+      '<span><small>Nehirde yitirilen yük</small><b class="' + (st.lostVal ? 'neg">−' : '">') + fmt(st.lostVal || 0) + '</b></span>' +
+      '<span><small>Nehirden kazanılan</small><b class="' + (st.river ? 'pos">+' : '">') + fmt(st.river || 0) + '</b></span>' +
       '<span><small>Yarışlar</small><b>' + st.raceWins + '/' + st.races + '</b></span>' +
       (S.quest && S.quest.st !== 'offer' && S.quest.st !== 'declined' ? '<span><small>Hikâye</small><b class="' + (S.quest.st === 'done' ? 'pos' : 'neg') + '">' + esc(QUESTS[S.quest.id].name) + (S.quest.st === 'done' ? ' ✓' : S.quest.st === 'fail' ? ' ✗' : ' (yarım)') + '</b></span>' : '') +
       '<span><small>En iyi satış</small><b>' + (bt ? '+' + fmt(bt.p) + ' · ' + gName(bt.g) + ', ' + CITIES[bt.city].name + ' (' + bt.d + '. gün)' : '–') + '</b></span></div>' +
@@ -244,6 +255,8 @@
     if (S.mode === 'free') { const nf = featFor(meta.runs), nx = Object.keys(FEATS).filter(k => k !== 'sethi' && nf[k] && !(S.feat || {})[k]); if (nx.length) s += '<div class="oi info"><span class="dot"></span><div><b>Bir sonraki seferde açılacak</b><p>' + nx.map(k => esc(FEATS[k].name)).join(', ') + '</p></div></div>'; }
     s += '<button class="btn gold wide" type="button" data-act="share">' + ico('i-scroll', 18) + ' Sonuç kartını paylaş</button>';
     s += '<div class="row"><button class="btn go1" type="button" data-act="new" data-first>Yeni sefer</button><button class="btn gold" type="button" data-act="lonca2">Lonca</button><button class="btn" type="button" data-act="toTitle">Ana menü</button></div>';
+    if (mkOn) market(false);
     openSheet(s, true, 'end');
+    animateCounts();
   }
 

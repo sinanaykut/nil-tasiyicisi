@@ -87,7 +87,11 @@
     openSheet(s, true, 'hero', true);
     HERO_IDS.forEach(k => { const el = document.querySelector('#sheet .hbust[data-hb="' + k + '"]'); if (k === heroSel && c33Has('h_' + k)) { const h3 = CH33.stage(el, 'h_' + k, { mood:'happy', frame:'card' }); if (h3) { H3.push(h3); return; } } if (figHas('h_' + k) || c33Has('h_' + k)) figInto(el, 'h_' + k, k === heroSel ? 'happy' : 'neutral', 320, 'card'); else mountHero3(el, k, { size:'card', mood:k === heroSel ? 'happy' : 'neutral', selected:k === heroSel }); });
   }
-  function heroGo() { const k = heroSel || 'neferet'; meta.hero = k; saveMeta(); play('fanfare'); fresh(heroMode, k); }
+  function heroGo() {
+    if (CU.busy) return;
+    const k = heroSel || 'neferet', mode = heroMode; meta.hero = k; saveMeta(); play('fanfare');
+    curtain({ kick:mode === 'daily' ? 'Günün seferi' : 'Yeni sefer', title:CITIES[1].name, sub:HEROES[k].name + ' · ' + DAYS + ' gün' }, () => fresh(mode, k), { hold:200, inMs:220 });
+  }
   /* the plate: avatar, name, title, hull hearts (water skins in the desert) and the power state. where = 'hud' | 'voy' | 'scene' */
   function heroPlate(where) {
     if (!S || !S.hero || !HEROES[S.hero]) return '';

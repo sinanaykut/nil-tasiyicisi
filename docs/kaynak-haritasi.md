@@ -27,6 +27,7 @@ Folders ui/, sea/, v3/ are single files split by section; parts are joined in na
 | merch27.txt | 5 |
 | mini.css | 2 |
 | mini.txt | 13 |
+| motion35.css | 9 |
 | portraits31.txt | 1695 |
 | sea/01-run-setup.txt | 33 |
 | sea/02-run-steer.txt | 26 |
@@ -46,7 +47,8 @@ Folders ui/, sea/, v3/ are single files split by section; parts are joined in na
 | ui/01-port-scene.txt | 35 |
 | ui/02-faces.txt | 26 |
 | ui/03-state-render.txt | 24 |
-| ui/04-feedback-sheets.txt | 27 |
+| ui/04-feedback-sheets.txt | 28 |
+| ui/04b-motion.txt | 6 |
 | ui/05-actions.txt | 3 |
 | ui/06-voyage.txt | 52 |
 | ui/07-heroes.txt | 18 |
@@ -69,3 +71,5 @@ Folders ui/, sea/, v3/ are single files split by section; parts are joined in na
 | v8-portrait.txt | 5 |
 | v8-sprites.svg | 19 |
 | world33.txt | 54 |
+
+v35 motion & menus: `motion35.css` holds the motion tokens (`--m-*` durations, `--e-*` easings; reduced motion sets them to ~0), sheet rise/stagger/ghost-close, toasts, HUD pops, the papyrus curtain and the boot splash. `ui/04b-motion.txt` has `curtain(card, fn, opt)` (covers big scene changes: new run, hub→river, landing, waiting a day), `sheetMotion`/`sheetGhost` (used by openSheet/closeSheet), `hudNum`/`hudFlip` (HUD count-up and day flip) and `bootDone`.
