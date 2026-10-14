@@ -17,7 +17,7 @@
     function sethiLane(rv) {
       const hw = halfW(), look = RT.look, g = st.dist - rv.y; let best = rv.u, bc = 1e9;
       for (let k = -8; k <= 8; k++) {
-        const L = k / 10; let c = Math.abs(L - rv.u) * 0.5 + Math.max(0, Math.abs(L) - 0.74) * 5 + Math.abs(L - rv.lane) * 0.12;
+        const L = k / 10; let c = Math.abs(L - rv.u) * 0.5 + Math.max(0, Math.abs(L) - 0.74) * 5 + Math.abs(L - rv.lane) * 0.12 + Math.abs(L - rv.home) * 0.45;
         for (const o of st.obs) {
           const a = o.y - rv.y; if (a < -24 || a > look || o.k === 'whirl' || (o.miss && a > 64)) continue;
           let ou = o.u + (o.vu || 0) * Math.max(0, a) / Math.max(120, rv.v); if (Math.abs(ou) > 0.85) ou = Math.sign(ou) * 1.7 - ou;
@@ -25,8 +25,9 @@
           if (d < half) c += 2 + 4 * (1 - d / half) * (1 - Math.max(0, a) / (look + 80));
         }
         for (const sm of st.streams) { const a = sm.y - rv.y; if (a > 320 || a < -sm.len + 40) continue; if (Math.abs(L - sm.u) < 0.12) c -= 0.9; }
-        if (g > 20 && g < 200) { const d = Math.abs(L - st.u) * hw; if (d < 24) c += 1.2; else if (d < 56) c -= 0.5; }
-        if (Math.abs(g) < 70 && Math.abs(L - st.u) * hw < 32) c += 2.2;
+        /* v42: side by side he keeps a good boat-width of water between the hulls; tucked in behind us he may still draft */
+        if (g > 60 && g < 200) { const d = Math.abs(L - st.u) * hw; if (d < 24) c += 1.2; else if (d < 56) c -= 0.25; }
+        if (Math.abs(g) < 110) { const d = Math.abs(L - st.u) * hw; if (d < 84) c += 2.6 * (1 - d / 84) + 0.6; }
         if (c < bc) { bc = c; best = L; }
       }
       return best;
@@ -38,6 +39,8 @@
       if (r.fbT > 0) r.fbT -= dt; if (r.flashT > 0) r.flashT -= dt; if (r.bump > 0) r.bump -= dt;
       /* steering */
       rv.plan -= dt;
+      /* his home side is the half we are not in; it only flips after we have held his side for a while */
+      { const want = st.u > 0.12 ? -0.5 : st.u < -0.12 ? 0.5 : rv.home; if (want !== rv.home) { rv.homeT += dt; if (rv.homeT > 1.4) { rv.home = want; rv.homeT = 0; } } else rv.homeT = 0; }
       if (r.tS != null) rv.tu = rv.park; else if (rv.plan <= 0) { rv.plan = 0.12; rv.tu = sethiLane(rv); }
       const tg = Math.max(-1.5, Math.min(1.5, (rv.tu - rv.u) * 4));
       rv.vu += (tg - rv.vu) * Math.min(1, dt * 5); rv.u += rv.vu * dt * 0.62;

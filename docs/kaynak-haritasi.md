@@ -106,3 +106,18 @@ depth bias (`cityL`); `lifeSet()` merges every visible town's L into one toon+in
 when a town appears/moves/dims; `uRow` drives the swing. The plinth is a 24-sided bevelled drum. 2D fallback map tokens: `MTOK`/`mapTok` in
 `ui/13-hub-sheets.txt`. `logo31.txt`: `TITLE_SVG` (code-drawn seal) → `TITLE_LOGO`; title CSS (cartouche wordmark) in `motion35.css`;
 site icons rendered from the same SVG. Images: docs/qa42-harita.
+v42 route, tombs, arrival, race, desert orders (`ui/06-voyage.txt`, `ui/02-faces.txt`, `voy42.css`, `sea/01-02,04`, `v3/03-river-2.txt`, `core.txt`):
+route map: lines run label-bottom → rim (column layout, read from `getComputedStyle(#vmap).flexDirection`) or rim → rim (row);
+the boat/caravan token docks BESIDE the current stop (`dockAt`: on the incoming path, else to the side; scored against other stops,
+labels and the header), the stop gets `.here` (gold ring), and the token sails along a bezier to the next stop (`VG.boatRaf`).
+City emblems on start/end are small seals on the rim (`.vnode .vci`). Road temples are gone: river `tomb` (Kaya mezarı) and desert
+`dtomb` (Kum mezarı; the old `ruin` light puzzle is no longer rolled) → `tombLock` (three seal stones, tap to turn to the cartouche,
+torch = taps left) → `tombCoffin` (take one amulet safely, or everything: +2 muska +1 kitap/lapis +220 and a 40% curse: hull −1,
+morale −2) or `tombDark` (torch out). Node choices may return `{ t, kind }`. Village market can caulk the hull (+1, 70 deben).
+Arrival (`showArrival`): town picture via `V3.townThumb(ci, 520, 260)` (cached per city/season, painted port/oasis when 3D is off),
+name plaque, route ribbon + days, ledger cells (river/road coins, losses or interest, hull or water, purse change `S.last.cash0`),
+events sorted bad → good → info (first 4, "+N olay daha"), market news, sticky button.
+Race: river 16% wider, we start right (u .4), Sethi left (u −.46) with a home side (`rv.home`, flips after we hold his side 1.4 s),
+keeps ~84 px apart when side by side; Sethi sails a green/gold `kadirga` (a `feluka` when we own the galley), `st.sethiBoat`, with a
+trail-based V wake in 3D. Orders: desert towns post orders for their cheap goods to Nile markets, hubs sometimes ask for Nile goods
+carried to their oasis (`makeOrder`, `o.dz`); waiting a day may post a new order. Images: docs/qa42-yol.

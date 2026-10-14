@@ -23,6 +23,7 @@ MODULES = ['art27.txt', 'art28.txt', 'chars40.txt', 'chars30.txt', 'logo31.txt',
            'temple.txt', 'senet.txt', 'mini.txt', 'haggle28.txt', 'chars33.txt']
 CSS_MODULES = ['css27.txt', 'art27.css', 'v3.css', 'town29.css', 'temple.css', 'senet.css', 'mini.css', 'css28.txt',
                'art28.css', 'haggle28.css', 'motion35.css', 'chars40.css']
+CSS_MODULES += ['voy42.css']   # v42: route token, road tombs, arrival ledger
 def r(f, opt=False):
     p = os.path.join(SRC, f)
     if os.path.isdir(p): return ''.join(open(os.path.join(p, x)).read() for x in sorted(os.listdir(p)) if x.endswith('.txt'))

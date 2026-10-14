@@ -230,9 +230,9 @@
     let s = '<div class="sh-h"><span class="pt big wk">' + ico('i-scroll', 32) + '</span><h2 id="shTitle">Sipariş panosu<small>' + S.day + '. gün · ' + esc(CITIES[S.city].name) + '</small></h2>' + xBtn + '</div><div class="notes">';
     const note = (cls, title, body) => '<div class="note ' + cls + '"><h3>' + title + '</h3>' + body + '</div>';
     let ob = '';
-    if (here) { const dl = deliverable(S); if (dl.length || (S.offers[S.city] && isRiver(S.city))) ob += orderBox(); }
+    if (here) { const dl = deliverable(S); if (dl.length || S.offers[S.city]) ob += orderBox(); }
     if (S.orders.length) ob += '<div class="olist">' + S.orders.map(o => '<span>' + gIco(o.g, 16) + o.q + ' → ' + cIco(o.to, 14) + esc(CITIES[o.to].name) + ' · ' + o.due + '. gün · +' + fmt(o.reward) + '</span>').join('') + '</div>';
-    s += note('ord', ico('i-scroll', 18) + ' Siparişler', ob || '<p class="muted" style="margin:0">Burada bekleyen sipariş yok. Nil şehirlerinin panolarına bak.</p>');
+    s += note('ord', ico('i-scroll', 18) + ' Siparişler', ob || '<p class="muted" style="margin:0">' + (isRiver(S.city) ? 'Burada bekleyen sipariş yok. Yarın ya da başka bir şehrin panosunda yenisi çıkar.' : 'Vahanın tüccarları bugün sipariş vermedi. Bir dahaki gelişinde panoya yine bak.') + '</p>');
     const cj = contraHtml();
     if (cj && (S.city === 1 || S.contra)) s += note('hapu', ico('i-chest', 18) + ' Hapu\'nun işi', cj);
     const row = (ic, txt, cls) => '<div class="irow' + (cls ? ' ' + cls : '') + '"><span class="iI">' + ico(ic, 18) + '</span><span>' + txt + '</span></div>';

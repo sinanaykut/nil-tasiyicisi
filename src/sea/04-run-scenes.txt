@@ -232,7 +232,7 @@
       const rv = st.rival;
       if (rv) { const y = sy(rv.y); if (y > -60 && y < H + 60) { const x = sx(rv.u, rv.y);
         if (rv.boostT > 0) { cx.strokeStyle = 'rgba(255,255,255,.5)'; cx.lineWidth = 2; for (let k = 0; k < 5; k++) { const xx = x + (k - 2) * 13, yy = y + 40 + ((st.t * 400 + k * 41) % 60); cx.beginPath(); cx.moveTo(xx, yy); cx.lineTo(xx, yy + 16); cx.stroke(); } }
-        if (!(rv.inv > 0 && Math.floor(rv.inv * 10) % 2)) boat(x, y, { hull:'#2F5D46', sail:'#BFE3C2', sailBand:'#2F7346', band:'#D9A43A', oars:2, row:rv.row || st.t * 7, tip:'#D9A43A' });
+        if (!(rv.inv > 0 && Math.floor(rv.inv * 10) % 2)) boat(x, y, { type:st.sethiBoat || 'kadirga', hull:'#2F5D46', sail:'#F2C65A', sailBand:'#2F7346', band:'#D9A43A', oars:st.sethiBoat === 'kadirga' ? 3 : 2, row:rv.row || st.t * 7, tip:'#D9A43A', wide:st.sethiBoat === 'kadirga' ? 22 : 16 });
         cx.font = '800 12px Nunito, sans-serif'; cx.textAlign = 'center'; const lw = cx.measureText('Sethi').width + 14; pill(x - lw / 2, y - 62, lw, 18, '#BFE3C2'); cx.fillStyle = '#1E4A33'; cx.fillText('Sethi', x, y - 49); } }
       const ch = st.chaser;
       if (ch && ch.on && !ch.gone) { const y = sy(ch.y); if (y < H + 60) { const rvl = RIVAL[ch.type] || RIVAL.haydut; if (dz || rvl.rider) { const tail = st.donkeys * 44 + 30, gp = st.dist - ch.y, fl = gp < tail ? (st.u > 0 ? -1 : 1) * 58 * Math.min(1, (tail - gp) / 60) : 0; raiders(sx(ch.u, ch.y) + fl, y, ch.type); } else boat(sx(ch.u, ch.y), y, { hull:rvl.hull, sail:rvl.sail, sailBand:C.ink, band:C.red, oars:3, row:st.t * 11, tip:C.red }); } }

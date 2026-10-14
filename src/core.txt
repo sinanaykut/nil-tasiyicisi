@@ -516,8 +516,30 @@ function dealSell(S, g, n, unit) {
   return r;
 }
 /* merchant orders: carry goods from one city to another before a deadline */
+/* v42: the desert towns post orders too (their own salt, dates or incense for a Nile market), and the caravan hubs
+   sometimes want Nile goods carried out to their oasis (or to Saww) */
 function makeOrder(S, from) {
-  if (!isRiver(from)) return null;
+  const dz = !isRiver(from);
+  const DZ = CITIES.map((c, i) => i).filter(i => !isRiver(i) && CITIES[i].hub === from && has(S, 'desert') && S.day + 2 * CITIES[i].days <= S.days);
+  if (!dz && DZ.length && rng() < 0.35) {
+    const to = pick(DZ), gs = RAW.slice(0, 7).filter(x => deals(to, x.id) && deals(from, x.id) && CITIES[to].mult[x.id] >= 1.3);
+    if (gs.length) {
+      const g = pick(gs), q = Math.max(2, Math.min(20, Math.round((450 + rng() * 550) / g.base)));
+      const reward = Math.round(q * g.base * 0.8 + 210 * CITIES[to].days + 160);
+      return { from, to, g:g.id, q, reward, due:Math.min(S.days, S.day + CITIES[to].days + 3), perk:rng() < 0.25 ? 'itibar' : null, dz:true };
+    }
+  }
+  if (dz) {
+    /* the oasis' own goods (cheap here) for a Nile market that pays for them */
+    const own = RAW.filter(x => deals(from, x.id) && CITIES[from].mult[x.id] <= 0.8);
+    const tos = RIVER.filter(i => S.day + dist(from, i) + 1 <= S.days && own.some(x => deals(i, x.id) && CITIES[i].mult[x.id] >= 1.1));
+    if (!tos.length || !own.length) return null;
+    const to = pick(tos), g = pick(own.filter(x => deals(to, x.id) && CITIES[to].mult[x.id] >= 1.1));
+    const q = Math.max(2, Math.min(20, Math.round((500 + rng() * 700) / g.base)));
+    const reward = Math.round(q * g.base * 0.7 + 150 * dist(from, to) + 140);
+    const r = rng(), perk = r < 0.2 ? 'itibar' : r < 0.4 ? pick(Object.keys(BLESS)) : null;
+    return { from, to, g:g.id, q, reward:perk ? Math.round(reward * 0.65) : reward, due:Math.min(S.days, S.day + dist(from, to) + 3), perk, dz:true };
+  }
   const tos = RIVER.filter(i => i !== from && S.day + Math.max(1, dist(from, i) - 1) + 1 <= S.days);
   if (!tos.length) return null;
   const to = pick(tos), g = pick(RAW.slice(0, 6).filter(x => deals(to, x.id)));
@@ -791,7 +813,7 @@ function arrive(S, plan, res) {
     return false;
   });
   const off = S.offers[S.city];
-  if ((!off || off.due < S.day + 1) && !S.orders.some(o => o.from === S.city)) S.offers[S.city] = rng() < 0.75 ? makeOrder(S, S.city) : null;
+  if ((!off || off.due < S.day + 1) && !S.orders.some(o => o.from === S.city)) S.offers[S.city] = rng() < (isRiver(S.city) ? 0.75 : 0.9) ? makeOrder(S, S.city) : null;
   if (seasonIdx(S) !== seasonBefore) { const se = SEASONS[seasonIdx(S)]; out.push({ kind:'info', title:se.name + ': ' + se.title, text:se.desc }); }
   S.seen[S.city] = snap(S, S.city);
   if (S.hero === 'sitre') RIVER.forEach(i => { if (Math.abs(i - S.city) === 1 && isRiver(S.city)) S.seen[i] = snap(S, i); });
@@ -901,6 +923,9 @@ function waitDay(S) {
   if (!/^(siwa|kharga)$/.test(CITIES[S.city].id)) caravanDays(S, 1, out);
   S.day += 1; S.debt = Math.round(S.debt * (1 + S.rate)); S.stats.interest = (S.stats.interest || 0) + (S.debt - before);
   sethiArrive(S, out); rollPrices(S); S.seen[S.city] = snap(S, S.city);
+  /* v42: a day in town can bring a new order to the board (the oases too) */
+  const off = S.offers[S.city];
+  if ((!off || off.due < S.day + 1) && !S.orders.some(o => o.from === S.city) && rng() < 0.5) { S.offers[S.city] = makeOrder(S, S.city); if (S.offers[S.city]) out.push({ kind:'info', title:'Panoda yeni sipariş', text:MERCHANT_NAMES[S.city] + ' panoya bir sipariş astı: ' + S.offers[S.city].q + ' ' + gById(S.offers[S.city].g).short.toLowerCase() + ' → ' + CITIES[S.offers[S.city].to].name + '.' }); }
   if (S.debt > before) out.push({ kind:'info', title:'Faiz işledi', text:'Borcun ' + fmtN(before) + ' debenden ' + fmtN(S.debt) + ' debene çıktı.' });
   S.log.push({ d:S.day, t:CITIES[S.city].loc + ' bir gün bekledin.' });
   return out;
