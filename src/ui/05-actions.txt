@@ -21,7 +21,8 @@
       else if (r.n < qty && qty !== Infinity) toast(r.n + ' ' + gName(gid) + ' alabildin.');
     } else {
       const r = sell(S, gid, qty);
-      if (!r.n) { play('no'); return; }
+      if (!r.n) { play('no'); if (r.reason === 'full') toast(MERCHANT_NAMES[S.city] + '\'in deposu dolu: bugün ' + gName(gid) + ' almıyor. Başka bir şehirde sat ya da birkaç gün bekle.'); return; }
+      if (r.reason === 'full' && S.inv[gid].n) toast('Depoda bu kadar yer vardı: ' + r.n + ' ' + gName(gid) + ' sattın, ' + S.inv[gid].n + ' tanesi ambarında kaldı.');
       floatAt(btn, '+' + fmt(r.rev) + (r.profit ? '  (kâr ' + (r.profit > 0 ? '+' : '') + fmt(r.profit) + ')' : ''), r.profit < 0);
       play(r.profit > 1500 ? 'big' : 'sell'); lvUp = r.lvUp; flyCrate(document.querySelector('#hold'), gid, '.mhd .pt'); if (r.profit > 1500) moodBoost = 2;
       if (r.profit > 1500 && (S.hq || {}).sale !== S.day) { S.hq = S.hq || {}; S.hq.sale = S.day; setTimeout(() => heroQuip('sale'), 700); }

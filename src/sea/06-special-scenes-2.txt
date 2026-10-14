@@ -100,7 +100,7 @@
           s.texts.forEach(t => { t.life -= dt; t.y -= 40 * dt; }); s.texts = s.texts.filter(t => t.life > 0);
           if (s.t >= s.dur) {
             const ratio = s.calm / s.dur;
-            if (ratio >= 0.75) { s.coins += 140; if (!s.lost) s.crates += 1; flash(s.lost ? 'Tekneyi dik tuttun! +140 deben' : 'Kusursuz! +140 deben ve bir sandık'); sfx('escape'); }
+            if (ratio >= 0.75) { s.coins += 140; const t = !s.lost && cargoRoom() > 0 ? cargoTake() : null; if (!s.lost && !t) s.left = (s.left || 0) + 1; flash(s.lost ? 'Tekneyi dik tuttun! +140 deben' : t ? 'Kusursuz! +140 deben ve bir sandık' + (t.txt ? ' (' + t.txt + ')' : '') : 'Kusursuz! +140 deben · ambar dolu, sandık kaldı'); sfx('escape'); }
             else if (ratio >= 0.62) { s.coins += 60; flash('Fırtınayı atlattın. +60 deben'); }
             else flash('Fırtına geçti.');
             finish();
@@ -210,14 +210,80 @@
         /* wreck frame: local units x -200..200 (bow left), y -120..30, scaled and tilted onto the seabed */
         wf(s) { const ws = Math.min(W * (W > 700 ? 0.44 : 0.47) / 200, (s.floor - s.sea) * 0.36 / 120, 1.3); return { x:W > 700 ? W * 0.6 : W * 0.5, y:s.floor - 14 * ws, ws, a:-0.07 }; },
         loc(s, lx, ly) { const f = this.wf(s), c = Math.cos(f.a), n = Math.sin(f.a); return { x:f.x + (lx * c - ly * n) * f.ws, y:f.y + (lx * n + ly * c) * f.ws }; },
+        /* v45: the hull as wall segments in local units (flat array x1 y1 x2 y2 ...), its outline for 'inside', and the gap */
+        hull(s) {
+          const q = (a, c, b, n) => { const o = []; for (let k = 0; k <= n; k++) { const t = k / n, u = 1 - t; o.push([u * u * a[0] + 2 * u * t * c[0] + t * t * b[0], u * u * a[1] + 2 * u * t * c[1] + t * t * b[1]]); } return o; };
+          const keel = q([-196, -78], [-170, 20], [-40, 26], 10).concat(q([60, 26], [150, 20], [196, -88], 10));
+          const deckL = [[-196, -78], [-172, -62], [10, -54], [22, -50]], deckR = [[98, -60], [110, -66], [176, -76], [196, -88]];
+          const cabin = [[112, -66], [114, -98], [174, -108], [176, -76]];
+          const segs = [];
+          [keel, deckL, deckR, cabin].forEach(pl => { for (let k = 1; k < pl.length; k++) segs.push(pl[k - 1][0], pl[k - 1][1], pl[k][0], pl[k][1]); });
+          s.walls = new Float32Array(segs);
+          /* inside = within keel + deck line (the gap closed at deck height) */
+          s.hullPoly = keel.slice().reverse().concat(deckL, [[60, -56]], deckR.slice(0, -1));
+          s.lp = [0, 0]; s.wp = [0, 0];
+          const gi = this.loc(s, 60, -14), go = this.loc(s, 60, -88);
+          s.gate = { ix:gi.x, iy:gi.y, ox:go.x, oy:go.y, x:(gi.x + go.x) / 2, y:(gi.y + go.y) / 2 };
+          s.bumps = 0; s.bumpCd = 0;
+          /* for bots and tests: the next way point towards (x, y) */
+          s.way = (x, y) => this.way(s, x, y);
+        },
+        /* screen → local (inverse of loc), written into s.lp so nothing is allocated per frame */
+        toL(s, x, y) { const f = this.wf(s), c = Math.cos(f.a), n = Math.sin(f.a), dx = x - f.x, dy = y - f.y; s.lp[0] = (dx * c + dy * n) / f.ws; s.lp[1] = (-dx * n + dy * c) / f.ws; return s.lp; },
+        inHull(s, x, y) {
+          const p = this.toL(s, x, y), P = s.hullPoly, px = p[0], py = p[1]; let c = false;
+          for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const a = P[i], b = P[j]; if ((a[1] > py) !== (b[1] > py) && px < (b[0] - a[0]) * (py - a[1]) / (b[1] - a[1]) + a[0]) c = !c; }
+          return c;
+        },
+        /* where to swim next on the way to (tx, ty): through the gap in the deck when the target is on the other side of the hull */
+        way(s, tx, ty) {
+          const d = s.dv, tin = this.inHull(s, tx, ty), g = s.gate, p = this.toL(s, d.x, d.y), lx = p[0], ly = p[1];
+          /* the throat: inside the gap, not yet under the deck */
+          const throat = lx > 18 && lx < 102 && ly < -30 && ly > -96, deep = !!d.inside && !throat, near = Math.abs(lx - 60) < 14;
+          let w = null;
+          if (tin) { if (!deep) w = throat || (near && ly > -100) ? [g.ix, g.iy] : [g.ox, g.oy]; }
+          else if (deep || throat) w = throat || near ? [g.ox, g.oy - 18] : [g.ix, g.iy];
+          s.wp[0] = w ? w[0] : tx; s.wp[1] = w ? w[1] : ty;
+          return s.wp;
+        },
+        /* move with the hull in the way: small sub-steps, push out of any plank and slide along it; a hard knock costs a little breath */
+        move(s, d, dt) {
+          const f = this.wf(s), c = Math.cos(f.a), n = Math.sin(f.a), ws = f.ws, Wl = s.walls;
+          const sz = Math.max(1.2, Math.min(1.6, H / 470, W / 300)), rl = Math.max(6, Math.min(9 * sz, 16 * ws)) / ws;
+          let mx = d.vx * dt, my = d.vy * dt; const steps = Math.max(1, Math.ceil(Math.hypot(mx, my) / 4)); mx /= steps; my /= steps;
+          let hit = false, nx = 0, ny = 0;
+          for (let k = 0; k < steps; k++) {
+            d.x = Math.max(16, Math.min(W - 16, d.x + mx)); d.y = Math.max(s.sea + 12, Math.min(s.floor - 10, d.y + my));
+            const p = this.toL(s, d.x, d.y); let lx = p[0], ly = p[1], moved = false;
+            for (let pass = 0; pass < 2; pass++) for (let i = 0; i < Wl.length; i += 4) {
+              const ax = Wl[i], ay = Wl[i + 1], ex = Wl[i + 2] - ax, ey = Wl[i + 3] - ay, L2 = ex * ex + ey * ey;
+              const t = Math.max(0, Math.min(1, ((lx - ax) * ex + (ly - ay) * ey) / L2)), ddx = lx - ax - ex * t, ddy = ly - ay - ey * t, D = Math.hypot(ddx, ddy);
+              if (D < rl && D > 1e-4) { const u = (rl - D) / D; lx += ddx * u; ly += ddy * u; nx = ddx / D; ny = ddy / D; hit = moved = true; }
+            }
+            if (moved) { d.x = f.x + (lx * c - ly * n) * ws; d.y = f.y + (lx * n + ly * c) * ws; }
+          }
+          d.inside = this.inHull(s, d.x, d.y);
+          if (s.bumpCd > 0) s.bumpCd -= dt;
+          if (!hit) return;
+          /* the plank's normal on screen: cancel the push into it (with a small bounce) and keep the slide */
+          const Nx = nx * c - ny * n, Ny = nx * n + ny * c, vn = d.vx * Nx + d.vy * Ny;
+          if (vn < 0) { d.vx -= 1.25 * vn * Nx; d.vy -= 1.25 * vn * Ny; }
+          if (vn < -70 && s.bumpCd <= 0 && s.pull <= 0 && !s.finishing) {
+            s.bumpCd = 0.8; s.bumps++; s.air = Math.max(0.02, s.air - 0.03); s.shake = Math.max(s.shake || 0, 0.12); sfx('tick');
+            for (let k = 0; k < 4; k++) s.bubbles.push({ x:d.x - Nx * 10, y:d.y - Ny * 10, r:rnd(1.5, 3), v:rnd(40, 80) });
+            if (s.bumps <= 2 || s.bumps % 5 === 0) floatText(Math.max(100, Math.min(W - 100, d.x)), d.y - 34, 'Tahtaya çarptın! · nefes −', '#FFD2C4');
+          }
+        },
         init(s, o) {
           /* on phones the seabed sits above the touch pads */
           const sea = Math.round(H * 0.17), floor = Math.round(coarse ? H - 108 : H * 0.9);
-          Object.assign(s, { dur:24, air:1, airSec:9 + (o.extra || 0) * 0.4, sea, floor, boatX:W * 0.5, items:[], eels:[], fish:[], bubbles:[], snow:[], banked:0, blackouts:0, bites:0, inv:0, finishing:0, tut:5, told:{}, pull:0, refill:0 });
+          Object.assign(s, { dur:26, air:1, airSec:9 + (o.extra || 0) * 0.4, sea, floor, boatX:W * 0.5, items:[], eels:[], fish:[], bubbles:[], snow:[], banked:0, blackouts:0, bites:0, inv:0, finishing:0, tut:5, told:{}, pull:0, refill:0 });
           s.dv = { x:s.boatX + 30, y:sea + 18, vx:0, vy:0, face:1, item:null, kick:0, dash:0, cd:0, bub:0 };
           const f = this.wf(s);
           /* where loot can lie: in the hold, at the broken stern, on the sand around the wreck */
-          const inside = [[-120, -22], [-60, -30], [0, -26], [55, -24], [118, -34], [-150, -8]].map(([x, y]) => this.loc(s, x, y));
+          /* v45: the hull is solid. Walls (local units) = the keel curve, the broken deck with one gap, the stern cabin on the deck */
+          this.hull(s);
+          const inside = [[-120, -20], [-60, -26], [0, -22], [52, -20], [128, -30], [-100, -16]].map(([x, y]) => this.loc(s, x, y));
           const left = Math.max(40, f.x - 210 * f.ws - 30), sand = [];
           for (let k = 0; k < 4; k++) sand.push({ x:Math.max(30, Math.min(W - 30, k < 2 ? left - k * 70 * Math.max(0.6, f.ws) : f.x + (180 + (k - 2) * 50) * f.ws)), y:floor - 8 });
           if (W <= 700) { sand[0] = { x:W * 0.12, y:floor - 6 }; sand[1] = { x:W * 0.3, y:floor - 4 }; sand[2] = { x:W * 0.72, y:floor - 6 }; sand[3] = { x:W * 0.9, y:floor - 4 }; }
@@ -229,11 +295,11 @@
           /* the valuable ones sit inside the wreck, where the eels live */
           types.sort((a, b) => ({ coins:0, amphora:1, chest:2, mask:3 }[a] - { coins:0, amphora:1, chest:2, mask:3 }[b]));
           const spots = sand.slice(0, 3).concat(inside.slice(0, 5)).sort(() => 0);
-          types.forEach((t, k) => { const p = k < 3 ? sand[k] : inside[k - 3]; s.items.push({ t, x:p.x + rnd(-8, 8), y:p.y, fy:p.y, r:t === 'chest' ? 20 : 17, ph:R() * 6 }); });
-          if (o.special) { const p = this.loc(s, 150, -50); s.items.push({ t:o.special, x:p.x, y:p.y, fy:p.y, r:19, special:true, ph:0 }); }
+          types.forEach((t, k) => { const p = k < 3 ? sand[k] : inside[k - 3]; s.items.push({ t, x:p.x + (k < 3 ? rnd(-8, 8) : 0), y:p.y, fy:p.y, r:t === 'chest' ? 20 : 17, ph:R() * 6, inside:k >= 3 }); });
+          if (o.special) { const p = this.loc(s, 150, -46); s.items.push({ t:o.special, x:p.x, y:p.y, fy:p.y, r:19, special:true, ph:0, inside:true }); }
           /* eels hide in holes in the hull and warn before they strike */
-          const holes = [[-88, -6, -1], [96, -10, 1], [30, -60, 1]], ne = 2 + (o.rich || o.special ? 1 : 0);
-          for (let k = 0; k < ne; k++) { const p = this.loc(s, holes[k][0], holes[k][1]); s.eels.push({ x:p.x, y:p.y, dir:holes[k][2], st:'hide', t:0, cd:1.5 + k, hx:p.x, hy:p.y, tx:0, ty:0, ph:R() * 6 }); }
+          const holes = [[-88, -4, -1], [96, -8, 1], [124, -90, -1]], ne = 2 + (o.rich || o.special ? 1 : 0);
+          for (let k = 0; k < ne; k++) { const p = this.loc(s, holes[k][0], holes[k][1]); s.eels.push({ x:p.x, y:p.y, dir:holes[k][2], st:'hide', t:0, cd:1.5 + k, hx:p.x, hy:p.y, tx:0, ty:0, ph:R() * 6, inside:k < 2 }); }
           for (let k = 0; k < 10; k++) s.fish.push({ x:rnd(0, W), y:rnd(sea + 60, floor - 120), vx:rnd(28, 55) * (k < 5 ? 1 : -1), c:['#F2C65A', '#E86A7E', '#8FD3E0', '#F2C65A', '#BFE3C2'][k % 5], ph:R() * 6 });
           for (let k = 0; k < 40; k++) s.snow.push({ x:rnd(0, W), y:rnd(sea, H), r:rnd(0.8, 2), v:rnd(4, 12) });
         },
@@ -242,7 +308,7 @@
         bank(s, it) {
           it.banked = true; it.taken = false; s.dv.item = null; s.banked++;
           const at = { x:s.boatX, y:s.sea + 70 };
-          if (it.t === 'amphora') { s.crates++; floatText(at.x, at.y, 'Bir küp mal!', '#FFF8EC'); sfx('pick'); }
+          if (it.t === 'amphora') { const t = cargoTake(); floatText(at.x, at.y, t ? 'Bir küp mal!' + (t.txt ? ' ' + t.txt : '') : 'Ambar dolu: küp kaldı', t ? '#FFF8EC' : '#FFB4A0'); sfx(t ? 'pick' : 'no'); }
           else if (it.t === 'chest') { const c = Math.round(rnd(150, 240)); s.coins += c; floatText(at.x, at.y, 'Sandık: +' + c + ' deben', '#F2C65A'); sfx('pick'); }
           else if (it.t === 'mask') { s.coins += 380; floatText(at.x, at.y, 'Altın maske! +380', '#F2C65A'); sfx('big'); }
           else if (it.t === 'coins') { const c = Math.round(rnd(60, 110)); s.coins += c; floatText(at.x, at.y, '+' + c + ' deben', '#F2C65A'); sfx('pick'); }
@@ -256,14 +322,16 @@
           if (pointerX != null && pointerY != null) { const dx = pointerX - d.x, dy = pointerY - d.y, L = Math.hypot(dx, dy); if (L > 12) { ix = dx / L * Math.min(1, L / 60); iy = dy / L * Math.min(1, L / 60); } }
           else { ix = ((keys.R || padR) ? 1 : 0) - ((keys.L || padL) ? 1 : 0); iy = (keys.D ? 1 : 0) - (keys.U ? 1 : 0); const L = Math.hypot(ix, iy); if (L > 0) { ix /= L; iy /= L; } }
           /* out of breath: the crew hauls the diver up by the rope */
-          if (s.pull > 0) { s.pull -= dt; ix = (s.boatX - d.x) / Math.max(40, Math.abs(s.boatX - d.x)) * 0.5; iy = -1; if (s.pull <= 0 && s.blackouts >= 2 && !s.finishing) { s.finishing = 0.9; flash('Tayfa seni tekneye aldı. Dalış bitti.'); } }
-          if (s.finishing) { ix = 0; iy = -1; }
+          /* touch: a finger on the other side of the hull leads the diver through the gap in the deck */
+          if (pointerX != null && pointerY != null && (ix || iy)) { const w = this.way(s, pointerX, pointerY); if (w[0] !== pointerX || w[1] !== pointerY) { const dx = w[0] - d.x, dy = w[1] - d.y, L = Math.max(1, Math.hypot(dx, dy)); ix = dx / L; iy = dy / L; } }
+          if (s.pull > 0) { s.pull -= dt; if (d.inside) { const w = this.way(s, s.boatX, sea); ix = (w[0] - d.x) / Math.max(30, Math.abs(w[0] - d.x)); iy = Math.max(-1, Math.min(1, (w[1] - d.y) / 30)); } else { ix = (s.boatX - d.x) / Math.max(40, Math.abs(s.boatX - d.x)) * 0.5; iy = -1; } if (s.pull <= 0 && s.blackouts >= 2 && !s.finishing) { s.finishing = 0.9; flash('Tayfa seni tekneye aldı. Dalış bitti.'); } }
+          if (s.finishing) { if (d.inside) { const w = this.way(s, d.x, sea); ix = (w[0] - d.x) / Math.max(30, Math.abs(w[0] - d.x)); iy = Math.max(-1, Math.min(1, (w[1] - d.y) / 30)); } else { ix = 0; iy = -1; } }
           const it0 = d.item, heavy = it0 ? (it0.t === 'chest' || it0.t === 'mask' || it0.special ? 0.66 : 0.82) : 1;
           if (d.dash > 0) d.dash -= dt; if (d.cd > 0) d.cd -= dt;
           const spd = 170 * sc * heavy * (d.dash > 0 ? 2.1 : 1) * (s.pull > 0 ? 1.6 : 1);
           d.vx += (ix * spd - d.vx) * Math.min(1, dt * 4); d.vy += (iy * spd - d.vy) * Math.min(1, dt * 4);
           if (it0 && !ix && !iy) d.vy += 40 * dt;
-          d.x = Math.max(16, Math.min(W - 16, d.x + d.vx * dt)); d.y = Math.max(sea + 12, Math.min(floor - 10, d.y + d.vy * dt));
+          this.move(s, d, dt);
           if (Math.abs(d.vx) > 6) d.face = d.vx > 0 ? 1 : -1;
           d.kick += dt * (3 + Math.hypot(d.vx, d.vy) / 25);
           const atSurf = d.y < sea + 26;
@@ -273,14 +341,18 @@
             this.drop(s); s.air = 0.5; s.blackouts++; s.pull = 1.1; s.inv = 1.2;
             flash(s.blackouts >= 2 ? 'Havan yine bitti!' : 'Havan bitti! Tayfa seni yukarı çekiyor'); sfx('no');
           }
-          if (!d.item && !s.finishing && s.pull <= 0) { const it = s.items.find(i => !i.taken && !i.banked && Math.hypot(i.x - d.x, i.y - d.y) < i.r + 18); if (it) { it.taken = true; d.item = it; sfx('tick'); floatText(Math.max(100, Math.min(W - 100, d.x)), d.y - 34, it.special ? 'Ud! Tekneye götür ↑' : 'Tekneye götür ↑', '#FFF8EC'); } }
+          const room = cargoRoom() > 0; s.items.forEach(i => { if (i.t === 'amphora' && !i.banked && !i.taken) i.full = !room; });
+          if (!d.item && !s.finishing && s.pull <= 0) {
+            const nf = s.items.find(i => i.full && !i.told && Math.hypot(i.x - d.x, i.y - d.y) < i.r + 18 && (!i.inside || d.inside));
+            if (nf) { nf.told = true; floatText(Math.max(100, Math.min(W - 100, d.x)), d.y - 34, 'Ambar dolu: küpü alamazsın', '#FFB4A0'); sfx('no'); }
+            const it = s.items.find(i => !i.taken && !i.banked && !i.full && (!i.inside || d.inside) && Math.hypot(i.x - d.x, i.y - d.y) < i.r + 18); if (it) { it.taken = true; d.item = it; sfx('tick'); floatText(Math.max(100, Math.min(W - 100, d.x)), d.y - 34, it.special ? 'Ud! Tekneye götür ↑' : 'Tekneye götür ↑', '#FFF8EC'); } }
           s.items.forEach(i => { i.ph += dt; if (i === d.item) { i.x = d.x + d.face * 22; i.y = d.y + 14; } else if (!i.banked && i.y < i.fy) i.y = Math.min(i.fy, i.y + 90 * dt); else if (!i.banked && i.y > i.fy + 1) i.fy = i.y; });
           /* eels: hide → warn (0.75 s, "!") → strike at where you were → back off */
           s.eels.forEach(e => {
             e.ph += dt; e.t += dt; if (e.cd > 0) e.cd -= dt;
             const dd = Math.hypot(d.x - e.x, d.y - e.y);
             /* the strike point is locked (and marked) the moment the eel warns: leave the red ring and it misses */
-            if (e.st === 'hide') { e.hx = e.x + e.dir * (6 + Math.sin(e.ph * 2) * 3); e.hy = e.y + Math.sin(e.ph * 1.3) * 2; if (e.cd <= 0 && dd < 105 * sc && !s.finishing && s.pull <= 0) { e.st = 'warn'; e.t = 0; const L = Math.max(1, dd), reach = Math.min(L, 110 * sc); e.tx = e.x + (d.x - e.x) / L * reach; e.ty = e.y + (d.y - e.y) / L * reach; sfx('tick'); } }
+            if (e.st === 'hide') { e.hx = e.x + e.dir * (6 + Math.sin(e.ph * 2) * 3); e.hy = e.y + Math.sin(e.ph * 1.3) * 2; if (e.cd <= 0 && dd < 105 * sc && (!e.inside || d.inside) && !s.finishing && s.pull <= 0) { e.st = 'warn'; e.t = 0; const L = Math.max(1, dd), reach = Math.min(L, 110 * sc); e.tx = e.x + (d.x - e.x) / L * reach; e.ty = e.y + (d.y - e.y) / L * reach; sfx('tick'); } }
             else if (e.st === 'warn') { e.hx = e.x + e.dir * 16 + Math.sin(e.t * 40) * 2; e.hy = e.y; if (e.t > 0.8) { e.st = 'strike'; e.t = 0; sfx('near'); } }
             else if (e.st === 'strike') { const k = Math.min(1, e.t / 0.22); e.hx = e.x + (e.tx - e.x) * k; e.hy = e.y + (e.ty - e.y) * k; if (e.t > 0.32) { e.st = 'back'; e.t = 0; }
               if (s.inv <= 0 && Math.hypot(e.hx - d.x, e.hy - d.y) < 24) {
@@ -290,7 +362,7 @@
               } }
             else if (e.st === 'back') { const k = Math.max(0, 1 - e.t / 0.5); e.hx = e.x + (e.tx - e.x) * k; e.hy = e.y + (e.ty - e.y) * k; if (e.t > 0.5) { e.st = 'hide'; e.cd = 2.4; } }
           });
-          if (!s.finishing && !s.items.some(i => !i.banked)) { s.finishing = 1.2; flash('Batıkta bir şey kalmadı!'); }
+          if (!s.finishing && !s.items.some(i => !i.banked && !i.full)) { s.finishing = 1.2; flash(s.items.some(i => i.full && !i.banked) ? 'Alınacak başka bir şey yok: ambar dolu.' : 'Batıkta bir şey kalmadı!'); }
           if (s.finishing) { s.finishing -= dt; if (s.finishing <= 0) { finish(); return; } }
           else if (s.t >= s.dur) { if (d.item) this.drop(s); flash('Akşam oldu, tayfa demir alıyor.'); finish(); return; }
           s.fish.forEach(f => { f.ph += dt; f.x += f.vx * dt; if (Math.hypot(f.x - d.x, f.y - d.y) < 60) f.vx = Math.sign(f.x - d.x || 1) * Math.abs(f.vx); if (f.x < -30) f.x = W + 30; if (f.x > W + 30) f.x = -30; });
@@ -397,13 +469,17 @@
           cx.fillStyle = dark; cx.fill(); cx.lineWidth = 3; cx.strokeStyle = C.ink; cx.stroke();
           /* ribs */
           for (let k = -6; k <= 6; k++) { const x = k * 27, top = -60 - Math.abs(k) * 3 + (k % 2) * 6, bot = 24 - Math.abs(k) * 1.8; cx.beginPath(); cx.moveTo(x - 4, top); cx.quadraticCurveTo(x + (k < 0 ? -10 : 10), (top + bot) / 2, x, bot); cx.lineWidth = 9; cx.strokeStyle = C.ink; cx.stroke(); cx.lineWidth = 6; cx.strokeStyle = k % 3 ? wood : '#7D5838'; cx.stroke(); }
-          /* broken deck beam and the cabin at the stern */
-          cx.beginPath(); cx.moveTo(-170, -62); cx.lineTo(10, -54); cx.lineTo(24, -48); cx.lineTo(16, -42); cx.lineTo(-170, -52); cx.closePath(); outline(wood, 2);
-          cx.beginPath(); cx.moveTo(110, -66); cx.lineTo(176, -76); cx.lineTo(178, -40); cx.lineTo(112, -34); cx.closePath(); outline('#5B4030', 2.2);
-          for (let k = 0; k < 4; k++) { cx.fillStyle = k % 2 ? 'rgba(251,243,223,.35)' : 'rgba(183,65,46,.45)'; cx.fillRect(116 + k * 15, -68 + k * -1.5, 8, 30); }
-          /* near-side planks with gaps you can see through */
-          const plank = (y0, x0, x1, c) => { cx.beginPath(); cx.moveTo(x0, y0); cx.lineTo(x1, y0 - 2); cx.lineTo(x1, y0 + 9); cx.lineTo(x0, y0 + 11); cx.closePath(); outline(c, 1.8); };
-          plank(8, -150, -60, wood2); plank(8, -20, 120, wood2); plank(-6, -176, -110, wood); plank(-6, 40, 150, wood); plank(-20, -186, -150, '#7D5838'); plank(-20, 120, 170, '#7D5838');
+          /* v45: far-side planks (dark, behind the cargo hold) */
+          cx.strokeStyle = 'rgba(107,74,48,.55)'; cx.lineWidth = 2; cx.beginPath(); [[-150, -24, -40, -20], [-30, -2, 120, -6], [-140, -40, 90, -44]].forEach(([x0, y0, x1, y1]) => { cx.moveTo(x0, y0); cx.lineTo(x1, y1); }); cx.stroke();
+          /* the deck: solid planks, broken open in one place (the only way into the hold), jagged ends */
+          cx.beginPath(); cx.moveTo(-196, -80); cx.lineTo(-172, -64); cx.lineTo(10, -57); cx.lineTo(18, -60); cx.lineTo(24, -52); cx.lineTo(14, -46); cx.lineTo(4, -48); cx.lineTo(-172, -54); cx.lineTo(-190, -70); cx.closePath(); outline(wood, 2.4);
+          cx.beginPath(); cx.moveTo(96, -56); cx.lineTo(102, -64); cx.lineTo(110, -69); cx.lineTo(176, -79); cx.lineTo(196, -91); cx.lineTo(188, -78); cx.lineTo(176, -70); cx.lineTo(110, -60); cx.lineTo(104, -54); cx.closePath(); outline(wood, 2.4);
+          cx.strokeStyle = wood2; cx.lineWidth = 1.4; cx.beginPath(); for (let x = -150; x < 10; x += 26) { cx.moveTo(x, -62 + (x + 170) * 0.04); cx.lineTo(x, -53 + (x + 170) * 0.035); } for (let x = 124; x < 180; x += 22) { cx.moveTo(x, -69 - (x - 110) * 0.15); cx.lineTo(x, -61 - (x - 110) * 0.14); } cx.stroke();
+          /* splinters around the gap */
+          cx.strokeStyle = C.ink; cx.lineWidth = 1.6; cx.beginPath(); cx.moveTo(24, -52); cx.lineTo(32, -58); cx.moveTo(18, -60); cx.lineTo(26, -66); cx.moveTo(96, -56); cx.lineTo(88, -62); cx.moveTo(102, -64); cx.lineTo(94, -70); cx.stroke();
+          /* the cabin standing on the stern deck */
+          cx.beginPath(); cx.moveTo(112, -66); cx.lineTo(114, -98); cx.lineTo(174, -108); cx.lineTo(176, -76); cx.closePath(); outline('#5B4030', 2.2);
+          for (let k = 0; k < 4; k++) { cx.fillStyle = k % 2 ? 'rgba(251,243,223,.35)' : 'rgba(183,65,46,.45)'; cx.fillRect(118 + k * 14, -96 - k * 2.4, 7, 24); }
           cx.beginPath(); cx.moveTo(-196, -78); cx.quadraticCurveTo(-170, 20, -40, 26); cx.lineTo(60, 26); cx.quadraticCurveTo(150, 20, 196, -88); cx.lineWidth = 7; cx.strokeStyle = C.ink; cx.stroke(); cx.lineWidth = 4; cx.strokeStyle = '#8B5E3A'; cx.stroke();
           /* bow papyrus finial and stern lotus, faded */
           cx.beginPath(); cx.moveTo(-196, -78); cx.lineTo(-214, -104); cx.quadraticCurveTo(-196, -116, -182, -96); cx.closePath(); outline('#4E7A5A', 2.4);
@@ -416,9 +492,9 @@
           /* spilled cargo (scenery): a toppled amphora row and broken pots */
           [[-100, 4, 0.5], [-78, 8, 1.2], [70, 6, -0.4]].forEach(([x, y, r]) => { cx.save(); cx.translate(x, y); cx.rotate(r); cx.beginPath(); cx.ellipse(0, 0, 8, 13, 0, 0, Math.PI * 2); outline('#8A4A34', 1.6); cx.restore(); });
           /* eel holes */
-          [[-88, -6], [96, -10], [30, -60]].forEach(([x, y]) => { cx.beginPath(); cx.ellipse(x, y, 10, 8, 0, 0, Math.PI * 2); outline('#120C0A', 2); });
+          [[-88, -4], [96, -8], [124, -90]].forEach(([x, y]) => { cx.beginPath(); cx.ellipse(x, y, 10, 8, 0, 0, Math.PI * 2); outline('#120C0A', 2); });
           /* moss, barnacles, a sand drift over the keel */
-          cx.strokeStyle = moss; cx.lineWidth = 3; cx.beginPath(); for (let x = -180; x < 190; x += 14) { const y = -64 + Math.abs(x) * -0.05 + (x % 28 ? 3 : -2); cx.moveTo(x, y); cx.lineTo(x + 2 + Math.sin(s.t * 2 + x) * 2, y - 8); } cx.stroke();
+          cx.strokeStyle = moss; cx.lineWidth = 3; cx.beginPath(); for (let x = -180; x < 190; x += 14) { if (x > 18 && x < 100) continue; const y = -64 + Math.abs(x) * -0.05 + (x % 28 ? 3 : -2); cx.moveTo(x, y); cx.lineTo(x + 2 + Math.sin(s.t * 2 + x) * 2, y - 8); } cx.stroke();
           cx.fillStyle = '#D8CDB0'; for (let k = 0; k < 18; k++) { cx.beginPath(); cx.arc(-170 + k * 20 + (k % 3) * 4, 14 - (k % 4) * 6, 1.8, 0, Math.PI * 2); cx.fill(); }
           cx.beginPath(); cx.moveTo(-220, 34); cx.quadraticCurveTo(-120, 4, -20, 20); cx.quadraticCurveTo(80, 30, 220, 14); cx.lineTo(220, 60); cx.lineTo(-220, 60); cx.closePath(); cx.fillStyle = '#B49A6C'; cx.fill();
           cx.restore();
@@ -469,6 +545,8 @@
           s.items.forEach(i => {
             if (i.banked || i === d.item) return;
             const gl = 0.22 + 0.12 * Math.sin(s.t * 3 + i.x), hr = i.r + 14;
+            /* v45: with the hold full an amphora stays where it is, greyed */
+            if (i.full) { cx.save(); cx.globalAlpha = 0.45; this.item(i, 1.15); cx.restore(); return; }
             blot(spr(i.special ? 'gl2' : 'gl1', i.special ? '160,240,240' : '255,236,160'), i.x, i.y, hr, i.special ? gl + 0.2 : gl);
             this.item(i, 1.25);
             const sp = Math.max(0, Math.sin(i.ph * 2.6)), sxp = i.x + 12, syp = i.y - 14;
@@ -476,6 +554,14 @@
             if (i.special) textC('Ud', i.x, i.y - 30, 14, '#BFE6EC');
           });
           s.eels.forEach(e => this.eel(e));
+          /* v45: the way into the hold: an arrow at the gap in the deck when what you want is on the other side */
+          const G = s.gate, inItem = !d.item && s.items.some(i => i.inside && !i.banked && !i.full && !i.taken);
+          if (G && !s.finishing && ((!d.inside && inItem) || (d.inside && d.item))) {
+            const up = !!d.inside, b = Math.sin(s.t * 5) * 5, ax = G.x, ay = (up ? G.oy - 4 : G.oy - 22) + (up ? -b : b);
+            cx.save(); cx.globalAlpha = 0.85; cx.translate(ax, ay); if (up) cx.rotate(Math.PI);
+            cx.beginPath(); cx.moveTo(0, 14); cx.lineTo(12, -2); cx.lineTo(5, -2); cx.lineTo(5, -14); cx.lineTo(-5, -14); cx.lineTo(-5, -2); cx.lineTo(-12, -2); cx.closePath(); outline('#FFF2B0', 2); cx.restore();
+            if (s.t < 9 || s.bumps > 0 && s.bumpCd > 0) textC(up ? 'Çıkış' : 'Giriş', ax, ay - (up ? -30 : 20), 13, '#FFF2B0');
+          }
           s.fish.forEach(f => { cx.save(); cx.translate(f.x, f.y + Math.sin(f.ph * 2) * 3); cx.scale(f.vx > 0 ? 1 : -1, 1); cx.beginPath(); cx.ellipse(0, 0, 10, 5, 0, 0, Math.PI * 2); outline(f.c, 1.2); cx.beginPath(); cx.moveTo(-9, 0); cx.lineTo(-16, -5 + Math.sin(f.ph * 9) * 2); cx.lineTo(-16, 5 + Math.sin(f.ph * 9) * 2); cx.closePath(); outline(f.c, 1.2); cx.fillStyle = C.ink; cx.beginPath(); cx.arc(5, -1, 1.2, 0, Math.PI * 2); cx.fill(); cx.restore(); });
           /* lifeline from the boat */
           cx.strokeStyle = C.ink; cx.lineWidth = 3.4; const rope = () => { cx.beginPath(); cx.moveTo(bx + 14, sea + 2); cx.quadraticCurveTo((bx + d.x) / 2, Math.max(sea, d.y) + 50, d.x - d.face * 8, d.y + 2); cx.stroke(); }; rope(); cx.strokeStyle = '#E9D9B4'; cx.lineWidth = 1.8; rope();
@@ -519,7 +605,7 @@
           if (left && s.t > s.dur - 6 && !s.finishing) textC('Gün batıyor: ' + Math.max(0, Math.ceil(s.dur - s.t)) + ' sn', W / 2, by + 74, 16, '#FFD9A0');
           /* tutorial strip for the first seconds */
           if (s.tut > 0 && s.count <= 0) {
-            const a = Math.min(1, s.tut * 1.5), l1 = coarse ? 'Gitmek istediğin yere basılı tut' : '← ↑ → ↓ ile yüz', l2 = 'Eşyaya değ, kap, tekneye taşı · nefes yüzeyde dolar', l3 = 'Yılan balığı “!” yapınca kırmızı halkadan çık';
+            const a = Math.min(1, s.tut * 1.5), l1 = coarse ? 'Gitmek istediğin yere basılı tut' : '← ↑ → ↓ ile yüz', l2 = 'Batığa güvertedeki yarıktan gir · eşyayı kap, tekneye taşı', l3 = 'Yılan balığı “!” yapınca kırmızı halkadan çık';
             cx.save(); cx.globalAlpha = a; cx.font = '800 15px Nunito, sans-serif'; const w = Math.min(W - 24, Math.max(cx.measureText(l2).width, 200) + 36), y = s.sea + 46;
             cx.beginPath(); cx.roundRect ? cx.roundRect(W / 2 - w / 2, y, w, 78, 14) : cx.rect(W / 2 - w / 2, y, w, 78); cx.fillStyle = 'rgba(251,243,223,.95)'; cx.fill(); cx.lineWidth = 2.4; cx.strokeStyle = C.ink; cx.stroke();
             cx.textAlign = 'center'; cx.fillStyle = C.ink; cx.font = '800 16px Nunito, sans-serif'; cx.fillText(l1, W / 2, y + 23); cx.font = '700 13.5px Nunito, sans-serif'; cx.fillText(l2, W / 2, y + 45); cx.fillStyle = '#8F2F21'; cx.fillText(l3, W / 2, y + 66); cx.restore();

@@ -58,17 +58,20 @@
   }
   /* the v28 haggle over one good: hand over to haggleDeal, then strike the deal */
   /* how much a side allows right now: what you can afford and carry, or what you hold */
-  const hgMax = (gid, side) => side === 'buy' ? (gById(gid).craft ? 0 : quoteBuy(S, gid, Infinity).n) : S.inv[gid].n;
+  const hgMax = (gid, side) => side === 'buy' ? (gById(gid).craft ? 0 : quoteBuy(S, gid, Infinity).n) : quoteSell(S, gid, Infinity).n;
   /* one plain line that says whether the merchant has room on this good: the shelf and the city's appetite */
   function hgHint(gid, side) {
-    const st = S.stock ? S.stock[S.city][gid] : 0, full = STOCK[gid] || 1, se = SEASONS[seasonIdx(S)].mult[gid] || 1, want = (CITIES[S.city].mult[gid] || 1) * se;
+    const st = S.stock ? S.stock[S.city][gid] : 0, full = (S.stockBase ? S.stockBase[S.city][gid] : STOCK[gid]) || 1, se = SEASONS[seasonIdx(S)].mult[gid] || 1, want = (CITIES[S.city].mult[gid] || 1) * se;
     if (side === 'buy') {
       if (st / full > 0.85 && want < 1.1) return ['ok', 'İstekli: tezgâhı dolu, malı elinde kalmış'];
       if (st / full < 0.4 || want > 1.25) return ['no', 'İsteksiz: ' + (st / full < 0.4 ? 'tezgâhı boşalıyor' : 'şehir bu malı çok arıyor')];
       return ['mid', 'Ne istekli ne isteksiz: yüzüne bak'];
     }
+    const room = stockRoom(S, gid), mx = Math.max(1, stockMax(S, S.city, gid));
+    if (!room) return ['no', 'Deposu dolu: bu malı hiç almaz'];
+    if (room < S.inv[gid].n) return ['no', 'Deposunda yalnız ' + room + ' yer var'];
     if (want > 1.2) return ['ok', 'İstekli: şehir bu malı çok arıyor'];
-    if (want < 0.9 || st / full > 0.9) return ['no', 'İsteksiz: burada bu mal bol'];
+    if (want < 0.9 || st / mx > 0.75) return ['no', 'İsteksiz: ' + (want < 0.9 ? 'burada bu mal bol' : 'deposu dolmak üzere')];
     return ['mid', 'Ne istekli ne isteksiz: yüzüne bak'];
   }
   /* the action bar while preparing a haggle: which side, how many, and a hint */
@@ -102,7 +105,7 @@
     const q = side === 'buy' ? quoteBuy(S, gid, n) : quoteSell(S, gid, n); n = q.n; if (!n) { play('no'); renderPanel(); return; }
     const g = gById(gid), unit = (side === 'buy' ? q.cost : q.rev) / n;
     const se = SEASONS[seasonIdx(S)].mult[gid] || 1, crisis = (S.mods || []).filter(m => m.city === S.city && (!m.g || m.g === gid) && S.day >= m.from && S.day <= m.until).reduce((a, m) => a * m.mult, 1);
-    const o = { ci:S.city, g:gid, side, qty:n, unit, stock:S.stock ? S.stock[S.city][gid] : 0, stockFull:STOCK[gid] || 0, want:+((CITIES[S.city].mult[gid] || 1) * se * crisis).toFixed(3), trust:trustLv(S), mood:Math.max(-1, Math.min(1, moodBoost * 0.4 + (trustLv(S) - 1) * 0.2)), seed:((S.rs || 7) * 131 + S.city * 97 + S.day * 13 + GOODS.indexOf(g)) | 0, who:S.city };
+    const o = { ci:S.city, g:gid, side, qty:n, unit, stock:S.stock ? S.stock[S.city][gid] : 0, stockFull:(S.stockBase ? S.stockBase[S.city][gid] : STOCK[gid]) || 0, stockMax:S.stock ? stockMax(S, S.city, gid) : 0, want:+((CITIES[S.city].mult[gid] || 1) * se * crisis).toFixed(3), trust:trustLv(S), mood:Math.max(-1, Math.min(1, moodBoost * 0.4 + (trustLv(S) - 1) * 0.2)), seed:((S.rs || 7) * 131 + S.city * 97 + S.day * 13 + GOODS.indexOf(g)) | 0, who:S.city };
     let done = false, st0 = null;
     try {
       haggleDeal(o, r => {

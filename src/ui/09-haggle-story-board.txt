@@ -281,7 +281,7 @@
     const q = Q(); if (!q || q.id !== 'lapis' || q.st !== 'active') return;
     if (!res.spotted) {
       const got = addGoods(S, 'lapis', 2);
-      qDone('Fenerlere görünmeden yanaştın; Nakht\'ın adamları kalpazanları kalıplarıyla birlikte yakaladı. Vezir ödülü ve el konan ' + got + ' gerçek lapisi sana bıraktı.', q.f.sharp ? 1500 : 1200);
+      qDone('Fenerlere görünmeden yanaştın; Nakht\'ın adamları kalpazanları kalıplarıyla birlikte yakaladı. Vezir ödülü ' + (got ? 've el konan ' + got + ' gerçek lapisi sana bıraktı.' + (got < 2 ? ' Ambar dolu: bir lapis vezirde kaldı.' : '') : 'sana; el konan iki lapis ambarda yer olmadığı için vezirde kaldı.'), q.f.sharp ? 1500 : 1200);
     } else qDone('Devriye fenerleri seni ele verdi, kalpazanlar kaçtı. Yine de kalıplarına el koydun; vezir yarım ödül gönderdi.', 500, { rep:1 });
   }
   function goalChip() {

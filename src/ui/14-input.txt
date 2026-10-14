@@ -64,6 +64,8 @@
     else if (act === 'event') showEvent();
     else if (act === 'land') landDone();
     else if (act === 'finish') endGame();
+    else if (act === 'holdList') { play('click'); showHold(); }
+    else if (act === 'holdMarket') { closeSheet(); openSpot('market'); }
     else if (act === 'wait') {
       if (CU.busy) return;
       const si0 = seasonIdx(S), out = waitDay(S);
@@ -142,7 +144,10 @@
     else if (act === 'water1') { const n = buyWater(S, 1); if (n) { toast('Bir günlük su aldın.'); play('splash'); save(); renderAll(); } else play('no'); }
     else if (act === 'guide') { closeSheet(); if (phase === 'port' && !S.over) guideIntro(true); }
     else if (act === 'tutDone') { meta.tutDone = true; saveMeta(); renderAll(); }
-    else if (act === 'sellAll') { if (phase !== 'port' || S.over) return; let rev = 0, pr = 0, lvUp = 0; GOODS.forEach(g => { if (S.inv[g.id].n) { const r = sell(S, g.id, Infinity); rev += r.rev; pr += r.profit || 0; lvUp = r.lvUp || lvUp; } }); if (rev) { play(pr > 1500 ? 'big' : 'sell'); floatAt(t, '+' + fmt(rev) + '  (kâr ' + (pr >= 0 ? '+' : '') + fmt(pr) + ')', pr < 0); if (lvUp) { line = pickLine(); trustToast(lvUp, S.city); } save(); renderAll(); } }
+    else if (act === 'sellAll') { if (phase !== 'port' || S.over) return; let rev = 0, pr = 0, lvUp = 0; const kept = []; GOODS.forEach(g => { if (S.inv[g.id].n) { const r = sell(S, g.id, Infinity); rev += r.rev; pr += r.profit || 0; lvUp = r.lvUp || lvUp; if (r.reason === 'full' && S.inv[g.id].n) kept.push(S.inv[g.id].n + ' ' + gName(g.id)); } });
+      /* v45: a full storeroom keeps some goods in your hold */
+      if (kept.length) toast('Tüccarın deposu dolu: ' + kept.join(', ') + ' ambarında kaldı.');
+      if (rev) { play(pr > 1500 ? 'big' : 'sell'); floatAt(t, '+' + fmt(rev) + '  (kâr ' + (pr >= 0 ? '+' : '') + fmt(pr) + ')', pr < 0); if (lvUp) { line = pickLine(); trustToast(lvUp, S.city); } save(); renderAll(); } else if (kept.length) play('no'); }
     else if (act === 'gift') { const f = giftOf(S.city), r = gift28(S); if (r) { line = f.thanks; play('good'); toast('Karşılığında: ' + r.got.join(', ') + '.'); trustToast(r.lvUp, S.city); save(); renderAll(); } }
     else if (act === 'accept') { if (acceptOrder(S)) { play('click'); toast('Sipariş deftere yazıldı.'); save(); renderAll(); } else play('no'); }
     else if (act === 'deliver') { const o = deliverable(S)[0]; const r = o && deliver(S, o); if (r) { play('big'); floatAt(t, '+' + fmt(r.reward)); toast(MERCHANT_NAMES[r.from] + ' siparişin için teşekkür ediyor.' + (r.perk === 'itibar' ? ' Lonca\'da +2 itibar.' : r.perk ? ' ' + BLESS[r.perk].name + ' seninle.' : '')); trustToast(r.lvUp, r.from); save(); renderAll(); } }
