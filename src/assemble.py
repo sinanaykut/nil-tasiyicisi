@@ -7,7 +7,7 @@ usage:  python3 src/assemble.py [SRC_DIR] [OUT_NAME]
             default v33 -> v33.html and preview33.html (in the scratchpad root)
 
 Layout of SRC_DIR (everything is concatenated in this order into one IIFE):
-  core.txt, v8-merchants.txt, merch27.txt, v8-portrait.txt, snd.txt,
+  core.txt, v8-merchants.txt, merch27.txt, v8-portrait.txt, snd-syn.txt (music synthesiser), snd.txt,
   sea/*.txt, ui/*.txt (sorted by their NN- prefix), then MODULES, then boot.txt
   CSS: css.txt + CSS_MODULES;  sprites: v8-sprites.svg + sprites27.txt
   chars33.dat (town people kit) is an inert data block placed before the script.
@@ -53,7 +53,7 @@ css = r('css.txt')
 extra_css = ''.join(r(f, True) for f in CSS_MODULES)
 j = css.rfind('</style>'); css = css[:j] + extra_css + '\n' + css[j:]
 out = (head + css + '\n' + sprites + '\n' + r('body.txt') + '\n' + r('chars33.dat', True) + '\n<script>\n' + pre + core + '\n' + r('v8-merchants.txt') + '\n' +
-       r('merch27.txt', True) + '\n  let uid = 0;\n' + r('v8-portrait.txt') + '\n' + r('snd.txt') + '\n' + r('sea') + '\n' + r('ui') + mods + '\n' + r('boot.txt') + '\n})();\n</script>\n')
+       r('merch27.txt', True) + '\n  let uid = 0;\n' + r('v8-portrait.txt') + '\n' + r('snd-syn.txt') + '\n' + r('snd.txt') + '\n' + r('sea') + '\n' + r('ui') + mods + '\n' + r('boot.txt') + '\n})();\n</script>\n')
 a, b = (os.path.join(ROOT, OUT + '.html'), os.path.join(ROOT, OUT + '-preview.html')) if OUT else (os.path.join(ROOT, 'dist', 'nil-kervanci.html'), os.path.join(ROOT, 'dist', 'preview.html'))
 os.makedirs(os.path.dirname(a), exist_ok=True)
 open(a, 'w').write(out)

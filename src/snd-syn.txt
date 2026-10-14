@@ -1,0 +1,654 @@
+  /* ================= music synthesiser (v44) =================
+     Every tune is played by instruments built from code, sample by sample: plucked oud and bass strings
+     (Karplus-Strong with a tuned all-pass and a lute body EQ), harp and kanun (modal string partials), ney and
+     a soft reed (breath noise + harmonics + vibrato and glides), darbuka, frame drum, tabl, riq, sistrum and
+     finger cymbals (modal membranes / metal), bowed and sung drones (band-limited wavetables).
+     Mixing: buses with EQ, a ping-pong echo, a convolution reverb (generated warm room / temple impulse, run
+     at half rate with FFT overlap-add), then master EQ, a glue compressor and a soft ceiling at -1 dBFS.
+     NilSynth is self-contained on purpose: its source text is also the body of the render Worker, so it must
+     not use any name from the surrounding game. The same job can be stepped on the main thread in short slices
+     when Workers are not allowed. Output is a seamless loop (the tail after the loop end is folded onto the start). */
+  function NilSynth() {
+    const SR = 32000, BLK = 256, SEG = 32768, S2 = SEG >> 1, TAU = Math.PI * 2, LN2 = Math.LN2;
+    const hz = m => 440 * Math.pow(2, (m - 69) / 12);
+    const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
+    function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+    const NZ = new Float32Array(1 << 16); { const r = rng(11); for (let i = 0; i < NZ.length; i++) NZ[i] = r() * 2 - 1; }
+    const STL = 4096, STAB = new Float32Array(STL + 1); for (let i = 0; i <= STL; i++) STAB[i] = Math.sin(TAU * i / STL);
+    const panG = p => { const a = (clamp(p, -1, 1) + 1) * Math.PI / 4; return [Math.cos(a), Math.sin(a)]; };
+
+    /* ---------- biquads (RBJ cookbook, transposed direct form II) ---------- */
+    function bq(type, f, q, db, sr) {
+      sr = sr || SR; f = Math.min(f, sr * 0.45);
+      const w = TAU * f / sr, cw = Math.cos(w), sw = Math.sin(w), al = sw / (2 * (q || 0.707)), A = Math.pow(10, (db || 0) / 40);
+      let b0, b1, b2, a0, a1, a2;
+      if (type === 'lp') { b0 = (1 - cw) / 2; b1 = 1 - cw; b2 = b0; a0 = 1 + al; a1 = -2 * cw; a2 = 1 - al; }
+      else if (type === 'hp') { b0 = (1 + cw) / 2; b1 = -(1 + cw); b2 = b0; a0 = 1 + al; a1 = -2 * cw; a2 = 1 - al; }
+      else if (type === 'bp') { b0 = al; b1 = 0; b2 = -al; a0 = 1 + al; a1 = -2 * cw; a2 = 1 - al; }
+      else if (type === 'pk') { b0 = 1 + al * A; b1 = -2 * cw; b2 = 1 - al * A; a0 = 1 + al / A; a1 = -2 * cw; a2 = 1 - al / A; }
+      else {
+        const s = 2 * Math.sqrt(A) * al;
+        if (type === 'ls') { b0 = A * ((A + 1) - (A - 1) * cw + s); b1 = 2 * A * ((A - 1) - (A + 1) * cw); b2 = A * ((A + 1) - (A - 1) * cw - s); a0 = (A + 1) + (A - 1) * cw + s; a1 = -2 * ((A - 1) + (A + 1) * cw); a2 = (A + 1) + (A - 1) * cw - s; }
+        else { b0 = A * ((A + 1) + (A - 1) * cw + s); b1 = -2 * A * ((A - 1) + (A + 1) * cw); b2 = A * ((A + 1) + (A - 1) * cw - s); a0 = (A + 1) - (A - 1) * cw + s; a1 = 2 * ((A - 1) - (A + 1) * cw); a2 = (A + 1) - (A - 1) * cw - s; }
+      }
+      return { b0:b0 / a0, b1:b1 / a0, b2:b2 / a0, a1:a1 / a0, a2:a2 / a0, z1:0, z2:0 };
+    }
+    function lpCo(o, f, q) {
+      const w = TAU * Math.min(f, SR * 0.45) / SR, cw = Math.cos(w), al = Math.sin(w) / (2 * q), a0 = 1 + al;
+      o.b0 = (1 - cw) / 2 / a0; o.b1 = (1 - cw) / a0; o.b2 = o.b0; o.a1 = -2 * cw / a0; o.a2 = (1 - al) / a0;
+    }
+    function bqBuf(o, d, n) {
+      let z1 = o.z1, z2 = o.z2; const b0 = o.b0, b1 = o.b1, b2 = o.b2, a1 = o.a1, a2 = o.a2;
+      for (let i = 0; i < n; i++) { const x = d[i], y = b0 * x + z1; z1 = b1 * x - a1 * y + z2; z2 = b2 * x - a2 * y; d[i] = y; }
+      o.z1 = Math.abs(z1) < 1e-25 ? 0 : z1; o.z2 = Math.abs(z2) < 1e-25 ? 0 : z2;
+    }
+
+    /* ---------- plucked string: Karplus-Strong, all-pass tuned, one-pole loss ---------- */
+    function ks(f, t60, damp, hard, pos, r) {
+      const P = SR / f, w = TAU * f / SR, a = damp;
+      const lpD = Math.atan2(a * Math.sin(w), 1 - a * Math.cos(w)) / w, H = (1 - a) / Math.sqrt(1 - 2 * a * Math.cos(w) + a * a);
+      const D = P - lpD; let N = Math.floor(D), fr = D - N; if (fr < 0.2) { N--; fr += 1; }
+      let size = 2; while (size < N + 4) size <<= 1;
+      const buf = new Float64Array(size), ex = new Float64Array(N);
+      let e = 0; for (let i = 0; i < N; i++) { e += hard * ((r() * 2 - 1) - e); ex[i] = e; }
+      const pp = Math.max(1, Math.round(pos * N));
+      let mean = 0; for (let i = N - 1; i >= pp; i--) ex[i] -= ex[i - pp];
+      for (let i = 0; i < N; i++) mean += ex[i]; mean /= N;
+      let pk = 1e-9; for (let i = 0; i < N; i++) { ex[i] -= mean; pk = Math.max(pk, Math.abs(ex[i])); }
+      for (let i = 0; i < N; i++) buf[i] = ex[i] / pk;
+      return { buf, m:size - 1, N, C:(1 - fr) / (1 + fr), a, g:Math.min(0.99993, Math.pow(0.001, 1 / (f * t60)) / H), gm:Math.pow(0.001, 1 / (f * 0.07)) / H, w:N, ax:0, ay:0, lp:0 };
+    }
+    function ksStep(s) {
+      const x = s.buf[(s.w - s.N) & s.m];
+      const ap = s.C * x + s.ax - s.C * s.ay; s.ax = x; s.ay = ap;
+      s.lp = (1 - s.a) * ap + s.a * s.lp;
+      const y = s.g * s.lp; s.buf[s.w & s.m] = y; s.w++;
+      return x;
+    }
+    /* o: t60, damp, hard, pos, det (cents, second string of the course), off (s: finger mute), pan, len */
+    function vPluck(f, vel, o, r) {
+      const det = o.det || 0, k = Math.pow(2, det / 1200);
+      const s1 = ks(f * k, o.t60, o.damp, o.hard, o.pos, r), s2 = det ? ks(f / k, o.t60 * 0.9, o.damp, o.hard, o.pos * 1.1, r) : null;
+      const off = o.off ? Math.round(o.off * SR) : 0, len = Math.round(Math.min(o.len || o.t60 * 1.05, o.off ? o.off + 0.18 : 99) * SR), fade = Math.round(0.03 * SR);
+      const [gl, gr] = panG(o.pan || 0), v = vel * (s2 ? 0.55 : 0.8);
+      let n = 0;
+      return (L, R, i0, i1) => {
+        for (let i = i0; i < i1; i++, n++) {
+          if (n === off && off) { s1.g = Math.min(s1.g, s1.gm); s1.a = Math.max(s1.a, 0.55); if (s2) { s2.g = Math.min(s2.g, s2.gm); s2.a = Math.max(s2.a, 0.55); } }
+          let y = ksStep(s1); if (s2) y += 0.85 * ksStep(s2);
+          y *= v; if (n > len - fade) y *= (len - n) / fade;
+          L[i] += y * gl; R[i] += y * gr;
+          if (n >= len) return false;
+        }
+        return true;
+      };
+    }
+    /* ---------- modal voice: string partials (harp, kanun) or struck membranes / metal ---------- */
+    function vModes(modes, vel, o, r) {
+      const M = modes.length, c1 = new Float64Array(M), c2 = new Float64Array(M), y1 = new Float64Array(M), y2 = new Float64Array(M), ex = new Float64Array(M);
+      modes.forEach(([f, a, t], i) => { const w = TAU * Math.min(f, SR * 0.45) / SR, rr = Math.pow(0.001, 1 / (t * SR)); c1[i] = 2 * rr * Math.cos(w); c2[i] = rr * rr; ex[i] = a * Math.sin(w) * vel; });
+      const hits = o.hits || [[0, 1]], hs = hits.map(h => Math.round(h[0] * SR));
+      const len = Math.round((o.len || 1) * SR), fade = Math.round(0.02 * SR), [gl, gr] = panG(o.pan || 0);
+      /* pitched body: a sine with a falling pitch (membrane tension at the strike) */
+      const ob = o.osc, oA = ob ? ob[3] * vel : 0, oK = ob ? Math.pow(0.001, 1 / (ob[4] * SR)) : 0, oT = ob ? Math.exp(-1 / (ob[2] * SR)) : 0;
+      let oPh = 0, oE = 0, oDf = ob ? ob[0] - ob[1] : 0;
+      /* noise: [amp, t60, type, freq, q] — re-triggered on every hit */
+      const nz = (o.noise || []).map(q => ({ a:q[0] * vel, k:Math.pow(0.001, 1 / (q[1] * SR)), f:bq(q[2], q[3], q[4]), e:0 }));
+      let n = 0, hi = 0, ni = (r() * 65535) | 0;
+      return (L, R, i0, i1) => {
+        for (let i = i0; i < i1; i++, n++) {
+          let x = 0;
+          while (hi < hs.length && n === hs[hi]) { const h = hits[hi][1]; for (let m = 0; m < M; m++) y1[m] += ex[m] * h; for (let q = 0; q < nz.length; q++) nz[q].e = nz[q].a * h; if (n === 0) oE = oA; hi++; }
+          let y = 0;
+          for (let m = 0; m < M; m++) { const v = c1[m] * y1[m] - c2[m] * y2[m]; y2[m] = y1[m]; y1[m] = v; y += v; }
+          if (ob) { oDf *= oT; oPh += (ob[1] + oDf) / SR; if (oPh >= 1) oPh -= 1; y += STAB[(oPh * STL) | 0] * oE * (n < 24 ? n / 24 : 1); oE *= oK; }
+          for (let q = 0; q < nz.length; q++) { const z = nz[q]; if (z.e > 1e-5) { const f = z.f, s = NZ[(ni++) & 65535] * z.e, v = f.b0 * s + f.z1; f.z1 = f.b1 * s - f.a1 * v + f.z2; f.z2 = f.b2 * s - f.a2 * v; x += v; z.e *= z.k; } }
+          y += x;
+          if (n > len - fade) y *= (len - n) / fade;
+          L[i] += y * gl; R[i] += y * gr;
+          if (n >= len) return false;
+        }
+        return true;
+      };
+    }
+    function stringModes(f, o) {
+      const out = [], K = o.K || 10, B = o.B || 0.00012, p = o.pos || 0.25;
+      for (let k = 1; k <= K; k++) {
+        const fk = k * f * Math.sqrt(1 + B * k * k); if (fk > (o.top || 6000)) break;
+        const a = Math.abs(Math.sin(Math.PI * k * p)) / Math.pow(k, o.roll || 1.15);
+        out.push([fk, a, o.t60 / (1 + (o.hd || 0.35) * (k - 1))]);
+        if (o.det && k <= 4) out.push([fk * (1 + o.det), a * 0.7, o.t60 / (1 + (o.hd || 0.35) * (k - 1)) * 0.92]);
+      }
+      return out;
+    }
+    /* ---------- wind phrase: ney (breathy) or a soft folk reed, legato with glides, scoops and vibrato ---------- */
+    const WIND = {
+      ney: { h:[1, .36, .17, .09, .045, .025], breath:.2, chiff:.55, vib:.0105, rate:5.1, glide:.024, dip:.3, bp:[1700, .6], top:7000, lp:6500 },
+      reed: { h:[1, .5, .62, .36, .4, .22, .2, .12, .09, .06], breath:.05, chiff:.25, vib:.007, rate:5.9, glide:.016, dip:.4, bp:[2600, .9], top:5600, lp:5000 }
+    };
+    function vWind(notes, BEAT, vel, o, r) {
+      const W = WIND[o.timbre || 'ney'], segs = []; let t = 0;
+      notes.forEach(([m, b]) => { const d = b * BEAT * SR; if (m != null) segs.push({ s:Math.round(t), e:Math.round(t + d) - (o.sep ? Math.round(o.sep * SR) : 0), lf:Math.log2(hz(m)), K:0 }); t += d; });
+      segs.forEach((sg, i) => { sg.K = Math.max(1, Math.min(W.h.length, Math.floor(W.top / Math.pow(2, sg.lf)))); sg.leg = i > 0 && segs[i - 1].e >= sg.s - 40; sg.v = vel * (o.acc && o.acc[i] ? o.acc[i] : 1); });
+      const end = Math.round(t) + Math.round(0.6 * SR), [gl, gr] = panG(o.pan || 0);
+      const kAtt = 1 - Math.exp(-1 / (0.035 * SR)), kRel = 1 - Math.exp(-1 / (0.09 * SR)), kGl = 1 - Math.exp(-1 / (W.glide * SR)), dipN = Math.round(0.045 * SR);
+      const bpf = bq('bp', W.bp[0], W.bp[1]), lpf = bq('lp', W.lp, 0.7), H = W.h, vibD = W.vib * (o.vib || 1), vr = W.rate * (0.95 + r() * 0.1) / SR;
+      let n = 0, si = 0, lf = segs.length ? segs[0].lf - 0.03 : 8, ph = 0, vph = r(), amp = 0, ch = 0, ni = (r() * 65535) | 0, wob = 0;
+      return (L, R, i0, i1) => {
+        for (let i = i0; i < i1; i++, n++) {
+          while (si < segs.length && n >= segs[si].e) si++;
+          const sg = segs[si]; let tgt = 0, vd = 0, K = 1;
+          if (sg && n >= sg.s) {
+            const into = n - sg.s;
+            if (into === 0) { ch = 1; if (!sg.leg) lf = sg.lf - 0.035; }
+            tgt = sg.v * (sg.leg && into < dipN ? 1 - W.dip * (1 - into / dipN) : 1);
+            const dur = sg.e - sg.s; if (dur > SR * 0.6) tgt *= 0.9 + 0.1 * Math.sin(Math.PI * into / dur);
+            vd = vibD * clamp((into - 0.2 * SR) / (0.4 * SR), 0, 1);
+            lf += (sg.lf - lf) * kGl; K = sg.K;
+          } else if (si > 0) K = segs[si - 1].K;
+          vph += vr; if (vph >= 1) vph -= 1; wob += 0.0004 * ((NZ[(ni + 7919) & 65535]) - wob * 8);
+          const f = Math.exp((lf + vd * STAB[(vph * STL) | 0] + wob * 0.003) * LN2);
+          ph += f / SR; if (ph >= 1) ph -= 1;
+          amp += (tgt - amp) * (tgt > amp ? kAtt : kRel);
+          if (amp < 1e-5 && tgt === 0) { if (n >= end) return false; continue; }
+          let tone = 0; for (let k = 0; k < K; k++) { let p = ph * (k + 1); p -= p | 0; tone += H[k] * STAB[(p * STL) | 0]; }
+          const s = NZ[(ni++) & 65535], b = bpf.b0 * s + bpf.z1; bpf.z1 = bpf.b1 * s - bpf.a1 * b + bpf.z2; bpf.z2 = bpf.b2 * s - bpf.a2 * b;
+          const br = b * (0.6 + 0.4 * STAB[(ph * STL) | 0]) * (W.breath + W.chiff * ch); ch *= 0.9993;
+          let y = (tone * 0.5 + br) * amp;
+          const v2 = lpf.b0 * y + lpf.z1; lpf.z1 = lpf.b1 * y - lpf.a1 * v2 + lpf.z2; lpf.z2 = lpf.b2 * y - lpf.a2 * v2; y = v2;
+          L[i] += y * gl; R[i] += y * gr;
+          if (n >= end) return false;
+        }
+        return true;
+      };
+    }
+    /* ---------- sustained drones / pads from band-limited wavetables ---------- */
+    const WT = {};
+    function table(kind, f) {
+      const band = Math.max(0, Math.floor(Math.log2(f / 27.5))), key = kind + band;
+      if (WT[key]) return WT[key];
+      const top = kind === 'choir' ? 3600 : 5200, H = Math.max(1, Math.min(48, Math.floor(top / (27.5 * Math.pow(2, band + 1))))), T = new Float32Array(2049);
+      for (let k = 1; k <= H; k++) {
+        const a = kind === 'choir' ? 1 / Math.pow(k, 1.7) : kind === 'reed' ? (k % 2 ? 1 : 0.45) / Math.pow(k, 1.1) : 1 / Math.pow(k, 1.3);
+        const p = (k * 2.3) % TAU; for (let i = 0; i < 2048; i++) T[i] += a * Math.sin(TAU * k * i / 2048 + p);
+      }
+      let pk = 1e-9; for (let i = 0; i < 2048; i++) pk = Math.max(pk, Math.abs(T[i])); for (let i = 0; i < 2048; i++) T[i] /= pk; T[2048] = T[0];
+      return (WT[key] = T);
+    }
+    const VOWEL = { a:[[730, 1, 7], [1100, 1.4, 6], [2450, 2, 3]], o:[[520, 1, 8], [880, 1.4, 6], [2400, 2, 2]], u:[[330, 1, 8], [800, 1.6, 5], [2300, 2, 1]] };
+    function vPad(m, dur, vel, o, r) {
+      const f = hz(m), T = table(o.timbre || 'str', f), dets = o.voices || [-7, 0, 6], NV = dets.length, inc = dets.map(c => f * Math.pow(2, c / 1200) * 2048 / SR), ph = dets.map(() => r() * 2048);
+      const att = Math.round((o.att || 1.2) * SR), rel = (o.rel || 1.6), sus = Math.round(dur * SR), len = sus + Math.round(rel * 3 * SR), kR = Math.pow(0.001, 1 / (rel * SR));
+      const filt = [bq('lp', o.cut || 2000, 0.6)]; if (o.timbre === 'choir') VOWEL[o.vowel || 'a'].forEach(([ff, q, db]) => filt.push(bq('pk', ff, q * 2.2, db)));
+      const [gl, gr] = panG(o.pan || 0), v = vel / Math.sqrt(NV), lfoR = (0.07 + r() * 0.06) / SR, vibR = 4.6 / SR;
+      let n = 0, env = 0, lp = r(), vp = r();
+      return (L, R, i0, i1) => {
+        for (let i = i0; i < i1; i++, n++) {
+          env = n < att ? n / att : n < sus ? 1 : env * kR;
+          vp += vibR; if (vp >= 1) vp -= 1; const vb = 1 + 0.0012 * STAB[(vp * STL) | 0];
+          let y = 0;
+          for (let k = 0; k < NV; k++) { let p = ph[k] + inc[k] * vb; if (p >= 2048) p -= 2048; ph[k] = p; const j = p | 0, fr = p - j; y += T[j] + (T[j + 1] - T[j]) * fr; }
+          y *= v * env;
+          for (let q = 0; q < filt.length; q++) { const b = filt[q], o2 = b.b0 * y + b.z1; b.z1 = b.b1 * y - b.a1 * o2 + b.z2; b.z2 = b.b2 * y - b.a2 * o2; y = o2; }
+          if ((n & 63) === 0) { lp += lfoR * 64; lpCo(filt[0], (o.cut || 2000) * (1 + 0.25 * Math.sin(TAU * lp)), 0.6); }
+          L[i] += y * gl; R[i] += y * gr;
+          if (n >= len) return false;
+        }
+        return true;
+      };
+    }
+    /* ---------- percussion kit (modal membranes, rims, metal) ---------- */
+    const DR = {
+      D:{ osc:[160, 100, 0.028, .9, 0.38], m:[[92 * 1.59, .3, .26], [92 * 2.14, .24, .18], [92 * 2.65, .12, .12], [92 * 3.16, .07, .09]], nz:[[.35, .035, 'lp', 900, .7]], len:.7 },
+      T:{ m:[[640, .42, .09], [1010, .38, .07], [1460, .32, .06], [1890, .22, .05], [2620, .14, .04]], nz:[[.75, .022, 'bp', 3100, 1.1]], len:.22 },
+      K:{ m:[[560, .3, .06], [900, .26, .05], [1330, .2, .045], [1760, .12, .04]], nz:[[.5, .018, 'bp', 2400, 1]], len:.16 },
+      P:{ m:[[300, .3, .07], [520, .3, .06], [810, .2, .05]], nz:[[.8, .03, 'bp', 1500, .8]], len:.2 },
+      B:{ osc:[100, 70, 0.045, .85, .65], m:[[66 * 1.59, .3, .4], [66 * 2.14, .22, .3], [66 * 2.3, .16, .26], [66 * 2.65, .1, .2]], nz:[[.16, .06, 'lp', 650, .7], [.07, .3, 'bp', 2100, .9]], len:1.0 },
+      F:{ m:[[420, .3, .07], [790, .26, .06], [1290, .2, .05], [1870, .1, .04]], nz:[[.55, .03, 'bp', 2500, 1]], len:.2 },
+      L:{ osc:[100, 62, 0.04, .5, .4], m:[[62 * 1.59, .45, .32], [62 * 2.14, .34, .24], [62 * 2.3, .22, .2], [62 * 2.92, .14, .14]], nz:[[.35, .05, 'lp', 700, .7]], len:.9 },
+      H:{ m:[[310, .32, .08], [540, .26, .06], [930, .2, .05], [1500, .1, .04]], nz:[[.7, .02, 'bp', 2100, .9]], len:.2 },
+      C:{ nz:[[1, .028, 'bp', 1250, 1.3]], hits:[[0, .55], [.009, .7], [.019, .8], [.029, 1]], tail:[.6, .11], len:.25 },
+      R:{ m:[[2650, .22, .09], [3640, .18, .08], [4780, .13, .06], [6050, .07, .05]], nz:[[.3, .03, 'bp', 5200, .8]], hits:[[0, 1], [.011, .55], [.021, .3]], len:.25 },
+      S:{ m:[[1720, .12, .2], [2310, .2, .16], [3080, .2, .13], [3890, .15, .11], [5160, .08, .08]], nz:[[.22, .035, 'bp', 4400, .8]], len:.6, shake:11 },
+      Z:{ m:[[1475, .32, 1.3], [1481, .28, 1.35], [3410, .2, .75], [5290, .1, .42], [7350, .04, .25]], nz:[[.12, .01, 'bp', 5000, 1]], len:1.7 },
+      G:{ m:[[110, .5, 6], [110.6, .45, 6], [298, .32, 4.2], [299.4, .28, 4], [566, .16, 2.6], [899, .08, 1.6], [1290, .04, 1.1]], nz:[[.05, .04, 'lp', 400, .7]], len:6.5 }
+    };
+    function vDrum(k, vel, pan, r, tune) {
+      const d = DR[k], tn = tune || 1, o = { pan, len:d.len, hits:d.hits };
+      if (d.osc) o.osc = [d.osc[0] * tn, d.osc[1] * tn, d.osc[2], d.osc[3], d.osc[4]];
+      o.noise = d.nz.map(q => [q[0] * (0.7 + 0.3 * vel), q[1], q[2], q[3] * (0.9 + 0.2 * vel), q[4]]);
+      if (d.tail) o.noise.push([d.tail[0], d.tail[1], 'bp', 1150, .9]);
+      if (d.shake) { o.hits = []; let t = 0; for (let i = 0; i < d.shake; i++) { o.hits.push([t, (1 - i / d.shake) * (0.5 + 0.5 * r())]); t += 0.009 + r() * 0.016; } }
+      const modes = (d.m || []).map(q => [q[0] * tn * (0.99 + 0.02 * r()), q[1], q[2]]);
+      return vModes(modes, vel, o, r);
+    }
+
+    /* ---------- convolution reverb ---------- */
+    const FFTP = {};
+    function plan(N) {
+      if (FFTP[N]) return FFTP[N];
+      const lg = Math.round(Math.log2(N)), rev = new Uint32Array(N), cs = new Float64Array(N / 2), sn = new Float64Array(N / 2);
+      for (let i = 0; i < N; i++) { let x = i, y = 0; for (let b = 0; b < lg; b++) { y = (y << 1) | (x & 1); x >>= 1; } rev[i] = y; }
+      for (let i = 0; i < N / 2; i++) { cs[i] = Math.cos(TAU * i / N); sn[i] = Math.sin(TAU * i / N); }
+      return (FFTP[N] = { rev, cs, sn });
+    }
+    function fft(re, im, N, inv) {
+      const P = plan(N), rev = P.rev, cs = P.cs, sn = P.sn, sg = inv ? 1 : -1;
+      for (let i = 0; i < N; i++) { const j = rev[i]; if (j > i) { let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; } }
+      for (let size = 2; size <= N; size <<= 1) {
+        const half = size >> 1, step = N / size;
+        for (let i = 0; i < N; i += size) for (let j = 0, k = 0; j < half; j++, k += step) {
+          const a = i + j, b = a + half, wr = cs[k], wi = sg * sn[k], xr = re[b] * wr - im[b] * wi, xi = re[b] * wi + im[b] * wr;
+          re[b] = re[a] - xr; im[b] = im[a] - xi; re[a] += xr; im[a] += xi;
+        }
+      }
+    }
+    /* a warm room: sparse early reflections, then decorrelated noise whose top end dies away faster than its body */
+    function makeIR(sr, o) {
+      const len = Math.round(o.len * sr), out = [];
+      for (let ch = 0; ch < 2; ch++) {
+        const r = rng((o.seed || 5) + ch * 101), d = new Float32Array(len), pre = Math.round((o.pre || 0.018) * sr);
+        let lp = 0, lp2 = 0;
+        for (let i = pre; i < len; i++) {
+          const t = (i - pre) / sr, fc = (o.hi || 5200) * Math.pow((o.lo || 900) / (o.hi || 5200), Math.min(1, t / o.len * 1.6)), a = 1 - Math.exp(-TAU * fc / sr);
+          lp += a * ((r() * 2 - 1) - lp); lp2 += a * (lp - lp2);
+          d[i] = lp2 * Math.exp(-6.9 * t / (o.t60 || o.len * 0.8)) * Math.min(1, t / 0.012);
+        }
+        for (let e = 0; e < (o.er || 8); e++) { const at = pre + Math.round((0.004 + r() * 0.07) * sr); if (at < len) d[at] += (r() < 0.5 ? -1 : 1) * (0.5 - e * 0.04) * (o.erg || 1); }
+        let en = 0; for (let i = 0; i < len; i++) en += d[i] * d[i]; en = Math.sqrt(en) || 1;
+        for (let i = 0; i < len; i++) d[i] /= en;
+        out.push(d);
+      }
+      return out;
+    }
+
+    /* ---------- score helpers ---------- */
+    const NOTE = { c:0, d:2, e:4, f:5, g:7, a:9, b:11 }, ACC = { '#':1, b:-1, '~':-0.5, '+':0.5 };
+    function parse(str, tr) {
+      const out = []; let dur = 1;
+      str.split(/[\s|]+/).forEach(tok => {
+        if (!tok) return; const [p, d] = tok.split(':'); if (d) dur = +d;
+        if (p === '-') { out.push([null, dur]); return; }
+        const m = /^([a-g])([#b~+])?(\d)$/.exec(p); if (!m) throw new Error('note ' + tok);
+        out.push([NOTE[m[1]] + (m[2] ? ACC[m[2]] : 0) + (+m[3] + 1) * 12 + (tr || 0), dur]);
+      });
+      return out;
+    }
+    const BUSDEF = {
+      oud:  { g:1.4, eq:[['hp', 90, .7], ['pk', 230, 1.1, 2.5], ['pk', 480, 1.3, 1], ['pk', 1250, 1.2, -1.5], ['pk', 2800, 1, 2.5], ['hs', 7500, .7, -3]], rv:.2, dl:.07 },
+      harp: { g:1, eq:[['hp', 120, .7], ['pk', 260, 1, 1], ['pk', 2400, 1, 1.5], ['hs', 8000, .7, -2]], rv:.36, dl:.12 },
+      wind: { g:.5, eq:[['hp', 240, .7], ['pk', 820, .9, 1.5], ['pk', 2600, 1, 1], ['pk', 4200, 1.4, -1.5], ['hs', 7500, .7, -3]], rv:.4, dl:.15 },
+      bass: { g:.8, eq:[['hp', 45, .7], ['pk', 120, 1, 1.5], ['pk', 750, 1, 2.5], ['lp', 2600, .7]], rv:.04, dl:0 },
+      pad:  { g:.8, eq:[['hp', 110, .7], ['pk', 300, .8, -2], ['lp', 4500, .7]], rv:.5, dl:0 },
+      drum: { g:1, eq:[['hp', 55, .7], ['pk', 250, .9, -1.5], ['pk', 3500, 1, -1], ['hs', 8500, .7, -3]], rv:.12, dl:0 },
+      metal:{ g:2, eq:[['hp', 1100, .7], ['pk', 4200, 1, -1.5], ['lp', 10500, .7]], rv:.26, dl:0 }
+    };
+    const BUSES = Object.keys(BUSDEF);
+    function builder(TK, seed) {
+      const BEAT = 60 / TK.bpm, BAR = BEAT * (TK.bpb || 4), r = rng(seed), ev = [], LOOPs = TK.bars * BAR;
+      const T = (bar, beat) => (bar * (TK.bpb || 4) + (beat || 0)) * BEAT;
+      const jit = s => (r() - 0.5) * 2 * s;
+      const add = (t, bus, mk) => { let s = Math.round((t + jit(0.003)) * SR); if (s < 0) s += Math.round(LOOPs * SR); ev.push({ s:Math.max(0, s), bus:BUSES.indexOf(bus), mk }); };
+      const hv = v => v * (0.9 + r() * 0.2);
+      let side = 0;
+      const log = [];
+      const B = {
+        BEAT, BAR, T, r, parse, log,
+        oud(t, m, v, o) { o = o || {}; log.push(['oud', t, m]); const f = hz(m); add(t, 'oud', () => vPluck(f, hv(v), { t60:clamp(2.3 - (m - 48) * 0.045, 0.8, 2.3) * (o.ring || 1), damp:0.13 + r() * 0.04, hard:o.soft ? 0.35 : 0.8, pos:0.14 + r() * 0.04, det:2.6, off:o.off, pan:(o.pan != null ? o.pan : -0.22) + jit(0.08) }, r)); },
+        bass(t, m, v, o) { o = o || {}; log.push(['bass', t, m]); const f = hz(m); add(t, 'bass', () => vPluck(f, hv(v), { t60:1.8, damp:0.46, hard:0.42, pos:0.22, off:o.off || BEAT * 1.4, pan:0 }, r)); },
+        harp(t, m, v, o) { o = o || {}; log.push(['harp', t, m]); const f = hz(m); add(t, 'harp', () => vModes(stringModes(f, { K:10, pos:0.27, t60:clamp(3.4 - (m - 55) * 0.05, 1.1, 3.4) * (o.ring || 1), top:7000, roll:1.15 }), hv(v) * 0.5, { len:clamp(3.4 - (m - 55) * 0.05, 1.1, 3.4) * (o.ring || 1), pan:(o.pan != null ? o.pan : 0.3) + jit(0.12), noise:[[0.03, 0.012, 'bp', 1400, 1]] }, r)); },
+        kanun(t, m, v, o) { o = o || {}; log.push(['kanun', t, m]); const f = hz(m), t6 = clamp(2.4 - (m - 60) * 0.04, 0.9, 2.4); add(t, 'harp', () => vModes(stringModes(f, { K:12, pos:0.11, t60:t6, top:7500, roll:1.0, hd:0.5, det:0.0016 }), hv(v) * 0.36, { len:Math.min(t6, o.off ? o.off + 0.3 : 9), pan:(o.pan != null ? o.pan : 0.32) + jit(0.06), noise:[[0.06, 0.008, 'bp', 2600, 1.2]] }, r)); },
+        wind(t, notes, v, o) { o = o || {}; const ns = typeof notes === 'string' ? parse(notes, o.tr) : notes; let tt = t; ns.forEach(([m, b]) => { if (m != null) log.push([o.timbre || 'ney', tt, m]); tt += b * BEAT; }); add(t, 'wind', () => vWind(ns, BEAT, v, o, r)); },
+        pad(ms, t, dur, v, o) { o = o || {}; ms.forEach(m => log.push(['pad', t, m])); ms.forEach((m, i) => add(t, 'pad', () => vPad(m, dur, v, Object.assign({}, o, { pan:(o.pan || 0) + (ms.length > 1 ? (i / (ms.length - 1) - 0.5) * (o.wide || 0.8) : 0) }), r))); },
+        drum(k, t, v, o) { o = o || {}; if (k !== k.toUpperCase()) { k = k.toUpperCase(); v *= 0.5; } const metal = 'RSZ'.indexOf(k) >= 0; add(t, metal ? 'metal' : k === 'G' ? 'pad' : 'drum', () => vDrum(k, hv(v), o.pan != null ? o.pan : metal ? ((side++ % 2) ? -0.35 : 0.35) : k === 'C' ? -0.12 : k === 'L' || k === 'H' ? 0.1 : -0.05 + jit(0.06), r, o.tune)); },
+        /* pattern: one char per grid step ('.' = rest), lower case = soft; grid = steps per bar */
+        rhythm(str, bar, v, o) {
+          o = o || {}; const s = str.replace(/\s/g, ''), g = o.grid || s.length, stepB = (TK.bpb || 4) / g;
+          for (let i = 0; i < s.length; i++) {
+            const c = s[i]; if (c === '.') continue; const up = c.toUpperCase(); if (!DR[up]) continue;
+            const sw = (i % 2 && o.swing) ? o.swing * stepB * BEAT : 0;
+            B.drum(up, T(bar, i * stepB) + sw, v * (c === up ? 1 : 0.5) * (o.acc && i % (g / 4) === 0 ? 1.15 : 1), { tune:o.tune });
+          }
+        },
+        roll(k, t, len, n, v0, v1) { for (let i = 0; i < n; i++) B.drum(k, t + len * i / n, v0 + (v1 - v0) * i / n); },
+        /* a melody on a plucked instrument; long notes become a tremolo (as oud and kanun players do) */
+        line(inst, str, bar, beat, v, o) {
+          o = o || {}; let t = T(bar, beat); const ns = typeof str === 'string' ? parse(str, o.tr) : str;
+          ns.forEach(([m, b], i) => {
+            if (m != null) {
+              const d = b * BEAT;
+              if (o.trem && b >= o.trem) { const st = BEAT / (o.tremDiv || 4), k = Math.round(d / st); for (let j = 0; j < k; j++) B[inst](t + j * st, m, v * (j ? 0.62 + 0.12 * (j % 2) : 1) * (1 - 0.15 * j / k), { off:st * 1.1, pan:o.pan }); }
+              else B[inst](t, m, v * (o.acc && o.acc[i] ? o.acc[i] : 1), { off:o.stac ? Math.min(d, BEAT * 0.5) * 0.9 : d * 1.05 + 0.05, pan:o.pan, ring:o.ring });
+            }
+            t += b * BEAT;
+          });
+        },
+        ev
+      };
+      return B;
+    }
+
+    /* ======================= the tunes ======================= */
+    const fifth = r => [r, r + 7, r + 12];
+    /* menu: "Nil'in Şafağı" — D Hicaz (D Eb F# G A Bb C), wide and welcoming: drones, harp, ney call, kanun answer, procession drums */
+    function composeMenu(B) {
+      const R = [50, 50, 50, 50, 50, 50, 51, 51, 48, 48, 50, 50, 43, 43, 50, 50, 51, 48, 50, 50, 50, 50, 48, 50];
+      const THIRD = { 50:4, 51:4, 48:3, 43:3 };
+      for (let k = 0; k < 24; k++) {
+        const rt = R[k], t0 = B.T(k, 0);
+        if (k % 2 === 0 || R[k] !== R[k - 1]) { const span = (R[k + 1] === rt && k % 2 === 0) ? 2 : 1; B.pad([rt - 12, rt - 5, rt], t0, B.BAR * span - 0.2, 0.05, { timbre:'str', cut:1500, att:1.4, rel:1.8 }); }
+        if (k >= 12 && k < 20 && (k % 2 === 0 || R[k] !== R[k - 1])) B.pad([rt + 12, rt + 12 + THIRD[rt], rt + 19], t0, B.BAR * (R[k + 1] === rt ? 2 : 1) - 0.2, 0.045, { timbre:'choir', vowel:'a', cut:2600, att:1.6, rel:2.2, wide:1.2 });
+        if (k >= 4 && k < 20) { B.bass(t0, rt - 12, 0.75, { off:B.BEAT * 1.8 }); B.bass(B.T(k, 2), rt - 12 + (k % 2 ? 7 : 0), 0.55, { off:B.BEAT * 1.6 }); }
+        else if (k % 2 === 0) B.bass(t0, rt - 12, 0.6, { off:B.BAR * 1.5 });
+        /* harp arpeggio in eighths under the ney call, rising in the B section */
+        if ((k >= 4 && k < 8) || (k >= 12 && k < 20)) { const up = k >= 12 ? 12 : 0, ch = [rt, rt + 7, rt + 12, rt + 12 + THIRD[rt], rt + 19, rt + 12 + THIRD[rt], rt + 12, rt + 7]; ch.forEach((m, j) => B.harp(B.T(k, j * 0.5), m + up - 12 + 12, j === 0 ? 0.5 : 0.34)); }
+        if (k >= 20) [rt + 24, rt + 19, rt + 12 + THIRD[rt], rt + 12].forEach((m, j) => B.harp(B.T(k, j), m, 0.36, { ring:1.3 }));
+        /* drums */
+        if (k >= 4 && k < 12) B.rhythm('B...F...b.B.F...', k, 0.62);
+        if (k >= 8 && k < 12) B.rhythm('.r.r.r.r.r.r.r.r', k, 0.3);
+        if (k >= 12 && k < 20) { B.rhythm(k === 19 ? 'D.D...T.D.T.TTTT' : 'D.D.k.T.D.k.T.k.', k, 0.7); B.rhythm('B.......b.......', k, 0.5); B.rhythm('R.r.R.r.R.r.R.rr', k, 0.32); }
+        if (k >= 20 && k < 23) B.rhythm('B.......b.......', k, 0.5);
+      }
+      B.drum('Z', B.T(0, 0), 0.5); B.drum('Z', B.T(2, 2), 0.35); B.drum('Z', B.T(12, 0), 0.5); B.drum('Z', B.T(16, 0), 0.42); B.drum('Z', B.T(20, 0), 0.45);
+      B.drum('B', B.T(0, 0), 0.7); B.drum('b', B.T(2, 0), 0.5); B.roll('F', B.T(3, 2), B.BEAT * 2, 8, 0.15, 0.55); B.roll('F', B.T(23, 2), B.BEAT * 2, 8, 0.12, 0.5);
+      B.drum('G', B.T(0, 0), 0.35, { tune:1.06 });
+      /* harp glissando up the maqam to open the piece */
+      [50, 51, 54, 55, 57, 58, 60, 62, 63, 66, 67, 69, 70, 72, 74].forEach((m, j) => B.harp(B.T(0, j * 0.16), m, 0.32 + j * 0.012, { ring:1.4 }));
+      /* the ney calls, the kanun answers */
+      B.wind(B.T(1, 0), 'a4:3 bb4:.5 a4:.5 | g4:1 f#4:1 eb4:1 f#4:1 | d4:4', 0.5);
+      B.wind(B.T(4, 0), 'd5:1.5 c5:.5 bb4:1 a4:1 | bb4:.5 a4:.5 g4:1 f#4:2 | g4:1 a4:1 bb4:1 c5:.5 bb4:.5 | a4:4', 0.55);
+      B.line('kanun', 'd5:.5 eb5:.5 f#5:1 g5:1 a5:1 | bb5:.5 a5:.5 g5:.5 f#5:.5 g5:2 | f#5:.5 g5:.5 a5:.5 bb5:.5 c6:1 bb5:1 | a5:1 g5:.5 f#5:.5 eb5:1 d5:1', 8, 0, 0.62, { trem:2 });
+      B.wind(B.T(10, 0), 'a4:4 | d4:4', 0.28);
+      B.wind(B.T(12, 0), 'g4:1 bb4:1 d5:1.5 c5:.5 | d5:1 eb5:1 f#5:1 eb5:.5 d5:.5 | c5:1 d5:.5 c5:.5 bb4:1 a4:1 | bb4:2 a4:2', 0.6);
+      B.line('oud', 'g3:1 bb3:1 d4:1.5 c4:.5 | d4:1 eb4:1 f#4:1 eb4:.5 d4:.5 | c4:1 d4:.5 c4:.5 bb3:1 a3:1 | bb3:2 a3:2', 12, 0, 0.5, { trem:2 });
+      B.line('kanun', 'd5:.5 c5:.5 bb4:.5 c5:.5 d5:2', 16, 0, 0.6, { trem:2 }); B.line('oud', 'd4:.5 c4:.5 bb3:.5 c4:.5 d4:2', 16, 0, 0.55, { trem:2 });
+      B.wind(B.T(17, 0), 'f#5:1 eb5:1 d5:2', 0.6);
+      B.line('kanun', 'c5:.5 bb4:.5 a4:.5 bb4:.5 c5:1 bb4:.5 a4:.5', 18, 0, 0.6); B.line('oud', 'c4:.5 bb3:.5 a3:.5 bb3:.5 c4:1 bb3:.5 a3:.5', 18, 0, 0.55);
+      B.wind(B.T(19, 0), 'g4:1.5 f#4:.5 eb4:1 d4:1', 0.58);
+      B.wind(B.T(21, 0), 'f#4:1 g4:1 a4:2 | bb4:.5 a4:.5 g4:1 a4:2', 0.42);
+    }
+    /* port 1: "Mennefer Limanı" — C Rast (C D E½♭ F G A B½♭), warm and lively; maqsum, oud calls and the ney answers */
+    function composePort(B) {
+      const R = [48, 48, 48, 43, 48, 43, 48, 43, 48, 48, 48, 43, 48, 43, 48, 43, 48, 48, 43, 43, 41, 43, 43, 43, 41, 43, 48, 43, 48, 48, 48, 43];
+      const MAQ = 'D.k.T.k.D.k.T.k.', MAQ2 = 'D.k.T.k.D.T.T.TT';
+      for (let k = 0; k < 32; k++) {
+        const rt = R[k], t0 = B.T(k, 0);
+        if (k % 2 === 0 || rt !== R[k - 1]) B.pad(fifth(rt), t0, B.BAR * (R[k + 1] === rt && k % 2 === 0 ? 2 : 1) - 0.15, 0.04, { timbre:'str', cut:1700, att:0.6, rel:1.2, wide:1 });
+        if (k >= 2) { B.bass(t0, rt - 12, 0.8, { off:B.BEAT * 1.3 }); B.bass(B.T(k, 1.5), rt - 12, 0.45, { off:B.BEAT * 0.4 }); B.bass(B.T(k, 2), rt - 5, 0.65, { off:B.BEAT * 1 }); B.bass(B.T(k, 3.5), rt - 12 + (k % 2 ? 12 : 0), 0.4, { off:B.BEAT * 0.4 }); }
+        if (k >= 1) B.rhythm(k === 1 || k % 8 === 7 ? MAQ2 : MAQ, k, k === 1 ? 0.55 : 0.68, { swing:0.08 });
+        if (k >= 10) B.rhythm(k >= 18 && k < 26 ? 'R.r.R.r.R.r.R.r.' : 'r.r.R.r.r.r.R.r.', k, 0.3, { swing:0.08 });
+        if (k >= 18 && k < 26) B.rhythm('....C.......C...', k, 0.32);
+        /* kanun chord taps on the off-beats in the A' and B sections */
+        if (k >= 10 && k < 18 && k % 2 === 0) [0.5, 1.5, 2.5, 3.5].forEach(b => B.kanun(B.T(k, b), rt + 12 + (b === 2.5 ? 7 : 0), 0.3, { off:0.12 }));
+      }
+      /* intro: a short oud taqsim and a pickup */
+      B.line('oud', 'c4:1 g3:.5 c4:.5 d4:1 e~4:1 | f4:.5 e~4:.5 d4:1 c4:2', 0, 0, 0.62, { trem:2 });
+      const callA = 'c4:.5 d4:.5 e~4:.5 f4:.5 g4:1 f4:.5 e~4:.5 | d4:.5 e~4:.5 f4:.5 e~4:.5 d4:1 c4:1';
+      const respA = 'g5:1.5 a5:.5 b~5:.5 a5:.5 g5:1 | f5:.5 g5:.5 a5:.5 g5:.5 f5:.5 e~5:.5 d5:1';
+      const callB = 'c4:.5 d4:.5 e~4:.5 f4:.5 g4:.5 a4:.5 b~4:.5 c5:.5 | b~4:.5 a4:.5 g4:.5 f4:.5 e~4:1 d4:1';
+      const respB = 'e~5:.5 f5:.5 g5:1 f5:.5 e~5:.5 d5:1 | e~5:1 d5:.5 e~5:.5 c5:2';
+      B.line('oud', callA, 2, 0, 0.7); B.wind(B.T(4, 0), respA, 0.52); B.line('oud', callB, 6, 0, 0.7); B.wind(B.T(8, 0), respB, 0.52);
+      /* A': kanun and oud together an octave up, the ney holds a counter-line */
+      B.line('kanun', callA, 10, 0, 0.6, { tr:12 }); B.line('oud', callA, 10, 0, 0.55);
+      B.line('kanun', respA, 12, 0, 0.55, { tr:-12 }); B.line('oud', respA, 12, 0, 0.5, { tr:-12 });
+      B.line('kanun', callB, 14, 0, 0.6, { tr:12 }); B.line('oud', callB, 14, 0, 0.55);
+      B.line('kanun', respB, 16, 0, 0.55, { tr:-12, trem:2 }); B.line('oud', respB, 16, 0, 0.5, { tr:-12, trem:2 });
+      B.wind(B.T(10, 0), 'g5:4 | f5:2 e~5:2 | d5:4 | e~5:2 g5:2 | g5:4 | a5:2 b~5:1 a5:1 | g5:2 f5:2 | e~5:2 c5:2', 0.3);
+      /* B: over G, one-bar questions from the oud, answers from the ney */
+      B.line('oud', 'g4:.5 a4:.5 b~4:.5 c5:.5 d5:1 c5:1', 18, 0, 0.7); B.wind(B.T(19, 0), 'd5:.5 e~5:.5 d5:.5 c5:.5 b~4:2', 0.55);
+      B.line('oud', 'a4:.5 b~4:.5 c5:.5 d5:.5 c5:.5 b~4:.5 a4:1', 20, 0, 0.7); B.wind(B.T(21, 0), 'b~4:.5 c5:.5 a4:.5 b~4:.5 g4:2', 0.55);
+      B.line('oud', 'g4:.5 g4:.5 a4:.5 b~4:.5 c5:.5 d5:.5 e~5:.5 f5:.5', 22, 0, 0.7); B.wind(B.T(23, 0), 'g5:2 f5:.5 e~5:.5 d5:1', 0.58);
+      B.line('oud', 'e~5:.5 d5:.5 c5:.5 b~4:.5 a4:.5 b~4:.5 c5:1 | a4:.5 g4:.5 f4:.5 e~4:.5 d4:1 g4:1', 24, 0, 0.66); B.wind(B.T(24, 0), 'e~5:.5 d5:.5 c5:.5 b~4:.5 a4:.5 b~4:.5 c5:1 | a4:.5 g4:.5 f4:.5 e~4:.5 d4:1 g4:1', 0.45, { tr:0 });
+      /* A'': all together, then the turnaround run */
+      B.line('oud', callA, 26, 0, 0.7); B.wind(B.T(26, 0), callA, 0.42, { tr:12 }); B.line('kanun', respB, 28, 0, 0.55, { tr:-12 }); B.wind(B.T(28, 0), respB, 0.52);
+      B.line('oud', 'c4:.25 d4:.25 e~4:.25 f4:.25 g4:.25 a4:.25 b~4:.25 c5:.25 d5:.5 c5:.5 b~4:.5 a4:.5 | g4:1 f4:.5 e~4:.5 d4:1', 30, 0, 0.66);
+      B.roll('T', B.T(31, 3), B.BEAT, 4, 0.4, 0.7);
+      B.drum('Z', B.T(10, 0), 0.4); B.drum('Z', B.T(18, 0), 0.4); B.drum('Z', B.T(26, 0), 0.4);
+    }
+    /* port 2: "Çarşı Davulları" — G Hicaz (G Ab B C D Eb F), a busy, playful bazaar: saidi rhythm, reed vs oud, claps, finger cymbals */
+    function composeBazaar(B) {
+      const R = [43, 43, 43, 43, 43, 43, 43, 43, 48, 43, 44, 43, 43, 43, 43, 43, 48, 48, 48, 48, 44, 44, 43, 43, 43, 43, 43, 43, 48, 43, 44, 43];
+      const RIFF = { 43:'g3:.5 ab3 b3 ab3 g3 d4 c4 b3', 44:'ab3:.5 c4 eb4 c4 ab3 eb4 d4 c4', 48:'c4:.5 d4 eb4 d4 c4 g4 f4 eb4' };
+      const SAIDI = 'D.T...D.D...T.k.', SAIDI2 = 'D.T.k.D.D.k.T.TT';
+      for (let k = 0; k < 32; k++) {
+        const rt = R[k], t0 = B.T(k, 0), stop = k === 15;
+        if (k % 2 === 0 || rt !== R[k - 1]) B.pad(fifth(rt), t0, B.BAR * (R[k + 1] === rt && k % 2 === 0 ? 2 : 1) - 0.15, 0.03, { timbre:'reed', cut:1500, att:0.4, rel:0.9 });
+        if (k >= 2 && !stop) { B.bass(t0, rt - 12, 0.85, { off:B.BEAT * 0.8 }); B.bass(B.T(k, 1.5), rt - 12, 0.5, { off:B.BEAT * 0.4 }); B.bass(B.T(k, 2), rt - 12, 0.7, { off:B.BEAT * 0.8 }); B.bass(B.T(k, 3), rt - 5, 0.55, { off:B.BEAT * 0.8 }); }
+        if (stop) { [0, 0.5, 1.5].forEach(b => { B.bass(B.T(k, b), rt - 12, 0.85, { off:0.15 }); B.drum('D', B.T(k, b), 0.8); B.drum('C', B.T(k, b), 0.5); B.oud(B.T(k, b), rt + 12, 0.7, { off:0.12 }); }); B.roll('T', B.T(k, 2), B.BEAT * 2, 8, 0.25, 0.8); continue; }
+        B.rhythm(k % 4 === 3 ? SAIDI2 : SAIDI, k, 0.72, { swing:0.06 });
+        if (k >= 4) B.rhythm('r.r.R.r.r.r.R.r.', k, 0.32, { swing:0.06 });
+        if (k >= 8) B.rhythm('....C.......C..c', k, 0.36);
+        if (k >= 12 && k < 15 || k >= 24) B.rhythm('..Z...Z...Z...Z.', k, 0.15);
+        /* the riff steps back while the oud answers the reed */
+        const ans = [6, 7, 10, 11, 18, 19, 26, 27, 30, 31].includes(k);
+        if (k >= 2 && (k < 12 || k >= 16)) B.line(ans ? 'kanun' : 'oud', RIFF[rt], k, 0, k < 4 ? 0.55 : ans ? 0.3 : 0.4, { stac:true, pan:-0.3, tr:ans ? 12 : 0 });
+        if (k >= 12 && k < 15) B.line('oud', RIFF[rt].split(' ').map((n, j) => n.replace(/\d/, d => +d + (j % 4 === 1 ? 1 : 0))).join(' '), k, 0, 0.5, { stac:true });
+      }
+      const A1 = 'd5:.5 eb5:.25 d5:.25 c5:.5 b4:.5 c5:1 -:.5 b4:.25 c5:.25 | d5:.5 c5:.5 b4:.5 ab4:.5 g4:1.5 -:.5';
+      const O1 = 'g4:.5 ab4:.5 b4:.5 c5:.5 d5:.5 c5:.5 b4:1 | c5:.5 b4:.5 ab4:.5 b4:.5 g4:1 -:1';
+      const A2 = 'g5:.5 f5:.25 eb5:.25 d5:.5 eb5:.5 d5:1 c5:.5 b4:.5 | c5:.5 d5:.5 eb5:.5 d5:.5 c5:.5 b4:.5 ab4:.5 b4:.5';
+      const O2 = 'c5:.5 b4:.5 ab4:.5 g4:.5 ab4:.5 b4:.5 c5:1 | b4:.5 ab4:.5 g4:2 -:1';
+      B.wind(B.T(4, 0), A1, 0.5, { timbre:'reed', sep:0.02 }); B.line('oud', O1, 6, 0, 0.72, { pan:0.15 });
+      B.wind(B.T(8, 0), A2, 0.5, { timbre:'reed', sep:0.02 }); B.line('oud', O2, 10, 0, 0.72, { pan:0.15 });
+      B.wind(B.T(14, 0), 'd5:.25 eb5:.25 d5:.5 -:1 d5:.25 eb5:.25 d5:.5 -:1', 0.5, { timbre:'reed', sep:0.03 });
+      B.wind(B.T(16, 0), 'c5:1 eb5:.5 d5:.5 c5:.5 b4:.5 c5:1 | eb5:.5 f5:.5 g5:1 f5:.5 eb5:.5 d5:1', 0.5, { timbre:'reed', sep:0.02 });
+      B.line('oud', 'c5:.5 d5:.5 eb5:.5 d5:.5 c5:.5 b4:.5 c5:1 | ab4:.5 b4:.5 c5:.5 b4:.5 ab4:.5 g4:.5 ab4:1', 18, 0, 0.72, { pan:0.15 });
+      B.wind(B.T(20, 0), 'ab5:1 g5:.5 f5:.5 eb5:.5 f5:.5 g5:1 | f5:.5 eb5:.5 d5:.5 c5:.5 d5:2', 0.52, { timbre:'reed', sep:0.02 });
+      B.wind(B.T(22, 0), 'eb5:.5 d5:.5 c5:.5 b4:.5 c5:.5 b4:.5 ab4:.5 b4:.5 | g4:1 b4:.5 d5:.5 g5:1 -:1', 0.5, { timbre:'reed', sep:0.02 });
+      B.line('kanun', 'eb5:.5 d5:.5 c5:.5 b4:.5 c5:.5 b4:.5 ab4:.5 b4:.5 | g4:1 b4:.5 d5:.5 g5:1', 22, 0, 0.5);
+      /* A' with the reed and kanun in heterophony, and the oud answering */
+      B.wind(B.T(24, 0), A1, 0.5, { timbre:'reed', sep:0.02 }); B.line('kanun', A1, 24, 0, 0.42); B.line('oud', O1, 26, 0, 0.72, { pan:0.15 });
+      B.wind(B.T(28, 0), A2, 0.5, { timbre:'reed', sep:0.02 }); B.line('kanun', A2, 28, 0, 0.42); B.line('oud', O2, 30, 0, 0.72, { pan:0.15 });
+      B.roll('T', B.T(31, 2), B.BEAT * 2, 8, 0.25, 0.7); B.drum('Z', B.T(4, 0), 0.4); B.drum('Z', B.T(16, 0), 0.45); B.drum('Z', B.T(24, 0), 0.45);
+      B.rhythm('D.T...D.D.k.T.k.', 0, 0.6); B.rhythm('D.T.k.D.D.k.TTTT', 1, 0.66);
+    }
+    /* port 3: "Tapınak Gölgesi" — D Beyati (D E½♭ F G A Bb C), still and mysterious: drone, ney taqsim, sparse harp, bowl, sistrum, heartbeat */
+    function composeTemple(B) {
+      for (let k = 0; k < 20; k += 4) { B.pad([38, 45, 50], B.T(k, 0), B.BAR * 4 - 0.3, 0.05, { timbre:'choir', vowel:k % 8 ? 'o' : 'u', cut:1500, att:2.5, rel:3, wide:1.1 }); B.pad([26, 33], B.T(k, 0), B.BAR * 4 - 0.3, 0.04, { timbre:'str', cut:700, att:2, rel:3 }); }
+      [0, 4, 8, 12, 16].forEach(k => B.drum('G', B.T(k, 0), k % 8 ? 0.42 : 0.55));
+      [2, 6, 10, 14, 18].forEach(k => B.drum('S', B.T(k, 2), 0.42));
+      [1, 3, 5, 7, 9, 11, 13, 15, 17, 19].forEach(k => B.drum('Z', B.T(k, 3), 0.18));
+      B.line('harp', 'd4:2 a4:2 | d5:2 e~5:2 | f5:3 e~5:1 | d5:4', 0, 0, 0.5, { ring:1.4 });
+      B.wind(B.T(4, 0), 'd4:1 e~4:1 f4:2 | e~4:.5 f4:.5 g4:2 f4:1 | e~4:1 d4:.5 e~4:.5 f4:1 e~4:1 | d4:4', 0.5, { vib:1.2 });
+      B.line('harp', 'd4:.5 f4:.5 a4:.5 d5:.5 c5:.5 a4:.5 bb4:1 | a4:2 g4:1 f4:1', 8, 0, 0.5, { ring:1.3 });
+      B.wind(B.T(10, 0), 'a4:2 bb4:1 c5:1 | d5:3 c5:.5 bb4:.5 | a4:1 bb4:.5 a4:.5 g4:1 f4:1 | g4:2 a4:2 | bb4:1 a4:1 g4:1 f4:1 | e~4:2 d4:2', 0.56, { vib:1.2 });
+      for (let k = 10; k < 16; k++) { B.rhythm('B..b............', k, 0.55); if (k % 2) B.drum('F', B.T(k, 3), 0.2); }
+      for (let k = 10; k < 16; k += 2) [50, 57, 62].forEach((m, j) => B.harp(B.T(k, 2 + j * 0.67), m + 12, 0.28, { ring:1.2 }));
+      B.line('harp', 'a4:2 f4:2 | e~4:2 d4:2 | -:2 a3:2 | d4:4', 16, 0, 0.45, { ring:1.5 });
+      B.wind(B.T(17, 2), 'a4:2 | g4:1 f4:1 e~4:2', 0.32, { vib:1.3 });
+      [0, 4, 8, 12, 16].forEach(k => B.bass(B.T(k, 0), 38, 0.5, { off:B.BAR * 2 }));
+    }
+    /* sail: "Yelkenler Açık" — D Kürdi (D Eb F G A Bb C) in a 12/8 sway: harp waves, ney melody, oud answers, frame drum and riq */
+    const SAIL_R = [50, 50, 46, 46, 48, 48, 50, 50, 43, 43, 51, 51, 48, 48, 50, 50];
+    const KURD3 = { 50:3, 46:4, 48:3, 43:3, 51:4 };
+    function composeSail(B) {
+      for (let k = 0; k < 32; k++) {
+        const rt = SAIL_R[k % 16], t0 = B.T(k, 0), th = KURD3[rt];
+        if (k % 2 === 0) B.pad(fifth(rt - 12), t0, B.BAR * 2 - 0.15, 0.042, { timbre:'str', cut:1600, att:1, rel:1.5, wide:1 });
+        const ch = [rt - 12, rt - 5, rt, rt + th, rt + 7, rt + 12], pat = [0, 1, 2, 3, 4, 5, 4, 3, 2, 3, 2, 1], hi = (k >= 20 && k < 28) ? 12 : 0, quiet = k >= 28;
+        pat.forEach((j, s) => B.harp(B.T(k, s / 3), ch[j] + hi, (s % 3 === 0 ? 0.42 : 0.28) * (quiet ? 0.9 : 1), { ring:0.8 }));
+        if (k >= 2) { B.bass(t0, rt - 12, 0.7, { off:B.BEAT * 1.6 }); B.bass(B.T(k, 2), rt - 12 + (k % 2 ? 7 : 0), 0.5, { off:B.BEAT * 1.3 }); B.bass(B.T(k, 3 + 2 / 3), rt - 12, 0.32, { off:B.BEAT * 0.3 }); }
+        if (k >= 4 && !quiet) { B.rhythm('B..F..b..F.f', k, 0.55); B.rhythm('r.rR.rr.rR.r', k, 0.22); }
+        if (quiet && k < 31) B.rhythm('B.....b.....', k, 0.42);
+      }
+      B.roll('F', B.T(31, 2), B.BEAT * 2, 6, 0.15, 0.5); B.roll('F', B.T(3, 2), B.BEAT * 2, 6, 0.15, 0.5);
+      const A = 'd5:1 a4:1 d5:1 eb5:1 | f5:2 eb5:1 d5:1 | c5:1.67 bb4:.33 c5:1 d5:1 | a4:4 | bb4:1 c5:1 d5:1 f5:1 | g5:2 f5:1 eb5:1 | d5:1 c5:1 bb4:1.67 c5:.33 | d5:4';
+      B.wind(B.T(4, 0), A, 0.52);
+      B.line('oud', 'g4:.67 a4:.33 bb4:1 c5:1 d5:1 | eb5:1 d5:1 c5:2', 12, 0, 0.7, { trem:2, tremDiv:3 });
+      B.wind(B.T(14, 0), 'eb5:1 f5:1 g5:1 f5:1 | eb5:1 d5:1 c5:2', 0.52);
+      B.line('oud', 'bb4:1 c5:1 d5:1 bb4:1 | c5:1 a4:1 bb4:2', 16, 0, 0.7, { trem:2, tremDiv:3 });
+      B.wind(B.T(18, 0), 'a4:1 bb4:1 c5:1 d5:1 | d5:4', 0.52);
+      B.wind(B.T(20, 0), 'd5:1 a4:1 d5:1 eb5:.67 f5:.33 | f5:2 g5:.67 f5:.33 eb5:.67 d5:.33 | c5:1.67 bb4:.33 c5:1 d5:1 | a4:4 | bb4:1 c5:1 d5:1 f5:1 | g5:2 a5:.67 g5:.33 f5:.67 eb5:.33 | d5:1 c5:1 bb4:1.67 c5:.33 | d5:4', 0.5);
+      B.line('oud', A, 20, 0, 0.42, { tr:-12, trem:2, tremDiv:3 });
+      B.wind(B.T(29, 0), 'a4:2 bb4:2 | a4:4', 0.36);
+      B.drum('Z', B.T(4, 0), 0.32); B.drum('Z', B.T(12, 0), 0.32); B.drum('Z', B.T(20, 0), 0.32);
+    }
+    /* chase: a layer locked to the sailing tune — tabl, galloping darbuka, claps, oud ostinato, low reed calls */
+    const KURDI = [2, 3, 5, 7, 9, 10, 12];
+    /* the note d steps up (or down) the D Kurdi scale from m */
+    function deg(m, d) {
+      const oct = Math.floor((m - 2) / 12), pc = m - 2 - oct * 12; let i = KURDI.findIndex(p => p - 2 === pc); if (i < 0) i = 0;
+      const j = i + d, o2 = Math.floor(j / 7); return 2 + (oct + o2) * 12 + KURDI[((j % 7) + 7) % 7] - 2;
+    }
+    function composeChase(B) {
+      for (let k = 0; k < 32; k++) {
+        const rt = SAIL_R[k % 16], hot = k >= 16;
+        B.rhythm('L..H..L.LH..', k, 0.8);
+        B.rhythm(k % 4 === 3 ? 'TkkTkkTkTkTT' : 'TkkTkkTkkTkk', k, 0.62, { acc:true });
+        B.rhythm('...C.....C..', k, 0.4);
+        if (hot) B.rhythm('.R..R..R..R.', k, 0.3);
+        const os = [0, 1, 0, -1, 0, 1, 2, 1, 0, -1, 0, -1].map(d => deg(rt, d));
+        os.forEach((m, j) => B.oud(B.T(k, j / 3), m + (hot && j % 3 === 0 ? 12 : 0), j % 3 === 0 ? 0.62 : 0.4, { off:B.BEAT / 3, pan:0.25 }));
+        B.bass(B.T(k, 0), rt - 12, 0.8, { off:B.BEAT * 0.6 }); B.bass(B.T(k, 2), rt - 12, 0.7, { off:B.BEAT * 0.6 });
+        if (k % 4 === 3) B.wind(B.T(k, 2), [[deg(rt, 7), 0.67], [deg(rt, 8), 0.33], [deg(rt, 7), 1]], 0.5, { timbre:'reed', sep:0.03 });
+        if (k % 8 === 7) B.roll('D', B.T(k, 3), B.BEAT, 6, 0.4, 0.8);
+      }
+    }
+    /* bpb = beats per bar; ir = reverb; mix = bus gains/sends (dB trims are measured, see docs/qa44-muzik/NOTES.md) */
+    const TRACKS = {
+      menu:  { bpm:76,  bars:24, make:composeMenu,   seed:31, ir:{ len:2.6, t60:2.4, hi:4800, lo:900, pre:.024, er:9 }, wet:.32, mix:{ wind:{ g:0.64 }, harp:{ g:0.98 }, oud:{ g:2.01 }, drum:{ g:1 }, bass:{ g:1.54 }, pad:{ g:1.16 }, metal:{ g:2.41 } }, trim:-0.7 },
+      port1: { bpm:100, bars:32, make:composePort,   seed:47, ir:{ len:1.6, t60:1.3, hi:5200, lo:1100, pre:.012, er:10 }, wet:.26, mix:{ oud:{ g:1.79 }, wind:{ g:0.53 }, drum:{ g:1 }, bass:{ g:0.98 }, harp:{ g:1 }, pad:{ g:0.89 }, metal:{ g:2.87 } }, trim:-0.3 },
+      port2: { bpm:116, bars:32, make:composeBazaar, seed:53, ir:{ len:1.4, t60:1.1, hi:5600, lo:1200, pre:.01, er:12, erg:1.2 }, wet:.24, mix:{ wind:{ g:0.63 }, oud:{ g:1.93 }, drum:{ g:1 }, bass:{ g:1.07 }, harp:{ g:1.82 }, pad:{ g:1.05 }, metal:{ g:2.54 } }, trim:-2.2 },
+      port3: { bpm:66,  bars:20, make:composeTemple, seed:61, ir:{ len:3.8, t60:3.6, hi:4200, lo:700, pre:.035, er:6, erg:.8 }, wet:.42, mix:{ wind:{ g:0.41 }, pad:{ g:0.78 }, harp:{ g:0.84 }, drum:{ g:1 }, metal:{ g:2.85 }, bass:{ g:1.46 } }, trim:3.2 },
+      sail:  { bpm:104, bars:32, make:composeSail,   seed:71, ir:{ len:2.0, t60:1.8, hi:5000, lo:1000, pre:.02, er:5 }, wet:.3, mix:{ wind:{ g:0.46 }, harp:{ g:0.77 }, oud:{ g:1.58 }, drum:{ g:1 }, bass:{ g:0.92 }, pad:{ g:1.0 }, metal:{ g:3.09 } }, trim:0.7 },
+      chase: { bpm:104, bars:32, make:composeChase,  seed:79, ir:{ len:1.3, t60:1.0, hi:5200, lo:1100, pre:.01, er:8 }, wet:.2, mix:{ drum:{ g:1 }, oud:{ g:0.97 }, bass:{ g:1.16 }, wind:{ g:0.48 }, metal:{ g:5.52 } }, trim:-0.6 }
+    };
+
+    /* ======================= render job ======================= */
+    function job(name, opt) {
+      const TK = TRACKS[name], B = builder(TK, TK.seed);
+      TK.make(B);
+      const ev = B.ev.sort((a, b) => a.s - b.s), LOOP = Math.round(TK.bars * B.BAR * SR);
+      const BEATs = B.BEAT;
+      /* buses */
+      const buses = BUSES.map(k => {
+        const d = BUSDEF[k], m = ((opt && opt.mix) || TK.mix)[k] || {};
+        return { L:new Float64Array(BLK), R:new Float64Array(BLK), eqL:d.eq.map(q => bq(q[0], q[1], q[2], q[3])), eqR:d.eq.map(q => bq(q[0], q[1], q[2], q[3])), g:(m.g != null ? m.g : d.g), rv:(m.rv != null ? m.rv : d.rv), dl:(m.dl != null ? m.dl : d.dl), hot:0 };
+      });
+      const HOT = Math.round(0.6 * SR);
+      /* echo: ping-pong at a dotted eighth */
+      const DT = Math.min(Math.round(BEATs * 0.75 * SR), SR - 1), DSZ = 32768, dL = new Float64Array(DSZ), dR = new Float64Array(DSZ), dLP = bq('lp', 2800, 0.6), dHP = bq('hp', 300, 0.6);
+      let dw = 0;
+      /* reverb at half rate */
+      const ir = makeIR(SR / 2, TK.ir), IRN = ir[0].length; let N = 2; while (N < S2 + IRN) N <<= 1;
+      const HR = new Float64Array(N), HI = new Float64Array(N);
+      for (let i = 0; i < IRN; i++) { HR[i] = ir[0][i]; HI[i] = ir[1][i]; }
+      fft(HR, HI, N, false);
+      const HLr = new Float64Array(N), HLi = new Float64Array(N), HRr = new Float64Array(N), HRi = new Float64Array(N);
+      for (let k = 0; k < N; k++) { const kk = (N - k) & (N - 1); HLr[k] = (HR[k] + HR[kk]) / 2; HLi[k] = (HI[k] - HI[kk]) / 2; HRr[k] = (HI[k] + HI[kk]) / 2; HRi[k] = -(HR[k] - HR[kk]) / 2; }
+      const WS = N * 2, wL = new Float64Array(WS), wR = new Float64Array(WS), fr = new Float64Array(N), fi = new Float64Array(N), zr = new Float64Array(N), zi = new Float64Array(N);
+      const dec = [bq('lp', 6800, 0.54), bq('lp', 6800, 1.31), bq('lp', 6800, 0.54), bq('lp', 6800, 1.31)];
+      /* master */
+      const mq = [['hp', 38, .7], ['ls', 90, .7, -1.5], ['hs', 9000, .7, -2]], mL = mq.map(q => bq(q[0], q[1], q[2], q[3])), mR = mq.map(q => bq(q[0], q[1], q[2], q[3]));
+      const cAtt = 1 - Math.exp(-1 / (0.006 * SR)), cRel = 1 - Math.exp(-1 / (0.16 * SR)), thr = -14, ratio = 2.2, knee = 8, trim = Math.pow(10, (TK.trim || 0) / 20);
+      let cEnv = 0, cG = 1;
+      const segL = new Float64Array(SEG), segR = new Float64Array(SEG), snL = new Float64Array(SEG), snR = new Float64Array(SEG);
+      const TAIL = Math.round((TK.ir.len + 2.4) * SR), TOTAL = Math.ceil((LOOP + TAIL) / SEG) * SEG;
+      const outL = new Float32Array(LOOP), outR = new Float32Array(LOOP);
+      const act = [];
+      let pos = 0, ei = 0, sp = 0, sph = 0, wPrevL = 0, wPrevR = 0, peak = 0;
+      const J = { name, LOOP, SR, log:B.log, BEAT:B.BEAT, prog:0, done:false, onSeg:null, stats:null, out:[outL, outR], events:ev.length, maxVoices:0 };
+      const knee2 = knee / 2, slope = 1 - 1 / ratio;
+      const dIn = new Float64Array(BLK), DM = DSZ - 1, meter = opt && opt.meter ? new Float64Array(BUSES.length + 2) : null;
+      let e2 = 0;
+      function block() {
+        const b0 = pos, b1 = pos + BLK;
+        while (ei < ev.length && ev[ei].s < b1) { const e = ev[ei++]; act.push({ s:e.s, bus:buses[e.bus], f:e.mk() }); }
+        if (act.length > J.maxVoices) J.maxVoices = act.length;
+        for (let i = act.length - 1; i >= 0; i--) {
+          const v = act[i]; v.bus.hot = b1 + HOT;
+          if (!v.f(v.bus.L, v.bus.R, Math.max(0, v.s - b0), BLK)) { act[i] = act[act.length - 1]; act.pop(); }
+        }
+        const oL = segL, oR = segR, o0 = sp;
+        for (let i = 0; i < BLK; i++) { oL[o0 + i] = 0; oR[o0 + i] = 0; snL[o0 + i] = 0; snR[o0 + i] = 0; dIn[i] = 0; }
+        for (let k = 0; k < buses.length; k++) {
+          const bu = buses[k]; if (b0 >= bu.hot) continue;
+          for (let q = 0; q < bu.eqL.length; q++) { bqBuf(bu.eqL[q], bu.L, BLK); bqBuf(bu.eqR[q], bu.R, BLK); }
+          const g = bu.g, rv = bu.rv * g, dl = bu.dl * g, L = bu.L, R = bu.R;
+          for (let i = 0; i < BLK; i++) {
+            const l = L[i], r = R[i];
+            oL[o0 + i] += l * g; oR[o0 + i] += r * g; snL[o0 + i] += l * rv; snR[o0 + i] += r * rv; dIn[i] += (l + r) * 0.5 * dl;
+            L[i] = 0; R[i] = 0; e2 += (l * l + r * r) * g * g;
+          }
+          if (meter) meter[k] += e2; e2 = 0;
+        }
+        for (let i = 0; i < BLK; i++) {
+          const ri = (dw - DT) & DM, xl = dL[ri], xr = dR[ri];
+          const fx = xr * 0.34, fb = dLP.b0 * fx + dLP.z1; dLP.z1 = dLP.b1 * fx - dLP.a1 * fb + dLP.z2; dLP.z2 = dLP.b2 * fx - dLP.a2 * fb;
+          const ix = dIn[i], inp = dHP.b0 * ix + dHP.z1; dHP.z1 = dHP.b1 * ix - dHP.a1 * inp + dHP.z2; dHP.z2 = dHP.b2 * ix - dHP.a2 * inp;
+          dL[dw & DM] = inp + fb; dR[dw & DM] = xl; dw++;
+          oL[o0 + i] += xl * 0.5; oR[o0 + i] += xr * 0.5; snL[o0 + i] += xl * 0.15; snR[o0 + i] += xr * 0.15;
+        }
+        pos = b1; sp += BLK;
+      }
+      function segment() {
+        /* reverb: decimate the send, convolve (left and right packed into one complex FFT), overlap-add */
+        for (let i = 0; i < SEG; i++) { let l = snL[i], r = snR[i]; for (let q = 0; q < 2; q++) { const a = dec[q], y = a.b0 * l + a.z1; a.z1 = a.b1 * l - a.a1 * y + a.z2; a.z2 = a.b2 * l - a.a2 * y; l = y; const b = dec[q + 2], z = b.b0 * r + b.z1; b.z1 = b.b1 * r - b.a1 * z + b.z2; b.z2 = b.b2 * r - b.a2 * z; r = z; } snL[i] = l; snR[i] = r; }
+        fr.fill(0); fi.fill(0); for (let m = 0; m < S2; m++) { fr[m] = snL[m * 2]; fi[m] = snR[m * 2]; }
+        fft(fr, fi, N, false);
+      }
+      function segment1() {
+        for (let k = 0; k < N; k++) {
+          const kk = (N - k) & (N - 1), xlr = (fr[k] + fr[kk]) / 2, xli = (fi[k] - fi[kk]) / 2, xrr = (fi[k] + fi[kk]) / 2, xri = -(fr[k] - fr[kk]) / 2;
+          const ylr = xlr * HLr[k] - xli * HLi[k], yli = xlr * HLi[k] + xli * HLr[k], yrr = xrr * HRr[k] - xri * HRi[k], yri = xrr * HRi[k] + xri * HRr[k];
+          zr[k] = ylr - yri; zi[k] = yli + yrr;
+        }
+        fft(zr, zi, N, true);
+        const base = (pos - SEG) >> 1, inv = 1 / N, wet = TK.wet * 2;
+        for (let m = 0; m < N; m++) { const j = (base + m) & (WS - 1); wL[j] += zr[m] * inv; wR[j] += zi[m] * inv; }
+        for (let m = 0; m < S2; m++) {
+          const j = (base + m) & (WS - 1), l = wL[j], r = wR[j]; wL[j] = 0; wR[j] = 0;
+          if (meter) meter[BUSES.length + 1] += (l * l + r * r) * wet * wet * 2;
+          segL[m * 2] += (wPrevL + l) * 0.5 * wet; segR[m * 2] += (wPrevR + r) * 0.5 * wet; segL[m * 2 + 1] += l * wet; segR[m * 2 + 1] += r * wet;
+          wPrevL = l; wPrevR = r;
+        }
+      }
+      function segment2() {
+        /* master: EQ, glue compressor, trim, soft ceiling (never above -1 dBFS) */
+        for (let q = 0; q < mL.length; q++) { bqBuf(mL[q], segL, SEG); bqBuf(mR[q], segR, SEG); }
+        const s0 = pos - SEG, sl = new Float32Array(SEG), sr = new Float32Array(SEG);
+        for (let i = 0; i < SEG; i++) {
+          let l = segL[i], r = segR[i]; const lv = Math.max(Math.abs(l), Math.abs(r));
+          cEnv += (lv - cEnv) * (lv > cEnv ? cAtt : cRel);
+          if ((i & 7) === 0) { const db = 20 * Math.log10(cEnv + 1e-9), ov = db - thr; const gr = ov <= -knee2 ? 0 : ov < knee2 ? (ov + knee2) * (ov + knee2) / (2 * knee) * slope : ov * slope; cG = Math.pow(10, -gr / 20) * trim; }
+          l *= cG; r *= cG;
+          const al = Math.abs(l), ar = Math.abs(r);
+          if (al > 0.7) l = Math.sign(l) * (0.7 + 0.19 * Math.tanh((al - 0.7) / 0.19));
+          if (ar > 0.7) r = Math.sign(r) * (0.7 + 0.19 * Math.tanh((ar - 0.7) / 0.19));
+          sl[i] = l; sr[i] = r;
+          const p = s0 + i;
+          if (p < LOOP) { outL[p] = l; outR[p] = r; } else if (p - LOOP < LOOP) { outL[p - LOOP] += l; outR[p - LOOP] += r; }
+        }
+        if (J.onSeg && s0 < LOOP) { const n = Math.min(SEG, LOOP - s0); J.onSeg(s0, n < SEG ? sl.slice(0, n) : sl, n < SEG ? sr.slice(0, n) : sr); }
+        sp = 0;
+      }
+      let fin = 0, s2 = 0;
+      /* final pass in slices: ceiling on the folded start, peak and RMS */
+      function finish() {
+        const e = Math.min(LOOP, fin + 131072);
+        for (const d of J.out) for (let i = fin; i < e; i++) {
+          let x = d[i]; const a = Math.abs(x);
+          if (a > 0.89) { x = Math.sign(x) * (0.7 + 0.19 * Math.tanh((a - 0.7) / 0.19)); d[i] = x; }
+          const b = Math.abs(x); if (b > peak) peak = b; s2 += x * x;
+        }
+        fin = e; if (fin < LOOP) return;
+        if (meter) { J.meter = {}; let dry = 0; BUSES.forEach((k, i) => { dry += meter[i]; }); BUSES.forEach((k, i) => { J.meter[k] = +(10 * Math.log10(meter[i] / dry + 1e-12)).toFixed(1); }); J.meter.wet = +(10 * Math.log10(meter[BUSES.length + 1] / dry + 1e-12)).toFixed(1); }
+        J.stats = { rms:Math.sqrt(s2 / (LOOP * 2)), peak, sec:LOOP / SR, events:ev.length, voices:J.maxVoices };
+        J.done = true; J.prog = 1;
+      }
+      J.dbg = () => ({ pos, sph, sp, act:act.length });
+      J.step = (ms) => {
+        const t0 = Date.now();
+        while (!J.done) {
+          if (sp >= SEG) { if (sph === 0) segment(); else if (sph === 1) segment1(); else segment2(); sph = (sph + 1) % 3; }
+          else if (pos < TOTAL) block();
+          else finish();
+          J.prog = Math.min(0.99, pos / TOTAL);
+          if (Date.now() - t0 >= ms) break;
+        }
+        return J.done;
+      };
+      return J;
+    }
+    return { SR, job, makeIR, _t:{ vPluck, vModes, vWind, vPad, vDrum, stringModes, hz, rng, parse }, tracks:Object.keys(TRACKS), meta:n => ({ bpm:TRACKS[n].bpm, bars:TRACKS[n].bars, sec:TRACKS[n].bars * 4 * 60 / TRACKS[n].bpm }) };
+  }

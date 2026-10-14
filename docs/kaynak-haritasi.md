@@ -36,7 +36,8 @@ Folders ui/, sea/, v3/ are single files split by section; parts are joined in na
 | sea/06-special-scenes-2.txt | 62 |
 | senet.css | 9 |
 | senet.txt | 39 |
-| snd.txt | 40 |
+| snd-syn.txt | 54 |
+| snd.txt | 30 |
 | sprites27.txt | 14 |
 | sprites28.txt | 2 |
 | temple.css | 3 |
@@ -150,3 +151,9 @@ scratch = arm raised behind the head (drawn in the back layer, `scratchBack`) wi
 tap = forearm on the counter + drumming hand, arms = forearms folded (clipped to the body), thinking = fist under the chin.
 Road `ruin` nodes open the tomb seal (no light puzzle). chars33: the carry clip raises the left arm, so only head loads and
 the shoulder jar use it; sack carriers and empty-handed walkers walk. Images: docs/qa43.
+
+## Music (v44)
+- `snd-syn.txt` — `NilSynth()`: self-contained music synthesiser (its source text is also the render Worker's body, so it must not use game names). Instruments (Karplus-Strong oud/bass, modal harp/kanun, ney/reed wind phrases, wavetable drones/choir, modal darbuka/bendir/tabl/riq/sistrum/zills/bowl), buses + EQ, ping-pong echo, half-rate FFT convolution reverb, master compressor + soft ceiling, the six compositions (`composeMenu/Port/Bazaar/Temple/Sail/Chase`) and `TRACKS` (tempo, bars, reverb, measured bus gains and loudness trims). `job(name)` renders in steps (`step(ms)`), `onSeg` streams 1 s segments.
+- `snd.txt` — `Snd`: Worker (or main-thread slices) renderer, streaming first playback, IndexedDB cache (`MUSIC_VER`, bump it whenever the music changes), at most 3 decoded tunes (LRU), crossfades by mode, effects.
+- QA renders and loudness notes: `docs/qa44-muzik/`.
+
