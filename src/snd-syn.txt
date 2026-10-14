@@ -1,4 +1,4 @@
-  /* ================= music synthesiser (v44) =================
+  /* ================= music synthesiser (v45) =================
      Every tune is played by instruments built from code, sample by sample: plucked oud and bass strings
      (Karplus-Strong with a tuned all-pass and a lute body EQ), harp and kanun (modal string partials), ney and
      a soft reed (breath noise + harmonics + vibrato and glides), darbuka, frame drum, tabl, riq, sistrum and
@@ -50,9 +50,13 @@
       const D = P - lpD; let N = Math.floor(D), fr = D - N; if (fr < 0.2) { N--; fr += 1; }
       let size = 2; while (size < N + 4) size <<= 1;
       const buf = new Float64Array(size), ex = new Float64Array(N);
-      let e = 0; for (let i = 0; i < N; i++) { e += hard * ((r() * 2 - 1) - e); ex[i] = e; }
-      const pp = Math.max(1, Math.round(pos * N));
+      /* excitation: band-limited noise (a harder pluck is brighter) combed at the plucking point, plus the
+         string's triangular pluck shape. Raw white noise here made every pluck hiss (v44: -6 dB of the attack above 6 kHz). */
+      const xf = bq('lp', 1000 + 3800 * hard, 0.6), pp = Math.max(1, Math.round(pos * N));
+      let pn = 1e-9; for (let i = 0; i < N + 64; i++) { const x = r() * 2 - 1, e = xf.b0 * x + xf.z1; xf.z1 = xf.b1 * x - xf.a1 * e + xf.z2; xf.z2 = xf.b2 * x - xf.a2 * e; if (i >= 64) { ex[i - 64] = e; pn = Math.max(pn, Math.abs(e)); } }
       let mean = 0; for (let i = N - 1; i >= pp; i--) ex[i] -= ex[i - pp];
+      /* both parts are zero at the ends (bridge and nut): no step where the delay line wraps */
+      for (let i = 0; i < N; i++) ex[i] = ex[i] / pn * 0.85 * Math.sin(Math.PI * (i + 0.5) / N) + (i < pp ? i / pp : (N - i) / (N - pp)) * 0.3;
       for (let i = 0; i < N; i++) mean += ex[i]; mean /= N;
       let pk = 1e-9; for (let i = 0; i < N; i++) { ex[i] -= mean; pk = Math.max(pk, Math.abs(ex[i])); }
       for (let i = 0; i < N; i++) buf[i] = ex[i] / pk;
@@ -76,7 +80,7 @@
         for (let i = i0; i < i1; i++, n++) {
           if (n === off && off) { s1.g = Math.min(s1.g, s1.gm); s1.a = Math.max(s1.a, 0.55); if (s2) { s2.g = Math.min(s2.g, s2.gm); s2.a = Math.max(s2.a, 0.55); } }
           let y = ksStep(s1); if (s2) y += 0.85 * ksStep(s2);
-          y *= v; if (n > len - fade) y *= (len - n) / fade;
+          y *= v; if (n < 40) y *= n / 40; else if (n > len - fade) y *= (len - n) / fade;
           L[i] += y * gl; R[i] += y * gr;
           if (n >= len) return false;
         }
@@ -123,8 +127,8 @@
     }
     /* ---------- wind phrase: ney (breathy) or a soft folk reed, legato with glides, scoops and vibrato ---------- */
     const WIND = {
-      ney: { h:[1, .36, .17, .09, .045, .025], breath:.2, chiff:.55, vib:.0105, rate:5.1, glide:.024, dip:.3, bp:[1700, .6], top:7000, lp:6500 },
-      reed: { h:[1, .5, .62, .36, .4, .22, .2, .12, .09, .06], breath:.05, chiff:.25, vib:.007, rate:5.9, glide:.016, dip:.4, bp:[2600, .9], top:5600, lp:5000 }
+      ney: { h:[1, .36, .17, .09, .045, .025], breath:.11, chiff:.3, blp:3000, vib:.0105, rate:5.1, glide:.024, dip:.3, bp:[1700, .6], top:7000, lp:6500 },
+      reed: { h:[1, .5, .62, .36, .4, .22, .2, .12, .09, .06], breath:.04, chiff:.18, blp:4200, vib:.007, rate:5.9, glide:.016, dip:.4, bp:[2600, .9], top:5600, lp:5000 }
     };
     function vWind(notes, BEAT, vel, o, r) {
       const W = WIND[o.timbre || 'ney'], segs = []; let t = 0;
@@ -132,7 +136,7 @@
       segs.forEach((sg, i) => { sg.K = Math.max(1, Math.min(W.h.length, Math.floor(W.top / Math.pow(2, sg.lf)))); sg.leg = i > 0 && segs[i - 1].e >= sg.s - 40; sg.v = vel * (o.acc && o.acc[i] ? o.acc[i] : 1); });
       const end = Math.round(t) + Math.round(0.6 * SR), [gl, gr] = panG(o.pan || 0);
       const kAtt = 1 - Math.exp(-1 / (0.035 * SR)), kRel = 1 - Math.exp(-1 / (0.09 * SR)), kGl = 1 - Math.exp(-1 / (W.glide * SR)), dipN = Math.round(0.045 * SR);
-      const bpf = bq('bp', W.bp[0], W.bp[1]), lpf = bq('lp', W.lp, 0.7), H = W.h, vibD = W.vib * (o.vib || 1), vr = W.rate * (0.95 + r() * 0.1) / SR;
+      const bpf = bq('bp', W.bp[0], W.bp[1]), bl1 = bq('lp', W.blp, 0.6), lpf = bq('lp', W.lp, 0.7), H = W.h, vibD = W.vib * (o.vib || 1), vr = W.rate * (0.95 + r() * 0.1) / SR;
       let n = 0, si = 0, lf = segs.length ? segs[0].lf - 0.03 : 8, ph = 0, vph = r(), amp = 0, ch = 0, ni = (r() * 65535) | 0, wob = 0;
       return (L, R, i0, i1) => {
         for (let i = i0; i < i1; i++, n++) {
@@ -140,7 +144,7 @@
           const sg = segs[si]; let tgt = 0, vd = 0, K = 1;
           if (sg && n >= sg.s) {
             const into = n - sg.s;
-            if (into === 0) { ch = 1; if (!sg.leg) lf = sg.lf - 0.035; }
+            if (into === 0) { ch = sg.leg ? 0.35 : 1; if (!sg.leg) lf = sg.lf - 0.035; }
             tgt = sg.v * (sg.leg && into < dipN ? 1 - W.dip * (1 - into / dipN) : 1);
             const dur = sg.e - sg.s; if (dur > SR * 0.6) tgt *= 0.9 + 0.1 * Math.sin(Math.PI * into / dur);
             vd = vibD * clamp((into - 0.2 * SR) / (0.4 * SR), 0, 1);
@@ -152,7 +156,9 @@
           amp += (tgt - amp) * (tgt > amp ? kAtt : kRel);
           if (amp < 1e-5 && tgt === 0) { if (n >= end) return false; continue; }
           let tone = 0; for (let k = 0; k < K; k++) { let p = ph * (k + 1); p -= p | 0; tone += H[k] * STAB[(p * STL) | 0]; }
-          const s = NZ[(ni++) & 65535], b = bpf.b0 * s + bpf.z1; bpf.z1 = bpf.b1 * s - bpf.a1 * b + bpf.z2; bpf.z2 = bpf.b2 * s - bpf.a2 * b;
+          /* breath: band-passed, then low-passed again so it stays a soft air around the tone instead of a hiss on top */
+          const s = NZ[(ni++) & 65535], b0 = bpf.b0 * s + bpf.z1; bpf.z1 = bpf.b1 * s - bpf.a1 * b0 + bpf.z2; bpf.z2 = bpf.b2 * s - bpf.a2 * b0;
+          const b = bl1.b0 * b0 + bl1.z1; bl1.z1 = bl1.b1 * b0 - bl1.a1 * b + bl1.z2; bl1.z2 = bl1.b2 * b0 - bl1.a2 * b;
           const br = b * (0.6 + 0.4 * STAB[(ph * STL) | 0]) * (W.breath + W.chiff * ch); ch *= 0.9993;
           let y = (tone * 0.5 + br) * amp;
           const v2 = lpf.b0 * y + lpf.z1; lpf.z1 = lpf.b1 * y - lpf.a1 * v2 + lpf.z2; lpf.z2 = lpf.b2 * y - lpf.a2 * v2; y = v2;
@@ -203,13 +209,13 @@
       T:{ m:[[640, .42, .09], [1010, .38, .07], [1460, .32, .06], [1890, .22, .05], [2620, .14, .04]], nz:[[.75, .022, 'bp', 3100, 1.1]], len:.22 },
       K:{ m:[[560, .3, .06], [900, .26, .05], [1330, .2, .045], [1760, .12, .04]], nz:[[.5, .018, 'bp', 2400, 1]], len:.16 },
       P:{ m:[[300, .3, .07], [520, .3, .06], [810, .2, .05]], nz:[[.8, .03, 'bp', 1500, .8]], len:.2 },
-      B:{ osc:[100, 70, 0.045, .85, .65], m:[[66 * 1.59, .3, .4], [66 * 2.14, .22, .3], [66 * 2.3, .16, .26], [66 * 2.65, .1, .2]], nz:[[.16, .06, 'lp', 650, .7], [.07, .3, 'bp', 2100, .9]], len:1.0 },
+      B:{ osc:[100, 70, 0.045, .85, .65], m:[[66 * 1.59, .3, .4], [66 * 2.14, .22, .3], [66 * 2.3, .16, .26], [66 * 2.65, .1, .2]], nz:[[.16, .06, 'lp', 650, .7], [.05, .22, 'bp', 1800, .9]], len:1.0 },
       F:{ m:[[420, .3, .07], [790, .26, .06], [1290, .2, .05], [1870, .1, .04]], nz:[[.55, .03, 'bp', 2500, 1]], len:.2 },
       L:{ osc:[100, 62, 0.04, .5, .4], m:[[62 * 1.59, .45, .32], [62 * 2.14, .34, .24], [62 * 2.3, .22, .2], [62 * 2.92, .14, .14]], nz:[[.35, .05, 'lp', 700, .7]], len:.9 },
       H:{ m:[[310, .32, .08], [540, .26, .06], [930, .2, .05], [1500, .1, .04]], nz:[[.7, .02, 'bp', 2100, .9]], len:.2 },
       C:{ nz:[[1, .028, 'bp', 1250, 1.3]], hits:[[0, .55], [.009, .7], [.019, .8], [.029, 1]], tail:[.6, .11], len:.25 },
-      R:{ m:[[2650, .22, .09], [3640, .18, .08], [4780, .13, .06], [6050, .07, .05]], nz:[[.3, .03, 'bp', 5200, .8]], hits:[[0, 1], [.011, .55], [.021, .3]], len:.25 },
-      S:{ m:[[1720, .12, .2], [2310, .2, .16], [3080, .2, .13], [3890, .15, .11], [5160, .08, .08]], nz:[[.22, .035, 'bp', 4400, .8]], len:.6, shake:11 },
+      R:{ m:[[2650, .22, .09], [3640, .18, .08], [4780, .13, .06], [6050, .07, .05]], nz:[[.2, .025, 'bp', 4600, .9]], hits:[[0, 1], [.011, .55], [.021, .3]], len:.25 },
+      S:{ m:[[1720, .12, .2], [2310, .2, .16], [3080, .2, .13], [3890, .15, .11], [5160, .08, .08]], nz:[[.15, .03, 'bp', 4000, .9]], len:.6, shake:11 },
       Z:{ m:[[1475, .32, 1.3], [1481, .28, 1.35], [3410, .2, .75], [5290, .1, .42], [7350, .04, .25]], nz:[[.12, .01, 'bp', 5000, 1]], len:1.7 },
       G:{ m:[[110, .5, 6], [110.6, .45, 6], [298, .32, 4.2], [299.4, .28, 4], [566, .16, 2.6], [899, .08, 1.6], [1290, .04, 1.1]], nz:[[.05, .04, 'lp', 400, .7]], len:6.5 }
     };
@@ -281,7 +287,7 @@
       bass: { g:.8, eq:[['hp', 45, .7], ['pk', 120, 1, 1.5], ['pk', 750, 1, 2.5], ['lp', 2600, .7]], rv:.04, dl:0 },
       pad:  { g:.8, eq:[['hp', 110, .7], ['pk', 300, .8, -2], ['lp', 4500, .7]], rv:.5, dl:0 },
       drum: { g:1, eq:[['hp', 55, .7], ['pk', 250, .9, -1.5], ['pk', 3500, 1, -1], ['hs', 8500, .7, -3]], rv:.12, dl:0 },
-      metal:{ g:2, eq:[['hp', 1100, .7], ['pk', 4200, 1, -1.5], ['lp', 10500, .7]], rv:.26, dl:0 }
+      metal:{ g:2, eq:[['hp', 1100, .7], ['pk', 4200, 1, -1.5], ['lp', 8800, .7]], rv:.26, dl:0 }
     };
     const BUSES = Object.keys(BUSDEF);
     function builder(TK, seed) {
@@ -507,11 +513,11 @@
     /* bpb = beats per bar; ir = reverb; mix = bus gains/sends (dB trims are measured, see docs/qa44-muzik/NOTES.md) */
     const TRACKS = {
       menu:  { bpm:76,  bars:24, make:composeMenu,   seed:31, ir:{ len:2.6, t60:2.4, hi:4800, lo:900, pre:.024, er:9 }, wet:.32, mix:{ wind:{ g:0.64 }, harp:{ g:0.98 }, oud:{ g:2.01 }, drum:{ g:1 }, bass:{ g:1.54 }, pad:{ g:1.16 }, metal:{ g:2.41 } }, trim:-0.7 },
-      port1: { bpm:100, bars:32, make:composePort,   seed:47, ir:{ len:1.6, t60:1.3, hi:5200, lo:1100, pre:.012, er:10 }, wet:.26, mix:{ oud:{ g:1.79 }, wind:{ g:0.53 }, drum:{ g:1 }, bass:{ g:0.98 }, harp:{ g:1 }, pad:{ g:0.89 }, metal:{ g:2.87 } }, trim:-0.3 },
-      port2: { bpm:116, bars:32, make:composeBazaar, seed:53, ir:{ len:1.4, t60:1.1, hi:5600, lo:1200, pre:.01, er:12, erg:1.2 }, wet:.24, mix:{ wind:{ g:0.63 }, oud:{ g:1.93 }, drum:{ g:1 }, bass:{ g:1.07 }, harp:{ g:1.82 }, pad:{ g:1.05 }, metal:{ g:2.54 } }, trim:-2.2 },
+      port1: { bpm:100, bars:32, make:composePort,   seed:47, ir:{ len:1.6, t60:1.3, hi:5200, lo:1100, pre:.012, er:10 }, wet:.26, mix:{ oud:{ g:1.79 }, wind:{ g:0.53 }, drum:{ g:1 }, bass:{ g:0.98 }, harp:{ g:1 }, pad:{ g:0.89 }, metal:{ g:2.87 } }, trim:-0.6 },
+      port2: { bpm:116, bars:32, make:composeBazaar, seed:53, ir:{ len:1.4, t60:1.1, hi:5600, lo:1200, pre:.01, er:12, erg:1.2 }, wet:.24, mix:{ wind:{ g:0.63 }, oud:{ g:1.93 }, drum:{ g:1 }, bass:{ g:1.07 }, harp:{ g:1.82 }, pad:{ g:1.05 }, metal:{ g:2.54 } }, trim:-2.4 },
       port3: { bpm:66,  bars:20, make:composeTemple, seed:61, ir:{ len:3.8, t60:3.6, hi:4200, lo:700, pre:.035, er:6, erg:.8 }, wet:.42, mix:{ wind:{ g:0.41 }, pad:{ g:0.78 }, harp:{ g:0.84 }, drum:{ g:1 }, metal:{ g:2.85 }, bass:{ g:1.46 } }, trim:3.2 },
-      sail:  { bpm:104, bars:32, make:composeSail,   seed:71, ir:{ len:2.0, t60:1.8, hi:5000, lo:1000, pre:.02, er:5 }, wet:.3, mix:{ wind:{ g:0.46 }, harp:{ g:0.77 }, oud:{ g:1.58 }, drum:{ g:1 }, bass:{ g:0.92 }, pad:{ g:1.0 }, metal:{ g:3.09 } }, trim:0.7 },
-      chase: { bpm:104, bars:32, make:composeChase,  seed:79, ir:{ len:1.3, t60:1.0, hi:5200, lo:1100, pre:.01, er:8 }, wet:.2, mix:{ drum:{ g:1 }, oud:{ g:0.97 }, bass:{ g:1.16 }, wind:{ g:0.48 }, metal:{ g:5.52 } }, trim:-0.6 }
+      sail:  { bpm:104, bars:32, make:composeSail,   seed:71, ir:{ len:2.0, t60:1.8, hi:5000, lo:1000, pre:.02, er:5 }, wet:.3, mix:{ wind:{ g:0.46 }, harp:{ g:0.77 }, oud:{ g:1.58 }, drum:{ g:1 }, bass:{ g:0.92 }, pad:{ g:1.0 }, metal:{ g:3.09 } }, trim:0.55 },
+      chase: { bpm:104, bars:32, make:composeChase,  seed:79, ir:{ len:1.3, t60:1.0, hi:5200, lo:1100, pre:.01, er:8 }, wet:.2, mix:{ drum:{ g:1 }, oud:{ g:0.97 }, bass:{ g:1.16 }, wind:{ g:0.48 }, metal:{ g:5.52 } }, trim:-0.8 }
     };
 
     /* ======================= render job ======================= */
@@ -537,7 +543,10 @@
       const HLr = new Float64Array(N), HLi = new Float64Array(N), HRr = new Float64Array(N), HRi = new Float64Array(N);
       for (let k = 0; k < N; k++) { const kk = (N - k) & (N - 1); HLr[k] = (HR[k] + HR[kk]) / 2; HLi[k] = (HI[k] - HI[kk]) / 2; HRr[k] = (HI[k] + HI[kk]) / 2; HRi[k] = -(HR[k] - HR[kk]) / 2; }
       const WS = N * 2, wL = new Float64Array(WS), wR = new Float64Array(WS), fr = new Float64Array(N), fi = new Float64Array(N), zr = new Float64Array(N), zi = new Float64Array(N);
-      const dec = [bq('lp', 6800, 0.54), bq('lp', 6800, 1.31), bq('lp', 6800, 0.54), bq('lp', 6800, 1.31)];
+      /* anti-alias before the half-rate reverb and anti-image after it (6th / 4th order): with the old 4th-order filter
+         and plain linear interpolation, bright attacks folded back into the reverb and its tail was mirrored above 8 kHz as hiss */
+      const BW6 = [0.518, 0.707, 1.932], dec = BW6.map(q => bq('lp', 6200, q)).concat(BW6.map(q => bq('lp', 6200, q)));
+      const upq = [0.541, 1.307], upL = upq.map(q => bq('lp', 6600, q)), upR = upq.map(q => bq('lp', 6600, q)), wtL = new Float64Array(SEG), wtR = new Float64Array(SEG);
       /* master */
       const mq = [['hp', 38, .7], ['ls', 90, .7, -1.5], ['hs', 9000, .7, -2]], mL = mq.map(q => bq(q[0], q[1], q[2], q[3])), mR = mq.map(q => bq(q[0], q[1], q[2], q[3]));
       const cAtt = 1 - Math.exp(-1 / (0.006 * SR)), cRel = 1 - Math.exp(-1 / (0.16 * SR)), thr = -14, ratio = 2.2, knee = 8, trim = Math.pow(10, (TK.trim || 0) / 20);
@@ -583,7 +592,7 @@
       }
       function segment() {
         /* reverb: decimate the send, convolve (left and right packed into one complex FFT), overlap-add */
-        for (let i = 0; i < SEG; i++) { let l = snL[i], r = snR[i]; for (let q = 0; q < 2; q++) { const a = dec[q], y = a.b0 * l + a.z1; a.z1 = a.b1 * l - a.a1 * y + a.z2; a.z2 = a.b2 * l - a.a2 * y; l = y; const b = dec[q + 2], z = b.b0 * r + b.z1; b.z1 = b.b1 * r - b.a1 * z + b.z2; b.z2 = b.b2 * r - b.a2 * z; r = z; } snL[i] = l; snR[i] = r; }
+        for (let q = 0; q < 3; q++) { bqBuf(dec[q], snL, SEG); bqBuf(dec[q + 3], snR, SEG); }
         fr.fill(0); fi.fill(0); for (let m = 0; m < S2; m++) { fr[m] = snL[m * 2]; fi[m] = snR[m * 2]; }
         fft(fr, fi, N, false);
       }
@@ -599,9 +608,11 @@
         for (let m = 0; m < S2; m++) {
           const j = (base + m) & (WS - 1), l = wL[j], r = wR[j]; wL[j] = 0; wR[j] = 0;
           if (meter) meter[BUSES.length + 1] += (l * l + r * r) * wet * wet * 2;
-          segL[m * 2] += (wPrevL + l) * 0.5 * wet; segR[m * 2] += (wPrevR + r) * 0.5 * wet; segL[m * 2 + 1] += l * wet; segR[m * 2 + 1] += r * wet;
+          wtL[m * 2] = (wPrevL + l) * 0.5 * wet; wtR[m * 2] = (wPrevR + r) * 0.5 * wet; wtL[m * 2 + 1] = l * wet; wtR[m * 2 + 1] = r * wet;
           wPrevL = l; wPrevR = r;
         }
+        for (let q = 0; q < 2; q++) { bqBuf(upL[q], wtL, SEG); bqBuf(upR[q], wtR, SEG); }
+        for (let i = 0; i < SEG; i++) { segL[i] += wtL[i]; segR[i] += wtR[i]; }
       }
       function segment2() {
         /* master: EQ, glue compressor, trim, soft ceiling (never above -1 dBFS) */

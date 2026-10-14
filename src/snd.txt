@@ -37,7 +37,7 @@
     let ac = null, out, mGain, sBus, mode = 'port', started = false;
     const bufs = {}, srcs = {}, gains = {};
     const pref = { music: lsGet(MUS) !== '0', sfx: lsGet(SFX) !== '0' };
-    const SR = 32000, MUSIC_VER = 'm44', MAXBUF = 3, SEGMIN = 2;
+    const SR = 32000, MUSIC_VER = 'm45', MAXBUF = 3, SEGMIN = 2;
     const midi = n => 440 * Math.pow(2, (n - 69) / 12);
     /* a short warm room for the effects */
     function impulse(c, sec, decay) {
