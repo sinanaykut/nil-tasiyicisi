@@ -21,8 +21,11 @@ const BOT = () => {
       if (st.charges > 0 && st.boxes.some(b => b.on && !b.lash && Math.abs(b.p) > 0.75) && performance.now() - lastB > 400) { N.Sea.boost(); lastB = performance.now(); }
     } else if (st.kind === 'dive') {
       const d = st.dv; let tx, ty;
-      if (d.item || (st.air < 0.45 && d.y > st.sea + 26)) { tx = g.W / 2; ty = st.sea; }
-      else { const it = st.items.filter(i => !i.banked && !i.taken).sort((a, b) => (!!b.special - !!a.special) || (Math.hypot(a.x - d.x, a.y - d.y) - Math.hypot(b.x - d.x, b.y - d.y)))[0]; if (it) { tx = it.x; ty = it.y; } else { tx = g.W / 2; ty = st.sea; } }
+      /* v45: breathe up to full at the surface; the hull is solid, so follow st.way through the gap in the deck */
+      if (d.item || (st.air < 0.42 && d.y > st.sea + 26)) { tx = st.boatX || g.W / 2; ty = st.sea; }
+      else if (d.y < st.sea + 30 && st.air < 0.95) { tx = d.x; ty = st.sea; }
+      else { const it = st.items.filter(i => !i.banked && !i.taken && !i.full).sort((a, b) => (!!b.special - !!a.special) || (Math.hypot(a.x - d.x, a.y - d.y) - Math.hypot(b.x - d.x, b.y - d.y)))[0]; if (it) { tx = it.x; ty = it.y; } else { tx = g.W / 2; ty = st.sea; } }
+      if (st.way) { const w = st.way(tx, ty); tx = w[0]; ty = w[1]; }
       key('ArrowLeft', tx - d.x < -12); key('ArrowRight', tx - d.x > 12); key('ArrowUp', ty - d.y < -12); key('ArrowDown', ty - d.y > 12);
     } else if (st.kind === 'race') {
       const b = st.beats.find(b => !b.hit && Math.abs(b.t - st.t) < 0.04); if (b) N.Sea.boost();
@@ -61,7 +64,7 @@ async function solvePuzzle(p) {
       if (st.pz) { seen.add('pz:' + st.pz); await solvePuzzle(p); await W(300); continue; }
       if (st.veil) {
         const btn = await p.evaluate(() => { const box = document.querySelector('#sheet .dlg-box'); if (box && (!box.classList.contains('done') || box.classList.contains('more'))) { box.click(); return 'dlgNext'; }
-          const order = ['[data-act="heroGo"]', '[data-act="unlockOk"]', '[data-act="carGo"]', '[data-act="qAccept"]', '[data-qriddle="0"]', '[data-act="qScene"]', '[data-act="qDuel"]', '[data-nchoice="0"]', '[data-act="event"]', '[data-choice="0"]:not(:disabled)', '[data-choice="1"]', '[data-act="land"]', '[data-act="pzStart"]', '#dlgCh [data-dlg]:last-child', '[data-close]']; for (const s of order) { const e = document.querySelector('#sheet ' + s); if (e && !e.disabled) { e.click(); return s; } } return null; });
+          const order = ['[data-act="heroGo"]', '[data-act="unlockOk"]', '[data-act="carGo"]', '[data-act="qAccept"]', '[data-qriddle="0"]', '[data-act="qScene"]', '[data-act="qDuel"]', '[data-nchoice="0"]', '[data-act="event"]', '[data-choice="0"]:not(:disabled)', '[data-choice="1"]:not(:disabled)', '[data-choice]:not(:disabled)', '[data-act="land"]', '[data-act="pzStart"]', '#dlgCh [data-dlg]:last-child', '[data-close]']; for (const s of order) { const e = document.querySelector('#sheet ' + s); if (e && !e.disabled) { e.click(); return s; } } return null; });
         if (btn) seen.add(btn); await W(250); continue;
       }
       if (st.phase === 'sea') {
