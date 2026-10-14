@@ -1,0 +1,70 @@
+  /* ================= v36: illustrated faces (GF36) =================
+     Hand-made portraits per character and mood (GF36_IMG in faces36-data.txt). Same handle API as CH33/CH34.stage:
+       GF36.has(key)  GF36.url(key, mood)  GF36.stage(el, key, o) -> { ready, alive, update({ mood, talk, act }), react(kind), dispose() }
+     Life without 3D: a slow breath, blinks, the mouth while text types, a laugh on tap, a soft crossfade between moods. */
+  var GF36 = (() => {
+    const IMG = typeof GF36_IMG !== 'undefined' ? GF36_IMG : {};
+    const ALIAS = { sly:'laugh', sad:'thinking', think:'thinking', surprise:'surprised', glad:'happy', sour:'angry' };
+    const has = key => !!IMG[String(key)];
+    const pick = (key, mood) => { const p = IMG[String(key)]; if (!p) return ''; const m = ALIAS[mood] || mood || 'neutral'; return p[m] || p.neutral || ''; };
+    const RED = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
+    function stage(el, key, o) {
+      o = o || {};
+      if (!el || !has(key)) return null;
+      const P = IMG[String(key)];
+      el.innerHTML = '<div class="gf36' + (o.frame === 'face' ? ' face' : '') + '"><img class="gfA" alt="" draggable="false"><img class="gfB" alt="" draggable="false"></div>';
+      const box = el.firstElementChild, A = box.querySelector('.gfA'), B = box.querySelector('.gfB');
+      const h = { alive:true, ready:Promise.resolve(true), mood:'neutral', talk:false, t:[], once:null };
+      let shown = '';
+      const show = (src, fade) => {
+        if (!src || src === shown) return; shown = src;
+        if (fade && !RED()) { B.src = src; B.classList.remove('on'); void B.offsetWidth; B.classList.add('on'); h.t.push(setTimeout(() => { if (!h.alive) return; A.src = src; B.classList.remove('on'); }, 220)); }
+        else { A.src = src; B.classList.remove('on'); }
+      };
+      const face = () => (h.once && P[h.once]) ? P[h.once] : pick(key, h.mood);
+      /* talking: the mood face and the open-mouth face take turns (not over a laugh or a surprise) */
+      let talkTm = 0, mouth = false;
+      const talkLoop = () => {
+        clearTimeout(talkTm); if (!h.alive) return;
+        if (!h.talk || h.once || !P.talk || /^(laugh|surprised|thinking)$/.test(ALIAS[h.mood] || h.mood)) { mouth = false; show(face()); return; }
+        mouth = !mouth; show(mouth ? P.talk : face());
+        talkTm = setTimeout(talkLoop, mouth ? 110 + Math.random() * 70 : 90 + Math.random() * 90);
+      };
+      /* blinking every few seconds */
+      let blinkTm = 0;
+      const blinkLoop = () => {
+        clearTimeout(blinkTm); if (!h.alive) return;
+        blinkTm = setTimeout(() => {
+          if (!h.alive) return;
+          const m = ALIAS[h.mood] || h.mood;
+          if (P.blink && !h.talk && !h.once && !/^(laugh|surprised)$/.test(m) && document.visibilityState !== 'hidden') { show(P.blink); h.t.push(setTimeout(() => { if (h.alive && !h.talk && !h.once) show(face()); }, 120)); }
+          blinkLoop();
+        }, 2400 + Math.random() * 2800);
+      };
+      h.update = u => {
+        if (!h.alive || !u) return;
+        if (u.mood && u.mood !== h.mood) { h.mood = u.mood; if (!h.talk) show(face(), true); box.classList.toggle('sour', /^(angry|sour)$/.test(h.mood)); box.classList.remove('pop'); void box.offsetWidth; box.classList.add('pop'); }
+        if (u.talk != null && !!u.talk !== h.talk) { h.talk = !!u.talk; talkLoop(); }
+        if (u.act) h.react(u.act);
+      };
+      h.react = kind => {
+        if (!h.alive) return;
+        const k = kind === 'angry' ? 'angry' : kind === 'surprise' ? 'surprised' : 'laugh';
+        if (!P[k]) return;
+        h.once = k; show(P[k]); box.classList.remove('hop'); void box.offsetWidth; box.classList.add('hop');
+        h.t.push(setTimeout(() => { if (!h.alive) return; h.once = null; show(face(), true); if (h.talk) talkLoop(); }, 950));
+      };
+      h.onTap = e => { e.stopPropagation(); h.react('laugh'); };
+      box.addEventListener('pointerdown', h.onTap);
+      h.dispose = () => {
+        if (!h.alive) return; h.alive = false; clearTimeout(talkTm); clearTimeout(blinkTm); h.t.forEach(clearTimeout);
+        box.removeEventListener('pointerdown', h.onTap);
+      };
+      /* stop by itself when the element leaves the page */
+      const watch = setInterval(() => { if (!h.alive) return clearInterval(watch); if (!box.isConnected) { clearInterval(watch); h.dispose(); } }, 1000);
+      h.mood = o.mood || 'neutral'; show(face()); blinkLoop();
+      if (o.greet !== false && !RED()) box.classList.add('enter');
+      return h;
+    }
+    return { has, url:pick, stage };
+  })();

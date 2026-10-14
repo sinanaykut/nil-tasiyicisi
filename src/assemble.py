@@ -18,10 +18,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = sys.argv[1] if len(sys.argv) > 1 else 'src'
 OUT = sys.argv[2] if len(sys.argv) > 2 else None
 if not os.path.isabs(SRC): SRC = os.path.join(ROOT, SRC)
-MODULES = ['art27.txt', 'art28.txt', 'chars28.txt', 'chars30.txt', 'portraits31.txt', 'v3', 'world33.txt', 'town29.txt',
+MODULES = ['art27.txt', 'art28.txt', 'chars28.txt', 'chars30.txt', 'portraits31.txt', 'faces36-data.txt', 'faces36.txt', 'v3', 'world33.txt', 'town29.txt',
            'temple.txt', 'senet.txt', 'mini.txt', 'haggle28.txt', 'chars33.txt', 'chars34.txt']
 CSS_MODULES = ['css27.txt', 'art27.css', 'v3.css', 'town29.css', 'temple.css', 'senet.css', 'mini.css', 'css28.txt',
-               'art28.css', 'chars28.css', 'haggle28.css', 'chars33.css', 'motion35.css']
+               'art28.css', 'chars28.css', 'haggle28.css', 'chars33.css', 'faces36.css', 'motion35.css']
 def r(f, opt=False):
     p = os.path.join(SRC, f)
     if os.path.isdir(p): return ''.join(open(os.path.join(p, x)).read() for x in sorted(os.listdir(p)) if x.endswith('.txt'))
