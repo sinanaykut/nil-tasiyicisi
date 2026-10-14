@@ -34,6 +34,7 @@
     const wasOpen = !$('#veil').hidden, prevName = sheetName;
     if (!wasOpen) opener = document.activeElement;
     if ($('#tut')) $('#tut').hidden = true;
+    if ($('#quip')) $('#quip').hidden = true; /* a hero's quip never lingers behind a sheet */
     sheetLock = !!lock; sheetName = name || '';
     $('#sheet').className = 'sheet' + (wide ? ' wide' : '') + (name === 'title' ? ' title31' : '');
     $('#veil').classList.toggle('vtitle', name === 'title');

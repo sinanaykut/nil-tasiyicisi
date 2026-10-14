@@ -2,7 +2,7 @@
   /* ================= v35 motion helpers: curtain, sheet ghost, HUD count-up (CSS tokens in motion35.css) ================= */
   /* the papyrus curtain: slides over the screen, runs fn() while hidden (heavy 3D builds happen here), holds a beat, slides away.
      A second call while one is running flushes the first fn at once and keeps the curtain up. Reduced motion: fn runs at once. */
-  const CU = { fn:null, t:0, tok:0, busy:false };
+  const CU = { fn:null, t:0, tok:0, busy:false, onEnd:null };
   function curtain(card, fn, opt) {
     opt = opt || {};
     if (reduce || document.hidden) { if (CU.fn) cuFlush(); fn(); return; }
@@ -16,8 +16,10 @@
     clearTimeout(CU.t);
     const inMs = opt.inMs || 300; el.style.setProperty('--m-cu-in', (inMs / 1000) + 's');
     if (!up) { el.classList.remove('out', 'hold'); void el.offsetWidth; el.classList.add('in'); }
-    CU.t = setTimeout(() => {
-      if (tok !== CU.tok) return;
+    /* the swap waits until the curtain really covers the screen (a busy main thread can start the slide late) */
+    let fired = false;
+    const covered = () => {
+      if (fired || tok !== CU.tok) return; fired = true; clearTimeout(CU.t); el.removeEventListener('animationend', onEnd);
       el.classList.remove('in'); el.classList.add('hold');
       cuFlush();
       /* two frames after the swap the new view has painted once: the curtain can leave */
@@ -27,7 +29,13 @@
         if (opt.after) { try { opt.after(); } catch (e) { console.error(e); } }
         CU.t = setTimeout(() => { if (tok !== CU.tok) return; el.classList.remove('out'); CU.busy = false; }, 460);
       }, opt.hold == null ? 120 : opt.hold); }));
-    }, up ? 0 : inMs);
+    };
+    const onEnd = e => { if (e.target === el && e.animationName === 'm-cu-in') covered(); };
+    if (CU.onEnd) el.removeEventListener('animationend', CU.onEnd);
+    CU.onEnd = onEnd;
+    if (up) { CU.t = setTimeout(covered, 0); return; }
+    el.addEventListener('animationend', onEnd);
+    CU.t = setTimeout(covered, inMs + 450);
   }
   function cuFlush() { const f = CU.fn; CU.fn = null; if (f) { try { f(); } catch (e) { console.error(e); } } }
 

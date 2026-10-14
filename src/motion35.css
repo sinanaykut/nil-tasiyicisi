@@ -129,6 +129,12 @@
 .title-art.t31 .logo-wrap .logo-img{max-width:100%}
 .title-art.t31 .logo-name{position:absolute;left:8%;right:9%;top:68%;bottom:9%;display:grid;place-items:center;margin:0;font:700 clamp(19px,5.6vw,30px)/1 Cinzel,Georgia,serif;color:#B7412E;-webkit-text-stroke:1px #2B1D14;paint-order:stroke fill;text-shadow:0 2px 0 rgba(43,29,20,.35);letter-spacing:.04em;white-space:nowrap}
 .title-art.t31 .logo-sub{display:block;margin-top:2px;font:700 13px Nunito,sans-serif;color:var(--ink2)}
+@media (max-height:520px){
+  .title-art.t31{min-height:0}
+  .title-art.t31 .logo-wrap{max-width:190px}
+  .title-art.t31 .logo-name{font-size:17px}
+  .title-art.t31 .logo-sub{display:none}
+}
 /* the river map's skip button keeps clear of the voyage header */
 .skipBtn{min-height:40px;padding:6px 14px}
 body.on-map .skipBtn{top:12px;right:14px}
@@ -148,4 +154,4 @@ body.on-map .vhead{margin-right:96px}
 /* market action bar: the amount chips and the close button are real tap targets */
 .ab1 .chips .chip{min-height:34px;min-width:36px}
 .ab1 .abx.x.sm{width:34px;height:34px}
-.sheet .btn.sm{min-height:38px}
+.sheet .btn.sm{min-height:40px}
