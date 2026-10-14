@@ -1,17 +1,18 @@
 /* v36: illustrated faces (GF36) */
 .gf36{position:absolute;inset:0;overflow:hidden;border-radius:14px;background:#F1DCA7;touch-action:manipulation;cursor:pointer;
   transform-origin:50% 100%;animation:gfBreath 4.2s ease-in-out infinite}
-.gf36 img{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;object-position:50% 12%;user-select:none;-webkit-user-drag:none;pointer-events:none}
+.gf36 img{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:contain;object-position:50% 100%;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 7%,#000 93%,transparent 100%);mask-image:linear-gradient(90deg,transparent 0,#000 7%,#000 93%,transparent 100%);user-select:none;-webkit-user-drag:none;pointer-events:none}
 .gf36 .gfB{opacity:0}
 .gf36 .gfB.on{opacity:1;transition:opacity .2s ease}
 .gf36.enter{animation:gfIn .45s cubic-bezier(.2,.9,.3,1.15),gfBreath 4.2s ease-in-out .45s infinite}
 .gf36.pop{animation:gfPop .32s ease-out,gfBreath 4.2s ease-in-out .32s infinite}
 .gf36.hop{animation:gfHop .45s cubic-bezier(.3,1.6,.5,1),gfBreath 4.2s ease-in-out .45s infinite}
 .gf36.sour{filter:saturate(.92)}
-.gf36.face img{object-position:50% 20%}
+.gf36.face img{object-fit:cover;object-position:50% 18%;-webkit-mask-image:none;mask-image:none}
 @keyframes gfBreath{50%{transform:translateY(-1.5px) scale(1.012)}}
 @keyframes gfIn{from{transform:translateY(14px) scale(.96);opacity:0}}
 @keyframes gfPop{40%{transform:scale(1.025)}}
 @keyframes gfHop{35%{transform:translateY(-8px) scale(1.02)}70%{transform:translateY(1px)}}
 .dlg-art:has(.gf36){position:relative}
 @media (prefers-reduced-motion: reduce){ .gf36,.gf36.enter,.gf36.pop,.gf36.hop{animation:none} .gf36 .gfB.on{transition:none} }
+.gfi{width:100%;height:100%;object-fit:cover;object-position:50% 16%;display:block;border-radius:inherit}

@@ -66,5 +66,7 @@
       if (o.greet !== false && !RED()) box.classList.add('enter');
       return h;
     }
-    return { has, url:pick, stage };
+    /* a small round face for strips and badges */
+    const icon = (key, mood) => has(key) ? '<img class="gfi" alt="" draggable="false" src="' + pick(key, mood) + '">' : '';
+    return { has, url:pick, stage, icon };
   })();

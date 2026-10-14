@@ -216,7 +216,7 @@
     return null;
   }
   /* Paneb's line inside a sheet (the travel map), when the coach bubble cannot show */
-  function coachHtml(text) { return '<div class="coach"><span class="cf">' + portrait(FACE.paneb, 3) + '</span><p>' + esc(text) + '</p></div>'; }
+  function coachHtml(text) { return '<div class="coach"><span class="cf">' + ((typeof GF36 !== 'undefined' && GF36.icon('paneb')) || portrait(FACE.paneb, 3)) + '</span><p>' + esc(text) + '</p></div>'; }
   function placeTutor() {
     document.querySelectorAll('.tut-target').forEach(e => e.classList.remove('tut-target'));
     const box = $('#tut'); if (!box) return;
@@ -227,7 +227,7 @@
     if (!st || !st.el) { box.hidden = true; return; }
     st.el.classList.add('tut-target');
     /* the same tip is not re-drawn on every render (no flicker, no portrait rebuild) */
-    if (box.dataset.k !== st.text || !box.firstChild) { box.dataset.k = st.text; box.innerHTML = '<span class="cf">' + portrait(FACE.paneb, 3) + '</span><div><span class="tn">Paneb</span><p>' + esc(st.text) + '</p><button class="chip" type="button" data-act="noHints">Rehberi kapat</button></div>'; }
+    if (box.dataset.k !== st.text || !box.firstChild) { box.dataset.k = st.text; box.innerHTML = '<span class="cf">' + ((typeof GF36 !== 'undefined' && GF36.icon('paneb')) || portrait(FACE.paneb, 3)) + '</span><div><span class="tn">Paneb</span><p>' + esc(st.text) + '</p><button class="chip" type="button" data-act="noHints">Rehberi kapat</button></div>'; }
     box.hidden = false;
     const r = st.el.getBoundingClientRect();
     /* phones: the guide docks as a slim strip at the top or bottom edge, on the side away from what you must tap */
