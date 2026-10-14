@@ -1,0 +1,95 @@
+
+  /* ================= v35 motion helpers: curtain, sheet ghost, HUD count-up (CSS tokens in motion35.css) ================= */
+  /* the papyrus curtain: slides over the screen, runs fn() while hidden (heavy 3D builds happen here), holds a beat, slides away.
+     A second call while one is running flushes the first fn at once and keeps the curtain up. Reduced motion: fn runs at once. */
+  const CU = { fn:null, t:0, tok:0, busy:false };
+  function curtain(card, fn, opt) {
+    opt = opt || {};
+    if (reduce || document.hidden) { if (CU.fn) cuFlush(); fn(); return; }
+    let el = $('#curtain');
+    if (!el) { el = document.createElement('div'); el.id = 'curtain'; el.className = 'curtain'; el.setAttribute('aria-hidden', 'true'); el.innerHTML = '<div class="cu-card"><small></small><b></b><span></span><em></em></div>'; document.body.appendChild(el); }
+    const c = card || {}, q = s => el.querySelector(s);
+    q('small').textContent = c.kick || ''; q('b').textContent = c.title || ''; q('span').textContent = c.sub || ''; q('em').textContent = c.note || '';
+    const up = CU.busy && !el.classList.contains('out');
+    if (CU.fn) cuFlush();
+    const tok = ++CU.tok; CU.busy = true; CU.fn = fn;
+    clearTimeout(CU.t);
+    const inMs = opt.inMs || 300; el.style.setProperty('--m-cu-in', (inMs / 1000) + 's');
+    if (!up) { el.classList.remove('out', 'hold'); void el.offsetWidth; el.classList.add('in'); }
+    CU.t = setTimeout(() => {
+      if (tok !== CU.tok) return;
+      el.classList.remove('in'); el.classList.add('hold');
+      cuFlush();
+      /* two frames after the swap the new view has painted once: the curtain can leave */
+      requestAnimationFrame(() => requestAnimationFrame(() => { CU.t = setTimeout(() => {
+        if (tok !== CU.tok) return;
+        el.classList.remove('hold'); el.classList.add('out');
+        if (opt.after) { try { opt.after(); } catch (e) { console.error(e); } }
+        CU.t = setTimeout(() => { if (tok !== CU.tok) return; el.classList.remove('out'); CU.busy = false; }, 460);
+      }, opt.hold == null ? 120 : opt.hold); }));
+    }, up ? 0 : inMs);
+  }
+  function cuFlush() { const f = CU.fn; CU.fn = null; if (f) { try { f(); } catch (e) { console.error(e); } } }
+
+  /* sheets: how the next openSheet should move (fresh rise, swap from another sheet, or a quiet re-draw) */
+  let ghostAt = 0, ghostName = '';
+  function sheetMotion(name, wasOpen, prevName) {
+    const sh = $('#sheet');
+    const recent = ghostAt && performance.now() - ghostAt < 120;
+    const g = $('#veilGhost'); if (g) g.remove();
+    if (wasOpen) { sh.classList.add(name && name === prevName ? 'm-same' : 'm-swap'); return; }
+    if (recent) {
+      /* closed and reopened in the same moment (one sheet leading to the next): no second rise, no veil flash */
+      sh.classList.add(name && name === ghostName ? 'm-same' : 'm-swap');
+      $('#veil').classList.add('m-cont');
+      ghostAt = 0; return;
+    }
+    sh.classList.add('m-open');
+  }
+  /* the closing sheet is moved into a ghost layer that fades out on its own (no taps, no ids) */
+  function sheetGhost() {
+    const v = $('#veil'), sh = $('#sheet'), inner = sh.firstElementChild;
+    const old = $('#veilGhost'); if (old) old.remove();
+    if (v.hidden) return;
+    ghostAt = performance.now(); ghostName = sheetName;
+    if (reduce || !inner) return;
+    const g = document.createElement('div'); g.id = 'veilGhost'; g.className = v.className.replace(/\bm-cont\b/, '') + ' m-ghost'; g.setAttribute('aria-hidden', 'true'); g.inert = true;
+    const gs = document.createElement('div'); gs.className = sh.className.replace(/\bm-(open|swap|same)\b/g, ''); gs.style.cssText = sh.style.cssText;
+    /* keep the sheet's size so nothing reflows while it fades */
+    const r = sh.getBoundingClientRect(); gs.style.width = r.width + 'px'; gs.style.height = r.height + 'px'; gs.style.overflow = 'hidden';
+    gs.appendChild(inner); inner.querySelectorAll('[id]').forEach(e => e.removeAttribute('id'));
+    inner.querySelectorAll('canvas').forEach(c => { c.style.visibility = 'hidden'; });
+    gs.scrollTop = 0; const st = sh.scrollTop; g.appendChild(gs); document.body.appendChild(g); if (st) inner.style.transform = 'translateY(' + (-st) + 'px)';
+    setTimeout(() => g.remove(), 220);
+  }
+
+  /* HUD numbers: count from the old value to the new one, with a short green/red pop */
+  const HN = {};
+  function hudNum(id, v, fmtFn) {
+    const el = $('#' + id); if (!el) return;
+    const st = el.closest('.st'), was = HN[id];
+    HN[id] = v;
+    if (was == null || was === v || reduce || document.hidden) { if (HN[id + 'r']) cancelAnimationFrame(HN[id + 'r']); el.textContent = fmtFn(v); return; }
+    if (st) restartCls(st, v > was ? (id === 'hDebt' ? 'm-loss' : 'm-gain') : (id === 'hDebt' ? 'm-gain' : 'm-loss'), ['m-gain', 'm-loss']);
+    const t0 = performance.now(), dur = Math.min(650, 260 + Math.abs(v - was) / 6);
+    if (HN[id + 'r']) cancelAnimationFrame(HN[id + 'r']);
+    const step = now => {
+      const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+      el.textContent = fmtFn(Math.round(was + (v - was) * e));
+      HN[id + 'r'] = k < 1 ? requestAnimationFrame(step) : 0;
+    };
+    HN[id + 'r'] = requestAnimationFrame(step);
+  }
+  function hudFlip(id, text) {
+    const el = $('#' + id); if (!el) return;
+    const was = el.textContent; el.textContent = text;
+    if (!was || was === text || reduce || HN[id + 'f'] == null) { HN[id + 'f'] = 1; return; }
+    const st = el.closest('.st'); if (st) restartCls(st, 'm-flip', ['m-flip']);
+  }
+  /* restart a CSS animation class without forcing a layout: off now, on in the next frame */
+  function restartCls(el, cls, all) {
+    el.classList.remove(...all);
+    requestAnimationFrame(() => { el.classList.add(cls); clearTimeout(el._rc); el._rc = setTimeout(() => el.classList.remove(cls), 1300); });
+  }
+  /* the boot splash leaves once the first screen is drawn */
+  function bootDone() { const b = $('#boot'); if (!b || b.classList.contains('gone')) return; requestAnimationFrame(() => { b.classList.add('gone'); setTimeout(() => b.remove(), 450); }); }

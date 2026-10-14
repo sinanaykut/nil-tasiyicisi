@@ -42,16 +42,16 @@
 
   /* ================= rendering ================= */
   function renderHud() {
-    $('#hDay').textContent = S.day + '/' + S.days;
-    $('#hCash').textContent = fmt(S.cash);
-    $('#hDebt').textContent = fmt(S.debt);
+    hudFlip('hDay', S.day + '/' + S.days);
+    hudNum('hCash', S.cash, fmt);
+    hudNum('hDebt', S.debt, fmt);
     $('#stDebt').classList.toggle('hot', S.debt > 3500);
     const pg = $('#stDebt .ping'); if (pg) pg.hidden = !((canContra(S) && contraOffer(S)) || (S.city === 1 && phase === 'port' && S.debt > 0 && S.cash >= 100 && !S.over));
     $('#stDebt').classList.toggle('here', S.city === 1 && phase === 'port' && S.debt > 0 && !S.over);
     const bp = $('#btnBoard .ping'); if (bp) { const sp = S.rival.plan; bp.hidden = S.over || !(crisisList().some(c => c.state === 'soon') || (sp && sp.to === S.city && sp.arrive - S.day <= 1 && S.day < sp.arrive)); }
     $('#hLoad').textContent = load(S) + '/' + cap(S);
     const se = SEASONS[seasonIdx(S)];
-    $('#hSeason').textContent = se.name; $('#stSeason').title = se.title + ': ' + se.desc;
+    hudFlip('hSeason', se.name); $('#stSeason').title = se.title + ': ' + se.desc;
     $('#stSeason').dataset.s = se.id;
     renderPlate();
   }

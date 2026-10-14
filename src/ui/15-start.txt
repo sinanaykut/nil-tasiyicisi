@@ -1,5 +1,6 @@
   /* ================= start ================= */
   function start(data) {
+    bootDone();
     let saved = null;
     if (data && valid(data.S)) saved = data.S;
     if (!saved) { try { const raw = lsGet(KEY); if (raw) { const p = JSON.parse(raw); if (valid(p)) saved = p; } } catch (e) {} }

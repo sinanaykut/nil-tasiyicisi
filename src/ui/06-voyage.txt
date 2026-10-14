@@ -213,7 +213,7 @@
     const el = document.querySelector('.vnode[data-vnode]:not(:disabled)'); if (!el) { box.hidden = true; return; }
     const text = VG.layer === 0 ? 'Bu yol haritası. Her gün bir durak seçersin; her durak kısa bir sahne ya da mola. ⚠ risk, ★ ödül demek. Sakin su ile başla.' : 'Dikkat: seçtiğin durak sonraki günün yollarını belirler. Köy pazarı güvenli bir mola, Batık küçük bir hazine avı.';
     el.classList.add('tut-target');
-    box.innerHTML = '<span class="tn">Harita</span><p>' + esc(text) + '</p><div class="row"><button class="chip" type="button" data-act="noHints">Rehberi kapat</button></div>';
+    box.dataset.k = ''; box.innerHTML = '<span class="tn">Harita</span><p>' + esc(text) + '</p><div class="row"><button class="chip" type="button" data-act="noHints">Rehberi kapat</button></div>';
     box.hidden = false;
     const r = el.getBoundingClientRect(), bw = box.offsetWidth, bh = box.offsetHeight, sy = window.scrollY, sx = window.scrollX;
     let top = r.bottom + 12, left = r.left + r.width / 2 - bw / 2, below = true;
@@ -259,15 +259,22 @@
     phase = 'sea'; sel = null; wakeSet(true); if ($('#tut')) $('#tut').hidden = true;
     if (plan.days0) plan.days = plan.days0;
     S.voyageSnap = null; try { S.voyageSnap = JSON.parse(JSON.stringify(S)); } catch (e) { S.voyageSnap = null; }
-    document.body.classList.add('at-sea');
-    GLW.stop(); town3Off(); $('#spots').innerHTML = ''; $('#port').hidden = true; $('#sea').hidden = true;
     VG = makeVoyage(plan);
-    renderAll(); Snd.mode('sea'); play('sail');
-    if (window.innerWidth <= 860) window.scrollTo(0, 0);
-    showMap();
+    Snd.mode('sea'); play('sail');
+    /* the town goes away and the river map comes up under the papyrus curtain */
+    const my = VG, desert = plan.terrain === 'desert';
+    curtain({ kick:desert ? 'Kervan yola çıktı' : 'Yelkenler açıldı', title:CITIES[plan.from].name + ' → ' + CITIES[plan.dest].name, sub:plan.days + ' günlük ' + (desert ? 'çöl yolu' : 'yolculuk') }, () => {
+      if (VG !== my || phase !== 'sea') return;
+      document.body.classList.add('at-sea');
+      GLW.stop(); town3Off(); $('#spots').innerHTML = ''; $('#port').hidden = true; $('#sea').hidden = true;
+      renderAll();
+      if (window.innerWidth <= 860) window.scrollTo(0, 0);
+      showMap(true);
+    });
   }
-  /* the update runs later when the browser animates it: a voyage skipped in between must not come back */
-  function showMap() { vt(() => { if (!VG || phase !== 'sea') return; heroOverlay(false); $('#sea').hidden = true; $('#voy').hidden = false; document.body.classList.add('on-map'); renderVoy(); renderPanel(); }); }
+  /* the river map fades in over the scene that just ended; a voyage skipped in between must not come back */
+  function enterFx(el) { if (!el || reduce) return; el.classList.remove('m-enter'); void el.offsetWidth; el.classList.add('m-enter'); clearTimeout(el._mt); el._mt = setTimeout(() => el.classList.remove('m-enter'), 450); }
+  function showMap(direct) { if (!VG || phase !== 'sea') return; heroOverlay(false); const v = $('#voy'), was = v.hidden; $('#sea').hidden = true; v.hidden = false; document.body.classList.add('on-map'); renderVoy(); renderPanel(); if (was && !direct) enterFx(v); }
   function chooseNode(i, j) {
     if (!VG || !reachable(i, j) || VG.picks[i] != null) return;
     VG.picks[i] = j; const nd = VG.layers[i][j];
@@ -287,7 +294,7 @@
       label:kind === 'race' ? CITIES[p.dest].name + ' önünde' : nodeT === 'forgers' ? 'Kalpazan iskelesi' : (Math.min(VG.layer, VG.layers.length - 1) + 1) + '. gün' };
     VG.bonus = 0;
     VG.scene = kind; VG.sceneNode = nodeT || kind; if ($('#tut')) $('#tut').hidden = true;
-    $('#voy').hidden = true; $('#sea').hidden = false; document.body.classList.remove('on-map');
+    $('#voy').hidden = true; $('#sea').hidden = false; document.body.classList.remove('on-map'); enterFx($('#sea'));
     o.hero = S.hero; heroOverlay(kind !== 'dive' && kind !== 'race');
     const info = Sea.play(kind, o, res => { heroOverlay(false); sceneDone(kind, res); });
     const pb = document.querySelector('[data-pad="B"]'); if (pb) pb.textContent = info.action;
@@ -324,7 +331,7 @@
   function endVoyage(quick) {
     const a = VG.acc;
     const res = { path:VG.picks.map((j, i) => VG.layers[i] && VG.layers[i][j] ? VG.layers[i][j].t : null).filter(Boolean), hp:Math.max(0, VG.hp), hits:a.hits, wreck:VG.hp <= 0, caught:a.caught, escaped:a.escaped && !!VG.plan.chaser, coins:a.coins, crates:a.crates, overboard:a.overboard, prophecy:VG.prophecy, near:a.near, nearCoins:a.nearCoins, maxCombo:a.maxCombo, beatRival:a.beatRival, spotted:a.spotted, notes:a.notes, quick:!!quick, ramUsed:!!a.ramUsed };
-    VG = null; $('#voy').hidden = true; document.body.classList.remove('on-map'); heroOverlay(false);
+    VG = null; heroOverlay(false);
     landed(res);
   }
   function skipVoyage() {
@@ -414,15 +421,21 @@
   }
   function landed(res) {
     const p = plan; if (!p) return;
-    plan = null; S.voyage = null; S.voyageSnap = null; Sea.stop(); VG = null; wakeSet(false); $('#voy').hidden = true; document.body.classList.remove('on-map'); heroOverlay(false);
+    plan = null; S.voyage = null; S.voyageSnap = null; Sea.stop(); VG = null; wakeSet(false); heroOverlay(false);
+    const si0 = seasonIdx(S);
     arrive(S, p, res); qArrive(S.last.out);
     line = pickLine();
     phase = 'port';
     Snd.mode('port');
-    vt(() => { if (phase !== 'port') return; document.body.classList.remove('at-sea', 'on-map'); $('#sea').hidden = true; $('#voy').hidden = true; $('#port').hidden = false; save(); lastScene = ''; renderAll(); });
-    const port = $('#port'); port.classList.add('arriveA'); setTimeout(() => port.classList.remove('arriveA'), 1500);
     play(res.wreck ? 'wreck' : res.caught ? 'bad' : 'arrive');
-    showArrival();
+    /* the day turns under the papyrus curtain: the new town builds behind it, the arrival ledger is already up when it slides away */
+    const si = seasonIdx(S), se = SEASONS[si];
+    curtain({ kick:S.day + '. gün', title:CITIES[S.city].name, sub:se.name + ' · ' + se.title, note:si !== si0 ? 'Yeni mevsim başladı' : '' }, () => {
+      if (phase !== 'port') return;
+      document.body.classList.remove('at-sea', 'on-map'); $('#sea').hidden = true; $('#voy').hidden = true; $('#port').hidden = false; save(); lastScene = ''; renderAll();
+      const port = $('#port'); port.classList.add('arriveA'); setTimeout(() => port.classList.remove('arriveA'), 1500);
+      showArrival();
+    }, { hold:si !== si0 ? 700 : 320 });
   }
   function landDone() {
     closeSheet();
