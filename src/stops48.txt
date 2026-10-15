@@ -1,0 +1,534 @@
+  /* ================= v48: the river's village market and the rock tomb (route-map stops) =================
+     stop48(t) is called from nodeCard (06-voyage): 'market' / 'smugglers' open a painted village market with stall cards
+     (two stalls a day), 'tomb' opens a short tomb adventure that plays out differently each visit (7 layouts).
+     tb48Start('dtomb') also works (sand palette) if the desert stop ever wants it.
+     A step that draws the next step in the open sheet returns '@keep' from its run() (nodeChoose keeps the sheet).
+     Every step keeps an enabled [data-nchoice="0"] that moves on, so the run bot always gets through.
+     Pictures are code-drawn SVG; their life is CSS only (stops48.css); reduced motion stops it. */
+  function stop48(t) {
+    if (!VG) return false;
+    if (t === 'market' || t === 'smugglers') { mk48(t, true); return true; }
+    if (t === 'tomb') { tb48Start(t); return true; }
+    return false;
+  }
+  const K48 = ' stroke="' + INK + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"';
+  const K48t = ' stroke="' + INK + '" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"';
+  const P48 = (d, f, x) => '<path d="' + d + '" fill="' + f + '"' + (x == null ? K48 : x) + '/>';
+  const L48 = (x1, y1, x2, y2, c, w) => '<path d="M' + x1 + ' ' + y1 + 'L' + x2 + ' ' + y2 + '" stroke="' + (c || INK) + '" stroke-width="' + (w || 2) + '" stroke-linecap="round" fill="none"/>';
+  const lerp48 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+  const pt48 = p => p[0].toFixed(1) + ' ' + p[1].toFixed(1);
+  function sheet48(html) { const sh = $('#sheet'), keep = !$('#veil').hidden; openSheet(html, true, 'node'); if (sh && keep) sh.scrollTop = 0; }
+  function hdr48(t, icoId, title, sub) { return '<div class="sh-h"><span class="vm big t-' + t + '">' + ico(icoId, 30) + '</span><h2 id="shTitle">' + esc(title) + '<small>' + esc(sub) + '</small></h2></div>'; }
+  const day48 = () => (Math.min(VG.layer, VG.layers.length - 1) + 1) + '. gün';
+  const gNm48 = g => g === 'kitap' ? 'Ölüler Kitabı' : gById(g).short.toLocaleLowerCase('tr');
+
+  /* ---------------- the village market: a painted riverside bazaar ---------------- */
+  function palm48(x, y, h, lean) {
+    const tx = x + lean, ty = y - h;
+    let s = '<g class="m48-palm">' + '<path d="M' + x + ' ' + y + 'Q' + (x + lean * 0.2) + ' ' + (y - h * 0.6) + ' ' + tx + ' ' + ty + '" stroke="' + INK + '" stroke-width="7" fill="none" stroke-linecap="round"/>' +
+      '<path d="M' + x + ' ' + y + 'Q' + (x + lean * 0.2) + ' ' + (y - h * 0.6) + ' ' + tx + ' ' + ty + '" stroke="#9C6A3A" stroke-width="4" fill="none" stroke-dasharray="3 2" stroke-linecap="round"/>';
+    s += '<g class="m48-frond" style="transform-origin:' + tx + 'px ' + ty + 'px">';
+    [[-24, 6], [-16, -8], [0, -14], [16, -8], [24, 6], [-8, 12], [10, 12]].forEach(([dx, dy], k) => {
+      s += P48('M' + tx + ' ' + ty + 'Q' + (tx + dx * 0.5) + ' ' + (ty + dy - 8) + ' ' + (tx + dx) + ' ' + (ty + dy + 4) + 'Q' + (tx + dx * 0.55) + ' ' + (ty + dy - 2) + ' ' + tx + ' ' + (ty + 2) + 'z', k % 2 ? '#3E8E5A' : '#2F7346', K48t);
+    });
+    s += '<circle cx="' + (tx - 3) + '" cy="' + (ty + 5) + '" r="2.6" fill="#B7412E"' + K48t + '/><circle cx="' + (tx + 2) + '" cy="' + (ty + 6) + '" r="2.6" fill="#C98A2E"' + K48t + '/></g></g>';
+    return s;
+  }
+  function basket48(cx, cy, c) {
+    return '<ellipse cx="' + cx + '" cy="' + (cy + 1) + '" rx="8" ry="3.6" fill="#A8743A"' + K48t + '/>' + P48('M' + (cx - 7) + ' ' + cy + 'q7 -9 14 0z', c, K48t) +
+      '<circle cx="' + (cx - 2) + '" cy="' + (cy - 3) + '" r="1.2" fill="rgba(255,255,255,.55)"/><circle cx="' + (cx + 3) + '" cy="' + (cy - 2) + '" r="1" fill="rgba(255,255,255,.45)"/>';
+  }
+  function jar48(cx, cy, c) { return P48('M' + (cx - 4) + ' ' + (cy + 3) + 'q-4 -8 1 -12h6q5 4 1 12z', c, K48t) + P48('M' + (cx - 3) + ' ' + (cy - 9) + 'h6v-2h-6z', c, K48t); }
+  function stall48(x, y, a, b, goods, k, night) {
+    const BL = [x, y], BB = [x + 40, y - 10], BR = [x + 64, y + 2], BF = [x + 24, y + 12];
+    let s = '<g class="m48-stall">' + L48(x + 2, y, x + 2, y - 33, INK, 3) + L48(x + 40, y - 10, x + 40, y - 45, INK, 3);
+    s += P48('M' + x + ' ' + y + 'l24 12v15l-24 -12z', night ? '#5A4030' : '#9C6A3A') + P48('M' + (x + 24) + ' ' + (y + 12) + 'l40 -10v15l-40 10z', night ? '#6E5038' : '#B9824A');
+    s += P48('M' + pt48(BL) + 'L' + pt48(BB) + 'L' + pt48(BR) + 'L' + pt48(BF) + 'z', night ? '#8A6A48' : '#D9A866');
+    s += '<path d="M' + (x + 30) + ' ' + (y + 17) + 'l26 -6" stroke="rgba(0,0,0,.25)" stroke-width="1.4"/>';
+    goods.forEach((g, i) => { const p = lerp48(BL, BR, 0.22 + i * 0.28); s += g[0] === 'j' ? jar48(p[0], p[1] + 1, g[1]) : basket48(p[0], p[1] + 2, g[1]); });
+    s += L48(x + 24, y + 12, x + 24, y - 21, INK, 3) + L48(x + 64, y + 2, x + 64, y - 31, INK, 3);
+    if (night) s += '<g class="m48-lamp"><circle cx="' + (x + 64) + '" cy="' + (y - 22) + '" r="9" fill="#F7C65A" opacity=".35"/><circle cx="' + (x + 64) + '" cy="' + (y - 22) + '" r="3.4" fill="#FFE7A8"' + K48t + '/></g>';
+    /* the striped awning sways a little in the river wind */
+    const A = [x - 4, y - 33], Bk = [x + 40, y - 47], R = [x + 68, y - 31], F = [x + 24, y - 19];
+    s += '<g class="m48-aw" style="animation-delay:-' + (k * 1.3).toFixed(1) + 's">';
+    for (let i = 0; i < 5; i++) {
+      const p0 = lerp48(A, F, i / 5), p1 = lerp48(A, F, (i + 1) / 5), q0 = lerp48(Bk, R, i / 5), q1 = lerp48(Bk, R, (i + 1) / 5);
+      s += '<path d="M' + pt48(p0) + 'L' + pt48(p1) + 'L' + pt48(q1) + 'L' + pt48(q0) + 'z" fill="' + (i % 2 ? b : a) + '"/>';
+    }
+    s += '<path d="M' + pt48(A) + 'L' + pt48(Bk) + 'L' + pt48(R) + 'L' + pt48(F) + 'z" fill="none"' + K48 + '/>';
+    let fr = 'M' + pt48(A);
+    for (let i = 1; i <= 6; i++) { const p = lerp48(A, F, i / 6), m = lerp48(A, F, (i - 0.5) / 6); fr += 'Q' + m[0].toFixed(1) + ' ' + (m[1] + 6).toFixed(1) + ' ' + pt48(p); }
+    for (let i = 1; i <= 8; i++) { const p = lerp48(F, R, i / 8), m = lerp48(F, R, (i - 0.5) / 8); fr += 'Q' + m[0].toFixed(1) + ' ' + (m[1] + 6).toFixed(1) + ' ' + pt48(p); }
+    s += '<path d="' + fr + 'L' + pt48(F) + 'z" fill="' + a + '"' + K48t + '/></g></g>';
+    return s;
+  }
+  function fig48(x, y, o) {
+    const sk = o.sk || '#A86C44', c = o.c || '#F4ECD8';
+    let s = '<g' + (o.s ? ' transform="translate(' + x + ' ' + y + ') scale(' + o.s + ') translate(' + (-x) + ' ' + (-y) + ')"' : '') + '><g class="m48-fig' + (o.cls ? ' ' + o.cls : '') + '"' + (o.d ? ' style="animation-delay:-' + o.d + 's"' : '') + '><ellipse cx="' + x + '" cy="' + (y + 1) + '" rx="7" ry="2" fill="rgba(43,29,20,.25)"/>';
+    s += L48(x - 2, y - 10, x - 3, y, sk, 2.6) + L48(x + 2, y - 10, x + 3, y, sk, 2.6);
+    if (o.f) s += P48('M' + (x - 4.5) + ' ' + (y - 22) + 'h9l2.2 19h-13.4z', c, K48t);
+    else s += '<rect x="' + (x - 4) + '" y="' + (y - 23) + '" width="8" height="11" rx="3" fill="' + sk + '"' + K48t + '/>' + P48('M' + (x - 5) + ' ' + (y - 13) + 'h10l1.4 6h-12.8z', c, K48t);
+    const up = o.prop === 'jar';
+    s += L48(x - 4, y - 21, x - 6.5, y - 12, sk, 2.4) + (up ? L48(x + 4, y - 21, x + 5, y - 31, sk, 2.4) : L48(x + 4, y - 21, x + 6.5, y - 12, sk, 2.4));
+    s += '<circle cx="' + x + '" cy="' + (y - 27) + '" r="4.6" fill="' + sk + '"' + K48t + '/>';
+    s += P48('M' + (x - 5) + ' ' + (y - 26) + 'q0 -7.5 5 -7.5q5 0 5 7.5v3.5h-2v-3.5h-6v3.5h-2z', o.hair || '#1C1620', K48t);
+    if (o.band) s += L48(x - 5, y - 29, x + 5, y - 29, o.band, 1.6);
+    if (up) s += jar48(x + 1, y - 37, o.pc || '#B7412E');
+    if (o.prop === 'basket') s += basket48(x + 9, y - 12, o.pc || '#D9A43A');
+    return s + '</g></g>';
+  }
+  function mk48Pic(o) {
+    const nt = o.night, u = 'm48' + (++uid), sea = SEASONS[o.si] || SEASONS[1];
+    const sky = nt ? ['#16264A', '#2E4170'] : ['#F6D79A', '#FBEFD0'], far = nt ? '#2E4A40' : o.si === 0 ? '#7FB59A' : o.si === 2 ? '#C9B260' : '#8FBF6A';
+    let s = '<svg class="m48-svg" viewBox="0 0 360 180" preserveAspectRatio="xMidYMid slice" aria-hidden="true" data-season="' + sea.id + '"><defs>' +
+      '<linearGradient id="' + u + 's" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + sky[0] + '"/><stop offset="1" stop-color="' + sky[1] + '"/></linearGradient>' +
+      '<linearGradient id="' + u + 'g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + (nt ? '#5A5A6E' : '#EED29A') + '"/><stop offset="1" stop-color="' + (nt ? '#3E3E52' : '#D9AE6A') + '"/></linearGradient></defs>';
+    s += '<rect width="360" height="180" fill="url(#' + u + 's)"/>';
+    if (nt) s += '<path d="M300 22a12 12 0 1 0 9 19a10 10 0 0 1 -9 -19z" fill="#F5EBC8"/>' + [[40, 18], [90, 34], [150, 14], [220, 30], [260, 12], [340, 40]].map(([a, b]) => '<circle class="m48-star" cx="' + a + '" cy="' + b + '" r="1.3" fill="#F5EBC8"/>').join('');
+    else s += '<circle cx="306" cy="28" r="20" fill="#FFE7A8" opacity=".45"/><circle cx="306" cy="28" r="12" fill="#FFE29A"/>' +
+      '<g class="m48-birds"><path d="M20 30q4 -4 8 0q4 -4 8 0M48 22q3 -3 6 0q3 -3 6 0M34 40q3 -3 6 0q3 -3 6 0" fill="none" stroke="' + INK + '" stroke-width="1.6" stroke-linecap="round"/></g>';
+    /* the far bank, a little pyramid, the river with ducks and our boat at the jetty */
+    s += P48('M150 66l22 -24 22 24z', nt ? '#4E5068' : '#E2C27E', K48t) + P48('M172 42l22 24h-12z', nt ? '#3E4058' : '#C9A060', ' stroke="none"');
+    s += P48('M0 66Q60 56 120 64T240 62T360 64V80H0z', far, ' stroke="none"');
+    for (let i = 0; i < 9; i++) { const x = 14 + i * 41 + (i % 3) * 7; s += '<path d="M' + x + ' 66v-8M' + (x - 5) + ' 59q5 -4 10 0" stroke="' + (nt ? '#203830' : '#2F7346') + '" stroke-width="2" fill="none" stroke-linecap="round"/>'; }
+    s += '<rect y="72" width="360" height="34" fill="' + (nt ? '#24406A' : o.si === 0 ? '#5BA3BF' : '#4F9CC2') + '"/>';
+    s += '<g class="m48-wave"><path d="M10 82h14M70 90h18M130 80h12M200 92h16M250 84h12M310 94h16M40 98h12M170 100h14" stroke="' + (nt ? '#4A6E9A' : '#BFE3EE') + '" stroke-width="2" stroke-linecap="round"/></g>';
+    if (!nt) s += '<g class="m48-duck">' + [0, 14].map(d => '<g transform="translate(' + (230 + d) + ' ' + (88 + d / 5) + ')"><path d="M0 0q6 4 12 0q-1 -5 -5 -3q0 -4 3 -4l2 -1h-4q-3 0 -3 4z" fill="#FBF3DF"' + K48t + '/><path d="M12 -8l3 1" stroke="#E07A2E" stroke-width="2"/></g>').join('') + '</g>';
+    /* the near bank */
+    s += P48('M0 104Q90 96 180 102T360 100V180H0z', 'url(#' + u + 'g)', ' stroke="none"');
+    s += '<path d="M0 104Q90 96 180 102T360 100" stroke="' + INK + '" stroke-width="2" fill="none"/>';
+    /* the jetty and the boat (a patched sail if it was torn) */
+    s += P48('M64 98l36 -5 8 12 -36 6z', '#A8743A') + '<path d="M73 97l7 11M82 95.6l7 11M91 94.4l7 11" stroke="' + INK + '" stroke-width="1.2"/>';
+    s += '<g class="m48-boat">' + P48('M6 84Q48 96 96 80L90 92Q50 104 12 94z', '#8A5A30') + '<path d="M12 90Q50 99 92 86" stroke="#D9A43A" stroke-width="2.4" fill="none"/>' +
+      L48(50, 90, 50, 24, INK, 3) + '<g class="m48-sail">' + L48(22, 40, 86, 18, INK, 2.6) + P48('M24 40L84 20L56 82z', nt ? '#C9C2B0' : '#F4ECD8') +
+      (o.torn ? '<path d="M52 46l4 6 -3 5 5 6" stroke="' + INK + '" stroke-width="1.8" fill="none"/>' : o.patched ? '<rect x="50" y="44" width="11" height="13" fill="#D9A43A" stroke="' + INK + '" stroke-width="1.4" stroke-dasharray="2 1.6" transform="rotate(-12 55 50)"/>' : '<path d="M40 38l20 -7M44 50l20 -6" stroke="rgba(43,29,20,.2)" stroke-width="1.4"/>') + '</g></g>';
+    /* a mud-brick hut and the date palms */
+    s += P48('M300 104l30 -12 26 10 -30 12z', nt ? '#6E5A48' : '#C9935A') + P48('M300 104v-26l26 10v28z', nt ? '#5A4838' : '#B07A44') + P48('M326 88l30 -12v26l-30 14z', nt ? '#7A6650' : '#D6A468') + P48('M300 78l30 -12 26 10 -30 12z', nt ? '#8A7660' : '#E2B97A');
+    s += P48('M336 111v-15l9 -4v15z', nt ? '#F7A34A' : '#3A2614', K48t) + P48('M313 94l7 3v-7l-7 -3z', nt ? '#F7A34A' : '#3A2614', K48t);
+    s += palm48(120, 104, 70, -10) + palm48(352, 110, 78, -14) + palm48(14, 112, 54, 6);
+    /* a clay oven with smoke */
+    s += '<g transform="translate(250 160)">' + P48('M-12 0q0 -18 12 -18q12 0 12 18z', nt ? '#7A4E34' : '#B5622F') + '<ellipse cx="0" cy="-6" rx="4" ry="5" fill="' + (nt ? '#F7A34A' : '#3A2614') + '"/>' +
+      '<g class="m48-smoke"><circle cx="0" cy="-22" r="4" fill="rgba(255,255,255,.7)"/><circle cx="2" cy="-22" r="5" fill="rgba(255,255,255,.6)"/><circle cx="-1" cy="-22" r="3.5" fill="rgba(255,255,255,.7)"/></g></g>';
+    /* the stalls: the seller stands behind the middle one */
+    const aw = nt ? [['#3A3A6A', '#8A8AB0'], ['#5A2A3A', '#B08A9A'], ['#2A4A4A', '#8AB0A8']] : [['#B7412E', '#F4ECD8'], ['#1F5FA8', '#F4ECD8'], ['#2BA59A', '#F7E7A6']];
+    s += fig48(222, 124, { sk:'#B07448', c:'#F4ECD8', band:'#B7412E', cls:'m48-seller', s:1.15 });
+    s += stall48(176, 116, aw[0][0], aw[0][1], [['b', '#D9A43A'], ['b', '#B7412E'], ['j', '#2BA59A']], 0, nt);
+    s += stall48(112, 140, aw[1][0], aw[1][1], [['b', '#3E8E5A'], ['j', '#C98A2E'], ['b', '#E07A2E']], 1, nt);
+    s += stall48(268, 136, aw[2][0], aw[2][1], [['j', '#B7412E'], ['b', '#F2D27A'], ['b', '#6E3F86']], 2, nt);
+    /* villagers going about their day */
+    s += fig48(96, 170, { f:1, sk:'#C38955', c:'#F4ECD8', prop:'jar', pc:'#B5622F', d:0.4, s:1.3 });
+    s += fig48(196, 172, { sk:'#9C5A30', c:'#F4ECD8', prop:'basket', pc:'#3E8E5A', d:1.1, s:1.3 });
+    s += fig48(338, 172, { f:1, sk:'#A8754D', c:'#C9A86E', band:'#2BA59A', d:0.7, s:1.3 });
+    if (!nt) s += fig48(228, 176, { sk:'#AE7448', c:'#F4ECD8', cls:'m48-kid', d:0.2, s:0.95 });
+    return s + '</svg>';
+  }
+  const MK48_LOCAL = [['papirus', 'hurma'], ['sarap', 'papirus'], ['bugday', 'hurma']];
+  const MK48_WANT = [{ g:'bakir', why:'taşkından sonra saban onarıyorlar' }, { g:'tuz', why:'ekim şenliği için balık tuzluyorlar' }, { g:'sarap', why:'hasat şenliği için şarap arıyorlar' }];
+  const MK48_HI = [
+    ['Nil taştı, tarlalar su altında. Pazara kayıkla geldik!', 'Taşkın mevsimi: papirüs bol, sazlar boy attı.'],
+    ['Ekim zamanı! Tarlalar yeşerdi, şarap küpleri doldu.', 'Hoş geldin kaptan. Ekmek sıcak, bira soğuk.'],
+    ['Hasat bitti, ambarlar dolu: buğday yok pahası.', 'Şehir malı mı getirdin? Köyde herkes merak ediyor.']
+  ];
+  const MK48_FOLK = ['Yaşlı balıkçı Ani', 'Çömlekçi Tiye', 'Çiftçi Bek', 'Sazcı Meryt'];
+  let MK = null;
+  function mk48(t, first) {
+    const p = VG.plan, L = VG.layer, sm = t === 'smugglers', si = seasonIdx(S);
+    if (first || !MK || MK.t !== t) {
+      const r = vRng(p.seed + L * 131 + 7), loc = MK48_LOCAL[si] || MK48_LOCAL[1];
+      MK = { t, used:{}, left:2, txt:[], g2:sm ? 'lapis' : loc[Math.floor(r() * loc.length)], hi:sm ? (r() < 0.5 ? 'Ad sorma, fiyat sor. Devriye gece yarısı geçer.' : 'Fener yakma. Malını göster, paranı say.') : MK48_HI[si][Math.floor(r() * 2)], cr:r(), who:MK48_FOLK[Math.floor(r() * MK48_FOLK.length)], patched:false };
+    }
+    const prOf = g => (S.prices[S.city] && S.prices[S.city][g]) || gById(g).base;
+    const offers = [];
+    const want = MK48_WANT[si];
+    /* 1. the buyer's stall: the season's wanted good pays best, otherwise your most valuable cargo */
+    if (!MK.used.sell) {
+      let g = null, wanted = false;
+      if (!sm && want && S.inv[want.g] && S.inv[want.g].n > 0) { g = want.g; wanted = true; }
+      else { const h = GOODS.filter(x => S.inv[x.id].n > 0).sort((a, b) => S.inv[b.id].n * b.base - S.inv[a.id].n * a.base)[0]; if (h) g = h.id; }
+      if (g) {
+        const m = sm ? 1.55 : wanted ? 1.45 : 1.3, pr = Math.round(prOf(g) * m), n = Math.min(sm ? 12 : 10, S.inv[g].n);
+        offers.push({ id:'sell', st:sm ? 'Gece alıcısı' : wanted ? 'Köylüler arıyor' : 'Alıcı tezgâhı', label:'Sat: ' + n + ' ' + gName(g), ico:'i-' + g, sub:'Birimi ' + fmt(pr) + ' · şehirden %' + Math.round((m - 1) * 100) + ' iyi' + (wanted ? ' · ' + want.why : ''), price:'+' + fmt(pr * n), plus:1,
+          run() { loseGoods(S, g, n); S.cash += pr * n; play('sell'); return n + ' ' + gName(g) + ' sattın: +' + fmt(pr * n) + ' deben.'; } });
+      }
+    }
+    /* 2. a cheap local good (lapis at the smugglers) */
+    if (!MK.used.buy) {
+      const g2 = gById(MK.g2), pr2 = Math.round(g2.base * (sm ? 0.62 : 0.6)), room = Math.max(0, freeCap(S)), q2 = Math.max(0, Math.min(sm ? 3 : 6, room, Math.floor(S.cash / pr2)));
+      const full = room <= 0, poor = !full && S.cash < pr2;
+      offers.push({ id:'buy', st:sm ? 'Kaçak sandık' : 'Köyün malı', label:'Al: ' + (q2 || (sm ? 3 : 6)) + ' ' + gName(g2.id), ico:'i-' + g2.id, sub:'Birimi ' + fmt(pr2) + ' · olağanın %' + (sm ? 38 : 40) + ' altı' + (!full && room < (sm ? 3 : 6) ? ' · ambarda ' + room + ' yer' : ''), price:'−' + fmt(q2 ? pr2 * q2 : pr2), off:full ? 'Ambar dolu' : poor ? 'Paran yetmiyor' : '',
+        run() { S.cash -= pr2 * q2; S.inv[g2.id].n += q2; S.inv[g2.id].cost += pr2 * q2; play('buy'); return q2 + ' ' + gName(g2.id) + ' aldın (' + fmt(pr2 * q2) + ' deben).'; } });
+    }
+    if (!sm) {
+      if (!MK.used.sail && VG.torn) offers.push({ id:'sail', st:'Yelkenci', label:'Yelkeni yamat', ico:'i-bolt', sub:'Tekne yeniden hızlanır', price:'−60', off:S.cash < 60 ? 'Paran yetmiyor' : '', run() { S.cash -= 60; VG.torn = false; MK.patched = true; play('build'); return 'Köyün yelkencisi yırtığı yamadı.'; } });
+      if (!MK.used.hull && p.terrain !== 'desert' && VG.hp < VG.maxhp) offers.push({ id:'hull', st:'Kalafatçı', label:'Gövdeyi kalafatlat', ico:'i-repair', sub:'Çatlaklar ziftlenir · gövde +1', price:'−70', off:S.cash < 70 ? 'Paran yetmiyor' : '', run() { S.cash -= 70; VG.hp = Math.min(VG.maxhp, VG.hp + 1); play('build'); return 'Köyün kalafatçıları çatlakları ziftledi: gövde +1.'; } });
+      if (!MK.used.heal && VG.hh < VG.hhMax) offers.push({ id:'heal', st:'Şifacı kadın', label:'Bal ve merhem', ico:'i-heart', sub:'Yaraların sarılır · sana +1 can', price:'−35', off:S.cash < 35 ? 'Paran yetmiyor' : '', run() { S.cash -= 35; VG.hh = Math.min(VG.hhMax, VG.hh + 1); play('good'); return 'Şifacı kadın yaralarını balla sardı: +1 can.'; } });
+      if (!MK.used.food && offers.length < 5) offers.push({ id:'food', st:'Fırıncı', label:'Sıcak ekmek ve bira', ico:'i-sheaf', sub:VG.morale >= 5 ? 'Tayfa zaten çok keyifli' : 'Tayfaya ziyafet · moral +1', price:'−25', off:VG.morale >= 5 ? 'Tayfa tok' : S.cash < 25 ? 'Paran yetmiyor' : '', run() { S.cash -= 25; setMorale(1); play('good'); return 'Tayfa sıcak ekmekle bira içti: moral +1.'; } });
+      if (!MK.used.chat) offers.push({ id:'chat', st:'Sohbet', label:MK.who, ico:'i-whisper', sub:'Bedava · belki bir kestirme ya da ileriden haber', price:'Bedava', run() {
+        if (VG.layers[L + 1] && !VG.shortcut && MK.cr < 0.4 && !VG.layers[L + 1].some(x => x.t === 'canal')) { insertNode(L + 1, 'canal'); play('good'); return MK.who + ' eski bir sulama kanalını anlattı: haritana eklendi.'; }
+        const nx = VG.layers[L + 1];
+        if (nx && nx.some(x => !x.rev)) { nx.forEach(x => { x.rev = true; }); play('good'); return MK.who + ' yarınki yolu anlattı: duraklar haritada göründü.'; }
+        setMorale(1); play('good'); return 'Köylüler hurma ikram etti. Tayfa keyiflendi: moral +1.';
+      } });
+    } else if (!MK.used.tip) {
+      offers.push({ id:'tip', st:'Fısıltı', label:'Devriye nerede?', ico:'i-whisper', sub:'İleriki iki gün ve pusular haritada', price:'−30', off:S.cash < 30 ? 'Paran yetmiyor' : '', run() { S.cash -= 30; VG.scout = true; for (let k = L + 1; k <= L + 2 && k < VG.layers.length; k++) VG.layers[k].forEach(x => { x.rev = true; }); VG.layers.forEach(Lr => Lr.forEach(x => { if (x.amb) x.rev = true; })); play('good'); return 'Kaçakçı fısıldadı: ileriki duraklar ve pusular haritada.'; } });
+    }
+    const list = offers.filter(o => !o.off).concat(offers.filter(o => o.off)).slice(0, 6);
+    const go = { id:'go', label:'Yola devam', run() { return null; } };
+    const ch = list.length && !list[0].off ? list.concat([go]) : [go].concat(list);
+    const wrap = o => Object.assign({}, o, { run() {
+      const tx = o.run(); if (o.id === 'go') { const all = MK ? MK.txt : []; MK = null; return all.length ? { t:all.join(' '), kind:'good' } : ''; }
+      MK.used[o.id] = 1; MK.left--; MK.txt.push(tx); renderHud(); renderPanel();
+      const more = MK.left > 0;
+      if (more) { mk48(t, false); if (nodeChoices && nodeChoices.some(c => c.id !== 'go' && !c.off)) { toast(tx); return '@keep'; } }
+      const all = MK.txt.join(' '); MK = null; return { t:all, kind:'good' };
+    } });
+    nodeChoices = ch.map(wrap); nodeType = t;
+    /* the sheet */
+    let s = hdr48(t, NODES[t].ico, sm ? 'Kaçakçı iskelesi' : 'Köy pazarı', day48() + ' · ' + CITIES[p.from].name + ' → ' + CITIES[p.dest].name);
+    s += '<div class="m48-pic' + (sm ? ' nt' : '') + '">' + mk48Pic({ night:sm, si, torn:VG.torn, patched:MK.patched }) + '</div>';
+    const face = (CH40.has(sm ? 'tv7' : 'folk') && CH40.icon(sm ? 'tv7' : 'folk', sm ? 'thinking' : 'happy')) || '';
+    s += '<div class="m48-say"><span class="m48-face">' + face + '</span><p><b>' + (sm ? 'Kaçakçı' : 'Pazarcı') + ':</b> "' + esc(MK.hi) + '"</p></div>';
+    s += '<div class="m48-turns" aria-label="' + MK.left + ' tezgâh hakkın kaldı"><span>' + (MK.left === 2 ? 'Gün kısa: <b>iki tezgâha</b> uğrayabilirsin' : 'Bir tezgâha daha uğrayabilirsin') + '</span>' + [0, 1].map(k => '<i class="' + (k < MK.left ? 'on' : '') + '">' + ico('i-sun', 14) + '</i>').join('') + '<em>' + ico('i-coin', 14) + fmt(S.cash) + '</em></div>';
+    s += '<div class="m48-stalls">' + ch.map((o, k) => o.id === 'go' ? '' :
+      '<button type="button" class="m48-card s-' + o.id + '" data-nchoice="' + k + '"' + (k === 0 ? ' data-first' : '') + (o.off ? ' disabled' : '') + '><span class="m48-aw2"></span><span class="m48-st">' + esc(o.st) + '</span>' +
+      '<span class="m48-ci">' + ico(o.ico, 28) + '</span><b>' + esc(o.label) + '</b><small>' + esc(o.off || o.sub) + '</small><span class="m48-pr' + (o.plus ? ' plus' : o.price === 'Bedava' ? ' free' : '') + '">' + (o.price === 'Bedava' ? 'Bedava' : ico('i-coin', 14) + esc(o.price)) + '</span></button>').join('') + '</div>';
+    const gi = ch.findIndex(o => o.id === 'go');
+    s += '<button type="button" class="btn wide m48-go" data-nchoice="' + gi + '"' + (gi === 0 ? ' data-first' : '') + '>' + ico('i-boat', 18) + (MK.txt.length ? 'Pazardan ayrıl, yola devam' : 'Bir şey almadan yola devam') + '</button>';
+    sheet48(s);
+  }
+
+  /* ---------------- the rock tomb: a short adventure with seven different layouts ---------------- */
+  const TB48_V = ['rooms', 'seal', 'collapse', 'hidden', 'trap', 'scarab', 'riddle'];
+  const TB48_PAL = { rock:{ wall:'#C9A46A', side:'#9C7444', side2:'#86603A', floor:'#6E4A2A', ceil:'#3A2614', cliff:'#C79A5E', cliff2:'#A87A44', cliff3:'#8E5E32' }, sand:{ wall:'#E2C48A', side:'#C29A5A', side2:'#A8844A', floor:'#8A6A40', ceil:'#4A3420', cliff:'#E6C98A', cliff2:'#D2AE6A', cliff3:'#B88E4E' } };
+  const GL48 = [
+    c => '<circle cx="6" cy="7" r="4" fill="' + c + '"/>',
+    c => '<path d="M6 1c-2.5 0-3.5 2-3.5 3.5S4.5 7.5 6 8c1.5-.5 3.5-2 3.5-3.5S8.5 1 6 1zM6 8v6M2.5 9.5h7" fill="none" stroke="' + c + '" stroke-width="1.7" stroke-linecap="round"/>',
+    c => '<path d="M1 10q3-7 7-5l3 0-2 2 2 3H3z" fill="' + c + '"/>',
+    c => '<path d="M0 8l2-2 2 2 2-2 2 2 2-2 2 2" fill="none" stroke="' + c + '" stroke-width="1.6"/>',
+    c => '<path d="M1 7q5-5 10 0q-5 4-10 0z" fill="none" stroke="' + c + '" stroke-width="1.5"/><circle cx="6" cy="6.6" r="1.6" fill="' + c + '"/>',
+    c => '<path d="M6 14V3q4 3 1 7" fill="none" stroke="' + c + '" stroke-width="1.7" stroke-linecap="round"/>',
+    c => '<path d="M1 11h7q3 0 3-3V5" fill="none" stroke="' + c + '" stroke-width="1.8" stroke-linecap="round"/>'
+  ];
+  function glr48(x0, y0, w, sc, seed) {
+    const cols = ['#1F5FA8', '#B7412E', '#2B1D14', '#2F7346', '#B9852A'];
+    let s = '', x = x0, k = seed;
+    while (x < x0 + w - 12 * sc) { s += '<g transform="translate(' + x.toFixed(1) + ' ' + y0 + ') scale(' + sc + ')" opacity=".8">' + GL48[k % 7](cols[(k >> 1) % 5]) + '</g>'; x += 13 * sc + 2; k = (k * 5 + 3) % 97; }
+    return s;
+  }
+  function torch48(x, y) {
+    return '<g class="t48-tor"><circle class="t48-glow" cx="' + x + '" cy="' + (y - 8) + '" r="17" fill="#F7B04A" opacity=".22"/>' + P48('M' + (x - 3) + ' ' + y + 'h6l-1.5 14h-3z', '#6E4A2A', K48t) +
+      '<g class="t48-fl" style="transform-origin:' + x + 'px ' + y + 'px">' + P48('M' + x + ' ' + (y - 16) + 'q7 8 4 14q-4 3 -8 0q-3 -6 4 -14z', '#F29A3A', K48t) + '<path d="M' + x + ' ' + (y - 9) + 'q3 4 1.5 7h-3q-1.5 -3 1.5 -7z" fill="#FFE29A"/></g></g>';
+  }
+  /* the inside of the tomb in one-point perspective: back wall, side walls with painted bands, tiled floor, two torches */
+  function in48(pal, body, o) {
+    o = o || {}; const u = 't48' + (++uid);
+    let s = '<svg class="t48-svg" viewBox="0 0 360 180" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs><radialGradient id="' + u + 'v" cx="50%" cy="48%" r="62%"><stop offset=".45" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#0A0604" stop-opacity=".62"/></radialGradient></defs>';
+    s += '<rect width="360" height="180" fill="' + pal.ceil + '"/>';
+    s += P48('M60 16H300V112H60z', pal.wall, ' stroke="' + INK + '" stroke-width="2"');
+    s += P48('M0 0L60 16V112L0 180z', pal.side) + P48('M360 0L300 16V112L360 180z', pal.side2);
+    s += P48('M60 112H300L360 180H0z', pal.floor);
+    for (let i = 1; i < 6; i++) { const xb = 60 + i * 40, xf = i * 60; s += '<path d="M' + xb + ' 112L' + xf + ' 180" stroke="rgba(0,0,0,.28)" stroke-width="1.2"/>'; }
+    [124, 140, 160].forEach(y => { const t = (y - 112) / 68; s += '<path d="M' + (60 - 60 * t).toFixed(1) + ' ' + y + 'H' + (300 + 60 * t).toFixed(1) + '" stroke="rgba(0,0,0,.25)" stroke-width="1.2"/>'; });
+    if (!o.plain) {
+      s += '<path d="M60 44H300M60 104H300" stroke="' + INK + '" stroke-width="1.2" opacity=".5"/><rect x="60" y="40" width="240" height="4" fill="#1F5FA8" opacity=".55"/><rect x="60" y="104" width="240" height="4" fill="#B7412E" opacity=".5"/>';
+      s += glr48(66, 22, 230, 1.1, (o.seed || 7) % 97);
+      s += '<g transform="translate(6 40) skewY(15)">' + glr48(0, 0, 48, 0.9, 11) + '</g><g transform="translate(306 56) skewY(-15)">' + glr48(0, 0, 48, 0.9, 23) + '</g>';
+    }
+    s += body;
+    s += torch48(28, 78) + torch48(332, 78);
+    s += '<rect width="360" height="180" fill="url(#' + u + 'v)" pointer-events="none"/>';
+    return s + '</svg>';
+  }
+  const COF48 = 'M44 62q0-24 28-27h26q12 0 18 7h62q22 0 30 10l10 10-10 10q-8 10-30 10h-62q-6 7-18 7H72q-28-3-28-27z';
+  function coffin48(open) {
+    let s = '<g transform="translate(54 82) scale(.92)"><ellipse cx="132" cy="96" rx="104" ry="11" fill="rgba(0,0,0,.35)"/>' + P48(COF48, '#3A2614', ' stroke="' + INK + '" stroke-width="3" transform="translate(0 8)"');
+    if (open) s += '<g class="t48-shine"><ellipse cx="140" cy="68" rx="70" ry="16" fill="#F2C65A" opacity=".5"/></g>';
+    s += '<g class="' + (open ? 't48-lid open' : 't48-lid') + '"><g' + (open ? ' transform="translate(6 -14) rotate(-4 130 62)"' : '') + '>' + P48(COF48, '#D9A43A', ' stroke="' + INK + '" stroke-width="3"') +
+      P48('M50 50q8-12 22-14h24v52H72q-14-2-22-14z', '#1F5FA8', ' stroke="' + INK + '" stroke-width="2.4"') + '<path d="M56 46h40M52 56h44M52 68h44M56 78h40" stroke="#F2C65A" stroke-width="3"/>' +
+      '<ellipse cx="86" cy="62" rx="11" ry="14" fill="#F7E7A6" stroke="' + INK + '" stroke-width="2.4"/><path d="M81 58h3M89 58h3M82 68q4 3 8 0" stroke="' + INK + '" stroke-width="2" fill="none" stroke-linecap="round"/>' +
+      '<path d="M104 42q8 20 0 40" fill="none" stroke="#B7412E" stroke-width="5"/><path d="M112 42q8 20 0 40" fill="none" stroke="#2BA59A" stroke-width="5"/><path d="M130 52h60M130 62h70M130 72h60" stroke="#8A6236" stroke-width="2.4" stroke-linecap="round"/></g></g>';
+    return s + '</g>';
+  }
+  function jars48() { return jar48(78, 140, '#B5622F') + jar48(90, 146, '#2BA59A') + jar48(272, 142, '#C98A2E') + '<g transform="translate(284 138)">' + P48('M0 6h22v12H0z', '#8A5A30') + P48('M-2 6q13-10 26 0z', '#A8743A') + '<path d="M11 8v8" stroke="#D9A43A" stroke-width="2.4"/></g>'; }
+  function door48(x, sym, st) {
+    /* an arched doorway on the back wall; st: '', 'open', 'trap'; a symbol plaque over it */
+    let s = '<g>' + P48('M' + (x - 24) + ' 112V64q0-16 24-16t24 16V112z', '#8A6236') + P48('M' + (x - 18) + ' 112V66q0-12 18-12t18 12V112z', st === 'open' ? '#5A3A1E' : '#140D08', K48t);
+    if (st === 'open') s += '<ellipse cx="' + x + '" cy="96" rx="14" ry="12" fill="#F2C65A" opacity=".55"/>';
+    if (st === 'trap') s += '<path d="M' + (x - 14) + ' 80l28 6M' + (x - 14) + ' 92l28 -4" stroke="#B7412E" stroke-width="2.4" stroke-linecap="round"/>';
+    s += '<rect x="' + (x - 13) + '" y="30" width="26" height="15" rx="3" fill="#F3E2B8"' + K48t + '/><g transform="translate(' + (x - 6) + ' 30.5)">' + GL48[sym](INK) + '</g></g>';
+    return s;
+  }
+  /* the entrance: a cliff on the river with a carved doorway, two seated statues, the boat moored below */
+  function out48(pal, dz, o) {
+    o = o || {}; const u = 't48' + (++uid);
+    let s = '<svg class="t48-svg" viewBox="0 0 360 180" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs><linearGradient id="' + u + 's" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + (o.dusk ? '#E9A066' : '#F6D9A0') + '"/><stop offset="1" stop-color="' + (o.dusk ? '#F7D9A8' : '#FBEFD0') + '"/></linearGradient></defs>';
+    s += '<rect width="360" height="180" fill="url(#' + u + 's)"/><circle cx="' + (o.dusk ? 60 : 300) + '" cy="' + (o.dusk ? 56 : 26) + '" r="13" fill="' + (o.dusk ? '#F29A3A' : '#FFE29A') + '"/>';
+    s += '<g class="m48-birds"><path d="M40 30q3 -3 6 0q3 -3 6 0M62 22q3 -3 6 0q3 -3 6 0" fill="none" stroke="' + INK + '" stroke-width="1.5" stroke-linecap="round"/></g>';
+    s += P48('M30 150L44 74L62 62L84 46L112 42L136 30L164 34L196 22L226 30L258 34L288 46L314 54L334 86L348 150z', pal.cliff) + P48('M318 52L348 150H300z', pal.cliff3, ' stroke="none"') + P48('M31 148L44 74L62 62L80 50L70 148z', pal.cliff2, ' stroke="none"') + '<path d="M112 42l8 10M196 22l-6 14M258 34l6 12M84 46l-4 12" stroke="' + pal.cliff3 + '" stroke-width="2" stroke-linecap="round"/>';
+    s += '<path d="M60 76h270M56 96h282M52 116h292M80 56h220" stroke="' + pal.cliff3 + '" stroke-width="1.6" opacity=".7"/>';
+    /* the carved facade */
+    s += P48('M128 150V66H232V150z', pal.cliff2) + P48('M122 66H238V56H122z', pal.cliff, K48) + '<path d="M126 60h108" stroke="#1F5FA8" stroke-width="2.4" opacity=".6"/>';
+    s += '<g transform="translate(150 70)">' + glr48(0, 0, 64, 0.9, 41) + '</g>';
+    s += P48('M160 150V92H200V150z', o.open ? '#3A2614' : '#140D08');
+    if (o.seal) s += P48('M160 150V92H180V150z', '#8A6236', K48t) + P48('M180 150V92H200V150z', '#A97D45', K48t) + '<circle cx="180" cy="120" r="5" fill="#B7412E"' + K48t + '/>';
+    if (o.open) s += '<ellipse cx="180" cy="132" rx="16" ry="14" fill="#F2C65A" opacity=".45"/>';
+    s += '<rect x="166" y="80" width="28" height="9" rx="4.5" fill="#F3E2B8"' + K48t + '/><path d="M171 84.5h18" stroke="' + INK + '" stroke-width="1.4" stroke-dasharray="2 2"/>';
+    /* two seated statues */
+    [138, 222].forEach(x => { s += P48('M' + (x - 8) + ' 150v-14h16v14z', pal.cliff3) + P48('M' + (x - 7) + ' 136v-16q0-8 7-8t7 8v16z', pal.cliff) + '<circle cx="' + x + '" cy="108" r="5.4" fill="' + pal.cliff + '"' + K48t + '/>' + P48('M' + (x - 6) + ' 108q0-8 6-8t6 8l1 6h-14z', '#1F5FA8', K48t); });
+    s += torch48(150, 126) + torch48(210, 126);
+    if (dz) {
+      s += P48('M0 150Q90 136 180 146T360 140V180H0z', '#E8C98A') + '<path d="M40 160q30-8 60 0M200 166q40-10 80 0" stroke="#C9A063" stroke-width="2" fill="none"/>';
+    } else {
+      s += '<rect y="148" width="360" height="32" fill="#4F9CC2"/><path d="M0 148H360" stroke="' + INK + '" stroke-width="2"/>';
+      s += '<g class="m48-wave"><path d="M20 160h14M90 168h18M200 158h12M280 170h16M320 160h12" stroke="#BFE3EE" stroke-width="2" stroke-linecap="round"/></g>';
+      s += P48('M150 150h60l-4 6h-52z', '#A8743A');
+      s += '<g class="m48-boat">' + P48('M232 154Q272 166 318 152L312 164Q274 174 238 164z', '#8A5A30') + L48(272, 160, 272, 112, INK, 3) + '<g class="m48-sail">' + P48('M252 122L304 106L280 156z', '#F4ECD8') + '</g></g>';
+    }
+    s += palm48(24, dz ? 156 : 150, 64, 8) + palm48(344, dz ? 150 : 150, 58, -10);
+    return s + '</svg>';
+  }
+  let TB = null;
+  function tb48Start(t, force) {
+    const p = VG.plan, L = VG.layer, dz = t !== 'tomb';
+    const r = vRng((p.seed ^ 0x2f6b) + L * 977 + (S.stats.tombs || 0) * 31 + S.day * 7 + (S.tb48n = (S.tb48n || 0) + 1) * 131);
+    let v = force && TB48_V.includes(force) ? force : TB48_V[Math.floor(r() * TB48_V.length)];
+    if (!force && v === S.tb48) v = TB48_V[(TB48_V.indexOf(v) + 1 + Math.floor(r() * (TB48_V.length - 1))) % TB48_V.length];
+    S.tb48 = v;
+    const big = r() < 0.15 ? 'lapis' : r() < 0.4 ? 'tutsu' : 'kitap';
+    TB = { t, dz, v, r, k:0, pal:dz ? TB48_PAL.sand : TB48_PAL.rock, got:{ cash:0, g:{} }, left:{}, hurt:0, big:dz && big === 'kitap' ? 'lapis' : big, seed:Math.floor(r() * 90) };
+    const fogLeft = !VG.revealAll && VG.layers.some((Lr, i) => i > L && Lr.some(x => !x.rev));
+    const tease = {
+      rooms:'İçeride karanlık bir koridor, üç kapıya ayrılıyor.',
+      seal:'Kapı hâlâ mühürlü! Üstünde işaretli bir kartuş, altında bir yazı: "Huzurumu bozanın yolu kararsın."',
+      collapse:'Kapının üstündeki kaya çatlamış; içeriden ara ara toz dökülüyor.',
+      hidden:'Mezar çoktan soyulmuş gibi... ama bir duvar tıklayınca yankı yapıyor.',
+      trap:'Eşikte eski bir uyarı kazınmış: "Acele eden ayağını kaybeder."',
+      scarab:'Eşikte kurumuş bok böceği kabukları var. İçeriden bir hışırtı geliyor.',
+      riddle:'Kapıya bir ressam imzasını atmış; altında bir bilmece varmış.'
+    }[v];
+    const ch = [{ label:'Meşaleyi yak, içeri gir', ico:'i-fener', gain:3, risk:2, sub:'Muska, papirüs, deben... ama açgözlülük lanet getirir', run() { tb48Go(); return '@keep'; } }];
+    if (fogLeft) ch.push({ label:'Duvar resimlerini kopyala', ico:'i-map', gain:1, sub:'Mezara girmeden: duvardaki yol haritası sisi kaldırır, pusular görünür', run() { TB = null; VG.revealAll = true; VG.scout = true; return 'Kâtibin girişteki ölüler yolculuğunu kopyaladı: bütün duraklar ve pusular haritada.'; } });
+    ch.push({ label:'Yola devam', ico:'i-close', sub:'Ölülerin huzurunu bozma', run() { TB = null; return ''; } });
+    tb48Show({ title:NODES[t].name, ico:'i-ankh', sub:CITIES[p.from].name + ' → ' + CITIES[p.dest].name, pic:out48(TB.pal, dz, { seal:v === 'seal' }), text:(dz ? 'Rüzgâr bir kum tepesini süpürmüş: altından boyalı bir mezar kapısı çıkmış. ' : 'Kıyıdaki kayalara oyulmuş eski bir mezar. ') + tease, ch });
+  }
+  /* draws one step; o = { title, ico, pic, over (html over the picture), text, extra, ch, cls, bind() } */
+  function tb48Show(o) {
+    if (!TB || !VG) { TB = null; return; }
+    TB.k++;
+    nodeChoices = o.ch; nodeType = TB.t;
+    const hh = '<span class="t48-hh" aria-label="Canın ' + VG.hh + '/' + VG.hhMax + '">' + Array.from({ length:VG.hhMax }, (_, k) => '<svg viewBox="0 0 32 32" aria-hidden="true"' + (k < VG.hh ? '' : ' class="lost"') + '><use href="#i-heart"/></svg>').join('') + '</span>';
+    let s = hdr48(TB.t, o.ico || 'i-ankh', o.title, (o.sub || NODES[TB.t].name) + ' · ' + day48());
+    s += '<div class="t48-pic' + (TB.dz ? ' dz' : '') + (o.cls ? ' ' + o.cls : '') + '" id="t48pic">' + o.pic + (o.over || '') + hh + '</div>';
+    s += '<p class="ntext" id="t48msg">' + o.text + '</p>' + (o.extra || '');
+    s += '<div class="choices neutral' + (o.ch.length === 1 ? ' one' : '') + '">' + o.ch.map((c, k) => choiceHtml(c, 'data-nchoice="' + k + '"', !k, c.off, c.off)).join('') + '</div>';
+    sheet48(s);
+    if (o.bind) o.bind(TB.k);
+  }
+  const tb48Pic = (body, o) => in48(TB.pal, body, Object.assign({ seed:TB.seed }, o));
+  function tb48Give(cash, list) {
+    if (cash) { S.cash += cash; TB.got.cash += cash; }
+    (list || []).forEach(([g, n]) => { const k = addGoods(S, g, n); if (k) TB.got.g[g] = (TB.got.g[g] || 0) + k; if (n - k > 0) TB.left[g] = (TB.left[g] || 0) + n - k; });
+  }
+  function tb48Hurt(n) { if (!VG) return; VG.hh = Math.max(0, VG.hh - n); TB.hurt += n; play('bad'); buzz('hit'); renderHud(); }
+  function tb48GotTxt() {
+    const a = Object.keys(TB.got.g).map(g => TB.got.g[g] + ' ' + gNm48(g));
+    if (TB.got.cash) a.push(fmt(TB.got.cash) + ' deben');
+    return a.join(', ');
+  }
+  /* the way out: what you carry, what stayed behind, what it cost */
+  function tb48End(kind, text) {
+    if (!TB || !VG) return;
+    const got = tb48GotTxt(), left = Object.keys(TB.left).map(g => TB.left[g] + ' ' + gNm48(g)).join(', ');
+    if (got) S.stats.tombs = (S.stats.tombs || 0) + 1;
+    const chips = Object.keys(TB.got.g).map(g => '<span class="t48-chip">' + gIco(g, 22) + '<b>' + TB.got.g[g] + '</b><small>' + esc(gNm48(g)) + '</small></span>').join('') +
+      (TB.got.cash ? '<span class="t48-chip">' + ico('i-coin', 22) + '<b>' + fmt(TB.got.cash) + '</b><small>deben</small></span>' : '') +
+      (TB.hurt ? '<span class="t48-chip bad">' + ico('i-heart', 22) + '<b>−' + TB.hurt + '</b><small>can</small></span>' : '');
+    const full = left ? ' Ambar dolu: ' + left + ' mezarda kaldı.' : '';
+    const sum = text + (got ? ' Kazancın: ' + got + '.' : '') + full;
+    play(kind === 'bad' ? 'bad' : got ? 'good' : 'click');
+    tb48Show({ title:kind === 'bad' ? 'Mezardan kaçtın' : got ? 'Mezardan çıktın' : 'Mezar sessiz kaldı', ico:got ? 'i-chest' : 'i-ankh', cls:'end ' + kind, pic:out48(TB.pal, TB.dz, { dusk:1, open:1 }),
+      text:esc(text) + (full ? ' <b>' + esc(full) + '</b>' : ''), extra:chips ? '<div class="t48-loot">' + chips + '</div>' : '',
+      ch:[{ label:'Yola devam', ico:'i-boat', sub:'Teknene dön', run() { TB = null; return { t:sum, kind:kind === 'bad' ? 'bad' : got ? 'good' : 'info' }; } }] });
+  }
+  /* the coffin: take a little in peace, or everything and risk the curse */
+  function tb48Coffin(head) {
+    const big = TB.big, smallCash = 60 + Math.floor(TB.r() * 5) * 10, bigCash = 180 + Math.floor(TB.r() * 5) * 20, curse = TB.r() < 0.4;
+    const room = n => freeCap(S) < n ? ' · ambarda ' + Math.max(0, freeCap(S)) + ' yer var' : '';
+    const ch = [
+      { label:'Bir muska al, saygıyla çık', ico:'i-muska', gain:1, sub:'1 muska + ' + smallCash + ' deben · lanet yok' + room(1), run() { tb48Give(smallCash, [['muska', 1]]); setMorale(1); tb48End('good', 'Saygıyla eğildin, lahdi kapadın. Tayfa rahatladı (moral +1).'); return '@keep'; } },
+      { label:'Hepsini yükle', ico:'i-chest', gain:3, risk:2, sub:'2 muska + 1 ' + gNm48(big) + ' + ' + bigCash + ' deben · lanet tutabilir: −1 can, moral −2' + room(3), run() {
+        tb48Give(bigCash, [[big, 1], ['muska', 2]]);
+        if (curse) { tb48Hurt(1); setMorale(-2); tb48End('bad', ['Dışarı çıkınca başın döndü, ateşin çıktı: lanet tuttu! (−1 can) Tayfa korkudan titriyor (moral −2).', 'Lahitten soğuk bir rüzgâr esti, meşale söndü. Karanlıkta düşüp yaralandın: lanet! (−1 can, moral −2)', 'Mumyanın gözleri parladı sandın; kaçarken merdivenden yuvarlandın. Lanet! (−1 can, moral −2)'][Math.floor(TB.r() * 3)]); }
+        else tb48End('good', 'Lahdi boşalttın. Lanet bu sefer tutmadı.');
+        return '@keep';
+      } }
+    ];
+    play('good');
+    tb48Show({ title:'Lahit odası', ico:'i-chest', pic:tb48Pic(jars48() + coffin48(true)), cls:'cof', text:esc(head) + ' Yaldızlı bir lahit; çevresinde fayans muskalar, ' + (big === 'kitap' ? 'mühürlü papirüs tomarları' : big === 'lapis' ? 'mavi lapis bir bok böceği' : 'tütsü kapları') + ' ve altın halkalar.', ch });
+  }
+  function tb48Go() {
+    ({ rooms:tbRooms, seal:tbSeal, collapse:tbCollapse, hidden:tbHidden, trap:tbTrap, scarab:tbScarab, riddle:tbRiddle }[TB.v] || tbRooms)();
+  }
+  /* 1. three doors: a store room, the coffin, a dart trap; open as many as you dare */
+  function tbRooms(first) {
+    if (first !== false) { const k = [0, 1, 2]; for (let i = 2; i > 0; i--) { const j = Math.floor(TB.r() * (i + 1)); [k[i], k[j]] = [k[j], k[i]]; } TB.rooms = k.map(i => ['store', 'coffin', 'trap'][i]); TB.open = []; TB.hint = TB.r() < 0.6; TB.store = ['sarap', 'hurma', 'bugday', 'papirus'][Math.floor(TB.r() * 4)]; }
+    const sym = [{ g:4, n:'Göz' }, { g:2, n:'Kuş' }, { g:1, n:'Ankh' }], xs = [110, 180, 250];
+    let body = '';
+    xs.forEach((x, i) => { const op = TB.open.includes(i); body += door48(x, sym[i].g, op ? (TB.rooms[i] === 'trap' ? 'trap' : 'open') : ''); if (TB.hint && !op && TB.rooms[i] === 'trap') body += '<path d="M' + (x - 10) + ' 122l8 3M' + (x + 2) + ' 126l9 -2M' + (x - 4) + ' 130h7" stroke="#F4ECD8" stroke-width="2.6" stroke-linecap="round"/><circle cx="' + (x + 8) + '" cy="121" r="3" fill="#F4ECD8"/>'; });
+    const ch = [];
+    xs.forEach((x, i) => { if (TB.open.includes(i)) return; ch.push({ label:sym[i].n + ' işaretli kapı', ico:i === 0 ? 'i-goz' : i === 1 ? 'i-scroll' : 'i-ankh', gain:1, risk:1, sub:['Soldaki', 'Ortadaki', 'Sağdaki'][i] + ' kapı · içinde ne var, bilinmez', run() { tbRoomOpen(i); return '@keep'; } }); });
+    ch.push(TB.open.length ? { label:'Yeter, dışarı çık', ico:'i-close', sub:'Bulduklarınla teknene dön', run() { tb48End('good', 'Üç kapının sırrını orada bıraktın.'); return '@keep'; } } : { label:'Geri dön', ico:'i-close', sub:'Hiçbir kapıya dokunma', run() { tb48End('info', 'Koridorun soğuğu içini ürpertti; geri döndün.'); return '@keep'; } });
+    const text = TB.open.length ? 'Bir kapı daha açmak ister misin? Kalanlardan biri tuzak olabilir.' : 'Koridor üç kapıya açılıyor: üstlerinde göz, kuş ve ankh işaretleri.' + (TB.hint ? ' Kapılardan birinin önünde kemikler var...' : ' Hangisinin tuzaklı olduğu belli değil.');
+    tb48Show({ title:'Üç kapılı koridor', pic:tb48Pic(body), text, ch });
+  }
+  function tbRoomOpen(i) {
+    TB.open.push(i); const k = TB.rooms[i];
+    if (k === 'coffin') { tb48Coffin('Kapı gıcırdayarak açıldı: lahit odası!'); return; }
+    if (k === 'store') { tb48Give(40, [[TB.store, 4]]); play('good'); toast('Erzak odası: ' + (TB.got.g[TB.store] || 0) + ' ' + gNm48(TB.store) + ' ve 40 deben.'); }
+    else { tb48Hurt(1); toast('Duvardan oklar fırladı! Omzun sıyrıldı (−1 can).'); if (VG.hh <= 0) { tb48End('bad', 'Tuzaklı kapıda oklar seni yere serdi.'); return; } }
+    if (TB.open.length >= 3) { tb48End('good', 'Bütün kapıları açtın.'); return; }
+    tbRooms(false);
+    const m = $('#t48msg'); if (m) m.innerHTML = (k === 'store' ? '<b>Erzak odası!</b> Küpler dolusu ' + esc(gById(TB.store).name.toLocaleLowerCase('tr')) + ' ve bir kese deben. ' : '<b>Tuzak!</b> Duvardan oklar fırladı (−1 can). ') + 'Bir kapı daha açmak ister misin?';
+  }
+  /* 2. the sealed door: turn three seal stones to match the cartouche before the torch burns out */
+  function tbSeal() {
+    const r = TB.r, tgt = [0, 1, 2].map(() => Math.floor(r() * 4)), cur = tgt.map(g => (g + 1 + Math.floor(r() * 3)) % 4);
+    const need = cur.reduce((a, g, k) => a + (tgt[k] - g + 4) % 4, 0), left = Math.max(5, need + 3);
+    TB.seal = { tgt, cur, left, max:left, done:false };
+    const car = '<div class="t48-car" aria-label="Kartuş: ' + tgt.map(g => GLYPH[g].n).join(', ') + '">' + tgt.map(g => '<span>' + glyph(g, 30) + '</span>').join('') + '</div>';
+    const dials = '<div class="tl-dials t48-dials">' + cur.map((g, k) => '<button type="button" class="tl-d" data-t48d="' + k + '" aria-label="' + (k + 1) + '. taş: ' + GLYPH[g].n + '">' + glyph(g, 42) + '<small>' + GLYPH[g].n + '</small></button>').join('') + '</div><div class="tl-torch" id="t48torch"></div>';
+    tb48Show({ title:'Mühürlü kapı', pic:out48(TB.pal, TB.dz, { seal:1 }), over:car, cls:'seal', text:'Kapının üstündeki kartuşa bak. Aşağıdaki taşlara dokunup çevir: üçü de kartuştakiyle aynı olunca mühür açılır. Meşale bitmeden!', extra:dials,
+      ch:[{ label:'Vazgeç, geri çekil', ico:'i-close', sub:'Mühre dokunmadan yola devam', run() { tb48End('info', 'Meşaleyi indirip geri çekildin. Mezar mühürlü kaldı.'); return '@keep'; } }],
+      bind() { document.querySelectorAll('#sheet [data-t48d]').forEach(b => { b.onclick = () => tbSealTurn(+b.dataset.t48d); }); tbSealPaint(); } });
+  }
+  function tbSealPaint() {
+    const T = TB && TB.seal; if (!T) return;
+    document.querySelectorAll('#sheet [data-t48d]').forEach(b => { const k = +b.dataset.t48d; b.classList.toggle('ok', T.cur[k] === T.tgt[k]); });
+    const t = $('#t48torch'); if (t) t.innerHTML = '<span class="tl-fl">' + ico('i-sun', 18) + '</span><b>Meşale</b>' + Array.from({ length:T.max }, (_, k) => '<i class="' + (k < T.left ? 'on' : '') + '"></i>').join('') + '<small>' + T.left + ' dokunuş</small>';
+  }
+  function tbSealTurn(k) {
+    const T = TB && TB.seal; if (!T || T.done || !VG) return;
+    T.cur[k] = (T.cur[k] + 1) % 4; T.left--;
+    const b = document.querySelector('#sheet [data-t48d="' + k + '"]');
+    if (b) { const g = T.cur[k]; b.innerHTML = glyph(g, 42) + '<small>' + GLYPH[g].n + '</small>'; b.setAttribute('aria-label', (k + 1) + '. taş: ' + GLYPH[g].n); b.classList.remove('spin'); void b.offsetWidth; b.classList.add('spin'); }
+    play('click'); tbSealPaint();
+    const won = T.cur.every((g, j) => g === T.tgt[j]);
+    if (won || T.left <= 0) {
+      T.done = true; nodeChoices = null; const tk = TB.k;
+      const pic = $('#t48pic'); if (pic) pic.classList.add(won ? 'open' : 'out');
+      play(won ? 'good' : 'no'); buzz(won ? 'boost' : 'hit');
+      setTimeout(() => {
+        if (!VG || !TB || TB.k !== tk) return;
+        if (won) { tb48Coffin('Mühür çözüldü, taş kapı yana kaydı!'); return; }
+        if (TB.r() < 0.35) { tb48Hurt(1); setMorale(-1); tb48End('bad', 'Meşale söndü; karanlıkta bir şey fısıldadı. Kaçarken merdivenden düştün (−1 can, moral −1).'); }
+        else tb48End('info', 'Meşale söndü, mühür direndi. Mezar sırrını sakladı.');
+      }, reduce ? 200 : 1000);
+    }
+  }
+  /* 3. the cracking ceiling: grab what you can; nobody knows which grab brings it down */
+  const CL48 = [{ g:'muska', n:1, lab:'Muska' }, { g:'kitap', n:1, lab:'Papirüs' }, { cash:90, lab:'Altın yüzük', ico:'i-coin' }, { g:'bakir', n:1, lab:'Bakır ayna' }, { g:'sarap', n:2, lab:'Şarap küpü' }, { g:'tutsu', n:1, lab:'Tütsü kabı' }, { cash:60, lab:'Gümüş bilezik', ico:'i-coin' }];
+  function tbCollapse() {
+    const pool = CL48.slice(); for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(TB.r() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+    TB.cl = { items:pool.slice(0, 5), lim:3 + Math.floor(TB.r() * 3), n:0, warn:TB.r() < 0.6 };
+    const pos = [[13, 62], [25, 87], [50, 50], [75, 87], [87, 62]];
+    const over = '<div class="t48-dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>' + TB.cl.items.map((it, k) => '<button type="button" class="t48-item" data-t48i="' + k + '" style="left:' + pos[k][0] + '%;top:' + pos[k][1] + '%" aria-label="' + esc(it.lab) + ' al">' + ico(it.ico || 'i-' + it.g, 24) + '<small>' + esc(it.lab) + '</small></button>').join('');
+    const crack = '<g class="t48-crack"><path class="k1" d="M150 0l8 10-6 8 10 9" /><path class="k2" d="M220 0l-6 12 8 6-4 12" /><path class="k3" d="M60 16l20 6 6 12" /><path class="k4" d="M300 16l-14 10 4 14" /><path class="k5" d="M180 16v12l-10 8 4 12" /></g>';
+    tb48Show({ title:'Çatlayan tavan', pic:tb48Pic(jars48() + coffin48(false) + crack), over, cls:'cl c0', text:'Tavan inliyor, toz dökülüyor! Yerdeki eşyalara dokunup topla, sonra <b>Kaç</b>\'a bas. Her eşya tavanı biraz daha sarsar; ne zaman çökeceği belli değil.',
+      ch:[{ label:'Kaç!', ico:'i-bolt', sub:'Topladıklarınla dışarı fırla', run() { tb48End('good', TB.cl.n ? 'Toz bulutunun içinden dışarı fırladın; arkanda tavan gürledi.' : 'Tavanın gürültüsü yetti: eli boş ama sağ salim dışarı çıktın.'); return '@keep'; } }],
+      bind(tk) { document.querySelectorAll('#sheet [data-t48i]').forEach(b => { b.onclick = () => tbGrab(+b.dataset.t48i, tk); }); } });
+  }
+  function tbGrab(k, tk) {
+    const C = TB && TB.cl; if (!C || TB.k !== tk || C.down) return;
+    const it = C.items[k], b = document.querySelector('#sheet [data-t48i="' + k + '"]'); if (!it || !b || b.disabled) return;
+    C.n++; const pic = $('#t48pic'), msg = $('#t48msg');
+    if (pic) { pic.classList.remove('c' + (C.n - 1)); pic.classList.add('c' + Math.min(5, C.n)); pic.classList.remove('shake'); void pic.offsetWidth; pic.classList.add('shake'); }
+    if (C.n >= C.lim) {
+      C.down = true; nodeChoices = null; b.classList.add('lost');
+      if (pic) pic.classList.add('fall'); tb48Hurt(1); setMorale(-1);
+      setTimeout(() => { if (TB && TB.k === tk) tb48End('bad', 'Tavan çöktü! ' + it.lab + ' taşların altında kaldı, sen de bir taş yedin (−1 can, moral −1).'); }, reduce ? 200 : 900);
+      return;
+    }
+    b.disabled = true; b.classList.add('got'); play('pick'); buzz('pick');
+    tb48Give(it.cash || 0, it.g ? [[it.g, it.n]] : []);
+    if (msg) msg.innerHTML = '<b>' + esc(it.lab) + '</b> aldın. ' + (C.warn && C.n === C.lim - 1 ? '<b class="t48-warn">Tavandan iri bir taş koptu!</b> ' : C.n >= 2 ? 'Çatlaklar büyüyor... ' : 'Tavan inledi. ') + 'Bir tane daha mı, yoksa <b>Kaç</b>?';
+    if (C.n >= C.items.length) setTimeout(() => { if (TB && TB.k === tk) tb48End('good', 'Her şeyi kaptın ve son anda dışarı fırladın!'); }, 500);
+  }
+  /* 4. the hollow wall: knock on the stones (three tries) and find the hidden chamber */
+  function tbHidden() {
+    TB.hid = { h:Math.floor(TB.r() * 6), tries:3 };
+    const over = '<div class="t48-wall">' + [0, 1, 2, 3, 4, 5].map(k => '<button type="button" class="t48-blk' + (k === TB.hid.h ? ' odd' : '') + '" data-t48b="' + k + '" aria-label="' + (k + 1) + '. taşa vur">' + '<svg viewBox="0 0 14 14" aria-hidden="true">' + GL48[k === TB.hid.h ? 2 : k % 2 ? 5 : 0](INK) + '</svg></button>').join('') + '</div>';
+    tb48Show({ title:'Yankı yapan duvar', pic:tb48Pic('', { plain:1 }), over, cls:'hid', text:'Duvar taşlarına tıkla, sesi dinle. Biri boş: arkasında gizli bir oda var. <b>Üç</b> vuruş hakkın var. (İpucu: işaretlere iyi bak.)', extra:'<div class="t48-tries" id="t48tries">' + ico('i-hammer', 16) + ' <b>3</b> vuruş</div>',
+      ch:[{ label:'Vazgeç, çık', ico:'i-close', sub:'Duvarı rahat bırak', run() { tb48End('info', 'Duvarın sırrını çözmeden çıktın.'); return '@keep'; } }],
+      bind(tk) { document.querySelectorAll('#sheet [data-t48b]').forEach(b => { b.onclick = () => tbKnock(+b.dataset.t48b, tk); }); } });
+  }
+  function tbKnock(k, tk) {
+    const H = TB && TB.hid; if (!H || TB.k !== tk || H.done) return;
+    const b = document.querySelector('#sheet [data-t48b="' + k + '"]'); if (!b || b.disabled) return;
+    H.tries--; b.disabled = true;
+    const tr = $('#t48tries'), msg = $('#t48msg');
+    if (k === H.h) {
+      H.done = true; nodeChoices = null; b.classList.add('hollow'); play('good'); buzz('boost');
+      if (msg) msg.innerHTML = '<b>Bomboş bir ses!</b> Taş içeri düştü, arkasından altın bir ışık sızıyor.';
+      setTimeout(() => { if (TB && TB.k === tk) tb48Coffin('Gizli odaya süründün: kimsenin bulamadığı bir lahit!'); }, reduce ? 200 : 900);
+      return;
+    }
+    b.classList.add('solid'); play('no');
+    if (tr) tr.innerHTML = ico('i-hammer', 16) + ' <b>' + H.tries + '</b> vuruş';
+    if (H.tries <= 0) { H.done = true; nodeChoices = null; setTimeout(() => { if (TB && TB.k === tk) { tb48Give(30, []); tb48End('info', 'Duvar sırrını sakladı. Yerde unutulmuş bir bakır yüzük buldun, o kadar.'); } }, reduce ? 200 : 700); return; }
+    if (msg) msg.innerHTML = '<b>Tok.</b> Bu taş dolu. ' + (H.tries === 1 ? 'Son vuruş! Diğerlerinden farklı bir işaret var mı?' : 'Başka bir taşı dene.');
+  }
+  /* 5. the trapped corridor: three ways to the chamber; the clean one has no tell-tale holes or cracks */
+  function tbTrap() {
+    const safe = Math.floor(TB.r() * 3); TB.safe = safe;
+    let body = '<path d="M160 112V72q0-10 20-10t20 10V112z" fill="#3A2614"' + K48t + '/><ellipse cx="180" cy="98" rx="14" ry="12" fill="#F2C65A" opacity=".55"/>';
+    body += '<path d="M140 112L80 180M220 112L280 180" stroke="#F3E2B8" stroke-width="2" stroke-dasharray="5 5" opacity=".7"/>';
+    /* tells: darts in the left wall, a cracked slab in the middle, a blade slot in the ceiling on the right */
+    if (safe !== 0) body += '<g fill="#140D08">' + [[18, 70], [30, 76], [18, 92], [30, 98], [42, 84]].map(([x, y]) => '<circle cx="' + x + '" cy="' + y + '" r="2.6"/>').join('') + '</g>';
+    if (safe !== 1) body += '<path d="M156 134l22 -2 12 10 -24 4z" fill="#4A3020" stroke="#F3E2B8" stroke-width="1.4" stroke-dasharray="3 2"/><path d="M164 136l8 5" stroke="#140D08" stroke-width="1.6"/>';
+    if (safe !== 2) body += '<path d="M240 6l60 14" stroke="#140D08" stroke-width="5"/><path d="M262 12l6 10 6 -9" fill="#C9C2B0" stroke="' + INK + '" stroke-width="1.2"/>';
+    const over = ['Sol', 'Orta', 'Sağ'].map((n, k) => '<span class="t48-lane l' + k + '">' + n + '</span>').join('');
+    const pick = k => { if (k === TB.safe) { tb48Give(40, []); tb48Coffin('Temiz yolu seçtin, tuzaklara hiç dokunmadın (+40 deben yerde).'); } else { tb48Hurt(1); if (VG.hh <= 0) { tb48End('bad', 'Tuzak seni yere serdi.'); return; } tb48Coffin(k === 0 ? 'Duvardaki deliklerden oklar fırladı (−1 can) ama geçtin.' : k === 1 ? 'Ayağının altındaki taş çöktü, çukurdan güçlükle çıktın (−1 can).' : 'Tavandan bir bıçak indi, kolunu sıyırdı (−1 can).'); } };
+    tb48Show({ title:'Tuzaklı koridor', pic:tb48Pic(body), over, cls:'trap', text:'Lahit odası koridorun sonunda parlıyor. Üç yol var; ikisi tuzaklı. Dikkatli bak: <b>duvarda delik</b>, <b>yerde çatlak taş</b> ya da <b>tavanda yarık</b> olan yol tehlikeli.',
+      ch:[0, 1, 2].map(k => ({ label:['Soldan yürü', 'Ortadan yürü', 'Sağdan yürü'][k], ico:'i-map', gain:2, risk:1, sub:['Sol duvarın dibinden', 'Koridorun ortasından', 'Sağ duvarın dibinden'][k], run() { pick(k); return '@keep'; } })).concat([{ label:'Geri dön', ico:'i-close', sub:'Tuzaklara bulaşma', run() { tb48End('info', 'Uyarıyı ciddiye aldın ve geri döndün.'); return '@keep'; } }]) });
+  }
+  /* 6. the scarab swarm: tap the beetles away before the torch burns down (or burn kyphi) */
+  function tbScarab() {
+    const n = 6, T = TB.sc = { n, gone:0, done:false };
+    const pos = [[18, 64], [34, 80], [50, 70], [64, 84], [78, 66], [88, 82]];
+    const over = '<div class="t48-bar"><i></i></div>' + pos.slice(0, n).map((p, k) => '<button type="button" class="t48-bug b' + k + '" data-t48s="' + k + '" style="left:' + p[0] + '%;top:' + p[1] + '%" aria-label="Böceği kovala"><svg viewBox="0 0 40 40" aria-hidden="true"><g stroke="' + INK + '" stroke-width="2.4" stroke-linecap="round"><ellipse cx="20" cy="23" rx="8" ry="10" fill="#2F7346"/><path d="M20 13v20" stroke="#9FD8B0"/><circle cx="20" cy="10" r="4" fill="#2F7346"/><path d="M12 18l-6-4M12 25H5M13 31l-5 4M28 18l6-4M28 25h7M27 31l5 4" fill="none"/></g></svg></button>').join('');
+    const hasK = S.inv.kyphi && S.inv.kyphi.n > 0;
+    const ch = [{ label:'Meşaleyi salla, geri çekil', ico:'i-close', sub:'Böceklerle uğraşma, eli boş çık', run() { T.done = true; tb48End('info', 'Meşaleyi sallayarak geri geri çıktın. Böcekler lahdin başında kaldı.'); return '@keep'; } }];
+    if (hasK) ch.push({ label:'Kyphi yak', ico:'i-kyphi', gain:2, sub:'1 kyphi harcanır · kokusundan böcekler kaçar', run() { T.done = true; loseGoods(S, 'kyphi', 1); tb48Coffin('Kyphi dumanı odayı sardı; böcekler deliklerine kaçıştı.'); return '@keep'; } });
+    tb48Show({ title:'Bok böceği sürüsü', pic:tb48Pic(jars48() + coffin48(false)), over, cls:'bugs', text:'Lahdin altından bir bok böceği sürüsü çıktı! Meşale sönmeden <b>hepsine dokunup kovala</b>: yol açılırsa lahde ulaşırsın.', ch,
+      bind(tk) {
+        document.querySelectorAll('#sheet [data-t48s]').forEach(b => { b.onclick = () => {
+          if (!TB || TB.k !== tk || T.done || b.disabled) return;
+          b.disabled = true; b.classList.add('gone'); T.gone++; play('tick'); buzz('pick');
+          if (T.gone >= T.n) { T.done = true; nodeChoices = null; setTimeout(() => { if (TB && TB.k === tk) tb48Coffin('Son böcek de kaçtı; lahdin yolu açıldı.'); }, reduce ? 150 : 500); }
+        }; });
+        setTimeout(() => {
+          if (!VG || !TB || TB.k !== tk || T.done) return;
+          T.done = true; nodeChoices = null; tb48Hurt(1);
+          tb48End('bad', 'Meşale söndü; böcekler bacaklarına tırmandı, ısırdı (−1 can). Lahde ulaşamadan kaçtın.');
+        }, reduce ? 12000 : 9000);
+      } });
+  }
+  /* 7. the painter's riddle: the right answer opens a painted door */
+  const RD48 = [
+    { q:'Her sabah doğarım, her akşam batarım; yine de hiç ölmem. Ben kimim?', a:['Güneş (Ra)', 'Ay', 'Nil'] },
+    { q:'Ben yükselince tarlalar doyar, çekilince toprak kararır. Ben kimim?', a:['Nil\'in taşkını', 'Çöl rüzgârı', 'Ay ışığı'] },
+    { q:'Ölünün kalbi bir tüyle tartılır. Tüy kimindir?', a:['Maat', 'Bastet', 'Sobek'] },
+    { q:'Küçüğüm ama güneşi önümde yuvarlar, sabahı ben getiririm. Ben kimim?', a:['Bok böceği', 'Şahin', 'Kedi'] },
+    { q:'Ölüleri öbür dünyaya götüren çakal başlı tanrı kimdir?', a:['Anubis', 'Horus', 'Thoth'] },
+    { q:'Ne kadar çok alırsan o kadar büyürüm. Ben neyim?', a:['Çukur', 'Hazine', 'Gölge'] }
+  ];
+  function tbRiddle() {
+    const R = RD48[Math.floor(TB.r() * RD48.length)], ord = [0, 1, 2]; for (let i = 2; i > 0; i--) { const j = Math.floor(TB.r() * (i + 1)); [ord[i], ord[j]] = [ord[j], ord[i]]; }
+    let body = '<g transform="translate(70 50)">' + P48('M8 52v-18q0-8 8-8h8l4 26z', '#F4ECD8', K48t) + '<circle cx="18" cy="18" r="7" fill="#A86C44"' + K48t + '/>' + P48('M10 18q0-11 8-11t8 11v4h-3v-4h-10v4h-3z', '#1C1620', K48t) + L48(26, 32, 40, 28, '#A86C44', 2.4) + L48(40, 28, 46, 18, '#B7412E', 2) + '</g>';
+    body += '<rect x="130" y="50" width="100" height="54" rx="27" fill="#F3E2B8"' + K48 + '/><text x="180" y="86" text-anchor="middle" font-family="Cinzel,serif" font-weight="700" font-size="26" fill="' + INK + '">?</text>';
+    body += '<g transform="translate(252 58)">' + GL48[2]('#B7412E') + '</g><g transform="translate(268 74)">' + GL48[4]('#1F5FA8') + '</g><g transform="translate(252 88)">' + GL48[1]('#B9852A') + '</g>';
+    const answer = ok => { if (ok) { tb48Give(50, []); tb48Coffin('"Doğru!" Boyalı duvar ikiye ayrıldı; ressamın armağanı (+50 deben) ve arkasında bir lahit.'); } else if (TB.r() < 0.5) { tb48Hurt(1); setMorale(-1); tb48End('bad', 'Yanlış cevap! Duvardaki göz sana dik dik baktı; başın zonkladı: ressamın laneti (−1 can, moral −1).'); } else tb48End('info', 'Yanlış cevap. Duvar sessiz kaldı, kapı açılmadı.'); };
+    tb48Show({ title:'Ressamın bilmecesi', pic:tb48Pic(body), cls:'rid', text:'Ressam duvara şunu yazmış: <b>"' + esc(R.q) + '"</b>',
+      ch:ord.map(i => ({ label:R.a[i], ico:'i-scroll', gain:2, risk:1, sub:'Cevap olarak duvara dokun', run() { answer(i === 0); return '@keep'; } })).concat([{ label:'Bilmeceyi bırak', ico:'i-close', sub:'Cevap vermeden çık', run() { tb48End('info', 'Bilmeceyi düşünerek mezardan çıktın.'); return '@keep'; } }]) });
+  }
+  if (/[?&]debug/.test(location.search)) window.__stop48 = { market:(t) => { if (VG) { closeSheet(); mk48(t || 'market', true); } }, tomb:(v) => { if (VG) { closeSheet(); tb48Start('tomb', v); } }, dtomb:(v) => { if (VG) { closeSheet(); tb48Start('dtomb', v); } }, tb:() => TB, mk:() => MK };
