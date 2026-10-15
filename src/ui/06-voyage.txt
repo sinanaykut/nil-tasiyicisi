@@ -233,7 +233,7 @@
     if (!VG || !VG.easy || meta.tutDone || meta.noHints || $('#voy').hidden || !$('#veil').hidden) { box.hidden = true; return; }
     const el = document.querySelector('.vnode[data-vnode]:not(:disabled)'); if (!el) { box.hidden = true; return; }
     const text = VG.layer === 0 ? 'Bu yol haritası. Her gün bir durak seçersin; her durak kısa bir sahne ya da mola. ⚠ risk, ★ ödül demek. Sakin su ile başla.' : 'Dikkat: seçtiğin durak sonraki günün yollarını belirler. Köy pazarı güvenli bir mola, Batık küçük bir hazine avı.';
-    el.classList.add('tut-target');
+    el.classList.add('tut-target'); tutArrow(el);
     /* v36: same layout as the port guide (face | name, text, button), never over the voyage header */
     box.classList.remove('dock', 'thru'); box.dataset.k = ''; box.innerHTML = tutInner('Harita', text);
     tutBind(box, () => { if (document.contains(el) && !el.disabled) el.click(); });
@@ -365,7 +365,7 @@
       label:kind === 'race' ? CITIES[p.dest].name + ' önünde' : nodeT === 'forgers' ? 'Kalpazan iskelesi' : (Math.min(VG.layer, VG.layers.length - 1) + 1) + '. gün' };
     /* v45: crates go into the hold the moment they are picked up, only if there is room (the scene asks first) */
     const acc = VG.acc;
-    o.cargo = { room:() => Math.max(0, freeCap(S)), take() { const t = crateTake(S); if (t) acc.got[t.g] = (acc.got[t.g] || 0) + t.q; return t ? { g:t.g, q:t.q, txt:'+' + t.q + ' ' + gName(t.g) } : null; } };
+    o.cargo = { room:() => Math.max(0, freeCap(S)), full:() => holdWarn(), take() { const t = crateTake(S); if (t) acc.got[t.g] = (acc.got[t.g] || 0) + t.q; if (t && t.rest > 0) holdWarn(holdLeftTxt(t.rest, t.g)); return t ? { g:t.g, q:t.q, rest:t.rest, txt:'+' + t.q + ' ' + gName(t.g) + (t.rest > 0 ? ' · ' + t.rest + ' sığmadı' : '') } : null; } };
     VG.bonus = 0;
     VG.scene = kind; VG.sceneNode = nodeT || kind; if ($('#tut')) $('#tut').hidden = true;
     $('#voy').hidden = true; $('#sea').hidden = false; document.body.classList.remove('on-map'); enterFx($('#sea'));
@@ -438,7 +438,8 @@
       const sm = t === 'smugglers';
       s += '<p class="ntext">' + (sm ? 'Gizli iskele: kimse ad sormuyor, herkes fiyat soruyor.' : 'Köy pazarı: köylüler şehir malına meraklı.') + '</p>';
       if (held) { const pr = Math.round(S.prices[S.city][held.id] * (sm ? 1.55 : 1.3)), n = Math.min(sm ? 12 : 10, S.inv[held.id].n); ch.push({ label:'Sat: ' + n + ' ' + gName(held.id), ico:'i-' + held.id, gain:2, sub:'Birimi ' + fmt(pr) + ' · toplam ' + fmt(pr * n) + ' deben (şehirden %' + (sm ? 55 : 30) + ' iyi)', run() { loseGoods(S, held.id, n); S.cash += pr * n; return n + ' ' + gName(held.id) + ' için ' + fmt(pr * n) + ' deben aldın.'; } }); }
-      const g2 = sm ? gById('lapis') : GOODS[Math.floor(r() * 5)], pr2 = Math.round(g2.base * (sm ? 0.62 : 0.6)), q2 = Math.max(0, Math.min(sm ? 3 : 6, freeCap(S), Math.floor(S.cash / pr2)));
+      const g2 = sm ? gById('lapis') : GOODS[Math.floor(r() * 5)], pr2 = Math.round(g2.base * (sm ? 0.62 : 0.6)), want2 = Math.max(0, Math.min(sm ? 3 : 6, Math.floor(S.cash / pr2))), q2 = Math.max(0, Math.min(want2, freeCap(S)));
+      if (q2 < want2) s += '<p class="ntext hfnote">' + (heybe() ? 'Heybelerde' : 'Ambarda') + (q2 ? ' yalnız ' + q2 + ' yer var: ' + want2 + ' yerine ' + q2 + ' ' + gName(g2.id).toLocaleLowerCase('tr') + ' alabilirsin.' : ' yer yok: ucuz ' + gName(g2.id).toLocaleLowerCase('tr') + ' yüklenemez. Önce bir şey sat.') + '</p>';   /* v48 */
       if (q2 > 0) ch.push({ label:'Al: ' + q2 + ' ' + gName(g2.id), ico:'i-' + g2.id, gain:2, sub:'Birimi ' + fmt(pr2) + ' · toplam ' + fmt(pr2 * q2) + ' deben (olağanın %' + (sm ? 38 : 40) + ' altı)', run() { S.cash -= pr2 * q2; S.inv[g2.id].n += q2; S.inv[g2.id].cost += pr2 * q2; return q2 + ' ' + gName(g2.id) + ' ' + fmt(pr2 * q2) + ' debene ambara yüklendi.'; } });
       if (!sm && p.terrain !== 'desert' && VG.hp < VG.maxhp && S.cash >= 70) ch.push({ label:'Gövdeyi kalafatlat', ico:'i-repair', gain:1, sub:'70 deben · gövde +1', run() { S.cash -= 70; VG.hp = Math.min(VG.maxhp, VG.hp + 1); return 'Köyün kalafatçıları çatlakları ziftledi: gövde +1.'; } });
       if (!sm && VG.torn && S.cash >= 60) ch.push({ label:'Yelkeni yamat', ico:'i-bolt', gain:1, sub:'60 deben · tekne yeniden hızlanır', run() { S.cash -= 60; VG.torn = false; return 'Köyün yelkencisi yırtığı yamadı.'; } });
@@ -582,6 +583,7 @@
     if (txt === '@tomb') { tombLock(nodeType !== 'tomb'); return; }
     const kind = txt && typeof txt === 'object' ? txt.kind : 'good', tx = txt && typeof txt === 'object' ? txt.t : txt;
     if (tx) { VG.acc.notes.push({ kind, title:NODES[nodeType].name, text:tx }); VG.log.push(tx); play(kind === 'bad' ? 'bad' : kind === 'info' ? 'click' : 'good'); toast(tx); }
+    if (tx && HOLD_RE.test(tx)) holdWarn();   /* v48: something stayed behind for want of room: the hold meter flashes */
     if (faintCheck()) return;
     afterStop(curPick());
   }

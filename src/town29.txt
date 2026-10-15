@@ -1120,7 +1120,7 @@ void main() {
       })();
       /* the boats / caravan (dynamic), spot glow ring */
       const dyn = new T.Group(); sc.add(dyn);
-      const ring = new T.Mesh(kp(new T.RingGeometry(0.8, 1, 40).rotateX(-Math.PI / 2)), kp(new T.MeshBasicMaterial({ color:0xFFF0B0, transparent:true, opacity:0.9, depthWrite:false }))); ring.visible = false; ring.renderOrder = 4; sc.add(ring);
+      const ring = new T.Mesh(kp(new T.RingGeometry(0.74, 1, 40).rotateX(-Math.PI / 2)), kp(new T.MeshBasicMaterial({ color:0xFFD24A, transparent:true, opacity:0.9, depthWrite:false }))); ring.visible = false; ring.renderOrder = 4; sc.add(ring);
       /* DOM: labels, snapshot */
       const labs = document.createElement('div'); labs.className = 'v3t-labs';
       const snap = document.createElement('canvas'); snap.className = 'v3t-snap'; snap.hidden = true;
@@ -1377,7 +1377,7 @@ void main() {
           try { FIG.animate(f.g, RED ? 0 : (f.L ? t * f.v / 8.6 : t) + f.ph, f.st); } catch (e) {}
         }
         /* v35: the spot ring breathes while it is shown */
-        if (ring.visible && !RED) { const rr = (ring.userData.r || 10) * (1 + Math.sin(t * 4.2) * 0.06); ring.scale.set(rr, 1, rr); ring.material.opacity = 0.75 + Math.sin(t * 4.2) * 0.15; }
+        if (ring.visible && !RED) { const rr = (ring.userData.r || 10) * (1 + Math.sin(t * 4.2) * 0.09); ring.scale.set(rr, 1, rr); ring.material.opacity = 0.72 + Math.sin(t * 4.2) * 0.25;   /* v48: a warmer, livelier ring (the guide's target) */ }
         for (let i = 0; i < dynParts.length; i++) { const d = dynParts[i]; if (d.boat) { d.g.position.y = d.y + (RED ? 0 : Math.sin(t * 1.6 + d.z) * 0.5) - (d.list || 0) * 20; d.g.rotation.z = (RED ? 0 : Math.sin(t * 1.1 + d.z) * 0.02) + (d.list || 0); } }
         /* points: smoke columns, our ship's smoke at damage 3, locusts */
         pN = 0; pT = t; const sm = town0 ? town0.B.smoke : EMPTY;

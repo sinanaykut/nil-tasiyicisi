@@ -183,8 +183,20 @@
       const c = st.plan && st.plan.cargo;
       if (!c) { st.crates++; return { txt:'' }; }
       const t = c.take(); if (t) st.crates++; else st.left = (st.left || 0) + 1;
+      st.hf = null;
+      if (t && t.rest > 0) fullNote(true);
       return t;
     }
+    /* v48 (owner: "if there is no room left on the boat, it could warn, or take as much as fits"): the hold full is said once per
+       scene (and the game's hold meter flashes); crates then show a grey DOLU tag; money is always picked up */
+    const holdFull = () => { if (st.hf == null) st.hf = cargoRoom() <= 0; return st.hf; };
+    function fullNote(quiet) {   /* quiet: the scene says it itself (a part-taken crate, the storm) */
+      if (st.fullSaid) return; st.fullSaid = true;
+      if (!quiet) flash(st.desert ? 'Heybeler dolu! Para yine alınır' : 'Ambar dolu! Para yine alınır');
+      try { const c = st.plan && st.plan.cargo; if (c && c.full) c.full(); } catch (e) {}
+    }
+    function fullTags3() { if (!st.picks || !holdFull()) return; for (let i = 0; i < st.picks.length; i++) { const p = st.picks[i]; if ((p.k === 'crate' || p.k === 'cache') && p.tx != null && p.ty > 30 && p.ty < H) fullTag(p.tx, p.ty); } }
+    function fullTag(x, y) { cx.save(); cx.globalAlpha = 0.92; pill(x - 21, y - 8, 42, 16, '#6E625A'); cx.font = '800 10px Nunito, sans-serif'; cx.textAlign = 'center'; cx.fillStyle = '#FFF8EC'; cx.fillText('DOLU', x, y + 3.5); cx.restore(); }
     const sx = (u, y) => centerX(y) + u * halfW();
     const sy = y => boatY() - (y - st.dist);
     function hit(cause) {
@@ -290,7 +302,7 @@
         if (Math.hypot(bx - px, (by - 8) - py) < p.r + st.br + 3) {
           if (p.k === 'crate' || p.k === 'cache') {
             /* a full hold: the crate bumps off the hull and floats on */
-            if (cargoRoom() <= 0) { if (!p.full) { p.full = true; st.left = (st.left || 0) + 1; floatText(px, py - 20, st.desert ? 'Heybeler dolu!' : 'Ambar dolu!', '#FFB4A0'); sfx('no'); } return p.y > st.dist - H * 0.4; }
+            if (cargoRoom() <= 0) { if (!p.full) { p.full = true; st.left = (st.left || 0) + 1; floatText(px, py - 20, st.desert ? 'Heybeler dolu!' : 'Ambar dolu!', '#FFB4A0'); sfx('no'); fullNote(); } return p.y > st.dist - H * 0.4; }
             const t = cargoTake(); floatText(px, py - 20, (p.k === 'cache' ? 'Kaçakçı zulası!' : st.desert ? 'Yük denki!' : 'Sandık!') + (t && t.txt ? ' ' + t.txt : ''), '#FFF8EC');
           }
           if (p.k === 'coin') { const c = Math.round(rnd(30, 90) * (1 + Math.min(1, st.combo * 0.2))); st.coins += c; floatText(px, py - 20, '+' + c + ' deben', '#F2C65A'); }
