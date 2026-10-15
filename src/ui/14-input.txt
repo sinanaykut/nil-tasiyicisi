@@ -188,5 +188,5 @@
   });
   window.addEventListener('resize', () => { if (S && phase === 'port') { renderStage(); placeTutor(); } if (VG && !$('#voy').hidden) drawVoyLines(); });
   ['mouseover', 'focusin'].forEach(ev => document.addEventListener(ev, e => { const n = e.target.closest && e.target.closest('.vnode[data-desc]'); const d = $('#vdesc'), m = n && String(n.className.baseVal != null ? n.className.baseVal : n.className).match(/t-(\w+)/); if (n && d) d.textContent = (m && NODES[m[1]] ? NODES[m[1]].name + ': ' : '') + n.dataset.desc; }));   /* v46: the fogged stop (no kind) no longer throws on hover */
-  Sea.init($('#sea'), k => { if (k === 'chase') Snd.mode('chase'); else if (k === 'caught' || k === 'escape') Snd.mode('sea'); play(k); buzz(k); });
+  Sea.init($('#sea'), k => { if (k === 'chase') Snd.mode('chase'); play(k); buzz(k); });
 
