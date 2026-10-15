@@ -21,12 +21,20 @@ const hagB = S => S.haggle && S.haggle.city === S.city && S.haggle.day === S.day
 const fameB = S => S.fame && S.fame.city === S.city && S.fame.day === S.day ? S.fame.b : 0;
 /* the hero you play: a passive trait and one power (per voyage, or per day in port for Neferet) */
 const HEROES = {
-  ahmose:  { name:'Ahmose',  title:'Eski Medjay',  passive:'Teknen bir darbeye daha dayanır.', power:'Muhafız', pdesc:'Yolculukta bir kez: pusudaki takipçiler senden korkup kaçar.', when:'voy' },
-  neferet: { name:'Neferet', title:'Tüccar kızı',  passive:'Alışta ve satışta her yerde %3 avantaj.', power:'Tatlı dil', pdesc:'Günde bir kez: bulunduğun pazarda bugün bütün alış satışların %6 daha iyi.', when:'port' },
-  sitre:   { name:'Sitre',   title:'Kâtip',        passive:'Komşu şehirlerin fiyatlarını her varışta öğrenirsin.', power:'Kehanet', pdesc:'Yolculukta bir kez: haritadaki sis kalkar, pusular görünür.', when:'voy' },
-  bakenre: { name:'Bakenre', title:'Nil çocuğu',   passive:'Her sahnede bir kürek hamlesi fazla.', power:'Akıntı', pdesc:'Yolculukta bir kez: kestirme bir akıntı yolu 1 gün kısaltır.', when:'voy' }
+  ahmose:  { name:'Ahmose',  title:'Eski Medjay',  hearts:4, passive:'Kavgaya alışkın: 4 canı var (diğerleri 3). Teknesi de bir darbeye daha dayanır.', power:'Muhafız', pdesc:'Yolculukta bir kez: pusudaki takipçiler senden korkup kaçar.', when:'voy' },
+  neferet: { name:'Neferet', title:'Tüccar kızı',  hearts:3, passive:'Alışta ve satışta her yerde %3 avantaj.', power:'Tatlı dil', pdesc:'Günde bir kez: bulunduğun pazarda bugün bütün alış satışların %6 daha iyi.', when:'port' },
+  sitre:   { name:'Sitre',   title:'Kâtip',        hearts:3, passive:'Komşu şehirlerin fiyatlarını her varışta öğrenirsin.', power:'Kehanet', pdesc:'Yolculukta bir kez: haritadaki sis kalkar, pusular görünür.', when:'voy' },
+  bakenre: { name:'Bakenre', title:'Nil çocuğu',   hearts:3, passive:'Her sahnede bir kürek hamlesi fazla.', power:'Akıntı', pdesc:'Yolculukta bir kez: kestirme bir akıntı yolu 1 gün kısaltır.', when:'voy' }
 };
 const HERO_IDS = Object.keys(HEROES);
+/* v47 (owner: "the ship's health should be separate from ours"): the hero has hearts (can), the boat has planks (S.hull).
+   Hearts go in personal dangers (a dive blackout, a fight with bandits, a curse, a fall in a dark tomb) and come back with rest:
+   +1 for every night in port (arriving, waiting a day). At 0 the hero faints: the crew sails on, a healer wakes you for a fee.
+   Planks go in collisions, rapids and storms; only a shipyard (or a village caulker) mends them; at 0 the boat sinks/runs aground. */
+const heroMax = S => (S && HEROES[S.hero] && HEROES[S.hero].hearts) || 3;
+const heroHp = S => S.hp == null ? heroMax(S) : Math.max(0, Math.min(S.hp, heroMax(S)));
+const HEALER = 80;
+const FIGHT = { haydut:1, bedevi:1, djedi:1 };
 const heroB = S => S.hero === 'neferet' ? 0.03 + (S.heroDay && S.heroDay.city === S.city && S.heroDay.day === S.day ? 0.06 : 0) : 0;
 const buyDisc = S => TRUST[trustLv(S)].b + hagB(S) + heroB(S);
 const sellBonus = S => TRUST[trustLv(S)].b + hagB(S) + fameB(S) + heroB(S) + (S.edge === S.city ? 0.08 : 0);
@@ -69,6 +77,7 @@ function migrate(S) {
   if (!S.tavern) S.tavern = {};
   if (!S.boatSpent) S.boatSpent = 0;
   if (S.hull == null || S.hull > maxHp(S)) S.hull = maxHp(S);
+  if (S.hp == null || S.hp > heroMax(S)) S.hp = heroMax(S);
   if (!S.hg28) S.hg28 = {};
   GOODS.forEach(g => { if (!S.inv[g.id]) S.inv[g.id] = { n:0, cost:0 }; if (S.trend[g.id] == null) S.trend[g.id] = 1; });
   while (S.trust.length < CITIES.length) S.trust.push(0);
@@ -178,7 +187,7 @@ const RANKS = [
 const rankOf = s => { let r = RANKS[0]; for (const x of RANKS) if (s >= x.min) r = x; return r.name; };
 const boatOf = S => BOATS[S.boat] || BOATS.nehir;
 const boatCap = S => boatOf(S).cap + 20 * S.up.ambar;
-const maxHp = S => boatOf(S).hp + S.up.govde + (S.perk.usta || 0) + (S.hero === 'ahmose' ? 1 : 0);
+const maxHp = S => boatOf(S).hp + S.up.govde + (S.perk.usta || 0) + (S.hero === 'ahmose' ? 1 : 0);   /* the boat's planks (never the hero's hearts) */
 const sailOf = S => S.up.yelken + boatOf(S).sail;
 /* ---------- v28: the hull keeps its scars between voyages; the river yards mend them ---------- */
 const hullNow = S => S.hull == null ? maxHp(S) : Math.max(0, Math.min(S.hull, maxHp(S)));
@@ -192,7 +201,7 @@ function repairHull(S, n) {
   const c = repairCost(S); n = Math.max(0, Math.min(n == null ? Infinity : n, maxHp(S) - hullNow(S), Math.floor(S.cash / c)));
   if (!n) return 0;
   S.hull = hullNow(S) + n; S.cash -= n * c; if (dmgStage(S) < 2) S.repNag = false;
-  S.log.push({ d:S.day, t:'Kalafatçılar teknende ' + n + ' yarayı onardı (' + fmtN(n * c) + ' deben).' });
+  S.log.push({ d:S.day, t:'Kalafatçılar teknende ' + n + ' kırık tahtayı yeniledi (' + fmtN(n * c) + ' deben).' });
   return n;
 }
 const CONTRA = 5;
@@ -372,7 +381,7 @@ function newGame(opts) {
               quest:opts.arc ? { id:opts.arc, step:0, st:'offer', by:0, cargo:0, f:{}, log:[] } : null,
               stats:{ vlog:'', trips:0, hits:0, escapes:0, caught:0, crates:0, perfect:0, orders:0, paidDay:0, races:0, raceWins:0, near:0, haggles:0, rapids:0, interest:0, lostVal:0, best:null, river:0 }, bless:null, haggle:null, fame:null, contra:null };
   GOODS.forEach(g => { S.inv[g.id] = { n:0, cost:0 }; S.trend[g.id] = 1; });
-  S.hull = maxHp(S); S.hg28 = {};
+  S.hull = maxHp(S); S.hp = heroMax(S); S.hg28 = {};
   rollPrices(S);
   S.news = [];
   S.seen[1] = snap(S, 1);
@@ -761,7 +770,7 @@ function seaPlan(S, dest, rapid) {
   if (bless === 'bastet') chaser = null;
   if (S.contra && rng() < 0.85) chaser = 'medjay';
   if (desert && chaser && chaser !== 'bedevi') chaser = 'bedevi';
-  return { days, days0:days, chaser, dest, from:S.city, speed:desert ? 0 : Math.max(0, Math.min(3, sailOf(S))), rowers:desert ? 0 : S.up.kurek + boatOf(S).row, extra:(S.perk.tayfa || 0) + (S.hero === 'bakenre' ? 1 : 0), hero:S.hero, first:!S.stats.trips, hp:desert ? 3 : hullNow(S) + (bless === 'hapi' ? 1 : 0), hpMax:desert ? 3 : maxHp(S) + (bless === 'hapi' ? 1 : 0), dmg:desert ? 0 : dmgStage(S), boat:S.boat, dev:Object.assign({}, S.dev), terrain:desert ? 'desert' : 'river', donkeys:S.caravan ? S.caravan.donkeys : 0, val, contra:!!S.contra, rival, rapid, bless, season:seasonIdx(S), seed:Math.floor(rng() * 1e9) };
+  return { days, days0:days, chaser, dest, from:S.city, speed:desert ? 0 : Math.max(0, Math.min(3, sailOf(S))), rowers:desert ? 0 : S.up.kurek + boatOf(S).row, extra:(S.perk.tayfa || 0) + (S.hero === 'bakenre' ? 1 : 0), hero:S.hero, first:!S.stats.trips, hp:desert ? 3 : hullNow(S) + (bless === 'hapi' ? 1 : 0), hpMax:desert ? 3 : maxHp(S) + (bless === 'hapi' ? 1 : 0), hh:heroHp(S), hhMax:heroMax(S), dmg:desert ? 0 : dmgStage(S), boat:S.boat, dev:Object.assign({}, S.dev), terrain:desert ? 'desert' : 'river', donkeys:S.caravan ? S.caravan.donkeys : 0, val, contra:!!S.contra, rival, rapid, bless, season:seasonIdx(S), seed:Math.floor(rng() * 1e9) };
 }
 /* quick crossing for players who skip the river run: on average worse than playing */
 function quickSea(plan) {
@@ -769,7 +778,7 @@ function quickSea(plan) {
   if (plan.first) return { hits:0, wreck:false, caught:false, escaped:!!plan.chaser, coins:Math.round(10 + rng() * 30), crates:0, beatRival:false, quick:true };
   const hits = Math.min(plan.hp, Math.floor(rng() * (2 + plan.days + (plan.rapid ? 2 : 0))));
   const caught = plan.chaser ? rng() < 0.6 - 0.1 * plan.rowers - 0.08 * plan.speed : false;
-  return { hits, wreck: hits >= plan.hp, caught, escaped: !!plan.chaser && !caught, coins: Math.round(rng() * 40), crates:0, beatRival: plan.rival ? rng() < 0.3 : false, quick:true };
+  return { hits, wreck: hits >= plan.hp, caught, escaped: !!plan.chaser && !caught, coins: Math.round(rng() * 40), crates:0, beatRival: plan.rival ? rng() < 0.3 : false, quick:true, hurt: caught && FIGHT[plan.chaser] ? 1 : 0 };
 }
 function applySea(S, plan, res) {
   const out = [], dz = plan.terrain === 'desert';
@@ -778,7 +787,7 @@ function applySea(S, plan, res) {
   if (res.near) { S.stats.near += res.near; S.cash += res.nearCoins || 0; out.push({ kind:'good', title:'Cesur dümen', text:res.near + ' kez kıl payı geçtin. Tayfa coştu ve ' + fmtN(res.nearCoins || 0) + ' deben bahşiş topladı.' }); }
   if (res.wreck) {
     const lost = loseFrac(S, 0.4);
-    out.push(dz ? { kind:'bad', title:'Kervan dağıldı', text:'Eşekler kumda dağıldı, toparlaman saatler sürdü. Bulunamayan yük: ' + (lost.join(', ') || 'yok') + '.' } : { kind:'bad', title:'Gemi karaya oturdu', text:'Teknen ağır hasar aldı. Kurtarılamayan yük: ' + (lost.join(', ') || 'yok') + '.' });
+    out.push(dz ? { kind:'bad', title:'Kervan dağıldı', text:'Eşekler kumda dağıldı, toparlaman saatler sürdü. Bulunamayan yük: ' + (lost.join(', ') || 'yok') + '.' } : { kind:'bad', title:'Teknen battı', text:'Tahtalar bitti: tekne su alıp sığlığa oturdu. Köylüler onu yüzdürüp limana çekti; tek tahtası sağlam, hemen tersaneye götür. Kurtarılamayan yük: ' + (lost.join(', ') || 'yok') + '.' });
   } else if (res.hits > 0) {
     const lostBy = {};
     for (let k = 0; k < res.hits; k++) {
@@ -788,20 +797,20 @@ function applySea(S, plan, res) {
       lostBy[g.id] = (lostBy[g.id] || 0) + l;
     }
     const lost = Object.keys(lostBy).map(id => lostBy[id] + ' ' + gById(id).short.toLowerCase());
-    out.push({ kind:'bad', title:res.hits + ' darbe aldın', text: lost.length ? (dz ? 'Eşekler tökezledi, kuma düşen yük: ' : 'Sarsıntıda suya düşen yük: ') + lost.join(', ') + '.' : 'Neyse ki kaybedecek yükün yoktu.' });
-  } else { S.stats.perfect++; out.push({ kind:'good', title:'Kusursuz yolculuk', text:'Tek bir çizik bile almadan vardın. Tayfa seninle gurur duyuyor.' }); }
+    out.push({ kind:'bad', title:dz ? res.hits + ' kez tökezlediniz' : 'Teknen ' + res.hits + ' darbe aldı', text:(dz ? '' : 'Gövdeden ' + res.hits + ' tahta gitti (tersanede onarılır). ') + (lost.length ? (dz ? 'Eşekler tökezledi, kuma düşen yük: ' : 'Sarsıntıda suya düşen yük: ') + lost.join(', ') + '.' : 'Neyse ki kaybedecek yükün yoktu.') });
+  } else { S.stats.perfect++; out.push({ kind:'good', title:'Kusursuz yolculuk', text:dz ? 'Kervan tökezlemeden vardı. Tayfa seninle gurur duyuyor.' : 'Teknede tek bir çizik yok. Tayfa seninle gurur duyuyor.' }); }
   if (plan.chaser) {
     if (res.caught) {
       S.stats.caught++;
-      if (plan.chaser === 'bedevi') { const lost = loseFrac(S, 0.3); if (S.caravan) S.caravan.water = Math.max(0, S.caravan.water - 1); out.push({ kind:'bad', title:'Çöl akıncıları yetişti', text:'Yüklerini ve bir tulum suyunu aldılar: ' + (lost.join(', ') || 'boş heybelere güldüler') + '.' }); }
-      else if (plan.chaser === 'haydut') { const lost = loseFrac(S, 0.3); out.push({ kind:'bad', title:'Haydutlar yetişti', text:'Kervanını yağmaladılar: ' + (lost.join(', ') || 'boş ambara küfrettiler') + '.' }); }
+      if (plan.chaser === 'bedevi') { const lost = loseFrac(S, 0.3); if (S.caravan) S.caravan.water = Math.max(0, S.caravan.water - 1); out.push({ kind:'bad', title:'Çöl akıncıları yetişti', text:'Boğuştun ama çok kalabalıktılar (−1 can). Yüklerini ve bir tulum suyunu aldılar: ' + (lost.join(', ') || 'boş heybelere güldüler') + '.' }); }
+      else if (plan.chaser === 'haydut') { const lost = loseFrac(S, 0.3); out.push({ kind:'bad', title:'Haydutlar yetişti', text:'Güvertede boğuştun (−1 can). Ambarını yağmaladılar: ' + (lost.join(', ') || 'boş ambara küfrettiler') + '.' }); }
       else if (plan.chaser === 'medjay') {
         if (S.contra) { const f = Math.min(S.cash, Math.round(S.cash * 0.25 + 300)); S.cash -= f; S.contra = null; out.push({ kind:'bad', title:'Medjay kaçak malı buldu', text:'Hapu\'nun sandıklarına el koydular ve ' + fmtN(f) + ' deben ceza kestiler. Hapu da çok kızacak.' }); S.debt += 800; S.log.push({ d:S.day, t:'Kaçak sandıklar yakalandı. Hapu borcuna 800 deben "zarar" ekledi.' }); }
         else { const f = Math.min(S.cash, Math.round(S.cash * 0.15 + 50)); S.cash -= f; out.push({ kind:'bad', title:'Medjay seni durdurdu', text:'Kaçakçılık şüphesiyle ' + fmtN(f) + ' deben ceza kestiler.' }); }
       }
       else if (plan.chaser === 'djedi') {
-        if (S.quest && S.quest.cargo) { S.quest.cargo = 0; S.quest.f.stolen = true; out.push({ kind:'bad', title:'Djedi\'nin adamları heykeli kaptı', text:'Altın kedi gitti! Kâtip Merenre\'nin casuslarına göre Djedi onu Vaset\'te satmaya çalışacak.' }); }
-        else { const lost = loseFrac(S, 0.2); out.push({ kind:'bad', title:'Djedi\'nin adamları', text:'Heykeli bulamayınca öfkelerini ambardan çıkardılar: ' + (lost.join(', ') || 'boş ambar') + '.' }); }
+        if (S.quest && S.quest.cargo) { S.quest.cargo = 0; S.quest.f.stolen = true; out.push({ kind:'bad', title:'Djedi\'nin adamları heykeli kaptı', text:'Boğuşmada yaralandın (−1 can). Altın kedi gitti! Kâtip Merenre\'nin casuslarına göre Djedi onu Vaset\'te satmaya çalışacak.' }); }
+        else { const lost = loseFrac(S, 0.2); out.push({ kind:'bad', title:'Djedi\'nin adamları', text:'Boğuşmada yaralandın (−1 can). Heykeli bulamayınca öfkelerini ambardan çıkardılar: ' + (lost.join(', ') || 'boş ambar') + '.' }); }
       }
       else { const take = Math.min(S.cash, Math.round(S.debt * 0.3)); S.cash -= take; S.debt -= take; out.push({ kind:'bad', title:'Tefecinin adamları', text:'Hapu\'nun adamları seni yakaladı ve zorla ' + fmtN(take) + ' deben tahsil etti. Borcundan düştüler, en azından.' }); }
     } else {
@@ -834,6 +843,13 @@ function applySea(S, plan, res) {
   if (left > 0) out.push({ kind:'bad', title:'Ambar dolu', text:left + ' ' + (dz ? 'yük denki' : 'sandık') + ' geride kaldı: ' + (dz ? 'eşeklerde' : 'ambarda') + ' yer yoktu. Para ve kutsamalar yine de senin.' });
   if (res.water && S.caravan) { S.caravan.water += res.water; out.push({ kind:'good', title:'Su tulumları', text:res.water + ' tulum su buldun: ' + res.water + ' gün daha dayanırsın.' }); }
   if (res.ramUsed) out.push({ kind:'good', title:'Bakır mahmuz', text:'İlk darbeyi bakır burun karşıladı.' });
+  /* v47: the hero's own hearts (a played voyage hands back what is left; a skipped one only counts the fights) */
+  const hh0 = heroHp(S), hh = res.hh != null ? Math.max(0, Math.min(heroMax(S), res.hh)) : Math.max(0, hh0 - (res.hurt || 0));
+  S.hp = hh;
+  if (hh <= 0) {
+    const fee = Math.min(S.cash, HEALER); S.cash -= fee; S.hp = heroMax(S); S.stats.faints = (S.stats.faints || 0) + 1;
+    out.push({ kind:'bad', title:'Bayıldın', text:'Canın bitti, gözlerin karardı. Tayfa dümeni aldı ve seni limana getirdi. Şifacı seni ayılttı' + (fee ? ': ' + fmtN(fee) + ' deben.' : ', paran yoktu, hayrına baktı.') + ' Canın yine tam; teknen ve yükün yerinde.' });
+  } else if (hh < hh0) out.push({ kind:'bad', title:'Yaralandın', text:'Yolda ' + (hh0 - hh) + ' can kaybettin (' + hh + '/' + heroMax(S) + '). Limanda her gece dinlenince 1 can geri gelir.' });
   return out;
 }
 function arrive(S, plan, res) {
@@ -845,6 +861,7 @@ function arrive(S, plan, res) {
   if (plan.terrain !== 'desert') { const left = (res.hp != null ? res.hp : plan.hp - (res.hits || 0)) - (plan.bless === 'hapi' ? 1 : 0); S.hull = res.wreck ? 1 : Math.max(1, Math.min(maxHp(S), left)); if (dmgStage(S) < 2) S.repNag = false; }
   caravanDays(S, d, out);
   S.day += d; S.city = plan.dest; S.edge = null;
+  if (heroHp(S) < heroMax(S)) S.hp = heroHp(S) + 1;   /* v47: a night in port gives a heart back */
   if (S.caravan && isRiver(S.city)) { endCaravan(S); out.push({ kind:'good', title:'Kervan döndü', text:'Eşekler sahiplerine, yükler teknene. ' + CITIES[S.city].name + ' iskelesinde teknen seni bekliyordu.' }); }
   else if (S.caravan && /^(siwa|kharga)$/.test(CITIES[S.city].id)) { const need = CITIES[S.city].days + 1; if (S.caravan.water < need) { S.caravan.water = need; out.push({ kind:'good', title:'Vaha kuyuları', text:'Tulumlar vahanın tatlı suyuyla doldu: dönüş için ' + need + ' günlük su.' }); } }
   const before = S.debt;
@@ -983,6 +1000,7 @@ function waitDay(S) {
   if (!/^(siwa|kharga)$/.test(CITIES[S.city].id)) caravanDays(S, 1, out);
   S.day += 1; S.debt = Math.round(S.debt * (1 + S.rate)); S.stats.interest = (S.stats.interest || 0) + (S.debt - before);
   sethiArrive(S, out); rollPrices(S); S.seen[S.city] = snap(S, S.city);
+  if (heroHp(S) < heroMax(S)) { S.hp = heroHp(S) + 1; out.push({ kind:'good', title:'Dinlendin', text:'Bir gece rahat uyudun: +1 can (' + S.hp + '/' + heroMax(S) + ').' }); }
   /* v42: a day in town can bring a new order to the board (the oases too) */
   const off = S.offers[S.city];
   if ((!off || off.due < S.day + 1) && !S.orders.some(o => o.from === S.city) && rng() < 0.5) { S.offers[S.city] = makeOrder(S, S.city); if (S.offers[S.city]) out.push({ kind:'info', title:'Panoda yeni sipariş', text:MERCHANT_NAMES[S.city] + ' panoya bir sipariş astı: ' + S.offers[S.city].q + ' ' + gById(S.offers[S.city].g).short.toLowerCase() + ' → ' + CITIES[S.offers[S.city].to].name + '.' }); }

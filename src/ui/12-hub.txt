@@ -176,17 +176,33 @@
         if (!deals(d, g.id) || !deals(S.city, g.id) || g.craft || g.base > 130) return;
         const p = S.prices[S.city][g.id], n = Math.min(Math.floor(S.cash / p), freeCap(S), S.stock ? S.stock[S.city][g.id] : 99);
         const gain = n * (g.base * c.mult[g.id] * (sm[g.id] || 1) - p);
-        if (n > 0 && (!best || gain > best.gain)) best = { g:g.id, d, gain };
+        if (n > 0 && gain > 0 && (!best || gain > best.gain)) best = { g:g.id, d, gain };   /* v47: never a plan that loses money */
       });
     });
     return best;
   }
+  /* v47: where the cargo pays best right now (today's prices there, against what it cost you), a near town breaking ties */
+  const avgCost = gid => { const it = S.inv[gid]; return it && it.n ? it.cost / it.n : 0; };
   function guideDest() {
-    const main = GOODS.filter(g => S.inv[g.id].n > 0).sort((a, b) => S.inv[b.id].n * b.base - S.inv[a.id].n * a.base)[0], sm = SEASONS[seasonIdx(S)].mult;
-    const c = CITIES.map((x, i) => i).filter(i => canGo(S, i) && isRiver(i));
-    if (!main) return c.sort((a, b) => travelDays(S, a) - travelDays(S, b))[0];
-    return c.sort((a, b) => (travelDays(S, a) - travelDays(S, b)) * 0.3 + (CITIES[b].mult[main.id] || 0) * (sm[main.id] || 1) - (CITIES[a].mult[main.id] || 0) * (sm[main.id] || 1))[0];
+    const own = GOODS.filter(g => S.inv[g.id].n > 0), c = CITIES.map((x, i) => i).filter(i => canGo(S, i) && isRiver(i));
+    if (!c.length) return null;
+    const near = () => c.slice().sort((a, b) => travelDays(S, a) - travelDays(S, b))[0];
+    if (!own.length) return near();
+    const score = i => own.reduce((a, g) => a + (deals(i, g.id) ? (S.prices[i][g.id] - avgCost(g.id)) * S.inv[g.id].n : 0), 0) / (1 + 0.35 * travelDays(S, i));
+    const best = c.slice().sort((a, b) => score(b) - score(a))[0];
+    return score(best) > 0 ? best : near();
   }
+  /* the good worth selling here: dealt here, room in the storeroom, and the price beats what you paid (or the market tags it dear/boom) */
+  function sellPick() {
+    const ok = GOODS.filter(g => S.inv[g.id].n > 0 && deals(S.city, g.id)).map(g => {
+      const p = S.prices[S.city][g.id] * (1 + sellBonus(S)), c = avgCost(g.id), tag = priceTag(g, S.prices[S.city][g.id]), q = quoteSell(S, g.id, 1);
+      return { g, gain:p - c, tag, room:q.n > 0 };
+    }).filter(x => x.room && (x.gain > Math.max(2, x.g.base * 0.03) || (x.tag === 'dear' || x.tag === 'boom') && x.gain >= 0));
+    return ok.sort((a, b) => b.gain * S.inv[b.g.id].n - a.gain * S.inv[a.g.id].n)[0] || null;
+  }
+  const shown = el => !!(el && (el.offsetParent || el.getClientRects().length));
+  /* the way out: the town's boat, or the "Yola çık" button when the phone's market sheet covers the town */
+  const goEl = () => { const b = [...document.querySelectorAll('[data-act="travel"]')].find(shown); return document.body.classList.contains('mk-open') && b ? { el:b, t:'"Yola çık"a bas' } : { el:spotEl('ship') || b, t:'Tekneye dokun' }; };
   const spotEl = k => (town3On() ? document.querySelector('#port .v3t-l[data-spot="' + k + '"]:not([hidden])') : null) || document.querySelector('#spots [data-spot="' + k + '"]') || document.querySelector('#port .pscene [data-spot="' + k + '"]');
   /* what Paneb points at now: { el, text } */
   function tutStep() {
@@ -196,17 +212,29 @@
     if (g.step === 'market') return { el:spotEl('market'), text:'Önce tüccara git: resimdeki pazara dokun.' };
     if (g.step === 'buy') {
       if (load(S) > 0) { guideTo('ship'); return tutStep(); }
-      const pl = tutPlan(), gid = pl ? pl.g : 'bugday';
+      const pl = tutPlan();
+      if (!pl) { const go = goEl(); return { el:go.el, text:'Bugün burada kârlı bir mal yok. ' + go.t + ': başka bir şehre bakalım.' }; }
+      const gid = pl.g;
+      if (isPhone() && !shown(document.querySelector('.tile[data-tile="' + gid + '"]'))) return { el:spotEl('market'), text:'Pazara dokun: ' + gById(gid).short.toLocaleLowerCase('tr') + ' burada ucuz.' };
       if (msel !== gid) return { el:document.querySelector('.tile[data-tile="' + gid + '"]'), text:gById(gid).short + ' burada ucuz, ' + (pl ? CITIES[pl.d].loc + ' daha pahalı' : 'başka yerde daha pahalı') + '. Önce ona dokun.' };
       if (qty !== Infinity) return { el:document.querySelector('.chip[data-qty="Infinity"]'), text:'"Hepsi"ne bas: paranın yettiği kadar alırsın.' };
       return { el:document.querySelector('[data-buy="' + gid + '"]'), text:'Şimdi "Al". Mallar tekneye, ambara gider.' };
     }
-    if (g.step === 'ship') return { el:spotEl('ship'), text:(freeCap(S) <= 0 ? 'Ambar doldu!' : 'Mallar ambarda!') + ' Şimdi tekneye dokun: Nil haritası açılır.' };
+    if (g.step === 'ship') return { el:spotEl('ship'), text:(!load(S) ? 'Ambar boş.' : freeCap(S) <= 0 ? 'Ambar doldu!' : 'Mallar ambarda!') + ' Şimdi tekneye dokun: Nil haritası açılır.' };
     if (g.step === 'sell') {
       if (!load(S)) { guideTo('done'); toast('Paneb: "Ucuz al, pahalı sat. Bundan sonrası sende, kaptan!"'); return null; }
-      const gid = GOODS.filter(x => S.inv[x.id].n > 0 && deals(S.city, x.id))[0];
-      if (!gid) return null;
-      if (msel !== gid.id) return { el:document.querySelector('.tile[data-tile="' + gid.id + '"]'), text:'Vardık! Getirdiğin mala dokun.' };
+      const pk = sellPick();
+      if (!pk) {
+        /* v47 (owner: "the guide makes me sell a good that has already become cheap"): never sell at a loss; go where it is dear, or wait */
+        const own = GOODS.filter(x => S.inv[x.id].n > 0).sort((a, b) => S.inv[b.id].n * b.base - S.inv[a.id].n * a.base)[0], d = guideDest();
+        const nm = own ? own.short.toLocaleLowerCase('tr') : 'mal';
+        if (d != null && d !== S.city) { const go = goEl(); return { el:go.el, text:'Burada ' + nm + ' ucuz: satarsan zarar edersin. ' + go.t + ', ' + CITIES[d].dat + ' götür; orada daha pahalı.' }; }
+        return { el:spotEl('board'), text:'Burada ' + nm + ' ucuz: satma. Panoya bak ya da bir gün bekle; fiyatlar her gün değişir.' };
+      }
+      const gid = pk.g;
+      const tile = document.querySelector('.tile[data-tile="' + gid.id + '"]');
+      if (isPhone() && !shown(tile)) return { el:spotEl('market'), text:'Vardık! ' + gid.short + ' burada kârla satılır. Pazara dokun.' };
+      if (msel !== gid.id) return { el:tile, text:'Vardık! ' + gid.short + ' burada kârla satılır: birimi ' + fmt(S.prices[S.city][gid.id]) + ' deben, sana ' + fmt(avgCost(gid.id)) + ' debene gelmişti. Ona dokun.' };
       return { el:document.querySelector('[data-sell="' + gid.id + '"]'), text:'"Sat"a bas. Kârını yanında görürsün.' };
     }
     return null;
@@ -223,25 +251,30 @@
     if (!st || !st.el) { box.hidden = true; return; }
     st.el.classList.add('tut-target');
     /* the same tip is not re-drawn on every render (no flicker, no portrait rebuild) */
-    if (box.dataset.k !== st.text || !box.firstChild) { box.dataset.k = st.text; box.innerHTML = '<span class="cf">' + faceOf('paneb', 'happy') + '</span><div><span class="tn">Paneb</span><p>' + esc(st.text) + '</p><button class="chip" type="button" data-act="noHints">Rehberi kapat</button></div>'; }
+    if (box.dataset.k !== st.text || !box.firstChild) { box.dataset.k = st.text; box.innerHTML = tutInner('Paneb', st.text); }
+    tutBind(box, () => tutDo(st));
     box.hidden = false;
-    const r = st.el.getBoundingClientRect();
-    /* phones: the guide docks as a slim strip at the top or bottom edge, on the side away from what you must tap */
+    const r = tutAvoid(st.el);
+    /* phones: the guide docks as a slim strip at the top or bottom edge, on the side away from what you must tap
+       (v47: away from the 3D thing itself too, not only its label; if both edges would cover it, the strip lets taps through) */
     box.classList.toggle('dock', isPhone());
     if (isPhone()) {
       const bh0 = box.offsetHeight, hud = document.querySelector('.hud'), hb = hud ? hud.getBoundingClientRect().bottom + 6 : 8;
       const mb = document.querySelector('#mbar'), mt = mb && mb.offsetParent && !document.body.classList.contains('mk-open') ? mb.getBoundingClientRect().top - 6 : window.innerHeight - 8;
       const topSpot = { t:hb, b:hb + bh0 }, botSpot = { t:mt - bh0, b:mt };
-      const hits = q => !(q.b < r.top - 4 || q.t > r.bottom + 4);
-      let useTop = (r.top + r.bottom) / 2 > window.innerHeight * 0.45;
-      if (useTop && hits(topSpot) && !hits(botSpot)) useTop = false; else if (!useTop && hits(botSpot) && !hits(topSpot)) useTop = true;
+      const over = q => Math.max(0, Math.min(q.b, r.bottom + 6) - Math.max(q.t, r.top - 6));
+      const oT = over(topSpot), oB = over(botSpot);
+      const useTop = oT !== oB ? oT < oB : (r.top + r.bottom) / 2 > window.innerHeight * 0.45;
       const top0 = useTop ? topSpot.t : botSpot.t;
+      box.classList.toggle('thru', Math.min(oT, oB) > 0);
       box.style.top = (top0 + window.scrollY) + 'px'; box.style.left = (8 + window.scrollX) + 'px';
       box.dataset.dir = 'none'; return;
     }
+    box.classList.remove('thru');
     const bw = box.offsetWidth, bh = box.offsetHeight;
     let top = r.bottom + 12, left = r.left + r.width / 2 - bw / 2, below = true;
     if (top + bh > window.innerHeight - 8 && r.top - bh - 12 > 8) { top = r.top - bh - 12; below = false; }
+    else if (top + bh > window.innerHeight - 8) box.classList.add('thru');
     const sgr = $('#stage').getBoundingClientRect();
     top = Math.max(8, Math.min(top, window.innerHeight - bh - 8));
     left = Math.max(8, Math.min(left, window.innerWidth - bw - 8));
@@ -249,12 +282,33 @@
     box.dataset.dir = below ? 'down' : 'up';
     box.style.setProperty('--ax', Math.max(14, Math.min(bw - 14, r.left + r.width / 2 - left)) + 'px');
   }
+  /* v47: the guide's bubble: tapping it does what it asks (the close chip only closes); its own markup */
+  function tutInner(name, text) { return '<span class="cf">' + faceOf('paneb', 'happy') + '</span><div><span class="tn">' + esc(name) + '</span><p>' + esc(text) + ' <b class="tgo" aria-hidden="true">›</b></p><button class="chip" type="button" data-act="noHints">Rehberi kapat</button></div>'; }
+  function tutBind(box, fn) {
+    box._go = fn;
+    if (box._bound) return; box._bound = true;
+    box.addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-act="noHints"]')) return; e.preventDefault(); e.stopPropagation(); const f = box._go; if (f) { play('click'); f(); } });
+  }
+  function guideGo() { const b = $('#tut'); if (b && !b.hidden && b._go) b._go(); }
+  /* do what the bubble points at: a town spot opens, a button or tile is pressed */
+  function tutDo(st) {
+    const el = st && st.el; if (!el || !document.contains(el)) return;
+    if (el.dataset && el.dataset.spot && $('#veil').hidden) { openSpot(el.dataset.spot); return; }
+    if (typeof el.click === 'function') el.click(); else el.dispatchEvent(new MouseEvent('click', { bubbles:true }));
+  }
+  /* the screen area the bubble must leave free: the target, and for a 3D town spot also the building/boat itself */
+  function tutAvoid(el) {
+    const r = el.getBoundingClientRect(); let t = r.top, b = r.bottom, l = r.left, rt = r.right;
+    const k = el.classList.contains('v3t-l') ? el.dataset.spot : null;
+    if (k && T3 && T3.where) { const w = T3.where(k), pr = $('#port').getBoundingClientRect(); if (w && isFinite(w.y) && isFinite(w.h)) { t = Math.min(t, pr.top + w.y); b = Math.max(b, pr.top + w.y + w.h); l = Math.min(l, pr.left + w.x); rt = Math.max(rt, pr.left + w.x + w.w); } }
+    return { top:t, bottom:b, left:l, right:rt, width:rt - l, height:b - t };
+  }
   /* highlight inside an open sheet (merchant dialog, travel sheet) */
   function guideMark() {
     const g = guide(); if (g.off || !g.step) return;
     let el = null;
     if (g.step === 'market' && sheetName === 'say') el = document.querySelector('#dlgCh [data-dlg="0"]');
-    if (sheetName === 'travel') el = g.step === 'city' ? [...document.querySelectorAll('#sheet [data-city="' + guideDest() + '"]')].find(e => e.offsetParent) || null : g.step === 'sail' ? document.querySelector('#sheet [data-act="go"]') : null;
+    if (sheetName === 'travel') el = g.step === 'city' || g.step === 'sell' && load(S) && !sellPick() ? [...document.querySelectorAll('#sheet [data-city="' + guideDest() + '"]')].find(e => e.offsetParent) || null : g.step === 'sail' ? document.querySelector('#sheet [data-act="go"]') : null;
     if (el) el.classList.add('tut-target');
   }
   /* a one-time explanation the first time a system is met */
@@ -268,7 +322,7 @@
     work:['Atölye! Ustalara ham madde bırakırsın, iki gün sonra gelip ürünü alırsın.', 'Tarif kartta yazıyor. Ürünler pazarda pahalı satılır, bazı tüccarlar da hediye diye bayılır.'],
     temple:['Tapınağın gizli odası! Her tapınakta başka bir bilmece var: ışık ve aynalar, firavun kartuşları, kayan kabartmalar, Maat\'ın terazisi, yıldız tavanı.', 'Çözersen rahipler para ve bir kutsama verir. Takılırsan İpucu\'na bas. Her tapınak bir kez.'],
     tavern:['Meyhane! Burada bahisle oynanır: Senet, yılan tahtası Mehen, palmiye tahtasında Tazı ve Çakal. Her gün masada başka oyun olur.', 'Her oyunun ilk elinde ben yanındayım, kuralları oynarken anlatırım.'],
-    yard:['Tersane. Nehirde aldığımız darbeler teknede kalır; kalafatçılar her yarayı parayla onarır.', 'Mennefer\'in büyük tersanesinde onarım ucuz; yeni tekne ve gemi cihazları da yalnız orada.'],
+    yard:['Tersane. Nehirde çarpınca teknenin tahtaları kırılır ve öyle kalır; kalafatçılar her kırık tahtayı parayla yeniler. Senin canın ayrı: o limanda dinlenince gelir.', 'Mennefer\'in büyük tersanesinde onarım ucuz; yeni tekne ve gemi cihazları da yalnız orada.'],
     board:['Sipariş panosu. Tüccarların siparişleri, Sethi\'nin planı ve pazar krizleri burada asılı.', 'Siparişi kabul et, malı zamanında götür: para ve güven kazanırsın.'],
     haggle:['Pazarlık zamanı! Tüccarın yüzüne ve tezgâhına bak.', 'Tezgâhı doluysa ve mal ona yük oluyorsa indirir. Bir mal bu şehirde çok aranıyorsa sana iyi para verir. Fazla sıkıştırırsan küser.'],
     desert:['Çöl yolu! Teknemiz burada bekler, eşek kiralarız.', 'Her eşek 10 yük taşır, her gün bir tulum su gider. Su biterse eşek kaybederiz. Vahalarda kuyu var, oralarda su bedava.']
@@ -348,6 +402,7 @@
     let s = '<button type="button" class="hbody" data-act="holdList" aria-label="' + (K ? 'Kervan' : 'Ambar') + ': ' + L + ' / ' + C + ' dolu. Listeyi aç">' +
       '<span class="hh"><b>' + (K ? ico('i-donkey', 18) + 'Kervan' : ico('i-chest', 18) + 'Ambar') + '</b><span class="hn ' + lv + '">' + L + '<small>/' + C + '</small></span><i class="hmore" aria-hidden="true">›</i></span>' +
       '<i class="hbar ' + lv + '"><em style="width:' + Math.round(f * 100) + '%"></em></i>' +
+      (S.caravan ? '' : plankHtml(hullNow(S), maxHp(S), 'hgv')) +
       (chips ? '<span class="hcs">' + chips + '</span>' : '<span class="hcs empty">Ambar boş · pazardan mal al</span>') + '</button>';
     if (K) { s += '<div class="hw" title="Günlük su">' + Array.from({ length:Math.min(8, K.water) }, () => ico('i-water', 13)).join('') + '<b>' + K.water + ' gün su</b>' + (/^(siwa|kharga)$/.test(CITIES[S.city].id) ? '' : '<button type="button" class="hbtn" data-act="water1"' + (S.cash >= K.donkeys * WATER_COST ? '' : ' disabled') + '>+1 · ' + K.donkeys * WATER_COST + '</button>') + '</div>'; }
     return s;

@@ -1,6 +1,6 @@
   /* ================= voyage: a branching route where each stop changes what comes next ================= */
   const NODES = {
-    calm:       { name:'Sakin su',         ico:'i-sun',     risk:1, gain:1, desc:'Az engel, bol sandık. Tayfa dinlenir: moral ve gövde +1.' },
+    calm:       { name:'Sakin su',         ico:'i-sun',     risk:1, gain:1, desc:'Az engel, bol sandık. Mola: moral +1, gövdeye 1 tahta, sana 1 can.' },
     rapids:     { name:'Çağlayan',         ico:'i-bolt',    risk:3, gain:3, desc:'Sık kayalar. Hiç çarpmadan geçersen akıntı yolculuğu 1 gün kısaltır.' },
     storm:      { name:'Fırtına',          ico:'i-storm',   risk:2, gain:2, desc:'Ustaca geçersen sonraki sahnede +2 kürek; çarpılırsan yelken yırtılır.' },
     wreck:      { name:'Batık',            ico:'i-anchor',  risk:1, gain:3, desc:'Kancayla dibe dal. Bazen eski bir hazine haritası çıkar.' },
@@ -16,7 +16,7 @@
     dunes:      { name:'Kum tepeleri',     ico:'i-sun',     risk:1, gain:1, desc:'Uzun ama sakin yürüyüş. Yolda su tulumu ve sandık bulunur.' },
     canyon:     { name:'Kayalık geçit',    ico:'i-bolt',    risk:3, gain:3, desc:'Dar vadi, sık kayalar. Hiç tökezlemeden geçersen yol 1 gün kısalır.' },
     sstorm:     { name:'Kum fırtınası',    ico:'i-storm',   risk:3, gain:2, desc:'Göz gözü görmez. Rüzgârın geldiği yana yüklen; tökezlersen bir tulum patlar.' },
-    oasis:      { name:'Vaha',             ico:'i-water',   risk:0, gain:2, desc:'Hurmalıklar ve kuyu: tulumları doldur, eşekleri dinlendir.' },
+    oasis:      { name:'Vaha',             ico:'i-water',   risk:0, gain:2, desc:'Hurmalıklar ve kuyu: tulumları doldur, eşekleri ve kendini dinlendir.' },
     mirage:     { name:'Serap',            ico:'i-whisper', risk:1, gain:2, desc:'Ufukta bir göl parlıyor. Gerçek mi? Kuyu da olabilir, boşa yürümek de.' },
     ruin:       { name:'Gömülü tapınak',   ico:'i-temple',  risk:2, gain:3, desc:'Kumların altında unutulmuş bir mabet: kapısındaki mührü çöz, sandığı aç. Açgözlülük lanet getirir.' },
     /* v42: the road has no temples any more (the towns have them); old tombs instead: a seal to turn, a coffin to open, a curse to fear */
@@ -60,7 +60,8 @@
       if (!nd) { nd = QL.find(x => !['rapids', 'storm', 'night'].includes(x.t)) || QL[QL.length - 1]; nd.t = qv === 'dive' ? 'wreck' : 'forgers'; }
       nd.q = true; nd.rev = true;
     }
-    return { plan:p, layers, layer:0, picks:[], hp:p.hp, maxhp:Math.max(p.hp, p.hpMax || p.hp), extra:0, bonus:0, morale:S.qPerk === 'ba' ? 5 : 3, prophecy:null, torn:false, scout:false, revealAll:easy, easy, shortcut:false, seedN:0, scene:null,
+    /* hp/maxhp: the boat's planks (the caravan's strength in the desert); hh/hhMax: the hero's hearts */
+    return { plan:p, layers, layer:0, picks:[], hp:p.hp, maxhp:Math.max(p.hp, p.hpMax || p.hp), hh:p.hh != null ? p.hh : heroHp(S), hhMax:p.hhMax || heroMax(S), extra:0, bonus:0, morale:S.qPerk === 'ba' ? 5 : 3, prophecy:null, torn:false, scout:false, revealAll:easy, easy, shortcut:false, seedN:0, scene:null,
       chaseDone:!p.chaser, raceDone:!p.rival || p.terrain === 'desert', log:[],
       acc:{ hits:0, coins:0, crates:0, got:{}, left:0, overboard:0, near:0, nearCoins:0, maxCombo:0, caught:false, escaped:!!p.chaser, beatRival:false, spotted:false, notes:[] } };
   }
@@ -93,7 +94,7 @@
   }
   function consequence(t, res) {
     const L = VG.layer, has = i => !!VG.layers[i];
-    if (t === 'calm') { setMorale(1); if (VG.hp < VG.maxhp) { VG.hp++; vnote('Tayfa sakin suda dinlendi: gövde +1, moral +1.', 'good'); } }
+    if (t === 'calm') { setMorale(1); const g = VG.hp < VG.maxhp, h = VG.hh < VG.hhMax; if (g) VG.hp++; if (h) VG.hh++; if (g || h) vnote('Sakin suda mola: ' + [g ? 'tayfa gövdeye 1 tahta çaktı' : '', h ? 'sen dinlendin (+1 can)' : ''].filter(Boolean).join(', ') + '. Moral +1.', 'good'); }
     if (t === 'dunes') { setMorale(1); if (VG.hp < VG.maxhp) { VG.hp++; vnote('Eşekler serin bir kumulun gölgesinde soluklandı: güç +1.', 'good'); } }
     if (t === 'canyon') { if (res.hits === 0) { setMorale(1); if (!VG.shortcut && has(L + 1) && shortcut()) vnote('Geçidi tökezlemeden aştın; kestirme bir vadi buldun: yol 1 gün kısaldı!', 'good'); } else if (res.hits >= 2) setMorale(-1); }
     if (t === 'sstorm') { if (res.hits === 0) { setMorale(1); vnote('Fırtınayı kayıpsız atlattın. Tayfa sana hayran.', 'good'); } else if (S.caravan) { S.caravan.water = Math.max(0, S.caravan.water - 1); setMorale(-1); vnote('Kum fırtınasında bir su tulumu patladı: −1 günlük su.', 'bad'); } }
@@ -183,10 +184,20 @@
     }
     return '<span class="vsil" title="' + esc(dz ? 'Kervan' : boatOf(S).name) + '"><svg viewBox="0 0 96 46" aria-hidden="true"><defs><filter id="vs' + k + '" x="-10%" y="-10%" width="120%" height="130%"><feMorphology operator="dilate" radius="1.4" in="SourceAlpha" result="o"/><feFlood flood-color="#2B1D14"/><feComposite in2="o" operator="in" result="ink"/><feMerge><feMergeNode in="ink"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><ellipse cx="48" cy="40" rx="40" ry="4" fill="rgba(43,29,20,.18)"/><g filter="url(#vs' + k + ')">' + d + '</g></svg><small>' + esc(dz ? S.caravan ? S.caravan.donkeys + ' eşek' : 'Kervan' : boatOf(S).name) + '</small></span>';
   }
+  /* v47: two chips that never mix: the hero's hearts and the boat's planks (the caravan's strength on the desert road) */
+  function lifeChips() {
+    const dz = VG.plan.terrain === 'desert', hh = Math.max(0, VG.hh), hp = Math.max(0, VG.hp);
+    let s = '<span class="vlife" title="Canın: dalışta bayılınca, kavgada, lanette gider. Limanda her gece +1." aria-label="Can ' + hh + '/' + VG.hhMax + '">';
+    for (let k = 0; k < VG.hhMax; k++) s += '<svg viewBox="0 0 32 32" aria-hidden="true"' + (k < hh ? '' : ' class="lost"') + '><use href="#i-heart"/></svg>';
+    s += '</span><span class="vhull' + (!dz && VG.maxhp > 1 && hp <= 1 ? ' low' : '') + (dz ? ' dz' : '') + '" title="' + (dz ? 'Kervanın gücü: tökezleyince azalır' : 'Teknenin gövdesi: çarpınca tahta gider, tersanede onarılır. Biterse tekne batar.') + '" aria-label="' + (dz ? 'Kervan gücü ' : 'Gövde ') + hp + '/' + VG.maxhp + '">' + (dz ? ico('i-donkey', 16) : ico('i-boat', 16)) + '<i class="pl">';
+    for (let k = 0; k < VG.maxhp; k++) s += '<b' + (k < hp ? '' : ' class="lost"') + '></b>';
+    return s + '</i>' + (!dz && VG.maxhp > 1 && hp <= 1 ? '<em>Son tahta!</em>' : '') + '</span>';
+  }
   function renderVoy() {
     if (!VG) return;
     const p = VG.plan, a = VG.acc;
     let s = '<div class="vhead">' + boatSil(p.terrain === 'desert') + '<b>' + esc(CITIES[p.from].name) + ' → ' + esc(CITIES[p.dest].name) + '</b><span>' + Math.min(VG.layer + 1, VG.layers.length) + '/' + VG.layers.length + '. gün</span>' +
+      lifeChips() +
       '<span class="vmo" title="Tayfa morali: 4 ve üstü her sahnede +1 kürek, 1 ve altı -1">Moral ' + Array.from({ length:5 }, (_, k) => '<i class="' + (k < VG.morale ? 'on' : '') + '"></i>').join('') + '</span>' +
       (S.caravan ? '<span class="vwat' + (S.caravan.water < VG.layers.length - VG.layer ? ' low' : '') + '" title="Günlük su: her gün bir tulum gider">' + ico('i-water', 16) + S.caravan.water + ' / yol ' + Math.max(0, VG.layers.length - VG.layer) + ' gün' + (S.caravan.water < VG.layers.length - VG.layer ? ' · yetmez!' : '') + '</span>' : '') +
       (VG.torn ? '<span class="vbad">Yelken yırtık</span>' : '') + (VG.bonus ? '<span class="vgood">+' + VG.bonus + ' kürek</span>' : '') +
@@ -224,7 +235,8 @@
     const text = VG.layer === 0 ? 'Bu yol haritası. Her gün bir durak seçersin; her durak kısa bir sahne ya da mola. ⚠ risk, ★ ödül demek. Sakin su ile başla.' : 'Dikkat: seçtiğin durak sonraki günün yollarını belirler. Köy pazarı güvenli bir mola, Batık küçük bir hazine avı.';
     el.classList.add('tut-target');
     /* v36: same layout as the port guide (face | name, text, button), never over the voyage header */
-    box.classList.remove('dock'); box.dataset.k = ''; box.innerHTML = '<span class="cf">' + faceOf('paneb', 'happy') + '</span><div><span class="tn">Harita</span><p>' + esc(text) + '</p><button class="chip" type="button" data-act="noHints">Rehberi kapat</button></div>';
+    box.classList.remove('dock', 'thru'); box.dataset.k = ''; box.innerHTML = tutInner('Harita', text);
+    tutBind(box, () => { if (document.contains(el) && !el.disabled) el.click(); });
     box.hidden = false;
     const r = el.getBoundingClientRect(), bw = box.offsetWidth, bh = box.offsetHeight, sy = window.scrollY, sx = window.scrollX, W0 = window.innerWidth, H0 = window.innerHeight;
     const hd = document.querySelector('#voy .vhead'), hb = hd && hd.offsetParent ? hd.getBoundingClientRect().bottom + 6 : 8;
@@ -347,7 +359,7 @@
     const p = VG.plan;
     const last = VG.layer >= VG.layers.length - 1;
     const final = kind === 'race' || (last && VG.raceDone && kind !== 'chase');
-    const o = { hp:VG.hp, maxhp:VG.maxhp, rowers:p.rowers, speed:Math.max(0, p.speed - (VG.torn ? 1 : 0)), torn:VG.torn, extra:Math.max(0, (p.extra || 0) + VG.extra + VG.bonus + moraleBonus()),
+    const o = { hp:VG.hp, maxhp:VG.maxhp, hh:VG.hh, hhMax:VG.hhMax, rowers:p.rowers, speed:Math.max(0, p.speed - (VG.torn ? 1 : 0)), torn:VG.torn, extra:Math.max(0, (p.extra || 0) + VG.extra + VG.bonus + moraleBonus()),
       season:p.season, day:S.day + Math.min(VG.layer, VG.layers.length - 1), seed:(p.seed + 7919 * (++VG.seedN)) | 0, dest:p.dest, from:p.from, bless:p.bless, contra:p.contra, chaser:p.chaser, val:p.val, final, rich:nodeT === 'treasure', special:nodeT === 'wreck' && VG.sceneQ && qVoyage() === 'dive' ? 'lute' : null,
       boat:S.boat, dev:Object.assign({}, S.dev, VG.acc.ramUsed ? { burun:false } : {}), dmg:p.terrain === 'desert' ? 0 : (VG.hp >= VG.maxhp ? 0 : VG.hp / VG.maxhp >= 0.7 ? 1 : VG.hp / VG.maxhp >= 0.4 ? 2 : 3), terrain:p.terrain, donkeys:S.caravan ? S.caravan.donkeys : 0,
       label:kind === 'race' ? CITIES[p.dest].name + ' önünde' : nodeT === 'forgers' ? 'Kalpazan iskelesi' : (Math.min(VG.layer, VG.layers.length - 1) + 1) + '. gün' };
@@ -366,7 +378,7 @@
   function sceneDone(kind, res) {
     if (!VG) return;
     const a = VG.acc, nodeT = VG.sceneNode; VG.scene = null;
-    VG.hp = res.hp; a.hits += res.hits; a.coins += res.coins; a.crates += res.crates; a.overboard += res.overboard || 0;
+    VG.hp = res.hp; if (res.hh != null) VG.hh = res.hh; a.hits += res.hits; a.coins += res.coins; a.crates += res.crates; a.overboard += res.overboard || 0;
     if (res.left) { a.left += res.left; vnote('Ambar dolu: ' + res.left + ' ' + (VG.plan.terrain === 'desert' ? 'yük denki' : res.left === 1 && kind === 'dive' ? 'küp' : 'sandık') + ' geride kaldı.', 'bad'); }
     if (res.water && S.caravan) { S.caravan.water += res.water; vnote(res.water + ' su tulumu buldun: +' + res.water + ' günlük su.', 'good'); }
     if (res.ramUsed) a.ramUsed = true;
@@ -375,6 +387,7 @@
     if (kind === 'race') a.beatRival = res.beat;
     if (res.spotted) a.spotted = true;
     if (res.wreck || VG.hp <= 0) { endVoyage(); return; }
+    if (faintCheck()) return;
     consequence(nodeT, res);
     if (kind === 'chase' || kind === 'race') { advance(); return; }
     afterStop(curPick());
@@ -391,9 +404,15 @@
     }
     showMap();
   }
+  /* v47: out of hearts the hero faints; the crew sails the rest of the way (like a skipped voyage) and a healer waits in port */
+  function faintCheck() {
+    if (!VG || VG.hh > 0) return false;
+    vnote('Bayıldın! Tayfa dümeni aldı, seni limana götürüyor.', 'bad'); play('bad'); buzz('hit');
+    skipVoyage(); return true;
+  }
   function endVoyage(quick) {
     const a = VG.acc;
-    const res = { path:VG.picks.map((j, i) => VG.layers[i] && VG.layers[i][j] ? VG.layers[i][j].t : null).filter(Boolean), hp:Math.max(0, VG.hp), hits:a.hits, wreck:VG.hp <= 0, caught:a.caught, escaped:a.escaped && !!VG.plan.chaser, coins:a.coins, crates:a.crates, got:a.got, left:0, overboard:a.overboard, prophecy:VG.prophecy, near:a.near, nearCoins:a.nearCoins, maxCombo:a.maxCombo, beatRival:a.beatRival, spotted:a.spotted, notes:a.notes, quick:!!quick, ramUsed:!!a.ramUsed };
+    const res = { path:VG.picks.map((j, i) => VG.layers[i] && VG.layers[i][j] ? VG.layers[i][j].t : null).filter(Boolean), hp:Math.max(0, VG.hp), hh:Math.max(0, VG.hh), hits:a.hits, wreck:VG.hp <= 0, caught:a.caught, escaped:a.escaped && !!VG.plan.chaser, coins:a.coins, crates:a.crates, got:a.got, left:0, overboard:a.overboard, prophecy:VG.prophecy, near:a.near, nearCoins:a.nearCoins, maxCombo:a.maxCombo, beatRival:a.beatRival, spotted:a.spotted, notes:a.notes, quick:!!quick, ramUsed:!!a.ramUsed };
     VG = null; heroOverlay(false);
     landed(res);
   }
@@ -402,7 +421,7 @@
     Sea.stop();
     const p = VG.plan, q = quickSea(p), total = VG.layers.length, remain = Math.max(0, total - VG.layer) / total, a = VG.acc;
     const h = Math.min(VG.hp, Math.round(q.hits * remain)); a.hits += h; VG.hp -= h;
-    if (!VG.chaseDone || VG.inChase) { a.caught = q.caught; a.escaped = !q.caught; VG.inChase = false; }
+    if (!VG.chaseDone || VG.inChase) { a.caught = q.caught; a.escaped = !q.caught; VG.inChase = false; if (q.hurt) VG.hh = Math.max(0, VG.hh - q.hurt); }
     if (!VG.raceDone) a.beatRival = q.beatRival;
     a.coins += Math.round(q.coins * remain);
     endVoyage(true);
@@ -444,7 +463,7 @@
     else if (t === 'oasis') {
       const K = S.caravan, add = 2;
       s += '<p class="ntext">Hurmalıkların arasında taş bir kuyu. Eşekler suyu kokladı bile.</p>';
-      ch.push({ label:'Tulumları doldur', ico:'i-water', gain:3, sub:'+' + add + ' günlük su · eşekler dinlenir (güç +1)', run() { if (K) K.water += add; VG.hp = Math.min(VG.maxhp, VG.hp + 1); setMorale(1); return 'Tulumlar doldu: +' + add + ' günlük su.'; } });
+      ch.push({ label:'Tulumları doldur', ico:'i-water', gain:3, sub:'+' + add + ' günlük su · eşekler dinlenir (güç +1) · sen de (+1 can)', run() { if (K) K.water += add; VG.hp = Math.min(VG.maxhp, VG.hp + 1); VG.hh = Math.min(VG.hhMax, VG.hh + 1); setMorale(1); return 'Tulumlar doldu: +' + add + ' günlük su. Gölgede soluklandın.'; } });
       if (S.inv.hurma) ch.push({ label:'Hurma topla', ico:'i-hurma', gain:1, sub:'Ambarına 6 hurma' + (freeCap(S) < 6 ? ' · heybelerde ' + Math.max(0, freeCap(S)) + ' yer var' : ''), run() { const k = addGoods(S, 'hurma', 6); return k ? k + ' hurma topladın.' + (k < 6 ? ' Heybeler doldu: ' + (6 - k) + ' hurma ağaçta kaldı.' : '') : { t:'Heybelerde yer yoktu: hurmalar ağaçta kaldı.', kind:'info' }; } });
     } else if (t === 'mirage') {
       const K = S.caravan;
@@ -534,10 +553,10 @@
     s += '<p class="ntext">Kapak gıcırdayarak kaydı. Yaldızlı bir lahit; çevresinde fayans muskalar ve ' + (dz ? 'mavi lapis bir bok böceği' : 'mühürlü papirüs tomarları') + '. Duvardaki yazı yeniden gözüne çarpıyor: "Huzurumu bozanın yolu kararsın."</p>';
     nodeChoices = [
       { label:'Bir muska al, gerisine dokunma', ico:'i-muska', gain:1, sub:'1 fayans muska + 80 deben · lanet yok' + roomTxt(1), run() { S.cash += 80; const t = loot('muska', 1); S.stats.tombs = (S.stats.tombs || 0) + 1; setMorale(1); return { t:'Saygıyla eğilip ' + (t ? t + ' ve ' : '') + '80 deben aldın. Tayfa rahatladı: moral +1.' + fullTxt(), kind:'good' }; } },
-      { label:'Hepsini yükle', ico:'i-chest', gain:3, risk:2, sub:'2 muska + 1 ' + (dz ? 'lapis' : 'Ölüler Kitabı') + ' + 220 deben · lanet tutabilir: gövde −1, moral −2' + roomTxt(3), run() {
+      { label:'Hepsini yükle', ico:'i-chest', gain:3, risk:2, sub:'2 muska + 1 ' + (dz ? 'lapis' : 'Ölüler Kitabı') + ' + 220 deben · lanet tutabilir: sana −1 can, moral −2' + roomTxt(3), run() {
         S.cash += 220; const b = loot(big, 1), a = loot('muska', 2); S.stats.tombs = (S.stats.tombs || 0) + 1;
         let t = 'Lahdi boşalttın: ' + [b, a].filter(Boolean).concat(['220 deben']).join(', ') + '.' + fullTxt();
-        if (curse) { VG.hp = Math.max(1, VG.hp - 1); setMorale(-2); t += ' Ama dışarı çıkınca rüzgâr döndü: lanet! ' + (VG.plan.terrain === 'desert' ? 'Bir eşek topalladı' : 'Tekne bir kayaya sürttü') + ' (−1), tayfa korkudan titriyor (moral −2).'; return { t, kind:'bad' }; }
+        if (curse) { VG.hh = Math.max(0, VG.hh - 1); setMorale(-2); t += ' Ama dışarı çıkınca başın döndü, ateşin çıktı: lanet! (−1 can) Tayfa korkudan titriyor (moral −2).'; return { t, kind:'bad' }; }
         return { t:t + ' Lanet bu sefer tutmadı.', kind:'good' };
       } }
     ];
@@ -548,9 +567,10 @@
   function tombDark() {
     const r = vRng(VG.plan.seed + VG.layer * 53 + 5), w = r() < 0.35;
     TL = null; closeSheet();
-    const t = w ? 'Meşale söndü; karanlıkta bir şey fısıldadı. Tayfa koşarak çıktı: moral −1.' : 'Meşale söndü, mühür direndi. Mezar sırrını sakladı.';
-    if (w) setMorale(-1);
+    const t = w ? 'Meşale söndü; karanlıkta bir şey fısıldadı. Kaçarken merdivenden düştün (−1 can), tayfa koşarak çıktı (moral −1).' : 'Meşale söndü, mühür direndi. Mezar sırrını sakladı.';
+    if (w) { setMorale(-1); VG.hh = Math.max(0, VG.hh - 1); }
     VG.acc.notes.push({ kind:w ? 'bad' : 'info', title:NODES[nodeType] ? NODES[nodeType].name : 'Mezar', text:t }); VG.log.push(t); toast(t); save(); renderHud();
+    if (faintCheck()) return;
     afterStop(curPick());
   }
   function nodeChoose(k) {
@@ -561,6 +581,7 @@
     if (txt === '@tomb') { tombLock(nodeType !== 'tomb'); return; }
     const kind = txt && typeof txt === 'object' ? txt.kind : 'good', tx = txt && typeof txt === 'object' ? txt.t : txt;
     if (tx) { VG.acc.notes.push({ kind, title:NODES[nodeType].name, text:tx }); VG.log.push(tx); play(kind === 'bad' ? 'bad' : kind === 'info' ? 'click' : 'good'); toast(tx); }
+    if (faintCheck()) return;
     afterStop(curPick());
   }
   function landed(res) {

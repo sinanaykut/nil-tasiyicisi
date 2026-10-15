@@ -1,9 +1,21 @@
     /* rowing on the drum beat is worth much more than a wild pull */
+    /* v47: one pull per beat; the nearest beat judges it (perfect / good / off), a run of good pulls is a combo */
     function raceBoost() {
-      const r = st.race, ph = st.t % r.per, d = Math.min(ph, r.per - ph);
-      if (d < 0.1) { r.combo++; r.onBeat++; st.boostK = RT.pb + Math.min(0.06, (r.combo - 1) * 0.02); st.boostT = 0.85; drumFb(r.combo > 1 ? 'Tam vuruş! x' + r.combo : 'Tam vuruş!', '#F2C65A'); sfx('near'); }
-      else if (d < 0.18) { r.onBeat++; st.boostK = 1 + (RT.pb - 1) * 0.65; st.boostT = 0.75; drumFb('İyi!', '#BFE6EC'); }
-      else { r.combo = 0; r.offBeat++; st.boostK = 1.08; st.boostT = 0.5; drumFb(ph < r.per / 2 ? 'Geç kaldın' : 'Erken!', '#F0A894'); }
+      const r = st.race, tt = st.t - RT.lat, bi = Math.round(tt / r.per), e = tt - bi * r.per, ae = Math.abs(e);
+      if (bi < 1 || r.tapB === bi) return;   /* a second tap on the same beat does nothing (no punishment, no gain) */
+      r.tapB = bi; r.hitT = 0.45; r.hitE = e;
+      for (let k = 0; k < 10; k++) st.parts.push({ x:0, y:0, rel:true, vx:rnd(-70, 70), vy:rnd(60, 170), life:.5, max:.5, c:C.foam, r:rnd(2, 4) });
+      if (ae <= RT.w1) {
+        r.combo++; r.onBeat++; r.perfect++; r.hitQ = 'p'; st.boostK = RT.pb + Math.min(0.04, (r.combo - 1) * 0.008); st.boostT = RT.bt;
+        drumFb(r.combo > 1 ? 'Tam vuruş! x' + r.combo : 'Tam vuruş!', '#F2C65A'); tapSnd('p'); padFx('hitP'); try { buzz([18]); } catch (x) {}
+      } else if (ae <= RT.w2) {
+        r.combo++; r.onBeat++; r.hitQ = 'g'; st.boostK = RT.pg; st.boostT = RT.bt * 0.9;
+        drumFb(r.combo > 1 ? 'İyi! x' + r.combo : 'İyi!', '#BFE6EC'); tapSnd('g'); padFx('hitG'); try { buzz([10]); } catch (x) {}
+      } else {
+        r.combo = 0; r.offBeat++; r.hitQ = 'm';
+        drumFb(e < 0 ? 'Erken! Halkayı bekle' : 'Geç kaldın', '#F0A894'); tapSnd('m'); padFx('hitM'); try { buzz([6, 30, 6]); } catch (x) {}
+      }
+      r.best = Math.max(r.best, r.combo);
     }
     /* does an obstacle touch a boat at lane-x x, world y (same shapes as our own collisions) */
     function touches(o, x, y, br) {
@@ -35,7 +47,8 @@
     function raceStep(dt, bx) {
       const r = st.race, rv = st.rival, hw = halfW();
       const bi = Math.floor(st.t / r.per), newBeat = bi !== r.lastBeat;
-      if (newBeat) { r.lastBeat = bi; if (r.tP == null) drumSnd(bi % 4 === 0); }
+      if (newBeat) { r.lastBeat = bi; if (r.tP == null) { drumSnd(bi % 4 === 0); r.beatT = 0.22; padFx('beat'); } }
+      if (r.beatT > 0) r.beatT -= dt; if (r.hitT > 0) r.hitT -= dt;
       if (r.fbT > 0) r.fbT -= dt; if (r.flashT > 0) r.flashT -= dt; if (r.bump > 0) r.bump -= dt;
       /* steering */
       rv.plan -= dt;

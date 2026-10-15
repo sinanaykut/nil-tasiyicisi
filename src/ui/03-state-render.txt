@@ -263,8 +263,8 @@
       chase:'Takipçi arkanda. Boşluk ile kürek çek, yanına yanaşmasına izin verme.',
       night:'Devriye kayıklarının fener ışığına girme. Karanlıkta kaçakçı zulaları var.',
       storm:'Ok hangi yandan gelirse rüzgâr oradan eser: rüzgâr vurmadan hemen önce ← → ile tayfayı o tarafa yığ. Erken yığarsan tekne öbür yana yatar. Boşluk ile kayan sandığı bağla.',
-      dive:'Ok tuşlarıyla ya da parmağını basılı tutarak yüz. Bir seferde bir şey taşı. Nefes yüzeyde dolar; iki bayılmada dalış biter. Yılan balığı ünlem yapınca kırmızı halkadan çık.',
-      race:'← → ile dümen tut. Davul vurduğu anda Boşluk: güçlü hamle. Akıntılar hızlandırır; Sethi\'nin tam arkası yavaşlatır, hafif yanı hızlandırır.'
+      dive:'Ok tuşlarıyla ya da parmağını basılı tutarak yüz. Bir seferde bir şey taşı. Nefes yüzeyde dolar; her bayılma 1 can götürür, iki bayılmada dalış biter. Yılan balığı ünlem yapınca kırmızı halkadan çık.',
+      race:'← → ile dümen tut. Altın halka davula değdiği anda Boşluk: her vuruşta bir çekiş, tam vuruşlar seri yapar. Akıntılar hızlandırır; Sethi\'nin tam arkası yavaşlatır, hafif yanı hızlandırır.'
     };
     const HELPD = {
       calm:'← → ile kervanı yönet. Su tulumlarını, sandıkları ve debenleri topla; yılanlardan ve kum çukurlarından uzak dur. Boşluk: Koş!',
@@ -278,7 +278,7 @@
     else s += '<div class="steps"><span class="stp on">' + ico('i-map', 18) + '<b>Durak seç</b></span><i class="sa">›</i><span class="stp">' + ico('i-bolt', 18) + '<b>Sahne</b></span><i class="sa">›</i><span class="stp">' + cIco(plan.dest, 18) + '<b>' + esc(CITIES[plan.dest].name) + '</b></span></div><p class="muted" style="margin:0">⚠ risk · ★ ödül · sisli duraklar yaklaşınca görünür</p>';
     if (v) {
       const a = v.acc;
-      s += '<div class="box"><div class="och big"><i title="Gövde">' + ico('i-heart', 16) + v.hp + '/' + v.maxhp + '</i>' + (S.caravan ? '<i title="Günlük su">' + ico('i-water', 16) + S.caravan.water + '</i>' : '') + '<i title="Tayfa morali">' + ico('i-sun', 16) + v.morale + '/5</i><i title="Nehirden toplanan">' + ico('i-coin', 16) + '+' + fmt(a.coins + a.nearCoins) + '</i><i title="Sandık">' + ico('i-chest', 16) + a.crates + '</i>' + (v.torn ? '<i class="bad" title="Yelken yırtık">' + ico('i-storm', 16) + 'yırtık</i>' : '') + '</div>' +
+      s += '<div class="box"><div class="och big"><i title="Canın">' + ico('i-heart', 16) + Math.max(0, v.hh) + '/' + v.hhMax + '</i><i title="' + (S.caravan ? 'Kervan gücü' : 'Gövde (tahta)') + '">' + ico(S.caravan ? 'i-donkey' : 'i-boat', 16) + Math.max(0, v.hp) + '/' + v.maxhp + '</i>' + (S.caravan ? '<i title="Günlük su">' + ico('i-water', 16) + S.caravan.water + '</i>' : '') + '<i title="Tayfa morali">' + ico('i-sun', 16) + v.morale + '/5</i><i title="Nehirden toplanan">' + ico('i-coin', 16) + '+' + fmt(a.coins + a.nearCoins) + '</i><i title="Sandık">' + ico('i-chest', 16) + a.crates + '</i>' + (v.torn ? '<i class="bad" title="Yelken yırtık">' + ico('i-storm', 16) + 'yırtık</i>' : '') + '</div>' +
         (a.notes.length ? a.notes.slice(-2).map(n => '<p class="muted" style="margin:4px 0 0">• ' + esc(n.text) + '</p>').join('') : '') + '</div>';
     }
     s += '<div class="box"><div class="cargo">' + c + '</div></div>';

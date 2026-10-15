@@ -46,7 +46,7 @@
       night:  { dur:12, obs:1.6, pick:0.6, pair:-0.2, title:'Gece geçişi', hint:['Devriye fenerlerinin ışığına girme', 'Devriye fenerlerinin ışığına girme'] },
       sandstorm: { dur:13, obs:1.5, pick:0.6, pair:-0.25, title:'Kum fırtınası', hint:['Ok çıkınca ← → ile okun durduğu yana, rüzgâra karşı yüklen', 'Ok çıkınca parmağını okun durduğu yana çek'] },
       /* v28: the Sethi race is a river run too (so the 3D view can paint it); see raceInit / raceStep */
-      race:   { dur:18, obs:1.3, pick:0.95, pair:-0.1, title:'Sethi ile yarış', hint:['← → dümen · davul vurunca Boşluk: güçlü hamle', 'Parmağınla dümen · davul vurunca Çek!'] }
+      race:   { dur:18, obs:1.3, pick:0.95, pair:-0.1, title:'Sethi ile yarış', hint:['← → dümen · halka davula değince Boşluk', 'Parmağınla dümen · halka davula değince Çek!'] }
     };
     /* the same kinds played as a donkey caravan walk (o.terrain === 'desert') */
     const DS = {
@@ -71,7 +71,7 @@
       const base = (270 + 45 * (o.speed || 0)) * RV.speed, mc = 3 + (o.rowers || 0) + (o.extra || 0);
       const cfg = RK[kind] ? (desert ? Object.assign({}, RK[kind], DS[kind]) : RK[kind]) : null;
       const bt = BOATS.includes(o.boat) ? o.boat : 'nehir', dev = o.dev || {};
-      st = { kind, cfg, plan:o, t:0, dist:0, base, v:base, len: base * (cfg ? cfg.dur : 12), dur: cfg ? cfg.dur : 12, u:0, vu:0, hp:o.hp, maxhp:o.maxhp || o.hp,
+      st = { kind, cfg, plan:o, t:0, dist:0, base, v:base, len: base * (cfg ? cfg.dur : 12), dur: cfg ? cfg.dur : 12, u:0, vu:0, hp:o.hp, maxhp:o.maxhp || o.hp, hh:o.hh == null ? null : o.hh, hhMax:o.hhMax || 0, hurt:0, hurtT:0, hullT:0,
              charges:mc, maxc:mc, rech:0, rechT:5.2 - (o.rowers || 0) * 1.2, boostT:0, inv:0, slowT:0, shake:0, row:0,
              obs:[], picks:[], parts:[], trail:[], texts:[], streams:[], patrols:[], streamY:700, patrolY:420, near:0, nearCoins:0, combo:0, comboT:0, inStream:0, spawnY:520, pickY:600, hits:0, coins:0, crates:0, caught:false, wreck:false, spotted:false, msg:null, msgT:0, count:1.8,
              chaser: kind === 'chase' ? { type:desert ? 'bedevi' : o.chaser || 'haydut', y:-9999, u:0, on:false, at:0.6, gone:false } : null,
@@ -102,7 +102,12 @@
       };
       const up = e => { const k = e.key; if (k === 'ArrowLeft' || k === 'a' || k === 'A') keys.L = false; if (k === 'ArrowRight' || k === 'd' || k === 'D') keys.R = false; if (k === 'ArrowUp' || k === 'w' || k === 'W') keys.U = false; if (k === 'ArrowDown' || k === 's' || k === 'S') keys.D = false; };
       window.addEventListener('keydown', down); window.addEventListener('keyup', up);
-      cv.addEventListener('pointerdown', e => { if (!st || paused) return; const r = cv.getBoundingClientRect(); pointerX = e.clientX - r.left; pointerY = e.clientY - r.top; cv.setPointerCapture(e.pointerId); });
+      cv.addEventListener('pointerdown', e => {
+        if (!st || paused) return; const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+        /* v47: in the race the drum itself is a button (a big target right above the Çek! pad) */
+        if (st.race && st.race.phase === 'run') { const d = drumAt(); if (Math.hypot(x - d.x, y - d.y) < d.r + 34) { e.preventDefault(); boost(); return; } }
+        pointerX = x; pointerY = y; cv.setPointerCapture(e.pointerId);
+      });
       cv.addEventListener('pointermove', e => { if (pointerX != null) { const r = cv.getBoundingClientRect(); pointerX = e.clientX - r.left; pointerY = e.clientY - r.top; } });
       const off = () => { pointerX = null; pointerY = null; };
       cv.addEventListener('pointerup', off); cv.addEventListener('pointercancel', off);
@@ -110,14 +115,16 @@
       cv.addEventListener('contextmenu', e => e.preventDefault());
       window.addEventListener('blur', () => { keys = {}; });
       document.addEventListener('visibilitychange', () => { paused = document.hidden || held; last = performance.now(); });
-      window.addEventListener('resize', () => { if (st) resize(); });
+      window.addEventListener('resize', () => { if (st) { resize(); if (st.race) st.race.drum = null; } });
     }
     function setPad(side, on) { if (side === 'L') padL = on; else if (side === 'R') padR = on; else if (on) boost(); }
     function boost() {
       if (!st || st.end || st.count > 0 || paused) return;
       if (!st.cfg) { SC[st.kind].action(st); return; }
       if (st.race && st.race.tP != null) return;
-      if (st.charges <= 0) { sfx('no'); if (st.race) drumFb('Kürek yok!', '#F0A894'); return; }
+      /* v47: the race has no oar charges any more: one pull per drum beat, judged by timing */
+      if (st.race) { raceBoost(); return; }
+      if (st.charges <= 0) { sfx('no'); return; }
       st.charges--; st.boostT = 1.25; st.boostK = 1.75; sfx('boost');
       if (st.race) raceBoost();
       for (let k = 0; k < 12; k++) st.parts.push(st.desert ? { x:0, y:0, rel:true, vx:rnd(-60, 60), vy:rnd(40, 140), life:.7, max:.7, c:st.dp.dust, r:rnd(3, 6), g:1.6 } : { x:0, y:0, rel:true, vx:rnd(-70, 70), vy:rnd(60, 170), life:.6, max:.6, c:C.foam, r:rnd(2, 4) });
@@ -191,7 +198,7 @@
         return;
       }
       /* the race is a sprint, not a hazard: a knock slows you but never takes the last plank */
-      if (!st.race || st.hp > 1) st.hp--;
+      if (!st.race || st.hp > 1) { st.hp--; st.hullT = 0.9; }
       st.hits++; st.inv = 1.4; st.shake = 0.35; st.slowT = 0.6; st.combo = 0; st.comboT = 0; sfx('hit');
       if (st.desert) { st.stumble = 0.8; for (let k = 0; k < 18; k++) st.parts.push({ x:bx, y:by, vx:rnd(-150, 150), vy:rnd(-150, 50), life:.8, max:.8, c:k % 3 ? st.dp.dust : st.dp.duneSh, r:rnd(3, 6), g:1.2 }); }
       else for (let k = 0; k < 18; k++) st.parts.push({ x:bx, y:by, vx:rnd(-170, 170), vy:rnd(-170, 60), life:.7, max:.7, c:k % 3 ? C.foam : C.gold, r:rnd(2, 5) });
@@ -199,6 +206,8 @@
       if (st.hp <= 0) { st.wreck = true; finish(); }
     }
     function flash(text) { st.msg = { text }; st.msgT = 1.6; }
+    /* v47: the hero's own hearts (separate from the hull's planks) */
+    function heroHurt(n) { if (st.hh == null) return; const was = st.hh; st.hh = Math.max(0, st.hh - n); st.hurt += was - st.hh; st.hurtT = 1.1; try { buzz([30, 40, 30]); } catch (e) {} }
     function step(dt) {
       if (st.count > 0) { if (st.race) raceCount(dt); st.count -= dt; return; }
       if (st.race && st.race.slow) dt *= 0.35;
@@ -304,7 +313,11 @@
           const cv2 = gap < 0 ? st.v * 0.97 : st.base * 1.09 + (gap > H * 0.5 ? 45 : 0);
           ch.y += cv2 * dt;
           ch.u += (st.u - ch.u) * Math.min(1, dt * 1.3);
-          if (gap < 30 && gap > -34 && Math.abs(ch.u - st.u) < 0.3) { st.caught = true; ch.gone = true; sfx('caught'); flash(RIVAL[ch.type].name + ' yetişti!'); }
+          if (gap < 30 && gap > -34 && Math.abs(ch.u - st.u) < 0.3) {
+            st.caught = true; ch.gone = true; sfx('caught'); flash(RIVAL[ch.type].name + ' yetişti!');
+            /* v47: bandits, raiders and Djedi's men fight: the hero loses a heart (fines from the Medjay or Hapu's men do not hurt) */
+            if (FIGHT[ch.type] && st.hh != null) { heroHurt(1); floatText(Math.max(110, Math.min(W - 110, bx)), by - 76, 'Boğuşma! −1 can', '#FFB3BE'); }
+          }
           if (gap > H * 0.9) { ch.gone = true; flash('Kaçtın!'); sfx('escape'); }
         }
       }
@@ -363,9 +376,9 @@
     function finish() {
       if (st.end) return;
       st.end = true;
-      const res = { kind:st.kind, hp:Math.max(0, st.hp), hits:st.hits, wreck:st.wreck, caught:st.caught, escaped:!!st.chaser && !st.caught, coins:st.coins, crates:st.crates, near:st.near, nearCoins:st.nearCoins, maxCombo:st.maxCombo || 0, spotted:st.spotted, beat:!!st.beat, goods:st.goods || null, overboard:st.lost || 0, left:st.left || 0, special:st.special || null, water:st.water || 0, ramUsed:!!st.ramUsed };
+      const res = { kind:st.kind, hp:Math.max(0, st.hp), hh:st.hh, hurt:st.hurt, hits:st.hits, wreck:st.wreck, caught:st.caught, escaped:!!st.chaser && !st.caught, coins:st.coins, crates:st.crates, near:st.near, nearCoins:st.nearCoins, maxCombo:st.maxCombo || 0, spotted:st.spotted, beat:!!st.beat, goods:st.goods || null, overboard:st.lost || 0, left:st.left || 0, special:st.special || null, water:st.water || 0, ramUsed:!!st.ramUsed };
       /* v28 race details: margin in boat lengths (>0 = we won), photo finish, drum strokes, Sethi's knocks */
-      if (st.race) { const r = st.race, rv = st.rival; res.race = { margin:Math.round(r.margin * 10) / 10, photo:r.photo, onBeat:r.onBeat, offBeat:r.offBeat, draft:Math.round(r.draftT * 10) / 10, wake:Math.round(r.wakeT * 10) / 10, swaps:r.swaps, rivalHits:rv.hits, rivalBoosts:rv.boosts, time:Math.round((r.tP != null ? r.tP : st.t) * 10) / 10 }; }
+      if (st.race) { const r = st.race, rv = st.rival; res.race = { margin:Math.round(r.margin * 10) / 10, photo:r.photo, onBeat:r.onBeat, offBeat:r.offBeat, perfect:r.perfect, best:r.best, draft:Math.round(r.draftT * 10) / 10, wake:Math.round(r.wakeT * 10) / 10, swaps:r.swaps, rivalHits:rv.hits, rivalBoosts:rv.boosts, time:Math.round((r.tP != null ? r.tP : st.t) * 10) / 10 }; }
       if (st.kind === 'dive') { const full = st.items.filter(i => !i.banked && i.full).length; if (full) res.left = (res.left || 0) + full; res.dive = { banked:st.banked, blackouts:st.blackouts, items:st.items.length, bites:st.bites || 0, bumps:st.bumps || 0 }; }
       const mine = st, fire = () => { if (st !== mine) return; if (paused) { setTimeout(fire, 200); return; } const cb = done; stop(); if (cb) cb(res); };
       setTimeout(fire, st.wreck ? 900 : st.race ? 250 : 500);
@@ -374,7 +387,9 @@
     /* ---------- v28: the Sethi race — two boats on the river, drums, currents, wake and draft ---------- */
     /* RT: tuning knobs — ks Sethi's pace vs ours, sb his stroke, pb our on-beat stroke, sm current, miss/blunder his mistakes,
        rb/ra catch-up when behind / ease-off when ahead; exposed as Sea.tune (nodraw: test-only, skips painting) */
-    const BOY = 66, RT = { ks:1.068, sb:1.24, miss:0.2, look:240, rech:4.5, rubber:1, rb:0.1, ra:0.16, pb:1.25, sm:1.16, blunder:0.14, nodraw:false };
+    /* v47 (owner: "hitting the oar pull isn't easy"): a slower drum (per 0.8 s), wide windows (w1 perfect ±0.12 s, w2 good ±0.25 s),
+       lat = touch latency forgiven, one pull per beat (no charges), pb/pg the pull's push for perfect/good, bt its length */
+    const BOY = 66, RT = { ks:1.068, sb:1.24, miss:0.2, look:240, rech:4.5, rubber:1, rb:0.1, ra:0.16, pb:1.22, pg:1.15, bt:0.78, per:0.8, w1:0.12, w2:0.25, lat:0.03, sm:1.16, blunder:0.14, nodraw:false };
     function raceInit(s, o) {
       const finY = Math.round(s.base * s.cfg.dur), sp = o.speed || 0;
       /* v42: a wider river and two lanes far apart: we start right, Sethi left, each keeps to his side unless overtaking */
@@ -384,7 +399,7 @@
       s.maxc = Math.max(3, Math.min(5, 2 + (o.rowers || 0) + Math.min(1, o.extra || 0))); s.charges = s.maxc; s.rechT = Math.max(2.8, 4.2 - (o.rowers || 0) * 0.4);
       s.spawnY = 760; s.pickY = 640; s.streamY = 380;
       s.rival = { u:-0.46, tu:-0.46, vu:0, lane:-0.46, home:-0.5, homeT:0, y:0, v:s.base, base:s.base * RT.ks * (1 + 0.012 * (1 - sp)), boostT:0, charges:3, rech:0, slowT:0, stall:0, blunder:R() < RT.blunder ? rnd(0.7, 0.92) : 0, inv:0, row:0, plan:0, trail:[], hits:0, boosts:0, wake:false, draft:false, inStream:false, park:-0.6 };
-      s.race = { finY, phase:'run', tP:null, tS:null, slow:false, slowUsed:false, fin:0, flashT:0, wake:false, draft:false, bump:0, per:0.6, lastBeat:-1, cnt:-1, fb:null, fbT:0, fbC:null, combo:0, onBeat:0, offBeat:0, draftT:0, wakeT:0, lead:0, swaps:0, park:0.6, margin:0, photo:false, conf:[] };
+      s.race = { finY, phase:'run', tP:null, tS:null, slow:false, slowUsed:false, fin:0, flashT:0, wake:false, draft:false, bump:0, per:RT.per, lastBeat:-1, cnt:-1, fb:null, fbT:0, fbC:null, combo:0, best:0, onBeat:0, offBeat:0, perfect:0, tapB:-9, hitT:0, hitQ:null, hitE:0, beatT:0, draftT:0, wakeT:0, lead:0, swaps:0, park:0.6, margin:0, photo:false, conf:[] };
     }
     function raceSpawn(y, prog) {
       const r = R(); let o;
@@ -408,4 +423,26 @@
       } catch (e) {}
     }
     function raceCount(dt) { const r = st.race, k = Math.floor((2.4 - st.count) / 0.6); if (k !== r.cnt && k < 4) { r.cnt = k; drumSnd(k >= 3); } }
+    /* the pull's own sound: a bright clack on the beat, a softer one when close, a dull knock when off */
+    function tapSnd(q) {
+      try {
+        if (typeof Snd === 'undefined' || !Snd.pref || !Snd.pref.sfx) return;
+        const ac = Snd.unlock(); if (!ac || ac.state !== 'running') return;
+        const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain(), f = q === 'p' ? 880 : q === 'g' ? 620 : 180;
+        o.type = q === 'm' ? 'sine' : 'triangle'; o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * 0.5, t + 0.09);
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(q === 'p' ? 0.3 : q === 'g' ? 0.2 : 0.14, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+        o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + 0.14);
+      } catch (e) {}
+    }
+    /* where the drum sits: bottom centre, right above the Çek! pad on phones */
+    let padB = null;
+    function drumAt() {
+      const r = st.race; if (r.drum) return r.drum;
+      try {
+        padB = padB || document.querySelector('.pads [data-pad="B"]');
+        if (coarse && padB && padB.offsetParent) { const a = padB.getBoundingClientRect(), b = cv.getBoundingClientRect(); if (a.width) return (r.drum = { x:a.left + a.width / 2 - b.left, y:a.top + a.height / 2 - b.top, r:Math.hypot(a.width, a.height) / 2 - 8, pad:true }); }
+      } catch (e) {}
+      return (r.drum = { x:W / 2, y:H - 64, r:26, pad:false });
+    }
+    function padFx(cls) { try { padB = padB || document.querySelector('.pads [data-pad="B"]'); if (!padB) return; padB.classList.remove(cls); void padB.offsetWidth; padB.classList.add(cls); } catch (e) {} }
     function drumFb(t, c) { const r = st.race; r.fb = t; r.fbC = c; r.fbT = 0.9; }

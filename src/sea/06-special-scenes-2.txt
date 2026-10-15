@@ -74,7 +74,7 @@
             s.inv = 1.6; s.shake = 0.45; s.a *= 0.35; s.av = 0; sfx('hit');
             /* a storm can hurt the hull but never sink you: on the last plank, the sea takes cargo instead */
             if (s.hp > 1) {
-              s.hp--; s.hits++;
+              s.hp--; s.hits++; s.hullT = 0.9;
               const tied = s.boxes.filter(b => b.on && b.lash);
               if (tied.length && R() < 0.6) { tied[Math.floor(R() * tied.length)].lash = false; flash('Dalga güverteyi yaladı, bir halat koptu!'); }
               else flash('Dalga güverteyi yaladı!');
@@ -358,7 +358,7 @@
             if (L > 0) { const a = this.assist(s, d, ix, iy); ix = a[0]; iy = a[1]; }
           }
           /* out of breath: the crew hauls the diver up by the rope */
-          if (s.pull > 0) { s.pull -= dt; if (d.inside) { const w = this.way(s, s.boatX, sea); ix = (w[0] - d.x) / Math.max(30, Math.abs(w[0] - d.x)); iy = Math.max(-1, Math.min(1, (w[1] - d.y) / 30)); } else { ix = (s.boatX - d.x) / Math.max(40, Math.abs(s.boatX - d.x)) * 0.5; iy = -1; } if (s.pull <= 0 && s.blackouts >= 2 && !s.finishing) { s.finishing = 0.9; flash('Tayfa seni tekneye aldı. Dalış bitti.'); } }
+          if (s.pull > 0) { s.pull -= dt; if (d.inside) { const w = this.way(s, s.boatX, sea); ix = (w[0] - d.x) / Math.max(30, Math.abs(w[0] - d.x)); iy = Math.max(-1, Math.min(1, (w[1] - d.y) / 30)); } else { ix = (s.boatX - d.x) / Math.max(40, Math.abs(s.boatX - d.x)) * 0.5; iy = -1; } if (s.pull <= 0 && (s.blackouts >= 2 || s.hh === 0) && !s.finishing) { s.finishing = 0.9; flash(s.hh === 0 ? 'Bayıldın! Tayfa seni tekneye yatırdı.' : 'Tayfa seni tekneye aldı. Dalış bitti.'); } }
           if (s.finishing) { if (d.inside) { const w = this.way(s, d.x, sea); ix = (w[0] - d.x) / Math.max(30, Math.abs(w[0] - d.x)); iy = Math.max(-1, Math.min(1, (w[1] - d.y) / 30)); } else { ix = 0; iy = -1; } }
           const it0 = d.item, heavy = it0 ? (it0.t === 'chest' || it0.t === 'mask' || it0.special ? 0.66 : 0.82) : 1;
           if (d.dash > 0) d.dash -= dt; if (d.cd > 0) d.cd -= dt;
@@ -373,7 +373,9 @@
           if (atSurf && d.item && Math.abs(d.x - s.boatX) < 95) this.bank(s, d.item);
           if (s.air <= 0 && s.pull <= 0) {
             this.drop(s); s.air = 0.5; s.blackouts++; s.pull = 1.1; s.inv = 1.2;
-            flash(s.blackouts >= 2 ? 'Havan yine bitti!' : 'Havan bitti! Tayfa seni yukarı çekiyor'); sfx('no');
+            /* v47: a blackout hurts the diver (a heart), never the boat */
+            heroHurt(1); floatText(Math.max(110, Math.min(W - 110, d.x)), d.y - 40, 'Kendinden geçtin: −1 can', '#FFB3BE');
+            flash(s.hh === 0 ? 'Canın bitti!' : s.blackouts >= 2 ? 'Havan yine bitti!' : 'Havan bitti! Tayfa seni yukarı çekiyor'); sfx('no');
           }
           const room = cargoRoom() > 0; s.items.forEach(i => { if (i.t === 'amphora' && !i.banked && !i.taken) i.full = !room; });
           if (!d.item && !s.finishing && s.pull <= 0) {
@@ -642,6 +644,8 @@
           const left = s.items.filter(i => !i.banked).length, txt = '+' + s.coins + (s.crates ? ' · ' + s.crates + ' küp' : '') + (s.special ? ' · ud' : '') + ' · ' + s.banked + '/' + s.items.length;
           cx.font = '800 14px Nunito, sans-serif'; const tw = cx.measureText(txt).width + 40, tx = pad, ty = by + 40;
           pill(tx, ty, tw, 26, 'rgba(255,248,236,.94)'); cx.beginPath(); cx.arc(tx + 16, ty + 13, 8, 0, Math.PI * 2); outline(C.gold, 1.4); cx.fillStyle = C.ink; cx.textAlign = 'left'; cx.fillText(txt, tx + 29, ty + 18);
+          /* v47: the diver's own hearts (a blackout costs one), beside the loot row */
+          if (s.hhMax) heartsPill(tx + tw + 8, ty + 2, s);
           if (left && s.t > s.dur - 6 && !s.finishing) textC('Gün batıyor: ' + Math.max(0, Math.ceil(s.dur - s.t)) + ' sn', W / 2, by + 74, 16, '#FFD9A0');
           /* tutorial strip for the first seconds */
           if (s.tut > 0 && s.count <= 0) {

@@ -155,12 +155,18 @@
       const dest = (st.cfg ? st.cfg.title : SCN[st.kind].title) + (st.plan.label ? ' · ' + st.plan.label : '');
       const tw = cx.measureText(dest).width + 18;
       if (!st.race || st.count > 0 || W > 820) { pill(W - pad - tw, pad + 18, tw, 22, C.white); cx.fillStyle = C.ink; cx.fillText(dest, W - pad - 9, pad + 34); }
-      const lx = pad + (st.plan.hero ? 60 : 0);
-      if (st.kind !== 'dive') { pill(lx, pad + 18, st.maxhp * 21 + 10, 22, C.white); for (let k = 0; k < st.maxhp; k++) heart(lx + 15 + k * 21, pad + 30, k < st.hp); }
+      /* v47: two separate rows beside the hero's face: the hero's hearts (can), then the boat's planks (gövde) with a boat icon */
+      const lx = pad + (st.plan.hero && !st.race ? 60 : 0);   /* the race shows no face plate */
+      let ry = pad + 18, hullW = 0;
+      if (st.kind !== 'dive') {
+        if (st.hhMax) { heartsPill(lx, ry, st); ry += 26; }
+        hullW = hullPill(lx, ry); ry += 26;
+      }
       if (st.kind !== 'dive' && !st.race) {
-      pill(lx, pad + 44, st.maxc * 17 + 10, 18, 'rgba(255,248,236,.9)');
-      for (let k = 0; k < st.maxc; k++) { cx.beginPath(); cx.arc(lx + 13 + k * 17, pad + 53, 5.5, 0, Math.PI * 2); cx.fillStyle = k < st.charges ? '#2BA59A' : 'rgba(0,0,0,.15)'; cx.fill(); cx.lineWidth = 1.4; cx.strokeStyle = C.ink; cx.stroke(); }
-      if (st.charges < st.maxc) { cx.fillStyle = '#2BA59A'; cx.fillRect(lx + 6, pad + 64, (st.maxc * 17 - 2) * (st.rech / st.rechT), 3); }
+      pill(lx, ry, st.maxc * 17 + 10, 18, 'rgba(255,248,236,.9)');
+      for (let k = 0; k < st.maxc; k++) { cx.beginPath(); cx.arc(lx + 13 + k * 17, ry + 9, 5.5, 0, Math.PI * 2); cx.fillStyle = k < st.charges ? '#2BA59A' : 'rgba(0,0,0,.15)'; cx.fill(); cx.lineWidth = 1.4; cx.strokeStyle = C.ink; cx.stroke(); }
+      if (st.charges < st.maxc) { cx.fillStyle = '#2BA59A'; cx.fillRect(lx + 6, ry + 20, (st.maxc * 17 - 2) * (st.rech / st.rechT), 3); }
+      ry += 26;
       }
       if (st.rival && !st.race) {
         const ahead = st.rival.y > st.dist, txt = ahead ? 'Sethi önde' : 'Sethi geride';
@@ -177,9 +183,9 @@
         cx.fillText(txt, W / 2, H - 20);
       }
       st.texts.forEach(t => { cx.save(); cx.globalAlpha = Math.min(1, t.life * 2); cx.font = '800 16px Nunito, sans-serif'; cx.textAlign = 'center'; cx.lineWidth = 4; cx.strokeStyle = C.ink; cx.fillStyle = t.col; cx.strokeText(t.txt, t.x, t.y); cx.fillText(t.txt, t.x, t.y); cx.restore(); });
-      if (st.cfg && st.combo >= 2) { const t = 'Kıl payı x' + st.combo; cx.font = '800 14px Nunito, sans-serif'; cx.textAlign = 'left'; const tw = cx.measureText(t).width + 18; pill(pad, pad + 70, tw, 22, '#F2C65A'); cx.fillStyle = C.ink; cx.fillText(t, pad + 9, pad + 86); cx.fillStyle = 'rgba(43,29,20,.5)'; cx.fillRect(pad + 6, pad + 89, (tw - 12) * Math.max(0, st.comboT / 3.5), 3); }
+      if (st.cfg && st.combo >= 2) { const t = 'Kıl payı x' + st.combo, cy0 = Math.max(pad + 70, ry + 2); cx.font = '800 14px Nunito, sans-serif'; cx.textAlign = 'left'; const tw = cx.measureText(t).width + 18; pill(pad, cy0, tw, 22, '#F2C65A'); cx.fillStyle = C.ink; cx.fillText(t, pad + 9, cy0 + 16); cx.fillStyle = 'rgba(43,29,20,.5)'; cx.fillRect(pad + 6, cy0 + 19, (tw - 12) * Math.max(0, st.comboT / 3.5), 3); }
       if (st.inStream > 0 && !st.race) { cx.font = '800 13px Nunito, sans-serif'; cx.textAlign = 'center'; pill(W / 2 - 60, pad + 22, 120, 22, st.desert ? '#F2D9A8' : '#BFE6EC'); cx.fillStyle = C.ink; cx.fillText(st.desert ? 'Sert zemin!' : 'Akıntıdasın!', W / 2, pad + 38); }
-      if (st.desert && st.water) { cx.font = '800 13px Nunito, sans-serif'; cx.textAlign = 'left'; const t = st.water + ' su', tw = cx.measureText(t).width + 30; pill(pad + st.maxhp * 21 + 16, pad + 18, tw, 22, '#BFE6EC'); cx.beginPath(); cx.moveTo(pad + st.maxhp * 21 + 28, pad + 22); cx.quadraticCurveTo(pad + st.maxhp * 21 + 34, pad + 32, pad + st.maxhp * 21 + 28, pad + 35); cx.quadraticCurveTo(pad + st.maxhp * 21 + 22, pad + 32, pad + st.maxhp * 21 + 28, pad + 22); cx.fillStyle = '#3E86A8'; cx.fill(); cx.fillStyle = C.ink; cx.fillText(t, pad + st.maxhp * 21 + 38, pad + 34); }
+      if (st.desert && st.water) { const wx = lx + hullW + 6, wy = pad + 18 + (st.hhMax ? 26 : 0); cx.font = '800 13px Nunito, sans-serif'; cx.textAlign = 'left'; const t = st.water + ' su', tw = cx.measureText(t).width + 30; pill(wx, wy, tw, 22, '#BFE6EC'); cx.beginPath(); cx.moveTo(wx + 12, wy + 4); cx.quadraticCurveTo(wx + 18, wy + 14, wx + 12, wy + 17); cx.quadraticCurveTo(wx + 6, wy + 14, wx + 12, wy + 4); cx.fillStyle = '#3E86A8'; cx.fill(); cx.fillStyle = C.ink; cx.fillText(t, wx + 22, wy + 16); }
       if (st.kind === 'sandstorm') drawGust();
       if (st.race) drawRaceHud();
       if (st.msgT > 0 && st.msg && !(st.race && st.race.phase === 'fin')) {
@@ -197,6 +203,26 @@
         cx.strokeText(hint, W / 2, H * 0.42 + 34); cx.fillText(hint, W / 2, H * 0.42 + 34);
         cx.restore();
       }
+    }
+    /* the hero's hearts: red, they flash when one is lost */
+    function heartsPill(x, y, s) {
+      const n = s.hhMax, w = n * 19 + 12, hot = s.hurtT > 0 && Math.floor(s.hurtT * 8) % 2 === 0;
+      pill(x, y, w, 22, hot ? '#FFD2D8' : C.white);
+      for (let k = 0; k < n; k++) heart(x + 15 + k * 19, y + 12, k < s.hh);
+      return w;
+    }
+    /* the boat's planks: a little hull, then one plank per hit point (on the desert road: the caravan's strength, donkey legs) */
+    function hullPill(x, y) {
+      const n = st.maxhp, hp = Math.max(0, st.hp), dz = st.desert, low = !dz && n > 1 && hp <= 1, hot = st.hullT > 0 && Math.floor(st.hullT * 8) % 2 === 0;
+      const w = 34 + n * 12 + (low ? 64 : 4);
+      pill(x, y, w, 22, hot ? '#FFD9B8' : low ? '#F7D4C8' : 'rgba(255,248,236,.95)');
+      cx.save(); cx.translate(x + 16, y + 12);
+      if (dz) { cx.beginPath(); cx.ellipse(0, -1, 8, 4.5, 0, 0, Math.PI * 2); outline('#A98463', 1.3); cx.beginPath(); cx.moveTo(6, -3); cx.lineTo(10, -8); cx.lineTo(12, -6); cx.lineTo(9, -1); cx.closePath(); outline('#A98463', 1.2); cx.strokeStyle = C.ink; cx.lineWidth = 1.6; cx.beginPath(); cx.moveTo(-5, 3); cx.lineTo(-5, 7); cx.moveTo(4, 3); cx.lineTo(4, 7); cx.stroke(); }
+      else { cx.beginPath(); cx.moveTo(-10, -1); cx.quadraticCurveTo(0, 7, 10, -1); cx.lineTo(8, -4); cx.lineTo(-8, -4); cx.closePath(); outline('#8B5A33', 1.3); cx.strokeStyle = C.ink; cx.lineWidth = 1.4; cx.beginPath(); cx.moveTo(0, -4); cx.lineTo(0, -11); cx.stroke(); cx.beginPath(); cx.moveTo(1, -11); cx.lineTo(7, -5); cx.lineTo(1, -5); cx.closePath(); outline('#FBF3DF', 1); }
+      cx.restore();
+      for (let k = 0; k < n; k++) { const px = x + 30 + k * 12; cx.beginPath(); cx.roundRect ? cx.roundRect(px, y + 5, 9, 12, 2) : cx.rect(px, y + 5, 9, 12); cx.fillStyle = k < hp ? (dz ? '#C9955A' : '#A8743F') : 'rgba(0,0,0,.13)'; cx.fill(); cx.lineWidth = 1.2; cx.strokeStyle = C.ink; cx.stroke(); if (k < hp && !dz) { cx.strokeStyle = 'rgba(43,29,20,.35)'; cx.beginPath(); cx.moveTo(px + 2, y + 11); cx.lineTo(px + 7, y + 11); cx.stroke(); } }
+      if (low) { cx.font = '800 11px Nunito, sans-serif'; cx.textAlign = 'left'; cx.fillStyle = '#9A2A18'; cx.fillText('Son tahta!', x + 34 + n * 12, y + 15); }
+      return w;
     }
     function heart(x, y, on) {
       cx.save(); cx.translate(x, y); cx.beginPath(); cx.moveTo(0, 6); cx.bezierCurveTo(-11, -2, -6, -11, 0, -5); cx.bezierCurveTo(6, -11, 11, -2, 0, 6); cx.closePath();
@@ -332,25 +358,32 @@
           }
         }
       }
-      /* the drum: a ring closes in on the beat; press then */
+      /* v47: the drum beat closes in on the very button you press: on phones a ring shrinks onto the Çek! pad (the pad itself
+         pulses on the beat), on desktop onto a drum at the bottom centre. The gold band is the window (inner = perfect). */
       if (r.phase === 'run' && r.tP == null) {
-        /* in a corner, off the river's main line: bottom-left on desktop, above the right pad on phones */
-        const R0 = coarse ? 20 : 24, dx = coarse ? W - 50 : 76, dy = coarse ? H - 172 : H - 78, per = r.per;
-        const tt = st.count > 0 ? 2.4 - st.count : st.t, ph = ((tt % per) + per) % per, toNext = per - ph, hot = ph < 0.1 || toNext < 0.1;
-        const pulse = Math.max(0, 1 - ph / 0.18), sc = 1 + pulse * 0.12;
-        cx.save(); cx.globalAlpha = 0.35 + 0.65 * (1 - toNext / per); cx.beginPath(); cx.arc(dx, dy, R0 + 4 + (toNext / per) * 26, 0, Math.PI * 2); cx.lineWidth = 4; cx.strokeStyle = hot ? '#FFE08A' : C.gold; cx.stroke(); cx.restore();
-        cx.save(); cx.translate(dx, dy); cx.scale(sc, sc);
-        cx.beginPath(); cx.arc(0, 0, R0 + 5, 0, Math.PI * 2); outline(C.red, 2.2);
-        cx.strokeStyle = C.gold; cx.lineWidth = 1.6; cx.beginPath(); for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 2, b2 = a + Math.PI / 12; cx.moveTo(Math.cos(a) * (R0 + 4), Math.sin(a) * (R0 + 4)); cx.lineTo(Math.cos(b2) * (R0 - 1), Math.sin(b2) * (R0 - 1)); } cx.stroke();
-        cx.beginPath(); cx.arc(0, 0, R0 - 1, 0, Math.PI * 2); outline(hot ? '#FFE9B0' : '#F3E2B8', 1.8);
-        cx.beginPath(); cx.arc(0, 0, R0 * 0.38, 0, Math.PI * 2); cx.fillStyle = 'rgba(43,29,20,' + (0.12 + pulse * 0.25) + ')'; cx.fill();
-        cx.restore();
-        /* stroke charges as little oars under the drum */
-        const n = st.maxc, gx = dx - (n - 1) * 8;
-        for (let k = 0; k < n; k++) { cx.beginPath(); cx.ellipse(gx + k * 16, dy + R0 + 16, 4, 6.5, 0, 0, Math.PI * 2); cx.fillStyle = k < st.charges ? '#2BA59A' : 'rgba(255,255,255,.35)'; cx.fill(); cx.lineWidth = 1.4; cx.strokeStyle = C.ink; cx.stroke(); }
-        if (st.charges < st.maxc) { cx.fillStyle = '#2BA59A'; cx.fillRect(gx - 4, dy + R0 + 26, (n * 16 - 8) * (st.rech / st.rechT), 3); }
-        if (st.t < 6) textC(coarse ? 'Çek!' : 'Boşluk', coarse ? dx : dx + R0 + 46, coarse ? dy - R0 - 34 : dy + 5, 13, C.white);
-        if (r.fbT > 0 && r.fb) { cx.save(); cx.globalAlpha = Math.min(1, r.fbT * 2.5); textC(r.fb, Math.max(74, Math.min(W - 74, dx)), dy - R0 - 40 - (0.9 - r.fbT) * 14, 19, r.fbC); cx.restore(); }
+        const D = drumAt(), R0 = D.r, dx = D.x, dy = D.y, per = r.per, K = D.pad ? 46 : 44;
+        const tt = st.count > 0 ? 2.4 - st.count : st.t, ph = ((tt % per) + per) % per, toNext = per - ph, near = Math.min(ph, toNext), hot = near <= RT.w2, perf = near <= RT.w1;
+        const pulse = Math.max(0, 1 - ph / 0.2), sc = 1 + pulse * 0.14, rim = R0 + 5;
+        cx.save(); cx.lineWidth = RT.w2 / per * K; cx.strokeStyle = hot ? 'rgba(255,224,138,.6)' : 'rgba(242,198,90,.3)'; cx.beginPath(); cx.arc(dx, dy, rim + RT.w2 / per * K / 2, 0, Math.PI * 2); cx.stroke();
+        cx.lineWidth = RT.w1 / per * K; cx.strokeStyle = perf ? 'rgba(255,240,180,.95)' : 'rgba(242,198,90,.5)'; cx.beginPath(); cx.arc(dx, dy, rim + RT.w1 / per * K / 2, 0, Math.PI * 2); cx.stroke();
+        /* the closing ring reaches the rim exactly on the beat */
+        cx.globalAlpha = 0.5 + 0.5 * (1 - toNext / per); cx.beginPath(); cx.arc(dx, dy, rim + (toNext / per) * K, 0, Math.PI * 2); cx.lineWidth = hot ? 6 : 4; cx.strokeStyle = perf ? '#FFFFFF' : hot ? '#FFE08A' : C.gold; cx.stroke(); cx.restore();
+        if (!D.pad) {
+          cx.save(); cx.translate(dx, dy); cx.scale(sc, sc);
+          cx.beginPath(); cx.arc(0, 0, R0 + 5, 0, Math.PI * 2); outline(C.red, 2.2);
+          cx.strokeStyle = C.gold; cx.lineWidth = 1.6; cx.beginPath(); for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 2, b2 = a + Math.PI / 12; cx.moveTo(Math.cos(a) * (R0 + 4), Math.sin(a) * (R0 + 4)); cx.lineTo(Math.cos(b2) * (R0 - 1), Math.sin(b2) * (R0 - 1)); } cx.stroke();
+          cx.beginPath(); cx.arc(0, 0, R0 - 1, 0, Math.PI * 2); outline(hot ? '#FFE9B0' : '#F3E2B8', 1.8);
+          cx.beginPath(); cx.arc(0, 0, R0 * 0.38, 0, Math.PI * 2); cx.fillStyle = 'rgba(43,29,20,' + (0.12 + pulse * 0.25) + ')'; cx.fill();
+          cx.restore();
+        }
+        /* the last pull: a burst on the rim, coloured by how good it was */
+        if (r.hitT > 0 && r.hitQ) { const k = r.hitT / 0.45; cx.save(); cx.globalAlpha = k; cx.beginPath(); cx.arc(dx, dy, rim + 1 + (1 - k) * 26, 0, Math.PI * 2); cx.lineWidth = 5 * k + 1; cx.strokeStyle = r.hitQ === 'p' ? '#FFF3B0' : r.hitQ === 'g' ? '#BFE6EC' : '#F0A894'; cx.stroke(); cx.restore(); }
+        /* the combo (on phones it is also written on the pad), the first-seconds hint, the verdict of the last pull */
+        const ty = dy - rim - K - 14;
+        if (r.combo >= 2) { const t = 'x' + r.combo + ' seri'; cx.font = '800 15px Nunito, sans-serif'; const tw = cx.measureText(t).width + 18, px = D.pad ? Math.min(W - tw - 8, dx + rim + 10) : dx - tw / 2, py = D.pad ? dy - rim - 30 : dy + R0 + 12; pill(px, py, tw, 22, r.combo >= 8 ? '#F2C65A' : '#FBF3DF'); cx.fillStyle = C.ink; cx.textAlign = 'center'; cx.fillText(t, px + tw / 2, py + 16); }
+        if (r.fbT > 0 && r.fb) { cx.save(); cx.globalAlpha = Math.min(1, r.fbT * 2.5); textC(r.fb, dx, ty - (0.9 - r.fbT) * 14, 19, r.fbC); cx.restore(); }
+        else if (st.t < 7) textC(coarse ? 'Halka düğmeye değince: Çek!' : 'Halka davula değince: Boşluk', dx, ty, 14, C.white);
+        if (D.pad && r.combo !== r.padC) { r.padC = r.combo; try { padB.textContent = r.combo >= 2 ? 'Çek! x' + r.combo : 'Çek!'; } catch (e) {} }
       }
       /* camera flash at the line, falling petals, then the judge's picture */
       if (r.flashT > 0) { cx.fillStyle = 'rgba(255,252,240,' + Math.min(0.85, r.flashT * 2.6).toFixed(3) + ')'; cx.fillRect(0, 0, W, H); }
@@ -414,6 +447,6 @@
       /* 120 Hz phones: draw at most ~60 times a second */
       if (now - last < 15) { raf = requestAnimationFrame(loop); return; }
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
-      if (!paused) { if (!st.end) { if (st.cfg) step(dt); else { if (st.count > 0) st.count -= dt; else SC[st.kind].step(st, dt); } } if (!RT.nodraw) draw(); }
+      if (!paused) { if (st.hurtT > 0) st.hurtT -= dt; if (st.hullT > 0) st.hullT -= dt; if (!st.end) { if (st.cfg) step(dt); else { if (st.count > 0) st.count -= dt; else SC[st.kind].step(st, dt); } } if (!RT.nodraw) draw(); }
       raf = requestAnimationFrame(loop);
     }

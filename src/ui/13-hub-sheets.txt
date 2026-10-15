@@ -185,10 +185,10 @@
   const DMG_TXT = ['Sapasağlam', 'Birkaç çizik', 'Yaralı: yamalar, çatlak kalaslar', 'Ağır yaralı: bir darbe daha batırabilir'];
   function hullHtml() {
     const m = maxHp(S), h = hullNow(S), st = dmgStage(S), c = repairCost(S), miss = m - h, river = isRiver(S.city) && !S.caravan;
-    let s = '<div class="hull d' + st + '"><div class="hh2"><b>Gövde ' + h + '/' + m + '</b><span class="hearts">' + Array.from({ length:m }, (_, k) => '<svg viewBox="0 0 32 32" class="' + (k < h ? '' : 'lost') + '" aria-hidden="true"><use href="#i-heart"/></svg>').join('') + '</span><small>' + DMG_TXT[st] + '</small></div>';
-    if (!miss) s += '<p class="muted" style="margin:0">Onarılacak yara yok. Nehirde aldığın darbeler burada onarılır.</p>';
+    let s = '<div class="hull d' + st + '"><div class="hh2"><b>Gövde ' + h + '/' + m + '</b>' + plankHtml(h, m, 'big') + '<small>' + DMG_TXT[st] + '</small></div>';
+    if (!miss) s += '<p class="muted" style="margin:0">Kırık tahta yok. Nehirde çarpınca kırılan tahtalar burada yenilenir.</p>';
     else if (!river) s += '<p class="ntext warn" style="margin:0">Teknen ' + esc(CITIES[S.caravan ? S.caravan.hub : S.city].loc) + ' bekliyor; onarım orada.</p>';
-    else s += '<div class="row"><button class="btn gold" type="button" data-act="repair1"' + (S.cash >= c ? '' : ' disabled') + '>1 yara onar · ' + fmt(c) + '</button><button class="btn go1" type="button" data-act="repairAll"' + (S.cash >= c ? '' : ' disabled') + ' data-first>Hepsini onar · ' + fmt(c * Math.min(miss, Math.floor(S.cash / c)) || c * miss) + '</button></div><p class="muted" style="margin:0">Yara başına ' + fmt(c) + ' deben' + (S.city === 1 ? ' (Mennefer\'in büyük tersanesi ucuz)' : ' · Mennefer\'de 60') + '.</p>';
+    else s += '<div class="row"><button class="btn gold" type="button" data-act="repair1"' + (S.cash >= c ? '' : ' disabled') + '>1 tahta onar · ' + fmt(c) + '</button><button class="btn go1" type="button" data-act="repairAll"' + (S.cash >= c ? '' : ' disabled') + ' data-first>Hepsini onar · ' + fmt(c * Math.min(miss, Math.floor(S.cash / c)) || c * miss) + '</button></div><p class="muted" style="margin:0">Tahta başına ' + fmt(c) + ' deben' + (S.city === 1 ? ' (Mennefer\'in büyük tersanesi ucuz)' : ' · Mennefer\'de 60') + '.</p>';
     return s + '</div>';
   }
   function showYard() {
@@ -209,7 +209,7 @@
       s += '<h3 class="yh">' + ico('i-boat', 18) + ' Tekne al · sat</h3><div class="boats">';
       BOAT_IDS.forEach(id => {
         const b = BOATS[id], mine = id === S.boat, q = boatQuote(S, id);
-        const stats = '<span class="bst">' + ico('i-chest', 14) + b.cap + '</span><span class="bst">' + ico('i-heart', 14) + b.hp + '</span><span class="bst">' + ico('i-bolt', 14) + (b.sail > 0 ? 'hızlı' : b.sail < 0 ? 'yavaş' : 'orta') + '</span>' + (b.row ? '<span class="bst">+' + b.row + ' kürek</span>' : '');
+        const stats = '<span class="bst">' + ico('i-chest', 14) + b.cap + '</span><span class="bst" title="Gövde: ' + b.hp + ' tahta">' + ico('i-repair', 14) + b.hp + ' tahta</span><span class="bst">' + ico('i-bolt', 14) + (b.sail > 0 ? 'hızlı' : b.sail < 0 ? 'yavaş' : 'orta') + '</span>' + (b.row ? '<span class="bst">+' + b.row + ' kürek</span>' : '');
         const btn = mine ? '<span class="chip own">Senin teknen · değeri ' + fmt(boatWorth(S)) + '</span>' : '<button class="btn sm gold" type="button" data-boat="' + id + '"' + (q && q.ok ? '' : ' disabled') + '>' + (q.net >= 0 ? 'Takasla: ' + fmt(q.net) + ' öde' : 'Takasla: ' + fmt(-q.net) + ' al') + '</button>' + (q && !q.fits ? '<small class="warn">Yükün sığmaz</small>' : '');
         s += '<div class="boat' + (mine ? ' mine' : '') + '"><span class="bpic">' + boatThumb(id) + '</span><div><b>' + esc(b.name) + '</b><p>' + esc(b.desc) + '</p><div class="bsts">' + stats + '</div>' + btn + '</div></div>';
       });
@@ -239,7 +239,7 @@
     if (S.over || phase !== 'port' || !isRiver(S.city) || S.caravan || dmgStage(S) < 2 || S.repNag) return false;
     S.repNag = true; save();
     const c = repairCost(S), miss = maxHp(S) - hullNow(S);
-    say('paneb', [dmgStage(S) >= 3 ? 'Kaptan… teknemiz su alıyor. Bir darbe daha yersek batarız!' : 'Tekne epey hırpalandı. Yelkende yama, kalaslarda çatlak var.', 'Tersanede ' + miss + ' yara için ' + fmt(c * miss) + ' deben ister' + (S.city === 1 ? '; burası ucuz.' : '. Mennefer\'de daha ucuz.')],
+    say('paneb', [dmgStage(S) >= 3 ? 'Kaptan… teknemiz su alıyor. Bir darbe daha yersek batarız!' : 'Tekne epey hırpalandı. Yelkende yama, kalaslarda çatlak var.', 'Tersanede ' + miss + ' kırık tahta için ' + fmt(c * miss) + ' deben ister' + (S.city === 1 ? '; burası ucuz.' : '. Mennefer\'de daha ucuz.')],
       { mood:'sad', choices:[{ label:'Tersaneye git', ico:'i-anchor', run:showYard }, { label:'Sonra', ico:'i-close', run() {} }] });
     return true;
   }
@@ -434,7 +434,7 @@
     const any = CITIES.some((c, i) => canGo(S, i)), g = guide();
     let s = '';
     if (!any) return '<div class="tvc"><p class="ntext">' + (S.day < S.days ? 'Şu an gidilecek liman yok.' : 'Sefer bitiyor. Malını sat, sonra seferi bitir.') + '</p><div class="row">' + (S.day < S.days ? '<button class="btn" type="button" data-act="wait">Bir gün bekle</button>' : '') + '<button class="btn gold go1" type="button" data-act="finish">Seferi bitir</button></div></div>';
-    if (g.step === 'city' && !g.off) s += coachHtml('Bir şehir seç: ' + CITIES[guideDest()].name + ' bir gün uzakta, oraya dokun.');
+    if ((g.step === 'city' || g.step === 'sell' && load(S) && !sellPick()) && !g.off && guideDest() != null && guideDest() !== S.city) { const d = guideDest(), own = GOODS.filter(x => S.inv[x.id].n > 0).sort((a, b) => S.inv[b.id].n * b.base - S.inv[a.id].n * a.base)[0]; s += coachHtml('Bir şehir seç: ' + (own ? own.short + ' ' + CITIES[d].loc + ' daha pahalı, ' : '') + CITIES[d].name + ' ' + travelDays(S, d) + ' gün uzakta. Oraya dokun.'); }
     else if (g.step === 'sail' && !g.off) s += coachHtml('Şimdi "Yelken aç"! Yolda her gün bir durak seçersin.');
     if (sel != null && sel !== S.city && !canGo(S, sel)) return s + farCard(sel);
     if (sel == null || !canGo(S, sel)) {
@@ -447,7 +447,7 @@
     const c = CITIES[sel], dz = !isRiver(sel), fromDz = !isRiver(S.city), cr = canRapid(S, sel); if (!cr) rapid = false;
     const d = travelDays(S, sel) - (rapid ? 1 : 0), r = riskOf(sel), e = estAt(sel), sp = S.rival.plan, cri = crisisList().find(x => x.city === sel && x.state !== 'past');
     s += '<div class="tvc"><div class="tvh">' + thumbHtml(sel) + '<div><b>' + esc(c.name) + '</b><small>' + esc(c.sub) + '</small></div></div>';
-    s += '<div class="tvs"><span class="gc">' + ico('i-sun', 14) + d + ' gün · ' + (S.day + d) + '. gün varış</span><span class="gc risk ' + r[0] + '" title="' + esc(r[1]) + '">' + ico('i-bolt', 14) + 'Risk <i>' + '●'.repeat(r[2]) + '○'.repeat(3 - r[2]) + '</i></span>' + (load(S) ? '<span class="gc">' + ico('i-chest', 14) + 'Yük orada ' + (e == null ? '≈ ?' : '≈ ' + fmt(e)) + '</span>' : '') + (S.debt ? '<span class="gc" title="Yolda işleyecek faiz">' + ico('i-coin', 14) + 'Faiz +' + fmt(Math.round(S.debt * (Math.pow(1 + S.rate, d) - 1))) + '</span>' : '') + (S.bless ? '<span class="gc bl" title="' + esc(BLESS[S.bless].desc) + '">' + ico('i-ankh', 14) + esc(BLESS[S.bless].name) + '</span>' : '') + (!dz && !fromDz && dmgStage(S) >= 2 ? '<span class="gc dmg">' + ico('i-heart', 14) + 'Tekne yaralı ' + hullNow(S) + '/' + maxHp(S) + '</span>' : '') + '</div>';
+    s += '<div class="tvs"><span class="gc">' + ico('i-sun', 14) + d + ' gün · ' + (S.day + d) + '. gün varış</span><span class="gc risk ' + r[0] + '" title="' + esc(r[1]) + '">' + ico('i-bolt', 14) + 'Risk <i>' + '●'.repeat(r[2]) + '○'.repeat(3 - r[2]) + '</i></span>' + (load(S) ? '<span class="gc">' + ico('i-chest', 14) + 'Yük orada ' + (e == null ? '≈ ?' : '≈ ' + fmt(e)) + '</span>' : '') + (S.debt ? '<span class="gc" title="Yolda işleyecek faiz">' + ico('i-coin', 14) + 'Faiz +' + fmt(Math.round(S.debt * (Math.pow(1 + S.rate, d) - 1))) + '</span>' : '') + (S.bless ? '<span class="gc bl" title="' + esc(BLESS[S.bless].desc) + '">' + ico('i-ankh', 14) + esc(BLESS[S.bless].name) + '</span>' : '') + (!dz && !fromDz && dmgStage(S) >= 2 ? '<span class="gc dmg">' + ico('i-repair', 14) + 'Gövde ' + hullNow(S) + '/' + maxHp(S) + (hullNow(S) <= 1 ? ' · batabilir!' : '') + '</span>' : '') + '</div>';
     const notes = [];
     if (sp && sp.to === sel && S.day < sp.arrive) notes.push(['i-c-vaset', 'Sethi ' + sp.arrive + '. gün buraya ' + gName(sp.g) + ' boşaltacak' + (Math.abs(S.day + d - sp.arrive) <= 1 ? ': yarış olabilir!' : '.'), 'bad']);
     if (sp && sp.from === sel && S.day <= sp.start + 1) notes.push(['i-' + sp.g, 'Sethi orada ' + gName(sp.g) + ' topluyor: kıt ve pahalı.', 'bad']);

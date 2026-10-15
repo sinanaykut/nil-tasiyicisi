@@ -15,7 +15,7 @@
       const big = CH40.svg('h_' + k, { mood:on ? 'happy' : 'neutral', frame:'card' });
       s += '<button type="button" class="hero' + (on ? ' on' : '') + '" data-hero="' + k + '" style="--hc:' + col + '" aria-pressed="' + on + '">' +
         '<span class="hbust" data-hb="' + k + '">' + (big || heroPic(k, 96)) + '</span><b>' + esc(h.name) + '</b><small>' + esc(h.title) + '</small>' +
-        '<span class="hp1">' + ico('i-heart', 14) + esc(h.passive) + '</span><span class="hp2"><em>' + esc(h.power) + '</em>' + esc(h.pdesc) + '</span></button>';
+        '<span class="hlife" aria-label="' + (h.hearts || 3) + ' can">' + heartsHtml(h.hearts || 3, h.hearts || 3) + '</span><span class="hp1">' + ico('i-bolt', 14) + esc(h.passive) + '</span><span class="hp2"><em>' + esc(h.power) + '</em>' + esc(h.pdesc) + '</span></button>';
     });
     s += '</div><div class="row"><button class="btn go1 wide" type="button" data-act="heroGo" data-first>' + esc(HEROES[heroSel].name) + ' ile başla</button></div>';
     openSheet(s, true, 'hero', true);
@@ -37,13 +37,13 @@
       '<span class="hpav">' + heroImg(S.hero, px, { mood:ok ? 'happy' : 'neutral' }) + '</span><span class="hpt"><b>' + esc(h.name) + '</b><small>' + esc(h.title) + '</small><span class="hearts">' + plateHearts() + '</span></span>' +
       '<i class="hpp" title="' + esc(h.power) + '"' + (ok || used || h.when === 'voy' ? '' : ' hidden') + '>' + ico('i-bolt', 12) + '</i></button>';
   }
-  /* hearts (or water skins on a caravan) as inline SVG; the voyage's own hit points while at sea */
+  /* v47: hearts are the HERO's (can); the boat's planks (gövde) are drawn apart with a boat icon and never as hearts */
+  const heartsHtml = (h, m) => Array.from({ length:m }, (_, k) => '<svg viewBox="0 0 32 32" aria-hidden="true"' + (k < h ? '' : ' class="lost"') + '><use href="#i-heart"/></svg>').join('');
+  const plankHtml = (h, m, cls) => '<span class="plk' + (cls ? ' ' + cls : '') + (m > 1 && h <= 1 ? ' low' : '') + '" title="Teknenin gövdesi: ' + h + '/' + m + ' tahta" aria-label="Gövde ' + h + '/' + m + '">' + ico('i-boat', 15) + '<i>' + Array.from({ length:m }, (_, k) => '<b' + (k < h ? '' : ' class="lost"') + '></b>').join('') + '</i><em>' + h + '/' + m + '</em></span>';
+  const lifeNow = () => VG ? { h:Math.max(0, VG.hh), m:VG.hhMax } : { h:heroHp(S), m:heroMax(S) };
   function plateHearts() {
-    const K = S.caravan; let h = '';
-    if (K) { for (let k = 0; k < Math.min(10, K.water); k++) h += '<svg viewBox="0 0 32 32" aria-hidden="true" class="wsk"><use href="#i-water"/></svg>'; if (!K.water) h = '<b class="dry">0</b>'; return h + '<b class="hpn">' + K.water + ' gün</b>'; }
-    const hp = VG ? VG.hp : hullNow(S), mx = VG ? VG.maxhp : maxHp(S);
-    for (let k = 0; k < mx; k++) h += '<svg viewBox="0 0 32 32" aria-hidden="true"' + (k < hp ? '' : ' class="lost"') + '><use href="#i-heart"/></svg>';
-    return h + '<b class="hpn">' + hp + '/' + mx + '</b>';
+    const L = lifeNow();
+    return heartsHtml(L.h, L.m) + '<b class="hpn">' + L.h + '/' + L.m + '</b>';
   }
   /* the HUD plate is static markup: only its parts change */
   function renderPlate() {
@@ -52,9 +52,9 @@
     const h = HEROES[S.hero], ok = heroCan(VG ? 'voy' : 'port'), used = heroUsedNow(), K = S.caravan, mood = ok ? 'happy' : 'neutral';
     el.classList.remove('none'); el.classList.toggle('ready', ok); el.classList.toggle('used', !ok && used); el.classList.toggle('water', !!K);
     const av = $('#hpAv'); if (av.dataset.k !== S.hero + mood) { av.dataset.k = S.hero + mood; av.innerHTML = heroImg(S.hero, 40, { mood }); }
-    $('#hpName').textContent = h.name; $('#hpTitle').textContent = K ? 'Su · ' + K.donkeys + ' eşek' : h.title;
-    const hp = $('#hHp'); hp.innerHTML = plateHearts(); hp.setAttribute('aria-label', K ? K.water + ' günlük su, ' + K.donkeys + ' eşek' : 'Gövde ' + (VG ? VG.hp + '/' + VG.maxhp : hullNow(S) + '/' + maxHp(S)));
-    el.classList.toggle('hurt', !K && !VG && dmgStage(S) >= 2); el.dataset.d = K ? 0 : dmgStage(S);
+    $('#hpName').textContent = h.name; $('#hpTitle').textContent = K ? K.water + ' gün su · ' + K.donkeys + ' eşek' : h.title;
+    const L = lifeNow(), hp = $('#hHp'); hp.innerHTML = plateHearts(); hp.setAttribute('aria-label', 'Can ' + L.h + '/' + L.m);
+    el.classList.toggle('hurt', L.h < L.m); el.dataset.d = L.h <= 1 ? 3 : L.h < L.m ? 2 : 0;
     const pw = $('#hpPow'); pw.hidden = !(ok || used || h.when === 'voy'); pw.innerHTML = ico('i-bolt', 12); pw.title = h.power + (ok ? ' · hazır' : used ? ' · kullanıldı' : h.when === 'voy' && !VG ? ' · yolculukta' : '');
     el.title = h.name + ' · ' + h.title + ' · ' + h.power + (ok ? ' hazır' : used ? ' kullanıldı' : h.when === 'voy' && !VG ? ' (yolculukta)' : '');
   }
@@ -72,15 +72,17 @@
     const h = HEROES[S.hero]; if (!h) return;
     return heroCard();
     const ok = heroCan(VG ? 'voy' : 'port'), used = heroUsedNow();
-    const hp = S.caravan ? S.caravan.water + ' günlük su' : 'Gövde ' + (VG ? VG.hp + '/' + VG.maxhp : hullNow(S) + '/' + maxHp(S));
+    const hp = 'Can ' + lifeNow().h + '/' + lifeNow().m;
     say('h_' + S.hero, [h.name + ', ' + h.title.toLowerCase() + '. ' + h.passive, h.power + ': ' + h.pdesc + (ok ? ' Şimdi hazır.' : used ? (h.when === 'port' ? ' Bugün kullandın.' : ' Bu yolculukta kullandın.') : h.when === 'voy' && !VG ? ' Yolculukta kullanılır.' : '')], { mood:ok ? 'happy' : 'neutral', sub:h.title + ' · ' + hp, choices: ok ? [{ label:h.power + ' kullan', ico:'i-bolt', run:heroPow }, { label:'Tamam', ico:'i-close' }] : null });
   }
   /* the full card: voice, trait, power and the run so far */
   function heroCard() {
     const h = HEROES[S.hero]; if (!h) return;
     const ok = heroCan(VG ? 'voy' : 'port'), used = heroUsedNow();
-    const hp = S.caravan ? S.caravan.water + ' günlük su' : 'Gövde ' + (VG ? VG.hp + '/' + VG.maxhp : hullNow(S) + '/' + maxHp(S));
-    const html = '<div class="hcard"><p class="hpass">' + ico('i-heart', 14) + esc(h.passive) + '</p><p class="hpow' + (ok ? ' ok' : '') + '">' + ico('i-bolt', 14) + '<b>' + esc(h.power) + '</b> ' + esc(h.pdesc) + '<em>' + (ok ? 'hazır' : used ? 'kullanıldı' : h.when === 'voy' && !VG ? 'yolculukta' : 'burada işe yaramaz') + '</em></p>' + heroStats() + '</div>';
+    const L = lifeNow(), hp = 'Can ' + L.h + '/' + L.m, dz = VG ? VG.plan.terrain === 'desert' : !!S.caravan && !isRiver(S.city);
+    const life = '<div class="hlife2"><span class="hlh"><b>Canın</b>' + heartsHtml(L.h, L.m) + '<small>' + L.h + '/' + L.m + ' · dalışta bayılınca, kavgada, lanette gider; limanda her gece +1</small></span>' +
+      (dz ? '' : '<span class="hlh"><b>Teknen</b>' + plankHtml(VG ? Math.max(0, VG.hp) : hullNow(S), VG ? VG.maxhp : maxHp(S)) + '<small>çarpınca tahta gider; tersanede onarılır, biterse batar</small></span>') + '</div>';
+    const html = '<div class="hcard">' + life + '<p class="hpass">' + ico('i-bolt', 14) + esc(h.passive) + '</p><p class="hpow' + (ok ? ' ok' : '') + '">' + ico('i-bolt', 14) + '<b>' + esc(h.power) + '</b> ' + esc(h.pdesc) + '<em>' + (ok ? 'hazır' : used ? 'kullanıldı' : h.when === 'voy' && !VG ? 'yolculukta' : 'burada işe yaramaz') + '</em></p>' + heroStats() + '</div>';
     say('h_' + S.hero, [HERO_VOICE[S.hero] || h.passive], { mood:ok ? 'happy' : 'neutral', sub:h.title + ' · ' + hp, html, choices:ok ? [{ label:h.power + ' kullan', ico:'i-bolt', run:heroPow }, { label:'Tamam', ico:'i-close' }] : [{ label:'Tamam', ico:'i-close' }] });
   }
   /* short lines from the hero at the moments that matter: a bubble under the HUD portrait, no blocking */

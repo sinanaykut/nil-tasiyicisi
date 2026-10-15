@@ -208,6 +208,22 @@ units: fingers are imprecise), routed steering at full speed. Keys/pads: `assist
 (on phones the hull covers the old sand spots). Air 12.5 s (was 9), dive 30 s (was 26). A light shaft and gold plank ends mark the
 gap, dashed funnel lines over it. Debug: `st.way`, `st.inHull`. Images: docs/qa46.
 
+v47 hearts vs hull, race drum, guide (owner report; `core.txt`, `sea/01,02,04,06`, `ui/02,03,06,07,12,13,14`, `voy42.css` tail):
+the hero has hearts (`HEROES[k].hearts`: Ahmose 4, others 3; `heroMax`/`heroHp`, `S.hp`), the boat has planks (`S.hull`, `maxHp`).
+Hearts go in personal dangers: a dive blackout (`heroHurt` in sea/06), a fight when caught (`FIGHT`: haydut/bedevi/djedi, in the chase
+scene and `quickSea` `res.hurt`), the tomb curse and the dark-tomb fall (ui/06). Rest gives them back: +1 per arrival, +1 per waited day,
+calm water/oasis +1. At 0 the hero faints: `faintCheck()` skips the rest of the voyage, `applySea` charges the healer (`HEALER` 80) and
+refills. Planks go in collisions/rapids/storms; 0 = "Teknen battı" (old wreck rule). The voyage carries both: `VG.hp/maxhp` (planks,
+caravan strength in the desert) and `VG.hh/hhMax` (hearts); scenes get `o.hh/o.hhMax` and return `res.hh`. Drawn apart everywhere:
+red hearts (`heartsHtml`) vs a boat icon + brown planks (`plankHtml`, ui/07; canvas `heartsPill`/`hullPill`, sea/04): hero plate,
+hold card, hero card, yard, voyage header (`lifeChips`), side panel, arrival ledger. Race (`RT.per` 0.8 s, `w1` ±0.12 perfect,
+`w2` ±0.25 good, `lat` 0.03, `pb`/`pg` pull push): no oar charges, one pull per beat (`raceBoost`), a ring closes onto the Çek! pad
+(`drumAt`, cached in `st.race.drum`; desktop: a drum at the bottom centre), pad pulses/flashes (`padFx`, css `body[data-scene=sethi]`),
+own tap sound (`tapSnd`), haptics, combo on the pad. Guide (ui/12): `sellPick()` only suggests a profitable sale, else `goEl()` points
+the way out to `guideDest()` (today's prices vs your cost); `tutPlan` needs a real gain; the phone strip avoids the label and the 3D
+spot (`tutAvoid` via `T3.where`), lets taps through when it cannot (`.tut.thru`); tapping the bubble does the step (`tutBind`/`tutDo`).
+Images: docs/qa47-yol.
+
 ## Music (v44)
 - `snd-syn.txt` — `NilSynth()`: self-contained music synthesiser (its source text is also the render Worker's body, so it must not use game names). Instruments (Karplus-Strong oud/bass, modal harp/kanun, ney/reed wind phrases, wavetable drones/choir, modal darbuka/bendir/tabl/riq/sistrum/zills/bowl), buses + EQ, ping-pong echo, half-rate FFT convolution reverb, master compressor + soft ceiling, the six compositions (`composeMenu/Port/Bazaar/Temple/Sail/Chase`) and `TRACKS` (tempo, bars, reverb, measured bus gains and loudness trims). `job(name)` renders in steps (`step(ms)`), `onSeg` streams 1 s segments.
 - `snd.txt` — `Snd`: Worker (or main-thread slices) renderer, streaming first playback, IndexedDB cache (`MUSIC_VER`, bump it whenever the music changes), at most 3 decoded tunes (LRU), crossfades by mode, effects.

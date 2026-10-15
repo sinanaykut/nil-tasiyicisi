@@ -130,6 +130,7 @@
     else if (act === 'oiMore') t.classList.toggle('open');
     else if (act === 'faceOk') faceOk();
     else if (act === 'noHints') { guideOff(); }
+    else if (act === 'tutGo') { guideGo(); }
     else if (act === 'travel') { play('click'); showTravel(); }
     else if (act === 'talk') { play('click'); showMerchant(); }
     else if (act === 'unpick') { msel = null; hgSide = false; play('click'); renderPanel(); placeTutor(); }

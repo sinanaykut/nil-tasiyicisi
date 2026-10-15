@@ -145,7 +145,7 @@
     s += '<div class="a42-sum">' + cell(dz || !isRiver(L.from) ? 'Yoldan' : 'Nehirden', lg.river || 0, '+', 'pos') + cell(loss ? 'Kayıp ve ceza' : 'Faiz', loss || lg.interest || 0, '−', (loss || lg.interest) ? 'neg' : '');
     if (loss && lg.interest) s += cell('Faiz', lg.interest, '−', 'neg');
     else if (S.caravan) s += '<span><small>Su</small><b>' + ico('i-water', 15) + ' ' + S.caravan.water + ' gün</b></span>';
-    else { const m = maxHp(S), h = hullNow(S); s += '<span><small>Gövde</small><b class="hp">' + Array.from({ length:m }, (_, k) => '<i class="' + (k < h ? 'on' : '') + '"></i>').join('') + '</b></span>'; }
+    else { s += '<span class="a47-life"><small>Can · Gövde</small><b class="hp2"><i class="hh">' + heartsHtml(heroHp(S), heroMax(S)) + '</i>' + plankHtml(hullNow(S), maxHp(S)) + '</b></span>'; }   /* v47: your hearts and the boat's planks side by side, never mixed */
     const cd = L.cash0 != null ? S.cash - L.cash0 : net;
     s += cell('Kesende', cd, cd >= 0 ? '+' : '−', 'net ' + (cd >= 0 ? 'pos' : 'neg')) + '</div>';
     /* what happened on the way: the important ones first, the rest one tap away */

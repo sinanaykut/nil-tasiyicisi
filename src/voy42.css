@@ -107,3 +107,61 @@
   .a42-pic{height:110px}
   .a42-sum{grid-template-columns:repeat(4,minmax(0,1fr))}
 }
+/* v47: the hero's hearts and the boat's planks, never mixed: red hearts = you, brown planks + boat icon = the hull */
+.plk{display:inline-flex;align-items:center;gap:3px;font:800 11.5px Nunito,sans-serif;color:var(--ink);white-space:nowrap}
+.plk > .ico{width:15px;height:15px;color:#8B5A33;flex:none}
+.plk i{display:inline-flex;gap:2px;font-style:normal}
+.plk i b{display:block;width:7px;height:11px;border:1.3px solid var(--ink);border-radius:2px;background:linear-gradient(#C08A50,#8B5A33)}
+.plk i b.lost{background:rgba(43,29,20,.12);border-color:rgba(43,29,20,.45)}
+.plk em{font-style:normal;font-variant-numeric:tabular-nums;color:var(--ink2)}
+.plk.low i b:not(.lost){background:#D9583F;animation:hpulse 1.2s ease-in-out infinite}
+.plk.low em{color:#9A2A18}
+.plk.big i b{width:10px;height:16px}
+.plk.big > .ico{width:20px;height:20px}
+.hold .plk.hgv{display:flex;margin:0 0 3px;font-size:11px}
+.vhead .vlife{display:inline-flex;align-items:center;gap:1px}
+.vhead .vlife svg,.vhead .vhull svg{display:inline-block!important;width:15px;height:15px}
+.vhead .vlife svg{color:#E86A7E}
+.vhead .vlife svg.lost{color:#B8A98A;opacity:.5}
+.vhead .vhull{display:inline-flex;align-items:center;gap:3px;color:var(--ink)!important}
+.vhead .vhull > svg{color:#8B5A33}
+.vhead .vhull.dz > svg{color:#A98463}
+.vhead .vhull i{display:inline-flex;gap:2px;font-style:normal}
+.vhead .vhull i b{display:block;width:7px;height:11px;border:1.3px solid var(--ink);border-radius:2px;background:linear-gradient(#C08A50,#8B5A33)}
+.vhead .vhull.dz i b{background:linear-gradient(#E0B47A,#C9955A)}
+.vhead .vhull i b.lost{background:rgba(43,29,20,.12);border-color:rgba(43,29,20,.45)}
+.vhead .vhull em{font-style:normal;font-size:11px;color:#9A2A18;font-weight:800}
+.vhead .vhull.low i b:not(.lost){background:#D9583F;animation:hpulse 1.2s ease-in-out infinite}
+.hero .hlife{display:flex;gap:1px;width:100%}
+.hero .hlife svg{width:14px;height:14px;color:#E86A7E}
+.hlife2{display:flex;flex-direction:column;gap:5px;background:var(--papl);border:1.5px solid var(--ink3);border-radius:10px;padding:5px 8px}
+.hlh{display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px}
+.hlh > b{font:700 13px Cinzel,serif;min-width:52px}
+.hlh > svg{width:16px;height:16px;color:#E86A7E}
+.hlh > svg.lost{color:#B8A98A;opacity:.5}
+.hlh small{flex-basis:100%;font-size:11.5px;font-weight:700;color:var(--ink2)}
+@media (prefers-reduced-motion: reduce){ .plk.low i b,.vhead .vhull.low i b{animation:none} }
+/* v47 race: the Çek! pad beats with the drum and flashes the verdict of each pull */
+body[data-scene="sethi"] .pads .pb{width:120px;height:72px;font-size:18px;background:rgba(242,198,90,.95)}
+body[data-scene="sethi"] .pads .pb.beat{animation:padBeat .22s ease-out}
+body[data-scene="sethi"] .pads .pb.hitP{animation:padHitP .4s ease-out}
+body[data-scene="sethi"] .pads .pb.hitG{animation:padHitG .4s ease-out}
+body[data-scene="sethi"] .pads .pb.hitM{animation:padHitM .35s ease-out}
+@keyframes padBeat{0%{box-shadow:0 0 0 0 rgba(255,236,170,.95),var(--sh)}100%{box-shadow:0 0 0 14px rgba(255,236,170,0),var(--sh)}}
+@keyframes padHitP{0%{background:#FFF3B0;transform:scale(1.08)}100%{background:rgba(242,198,90,.95);transform:none}}
+@keyframes padHitG{0%{background:#BFE6EC;transform:scale(1.04)}100%{background:rgba(242,198,90,.95);transform:none}}
+@keyframes padHitM{0%{background:#F0A894;transform:translateX(-3px)}50%{transform:translateX(3px)}100%{background:rgba(242,198,90,.95);transform:none}}
+@media (prefers-reduced-motion: reduce){ body[data-scene="sethi"] .pads .pb{animation:none!important} }
+/* v47 guide: the bubble is itself a button (tap = do what Paneb asks); when it cannot avoid the target it lets taps through */
+.tut{cursor:pointer}
+.tut .tgo{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--gold);color:var(--ink);font:900 14px/1 Nunito,sans-serif;vertical-align:-3px;margin-left:2px}
+.tut.thru{pointer-events:none;opacity:.9}
+.tut.thru .chip{pointer-events:auto}
+.tut:active{transform:translateY(1px)}
+/* v47 arrival ledger: hearts and planks in one cell, two different pictures */
+.a42-sum .a47-life .hp2{display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px;font-size:12px}
+.a42-sum .a47-life .hh{display:inline-flex;gap:1px;font-style:normal}
+.a42-sum .a47-life .hh svg{width:13px;height:13px;color:#E86A7E}
+.a42-sum .a47-life .hh svg.lost{color:#B8A98A;opacity:.5}
+.a42-sum .a47-life .plk em{display:none}
+.plk.big em{display:none}
