@@ -152,6 +152,10 @@
         const me = new T.Group(), meS = new T.Group(); me.add(meS); me.visible = false; sc.add(me); let meKey = '', meGeo = null;
         { const ss = new T.Mesh(flatQ, shdM); ss.scale.set(4.8, 1, 2.6); ss.position.set(0.4, 0.05, 0.5); me.add(ss); }
         const meLab = document.createElement('div'); meLab.className = 'v3m-me'; meLab.hidden = true; meLab.innerHTML = icoS('i-boat', '') + 'Sen'; labs.appendChild(meLab);
+        /* v47 (owner: "on the map it is not easy to see where I am"): a "you are here" pin over the current town (your face, your boat
+           or donkey, "Buradasın") and a ripple on the ground around its token (CSS: it keeps pulsing without redrawing the table) */
+        const youP = document.createElement('div'); youP.className = 'v3m-you'; youP.hidden = true; youP.setAttribute('aria-hidden', 'true'); labs.appendChild(youP); let youK = '', youW = 0, youH = 0;
+        const youR = document.createElement('div'); youR.className = 'v3m-pulse'; youR.hidden = true; youR.innerHTML = '<i></i><i></i>'; labs.insertBefore(youR, labs.firstChild);
         yield 'sethi';
         /* little sailing boats on the Nile */
         const bk2 = new Kit(); boatKit(bk2, { boat:'nehir', up:{ yelken:1, kurek:0 }, col:{ hull:'#7A4426', sail:'#FBF3DF', sailBand:K.red, tip:K.gold }, flagCol:K.lapis }); bk2.w = bk2.w.map(() => 0);
@@ -177,12 +181,22 @@
         const cities = new Map(), chips = [], CA = [];
         let myEp = VIS.epoch, slowM = mapSlow, gapA = 33, gapN = 0, mdl = model, W = 0, H = 0, needFit = true, dirty = true, raf = 0, killed = false, t0 = performance.now(), lastR = 0, inView = true, sel = null, ro = null, io = null, hover = -1, wd = 0;
         let awake = 0, selT = 0, tier = -1, rtChip = null;
-        /* v45: the miniatures are smaller from afar (tokens), full size close up */
-        const TSC = () => tier <= 0 ? 0.8 : tier === 1 ? 0.9 : 1;
+        /* v45: the miniatures are smaller from afar (tokens), full size close up.
+           v47: continuously (the step at each zoom level was a little jump); and a level of detail: from afar each town is one bold
+           landmark (ICONK), closer in the diorama (CITYK) grows out of the plinth while the landmark sinks into it (both scale about
+           the plinth's top, so nothing pops or blinks). lodD = the diorama's share, lodI = the landmark's. */
+        const sm01 = t => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); };
+        let tsc = 0.8, lodD = 0, lodI = 1, lodZ = -1;
+        const TSC = () => tsc;
+        const uLodS = { value:0 };
         const _v = new T.Vector3(), _n = new T.Vector2(), rc = new T.Raycaster(), hits = []; if (rc.layers) rc.layers.enableAll();
         /* ---- the towns ---- */
         /* v42: k = the still model, k.life = the moving parts (swing / sway), k.smoke = smoke vents [x, y, z, phase] */
         const cityKit = id => { const k = new Kit(), L = new Kit(), S = []; k.ed = true; (CITYK[id] || CITYK.def)(k, L, S); k.w = k.w.map(v => v * 0.02); k.life = L; k.smoke = S; return k; };
+        function lodSet(o) {
+          o.g.scale.setScalar(tsc); o.mg.scale.setScalar(LSC * Math.max(1e-4, lodD)); o.mg.visible = lodD > 0.002;
+          if (o.ic) { o.ic.scale.setScalar(Math.max(1e-4, lodI)); o.ic.visible = lodI > 0.002; }
+        }
         function mkCity(c, k0) {
           const id = c.id || 'c' + c.i, g = new T.Group(), s = new T.Group(); g.add(s); s.scale.setScalar(0.1 * CS); sc.add(g);
           const k = k0 || cityKit(id), LS = LSC;
@@ -190,6 +204,10 @@
           o.ped = new T.Mesh(pedGeo, mT); o.mod = [new T.Mesh(geo, mT), new T.Mesh(geo, mI)];
           const mg = new T.Group(); mg.scale.setScalar(LS); s.add(mg); o.mg = mg;
           s.add(o.ped); o.mod.forEach(m => mg.add(m));
+          /* v47: the far token: a coloured cap on the plinth and one landmark */
+          { const ik = new Kit(); g24(ik, 'c24', ICAP[id] || '#E9CF98', 0, -0.3, 0, TOK - 5, 1.7); g24(ik, 'c24', '#FBF3DF', 0, -0.35, 0, TOK - 3.4, 1.6); const n0 = ik.p.length; (ICONK[id] || ICONK.def)(ik); for (let q = n0; q < ik.p.length; q++) ik.p[q] *= 1.15; ik.w = ik.w.map(() => 0);
+            const ig = kp(ik.bake()), ic = new T.Group(); o.icm = [new T.Mesh(ig, mT), new T.Mesh(ig, mI)]; o.icm.forEach(m => ic.add(m)); s.add(ic); o.ic = ic; }
+          lodSet(o);
           /* v42: the miniatures are inked by drawn lines: every crease edge longer than a window becomes a drawn (negative width)
              line; drawn lines are bent by the foliage sway of LINE_V (here at a still time 0), so that fixed bend is taken out first */
           { const e = k.e, kept = [], un = (x, y, z) => x - Math.sin(z * 0.02) * 0.9 * Math.max(0, Math.min(1.5, y / 40));
@@ -210,7 +228,7 @@
         function labHtml(o) {
           const c = o.c || {}, bd = c.badges || {}, here = o.here, dim = o.dim, sl = o.sel;
           let sub = '', via = false;
-          if (here) sub = tier >= 1 ? 'Buradasın' : '';
+          if (here) sub = '';   /* v47: the pin says it */
           else if (dim && c.via) { via = true; sub = sl || tier >= 1 ? c.via : String(c.via).split(' · ')[0]; }
           else if (dim) { sub = c.why || ''; if (!sl && tier < 1 && sub.length > 15) sub = ''; }
           else if (!sl && tier >= 1 && c.days) sub = c.days + ' gün';
@@ -247,35 +265,40 @@
           const look = (here ? 'h' : dim ? 'd' : 'n') + (bd.crisis ? 'c' : '');
           if (o.look !== look) {
             o.look = look; bakeOK = false;
-            o.ped.material = here ? mTH : dim ? mTD : mT; o.mod[0].material = dim ? mTD : mT; o.mod[1].material = dim ? mID : mI;
+            o.ped.material = here ? mTH : dim ? mTD : mT; o.mod[0].material = dim ? mTD : mT; o.mod[1].material = dim ? mID : mI; o.icm[0].material = dim ? mTD : mT; o.icm[1].material = dim ? mID : mI;
             if (o.lines) o.lines.material = dim ? cityLD : cityL;
             o.flag.forEach((m, j) => { m.visible = !!bd.crisis; m.material = j ? (dim ? mID : mI) : (dim ? mTD : mT); });
             o.ring.visible = here;
           }
-          o.here = here; o.sel = sl; o.reach = reach; o.dim = dim; o.g.scale.setScalar(TSC());
+          o.here = here; o.sel = sl; o.reach = reach; o.dim = dim; lodSet(o);
           setLab(o);
         }
         /* ---- v42: the towns' moving parts: one merged mesh (toon + ink) for every visible town, one points mesh for the smoke;
            rebuilt only when a town appears, moves or dims (a few thousand vertices), drawn in the moving layer ---- */
-        const uRow = { value:0 }, lifeT = MT.toon({ lite:1, swing:1, u:{ uRow } }), lifeI = MT.ink({ lite:1, swing:1, u:{ uRow } });
-        const smM = kp(new T.ShaderMaterial({ uniforms:{ uTime:U.uTime, uPR:U.uPR, uFocal:U.uFocal }, vertexShader:SM_V, fragmentShader:SM_F, transparent:true, depthWrite:false, blending:T.CustomBlending, blendSrc:T.OneFactor, blendDst:T.OneMinusSrcAlphaFactor }));
+        /* v47: built once at full size; the level of detail scales every town's moving parts about its centre (aCtr) in the shader */
+        const TOON_VL = TOON_V.replace('attribute vec3 aCol;', 'attribute vec3 aCol; attribute vec3 aCtr; uniform float uLodS;').replace('  vec4 w = modelMatrix * vec4(p, 1.0);', '  p = aCtr + (p - aCtr) * uLodS;\n  vec4 w = modelMatrix * vec4(p, 1.0);').replace('* aSway;', '* aSway * uLodS;');
+        const SM_VL = SM_V.replace('attribute float aPh;', 'attribute float aPh; attribute vec3 aCtr; uniform float uLodS;').replace('vec3 p = position + vec3(', 'vec3 p = aCtr + (position - aCtr) * uLodS + uLodS * vec3(').replace('gl_PointSize = max(1.0, (0.32 + f * 0.75)', 'gl_PointSize = max(1.0, uLodS * (0.32 + f * 0.75)');
+        const uRow = { value:0 }, lifeMat = ink => kp(new T.ShaderMaterial({ uniforms:Object.assign({}, U, { uRow, uLodS }), vertexShader:TOON_VL, fragmentShader:TOON_F, side:ink ? T.BackSide : T.FrontSide, defines:Object.assign({ SWING:1, LITE:1 }, ink ? { INK:1 } : {}) }));
+        const lifeT = lifeMat(false), lifeI = lifeMat(true);
+        const smM = kp(new T.ShaderMaterial({ uniforms:{ uTime:U.uTime, uPR:U.uPR, uFocal:U.uFocal, uLodS }, vertexShader:SM_VL, fragmentShader:SM_F, transparent:true, depthWrite:false, blending:T.CustomBlending, blendSrc:T.OneFactor, blendDst:T.OneMinusSrcAlphaFactor }));
         let lifeKey = '', lifeG = null, smG = null; const lifeM = [new T.Mesh(undefined, lifeT), new T.Mesh(undefined, lifeI)], smP = new T.Points(undefined, smM);
         lifeM.concat([smP]).forEach(m => { m.frustumCulled = false; m.visible = false; m.layers.set(1); sc.add(m); }); smP.renderOrder = 4;
         function lifeSet() {
-          const on = CA.filter(o => o.g.visible), key = on.map(o => o.id + (o.dim ? 'd' : '') + o.g.position.x.toFixed(2) + ',' + o.g.position.y.toFixed(2) + ',' + o.g.position.z.toFixed(2) + '*' + o.g.scale.x.toFixed(2)).join('|');
+          const on = CA.filter(o => o.g.visible), key = on.map(o => o.id + (o.dim ? 'd' : '') + o.g.position.x.toFixed(2) + ',' + o.g.position.y.toFixed(2) + ',' + o.g.position.z.toFixed(2)).join('|');
           if (key === lifeKey) return; lifeKey = key;
           [lifeG, smG].forEach(g0 => { if (g0) { g0.dispose(); const i = own.indexOf(g0); if (i >= 0) own.splice(i, 1); } }); lifeG = smG = null;
           const sc1 = 0.1 * CS * LSC, gr = col3('#8F8578'), list = on.filter(o => o.lg); let n = 0, sc0 = sc1; list.forEach(o => { n += o.lg.attributes.position.count; });
           if (n) {
-            const A = { position:3, normal:3, aCol:3, aSway:1, aOut:3, aPiv:3, aSwP:3 }, out = {}; Object.keys(A).forEach(a => { out[a] = new Float32Array(n * A[a]); });
+            const A = { position:3, normal:3, aCol:3, aSway:1, aOut:3, aPiv:3, aSwP:3, aCtr:3 }, out = {}; Object.keys(A).forEach(a => { out[a] = new Float32Array(n * A[a]); });
             let v = 0;
             list.forEach(o => {
-              const P = o.g.position, src = {}, c = o.lg.attributes.position.count; sc0 = sc1 * o.g.scale.x; Object.keys(A).forEach(a => { src[a] = o.lg.attributes[a].array; });
+              const P = o.g.position, src = {}, c = o.lg.attributes.position.count; sc0 = sc1; Object.keys(A).forEach(a => { if (o.lg.attributes[a]) src[a] = o.lg.attributes[a].array; });
               for (let i = 0; i < c; i++) {
                 const j = i * 3, d = (v + i) * 3, sw = src.aSwP[j + 2] !== 0;
                 out.position[d] = P.x + src.position[j] * sc0; out.position[d + 1] = P.y + src.position[j + 1] * sc0; out.position[d + 2] = P.z + src.position[j + 2] * sc0;
                 out.aPiv[d] = sw ? P.x + src.aPiv[j] * sc0 : 0; out.aPiv[d + 1] = sw ? P.y + src.aPiv[j + 1] * sc0 : 0; out.aPiv[d + 2] = sw ? P.z + src.aPiv[j + 2] * sc0 : 0;
                 for (let q = 0; q < 3; q++) { out.normal[d + q] = src.normal[j + q]; out.aOut[d + q] = src.aOut[j + q]; out.aSwP[d + q] = src.aSwP[j + q]; }
+                out.aCtr[d] = P.x; out.aCtr[d + 1] = P.y; out.aCtr[d + 2] = P.z;
                 const cr = src.aCol[j], cg = src.aCol[j + 1], cb = src.aCol[j + 2], f = o.dim ? 0.5 : 0;
                 out.aCol[d] = cr + (gr.r - cr) * f; out.aCol[d + 1] = cg + (gr.g - cg) * f; out.aCol[d + 2] = cb + (gr.b - cb) * f;
                 out.aSway[v + i] = src.aSway[i] * 0.14;
@@ -283,11 +306,11 @@
               v += c;
             });
             lifeG = kp(new T.BufferGeometry()); Object.keys(A).forEach(a => lifeG.setAttribute(a, new T.BufferAttribute(out[a], A[a])));
-            lifeM.forEach(m => { m.geometry = lifeG; m.visible = true; });
+            lifeM.forEach(m => { m.geometry = lifeG; m.visible = lodD > 0.002; });
           } else lifeM.forEach(m => { m.visible = false; });
-          const sp = [], sa = [];
-          on.forEach(o => { if (o.dim) return; const sc0 = sc1 * o.g.scale.x; o.smk.forEach(q => { for (let j = 0; j < 3; j++) { sp.push(o.g.position.x + q[0] * sc0, o.g.position.y + q[1] * sc0, o.g.position.z + q[2] * sc0); sa.push(q[3] + j / 3); } }); });
-          if (sp.length) { smG = kp(new T.BufferGeometry()); smG.setAttribute('position', new T.Float32BufferAttribute(sp, 3)); smG.setAttribute('aPh', new T.Float32BufferAttribute(sa, 1)); smP.geometry = smG; smP.visible = true; } else smP.visible = false;
+          const sp = [], sa = [], sct = [];
+          on.forEach(o => { if (o.dim) return; const P = o.g.position; o.smk.forEach(q => { for (let j = 0; j < 3; j++) { sp.push(P.x + q[0] * sc1, P.y + q[1] * sc1, P.z + q[2] * sc1); sa.push(q[3] + j / 3); sct.push(P.x, P.y, P.z); } }); });
+          if (sp.length) { smG = kp(new T.BufferGeometry()); smG.setAttribute('position', new T.Float32BufferAttribute(sp, 3)); smG.setAttribute('aPh', new T.Float32BufferAttribute(sa, 1)); smG.setAttribute('aCtr', new T.Float32BufferAttribute(sct, 3)); smP.geometry = smG; smP.visible = lodD > 0.002; } else smP.visible = false;
           dirty = true;
         }
         /* ---- routes: river parts follow the Nile, desert roads bend over the sand ---- */
@@ -385,7 +408,8 @@
         /* our boat (or caravan) at the current town */
         function placeMe(m) {
           const e = m.me, here = [...cities.values()].find(o => o.here && o.g.visible);
-          if (!e || !here) { me.visible = false; meLab.hidden = true; return; }
+          if (!e || !here) { me.visible = false; meLab.hidden = true; youP.hidden = youR.hidden = true; return; }
+          { const yk = (e.car ? 'c' : 'b') + (e.face || ''); if (yk !== youK) { youK = yk; youW = youH = 0; youP.innerHTML = '<span class="yf">' + (e.face || '') + '<i class="yb' + (e.car ? ' car' : '') + '">' + icoS(e.car ? 'i-donkey' : 'i-boat', '') + '</i></span><b>Buradasın</b>'; } youP.hidden = youR.hidden = false; }
           const key = e.car ? 'car' : [e.boat, JSON.stringify(e.up || {}), JSON.stringify(e.dev || {})].join('|');
           if (key !== meKey) {
             meKey = key; while (meS.children.length) meS.remove(meS.children[0]); if (meGeo) { meGeo.dispose(); own.splice(own.indexOf(meGeo), 1); meGeo = null; }
@@ -399,7 +423,7 @@
           const ni = nileIdx(here.x, here.y);
           if (ni.d < 0.03 && !e.car) { let j = ni.i; while (j < NS.length - 1 && Math.hypot(NS[j][0] - here.x, NS[j][1] - here.y) < 0.07) j++; x = NS[j][0]; y = NS[j][1]; const q0 = NS[Math.max(0, j - 2)], q1 = NS[Math.min(NS.length - 1, j + 2)]; rot = Math.atan2(-(q1[0] - q0[0]), -(q1[1] - q0[1])); }
           else { x = here.x + 0.062; y = here.y + 0.03; rot = -0.6; }
-          me.position.set(mX(x), Math.max(-1.2, mapH(art, x, y)) + (e.car ? 0.1 : 0.05), mZ(y)); me.rotation.y = rot; me.visible = true; me.userData.x = x; me.userData.y = y; meLab.hidden = false;
+          me.position.set(mX(x), Math.max(-1.2, mapH(art, x, y)) + (e.car ? 0.1 : 0.05), mZ(y)); me.rotation.y = rot; me.visible = true; me.userData.x = x; me.userData.y = y; meLab.hidden = true;
         }
         function update(m) {
           if (killed) return;
@@ -461,7 +485,16 @@
           U.uFocal.value = ODIST / u;
           /* zoom levels: far = the routes and days, mid = town plaques with price hints, near = the villages too */
           const t2 = z < 1.45 ? 0 : z < 2.3 ? 1 : 2;
-          if (t2 !== tier) { tier = t2; labs.dataset.z = t2; labs.classList.toggle('v3m-z', t2 > 0); cities.forEach(o => { o.g.scale.setScalar(TSC()); if (o.c) setLab(o); }); bakeOK = false; lifeSet(); if (sel) selG.position.y = sel.base - 0.75 * TSC(); }
+          if (t2 !== tier) { tier = t2; labs.dataset.z = t2; labs.classList.toggle('v3m-z', t2 > 0); cities.forEach(o => { if (o.c) setLab(o); }); bakeOK = false; }
+          /* v47: the level of detail follows the zoom continuously (see TSC) */
+          if (Math.abs(z - lodZ) > 1e-4) {
+            lodZ = z; const nt = 0.8 + 0.2 * sm01((z - 1) / 1.3), nd = sm01((z - 1.3) / 0.4), ni = 1 - sm01((z - 1.3) / 0.34);
+            if (nt !== tsc || nd !== lodD || ni !== lodI) {
+              tsc = nt; lodD = nd; lodI = ni; uLodS.value = tsc * lodD; cities.forEach(lodSet); bakeOK = false;
+              const lv = lodD > 0.002; lifeM.forEach(m => { m.visible = lv && !!lifeG; }); smP.visible = lv && !!smG;
+              if (sel) selG.position.y = sel.base - 0.75 * tsc;
+            }
+          }
         }
         function scr(x, y, z) { _v.set(x, y, z).project(cam); return [(_v.x + 1) / 2 * W, (1 - _v.y) / 2 * H]; }
         /* ---- labels: the preferred side first (or the side used last time), then any side that overlaps nothing ---- */
@@ -488,6 +521,29 @@
             placed.push({ x, y, w:cw, h:cw, o:'L' }); }
           obstacles(placed);
           cities.forEach(o => { if (o.g.visible) { vis2.push(o); placed.push(mRect(o)); } });
+          /* v47: the "you are here" pin and ripple, placed before every plaque (the plaques make room for it) */
+          { const ho = vis2.find(o => o.here);
+            if (ho && !youP.hidden) {
+              const X0 = mX(ho.x), Z0 = mZ(ho.y), ts = ho.g.scale.x, R0 = 4.3 * CS * ts * 1.3, c = scr(X0, ho.base, Z0), ex = scr(X0 + R0, ho.base, Z0), ez = scr(X0, ho.base, Z0 + R0);
+              const rx = Math.max(10, Math.abs(ex[0] - c[0])), ry = Math.max(5, Math.abs(ez[1] - c[1])), off = c[0] < -rx || c[0] > W + rx || c[1] < -ry || c[1] > H + ry;
+              vis(youR, !off); vis(youP, !off);
+              if (!off) {
+                const rs = 'translate(' + Math.round(c[0] - rx) + 'px,' + Math.round(c[1] - ry) + 'px)', ws = Math.round(rx * 2) + 'px', hs = Math.round(ry * 2) + 'px';
+                if (youR.style.transform !== rs) youR.style.transform = rs; if (youR.style.width !== ws) youR.style.width = ws; if (youR.style.height !== hs) youR.style.height = hs;
+                /* over the token, its tail on the token; shifted sideways, lifted, or under it when a neighbour's token or the edge is there */
+                const tp = scr(X0, ho.base + (52 * lodI + 30 * lodD) * 0.1 * CS * ts, Z0), w = youW || (youW = youP.offsetWidth), h = youH = youW && youH || youP.offsetHeight, yu = tp[1] - h - 9, yd = c[1] + ry + 9;
+                let best = null, lo = 1e9;
+                [[yu, 20, 0], [yu, w - 20, 0], [yu, w / 2, 0], [yu - 12, 20, 0], [yu - 12, w - 20, 0], [yd, 20, 1], [yd, w - 20, 1], [yd, w / 2, 1], [yu - 26, 20, 0], [yd + 12, 20, 1]].some(([y, ax, dn], n) => {
+                  const rr = { x:Math.max(2, Math.min(W - w - 2, tp[0] - ax)), y, w, h }; if (y < 2 || y + h > H - 2) return false;
+                  let ov = 0; for (let q = 0; q < placed.length; q++) { const p2 = placed[q]; if (p2.o === ho) continue; const ix = Math.min(rr.x + w, p2.x + p2.w) - Math.max(rr.x, p2.x), iy = Math.min(rr.y + h, p2.y + p2.h) - Math.max(rr.y, p2.y); if (ix > 0 && iy > 0) ov += ix * iy; }
+                  ov += n * 6; if (ov < lo) { lo = ov; best = { rr, dn }; } return ov <= n * 6;
+                });
+                if (!best) best = { rr:{ x:Math.max(2, Math.min(W - w - 2, tp[0] - 20)), y:Math.max(2, yu), w, h }, dn:0 };
+                const tx = Math.round(Math.max(12, Math.min(w - 12, tp[0] - best.rr.x))) + 'px';
+                youP.classList.toggle('dn', !!best.dn); if (youP.style.getPropertyValue('--tx') !== tx) youP.style.setProperty('--tx', tx);
+                placed.push(Object.assign(put(youP, best.rr), { o:'L' }));
+              }
+            } else { vis(youR, false); vis(youP, false); } }
           if (me.visible) { const p = scr(me.position.x, me.position.y + 1, me.position.z); placed.push({ x:p[0] - 12, y:p[1] - 14, w:24, h:18, o:'M' }); }
           const fits = (rr, mine2, lab) => rr.x >= 1 && rr.y >= 1 && rr.x + rr.w <= W - 1 && rr.y + rr.h <= H - 1 && placed.every(q => q.o === mine2 || (lab && q.o !== 'L' && q.o !== 'X') || !ovl(rr, q));
           /* a fixed order (here first, then the map order): choosing a town never shuffles the other labels */
@@ -528,7 +584,7 @@
             vis(ch.el, !!best || ch.rt);
             if (best || ch.rt) placed.push(Object.assign(put(ch.el, best || at(0.5)), { o:'L' }));
           });
-          if (me.visible) { const w = meLab.offsetWidth, h = meLab.offsetHeight, P0 = me.position, up = scr(P0.x, P0.y + 3.2, P0.z), c4 = [{ x:up[0] - w / 2, y:up[1] - h, w, h }, { x:up[0] + 4, y:up[1] - h / 2, w, h }, { x:up[0] - w - 4, y:up[1] - h / 2, w, h }, { x:up[0] - w / 2, y:up[1] + 14, w, h }]; const rr = c4.find(q => fits(q, 'M')); vis(meLab, !!rr); if (rr) placed.push(Object.assign(put(meLab, rr), { o:'L' })); }
+          /* v47: our boat's own "Teknen" tag is gone: the pin over the town says it (face + boat) */
         }
         let sethiR = null;
         function sethiPut(fits) {
@@ -572,6 +628,19 @@
           const tx = (_v.x - zb.cx) / zb.upp, ty = (zb.cy - _v.y) / zb.upp;
           if (zp.tgt.z > 2 && Math.hypot(zp.tgt.x - tx, zp.tgt.y - ty) < 20) return false;
           zp.go(2.6, tx, ty); if (!o.sel && !o.here) pick(i); return true;   /* v45: a far town can be chosen too (its card says why and how) */
+        }
+        /* v47: where a town sits in the zoom's pan units (screen px at the whole view, from the fit's centre) */
+        function panOf(o) { _v.set(mX(o.x), o.base, mZ(o.y)).applyMatrix4(ocam.matrixWorldInverse); return { x:(_v.x - zb.cx) / zb.upp, y:(zb.cy - _v.y) / zb.upp }; }
+        const hereO = () => [...cities.values()].find(q => q.here && q.g.visible);
+        /* the locate button: glide to your town (a little closer if you are looking from afar) */
+        function locate(z) { const o = hereO(); if (!o || !zb || !zp) return false; const p = panOf(o); zp.go(z || Math.max(1.6, Math.min(2.4, zp.tgt.z)), p.x, p.y); kick(4000); return true; }
+        /* v47: the map opens framed on your town (with the chosen town too, when one is chosen): a short glide in from the whole view */
+        let openFrame = false;
+        function frameOpen() {
+          const o = hereO(); if (!o || !zb || !zp) return;
+          const p = panOf(o); let tx = p.x, ty = p.y, z = 1.3;
+          if (sel && sel !== o) { const q = panOf(sel), dx = Math.abs(p.x - q.x) + 150, dy = Math.abs(p.y - q.y) + 140; tx = (p.x + q.x) / 2; ty = (p.y + q.y) / 2; z = Math.max(1, Math.min(1.3, W / dx, (H - padB()) / dy)); }
+          zp.reset(true); if (z > 1.02) { zp.go(z, tx, ty); if (RED) zp.step(1); }
         }
         const acc = () => { const ri = r.info.render; frameCalls += ri.calls; frameTris += ri.triangles; };
         const bakeable = () => r.capabilities.isWebGL2 && T.WebGLMultisampleRenderTarget && T.DepthTexture && mapTable.opt.bake !== false;
@@ -654,7 +723,7 @@
           raf = 0; if (killed || !el) return;
           if (document.hidden || !inView || !el.isConnected) return;   /* resumed by visibility / intersection / input */
           if (!mine) { if (GLS.owner && GLS.owner !== viewObj) { raf = requestAnimationFrame(tick); return; } if (!glsClaim(viewObj)) { el.classList.remove('v3-on'); return; } r.setPixelRatio(pr); }
-          if (needFit) { if (fit()) { needFit = false; dirty = true; } }
+          if (needFit) { if (fit()) { needFit = false; dirty = true; if (openFrame) { openFrame = false; frameOpen(); } } }
           else if (W !== el.clientWidth || H !== el.clientHeight) { needFit = true; raf = requestAnimationFrame(tick); return; }
           if (myEp !== VIS.epoch) { myEp = VIS.epoch; gapA = 33; gapN = 0; lastR = 0; slowM = false; dirty = true; }
           const zb2 = zp && zp.busy(), amb = !slowM && now < awake && !RED;
@@ -702,7 +771,7 @@
           try { io = new IntersectionObserver(es => { inView = es[es.length - 1].isIntersecting; if (inView) { dirty = true; kick(2000); } }); io.observe(el); } catch (e) { io = null; }
           /* the sheet can be replaced without a close: give the renderer back when our box leaves the page */
           wd = setInterval(() => { if (el && !el.isConnected) inst.release(); }, 1000);
-          inView = true; W = H = 0; needFit = true; dirty = true; lastR = 0; fast = true; tier = -1;
+          inView = true; W = H = 0; needFit = true; dirty = true; lastR = 0; fast = true; tier = -1; openFrame = mapTable.opt.frame !== false;
           update(model2 || mdl); kick(8000);
           return true;
         }
@@ -719,6 +788,7 @@
           update(m) { if (!killed) update(m); },
           zoom(z) { if (!zp) return 1; if (z == null) return zp.tgt.z; zp.set(+z || 1); return zp.tgt.z; },
           resetView() { if (zp) zp.reset(); },
+          locate(z) { return !killed && locate(z); },
           release() { if (killed) return; detach(); if (!mapPark || mapPark === inst) mapPark = inst; else kill(); },
           stats() { const m = r.info.memory; return { geos:m.geometries, tex:m.textures, calls:frameCalls, tris:frameTris, progs:(r.info.programs || []).length, W, H, pr, slow:slowM, bakes, frames, idle:!raf, tier, view:'iso', firstMs:Math.round(inst.firstMs), buildMs, job:inst.job ? inst.job.info() : null }; },
           debug() { return { sc, r, cam, terrain, BOATS, CARS, NS, CA }; },
@@ -750,6 +820,7 @@
         hit(cx, cy) { try { return mine() ? M.hitTest(cx, cy) : -1; } catch (e) { return -1; } },
         zoom(z) { try { return mine() ? M.zoom(z) : 1; } catch (e) { return 1; } },
         resetView() { try { if (mine()) M.resetView(); } catch (e) {} },
+        locate(z) { try { return mine() ? M.locate(z) : false; } catch (e) { return false; } },
         get on() { return mine() && el.classList.contains('v3-on'); },
         ready:null
       };

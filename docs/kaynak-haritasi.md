@@ -1,4 +1,4 @@
-# Nil Kervancısı source map (v46)
+# Nil Kervancısı source map (v47)
 
 Build: `./build.sh` (runs `python3 src/assemble.py`) → dist/. Order is in assemble.py.
 Folders ui/, sea/, v3/ are single files split by section; parts are joined in name order (same IIFE scope, so names are shared).
@@ -207,6 +207,22 @@ units: fingers are imprecise), routed steering at full speed. Keys/pads: `assist
 `contextmenu` blocked on #sea; the left/right pads are hidden in the dive (they could not go up or down). Items get `inside = inHull()`
 (on phones the hull covers the old sand spots). Air 12.5 s (was 9), dive 30 s (was 26). A light shaft and gold plank ends mark the
 gap, dashed funnel lines over it. Debug: `st.way`, `st.inHull`. Images: docs/qa46.
+v47 travel map & caravan yard (owner report; `v3/04-05`, `ui/13-hub-sheets.txt`, `ui/03-state-render.txt` zoomCtl, `ui/12-hub.txt` layoutStage,
+`town29.txt`, `map45.css`): "you are here": `mapModel().me.face` (hero icon, cached `youFaceH`); 3D `.v3m-you` pin (face + boat/donkey badge +
+"Buradasın", placed first in `layout()` over / beside / under the token, its tail `--tx` on the token) and `.v3m-pulse` (two CSS ripples on
+the token's ground ellipse); the old "Teknen" tag is gone, the here plaque is gold with a heavier frame and no sub line. The table opens
+framed on your town (`frameOpen`: z 1.3, or framing you + the chosen town; `mapTable.opt.frame = false` turns it off); `locate()` (inst + api)
+glides back to it, the zoom stack's gold `data-zoom="me"` button ("Konumuma git", map only). 2D map: `.youp` pin (`youSide`: over, under
+or left, wherever no other town is), `.ypulse`, the name in a gold pill. Level of detail: `ICONK[id]` (04) = one bold landmark on an
+`ICAP` coloured cap (no drawn lines, ink hull only, landmark ×1.15); per town `o.ic` next to the diorama `o.mg`; `lodSet(o)`: token scale
+`tsc` = 0.8 → 1 continuous over z 1–2.3 (was a step per tier), diorama share `lodD` = smoothstep z 1.3–1.7, landmark `lodI` = 1 − smoothstep
+z 1.3–1.64, both scale about the plinth top (no pop); hidden at 0 (far: fewer draw calls). Moving parts are built once at full size with
+`aCtr` (town centre) and scaled in the shader by `uLodS` = tsc × lodD (`TOON_VL`, `SM_VL` = TOON_V / SM_V with the scale patched in); the
+life key no longer has the scale. Town (3D): caravan hubs get a caravan yard on land at the south-west edge (`CARSP` x -10 z 106: lot 9 and
+the tree slot beside it give way; `carYard`: trodden ground, a track west, low mud wall, trough, tether post, fodder, jars); three donkeys
+in a file heading west + driver. Its plaque (and the donkeys' 'ship' plaque in desert towns / Saww) is `pinned`: laid out first, only
+over the beasts, a leader (`.carpin`, `--ll`, `--lx`) when lifted. 2D town on phones: a tag whose picture is beyond the crop gets an arrow
+toward it (`.stag.offl/.offr`, `.sarr`; the hub caravan at the quay's west end shows "‹ Kervan"). Images: docs/qa47-harita.
 
 ## Music (v44)
 - `snd-syn.txt` — `NilSynth()`: self-contained music synthesiser (its source text is also the render Worker's body, so it must not use game names). Instruments (Karplus-Strong oud/bass, modal harp/kanun, ney/reed wind phrases, wavetable drones/choir, modal darbuka/bendir/tabl/riq/sistrum/zills/bowl), buses + EQ, ping-pong echo, half-rate FFT convolution reverb, master compressor + soft ceiling, the six compositions (`composeMenu/Port/Bazaar/Temple/Sail/Chase`) and `TRACKS` (tempo, bars, reverb, measured bus gains and loudness trims). `job(name)` renders in steps (`step(ms)`), `onSeg` streams 1 s segments.

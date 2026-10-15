@@ -625,6 +625,47 @@ void main() { vec2 q = gl_PointCoord - 0.5; float d = length(q); if (d > 0.5) di
       },
       def(k) { house(k, -8, -4, 26, 18, '#E6CB95'); house(k, 14, 8, 20, 14, '#DCBB82'); }
     };
+    /* ---------- v47 (owner: "unzoomed, the miniatures look cluttered"): the far-zoom tokens. One bold landmark per town on a
+       coloured cap, no small parts, no drawn lines (the ink hull outlines it); the map crossfades by scale into the dioramas above
+       as it zooms in. Kit units as CITYK (the plinth's top is y 0, radius TOK). ---------- */
+    const ICAP = { perbastet:'#5E9A44', mennefer:'#B7412E', abidos:'#D9A43A', vaset:'#1F5FA8', abu:'#3F7CC4', siwa:'#E3B860', kharga:'#6FA84E', saww:'#2BA59A' };
+    const ICONK = {
+      perbastet(k) { k.add('box', MC.gran, 0, 4, 2, 26, 5, 22); k.add('box', K.gold, 0, 6.8, 2, 27, 0.8, 23); bastet(k, 0, 7.2, 0, 1.75); },
+      mennefer(k) {
+        k.add('cone4', '#F0DDAE', -4, 1.4 + 22, -4, 31, 44, 31, 0, Math.PI / 4); k.add('cone4', K.gold, -4, 1.4 + 44 - 4.2, -4, 6, 8.4, 6, 0, Math.PI / 4);
+        k.add('cone4', '#E6CF9C', 21, 1.4 + 10.5, 17, 15, 21, 15, 0, Math.PI / 4); k.add('cone4', K.gold, 21, 1.4 + 21 - 2.4, 17, 3.4, 4.8, 3.4, 0, Math.PI / 4);
+      },
+      abidos(k) {
+        k.add('box', K.stone2, 0, 3.4, 0, 58, 4, 36); k.add('box', '#F4E7C6', 0, 13, -4, 50, 15, 22); cornice(k, 0, 21.6, -4, 50, 22, K.red);
+        for (let j = 0; j < 6; j++) { const x = -21 + j * 8.4; k.add('c8', '#F4E7C6', x, 12.6, 10.5, 2.4, 14.4, 2.4); k.add('box', K.lapis, x, 19.4, 10.5, 4.4, 1.2, 4.4); }
+        k.add('box', '#F4E3B8', 0, 20.8, 10.5, 50, 1.6, 6); k.add('box', MC.dark, 0, 9.6, 7.2, 6, 10, 0.6);
+        k.add('cone4', K.gold, 0, 28.5, -4, 4, 11, 4, 0, Math.PI / 4); k.add('sph5', K.gold, 0, 34.6, -4, 1.6);
+      },
+      vaset(k) {
+        [-13, 13].forEach(x => { k.add('tap', K.stone, x, 1.4 + 17, -4, 15, 34, 9, 0, Math.PI / 4); k.add('box', '#F4E3B8', x, 36.4, -4, 16, 2, 10); k.add('box', K.red, x, 34.2, -4, 15.6, 1.4, 9.6); });
+        k.add('box', K.stone2, 0, 1.4 + 12, -2, 9, 24, 8); k.add('box', MC.dark, 0, 8, 2.2, 5, 13, 0.6); k.add('box', K.gold, 0, 22, 2.3, 7, 1.4, 0.6);
+        [[-20, K.red], [20, MC.turq]].forEach(([x, c]) => { k.stick([x, 1.4, 2], [x, 46, 2], 0.9, K.wood2, 'c6'); k.add('box', c, x + (x < 0 ? -5 : 5), 42, 2, 9, 4.6, 0.8); });
+        obelisk(k, -4, 18, 0.5);
+      },
+      abu(k) {
+        k.geo(mmg().peb, '#E9CF98', mtx(0, 1.4, 2, 30, 5, 24)); k.geo(mmg().peb, '#A8786C', mtx(24, 2, -14, 7, 6, 6)); k.geo(mmg().peb, '#8E625A', mtx(-25, 1.6, 16, 5, 4.4, 4.6));
+        mElephant(k, 0, 4.6, 2, 0.5, 1.45);
+      },
+      siwa(k) {
+        g24(k, 'c24', '#5FA3D2', 14, 1.4, 12, 13, 0.6, 9); g24(k, 'c24', '#CFEDEA', 14, 2, 12, 9, 0.2, 6);
+        k.add('box', MC.mud, -14, 1.4 + 7, 14, 14, 14, 12); k.add('box', MC.mud2, -14, 15.4, 14, 15, 1.4, 13);
+        mPalm(k, null, -6, -8, 0.98, 1.4); mPalm(k, null, 12, -16, 0.74, 1.4);
+      },
+      kharga(k) { chapel(k, -4, 1.4, 4, 30, 17, '#C99D6C'); k.add('box', K.gold, -4, 1.4 + 33, 4, 1.4, 4, 1.4); mPalm(k, null, 22, -14, 0.72, 1.4); },
+      saww(k) {
+        k.add('sph', '#7A4426', 0, 4.2, 4, 32, 6.4, 10); k.add('box', '#8E5A33', 0, 7.6, 4, 44, 2, 12);
+        k.stick([22, 6, 4], [31, 17, 4], 1.6, '#7A4426', 'c6'); k.stick([-22, 6, 4], [-30, 15, 4], 1.6, '#7A4426', 'c6');
+        k.stick([0, 8, 4], [0, 50, 4], 1.1, K.wood2, 'c6'); k.add('box', K.wood2, 0, 47, 4, 34, 1.4, 1.4); k.add('box', K.wood2, 0, 17, 4, 34, 1.4, 1.4);
+        k.add('box', '#FBF3DF', 0, 32, 5.2, 32, 28, 0.8); [26, 38].forEach(y => k.add('box', K.red, 0, y, 5.8, 32.4, 2.6, 0.6));
+        k.add('box', K.lapis, 0, 54, 4, 1, 5, 7);
+      },
+      def(k) { k.add('sph', K.gold, 0, 10, 0, 10, 10, 10); }
+    };
 
     /* ---------- one live map table ---------- */
     const MAPS = new Set(), CS = 1.3, TOK = 44, LSC = 0.98;   /* TOK: the city token radius in kit units (x 0.1 * CS = world); LSC: the miniature's scale on it */
