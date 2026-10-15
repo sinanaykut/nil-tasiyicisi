@@ -85,7 +85,7 @@
     let s = '<div class="vstrip iso">' + node('city', CITIES[L.from].name, '<i class="vci">' + cIco(L.from, 16) + '</i>');
     if (L.quick) s += '<i class="vl"></i>' + node('fog', 'Zarla', '<i class="vci">🎲</i>');
     else (L.path || []).forEach(t => { const d = NODES[t]; if (d) s += '<i class="vl"></i>' + node(t, d.name); });
-    if (L.chaser) s += '<i class="vl"></i>' + node('night', 'Pusu', '<i class="vci">⚔</i>');
+    if (L.chaser) s += '<i class="vl"></i>' + node(L.car ? 'dunes' : 'night', L.car ? 'Akıncılar' : 'Pusu', '<i class="vci">⚔</i>');
     if (L.rival) s += '<i class="vl"></i>' + node('rapids', 'Sethi', '<i class="vci s">S</i>');
     return s + '<i class="vl"></i>' + node('city', CITIES[S.city].name, '<i class="vci">' + cIco(S.city, 16) + '</i>') + '</div>';
   }
@@ -144,6 +144,7 @@
     const cell = (lab, v, sign, cls) => '<span class="' + cls + '"><small>' + lab + '</small><b data-count="' + Math.abs(v) + '" data-pre="' + sign + '">' + sign + '0</b></span>';
     s += '<div class="a42-sum">' + cell(dz || !isRiver(L.from) ? 'Yoldan' : 'Nehirden', lg.river || 0, '+', 'pos') + cell(loss ? 'Kayıp ve ceza' : 'Faiz', loss || lg.interest || 0, '−', (loss || lg.interest) ? 'neg' : '');
     if (loss && lg.interest) s += cell('Faiz', lg.interest, '−', 'neg');
+    else if (L.car) s += '<span class="a47-life dz48c"><small>Can · Eşekler · Su</small><b class="hp2"><i class="hh">' + heartsHtml(heroHp(S), heroMax(S)) + '</i>' + dzMiniDk(L.car.dk, L.car.water) + '</b></span>';   /* v48: the donkeys as they came in */
     else if (S.caravan) s += '<span><small>Su</small><b>' + ico('i-water', 15) + ' ' + S.caravan.water + ' gün</b></span>';
     else { s += '<span class="a47-life"><small>Can · Gövde</small><b class="hp2"><i class="hh">' + heartsHtml(heroHp(S), heroMax(S)) + '</i>' + plankHtml(hullNow(S), maxHp(S)) + '</b></span>'; }   /* v47: your hearts and the boat's planks side by side, never mixed */
     const cd = L.cash0 != null ? S.cash - L.cash0 : net;

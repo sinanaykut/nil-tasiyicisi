@@ -50,6 +50,8 @@ Folders ui/, sea/, v3/ are single files split by section; parts are joined in na
 | quick45.txt | 33 |
 | stops48.css | 16 |
 | stops48.txt | 60 |
+| desert48.txt | 58 |
+| desert48.css | 25 |
 | town29.css | 2 |
 | town29.txt | 134 |
 | ui/01-port-scene.txt | 36 |
@@ -241,6 +243,8 @@ own tap sound (`tapSnd`), haptics, combo on the pad. Guide (ui/12): `sellPick()`
 the way out to `guideDest()` (today's prices vs your cost); `tutPlan` needs a real gain; the phone strip avoids the label and the 3D
 spot (`tutAvoid` via `T3.where`), lets taps through when it cannot (`.tut.thru`); tapping the bubble does the step (`tutBind`/`tutDo`).
 Images: docs/qa47-yol.
+
+v48 desert road (`desert48.txt` + `desert48.css`; hooks in ui/06 makeVoyage/renderVoy/chooseNode/afterStop/skipVoyage/endVoyage, `core.txt` dk* helpers, dzApply, caravanDays, arrive): own road screen (panorama with day/night, caravan SVG, route track, donkeys + water card, today's choice, evening camp card) and DOM scenes dzPath/dzStorm/dzCanyon/dzStars/dzMirage/dzRaid; damage lands on donkeys (`S.caravan.dk`: 2 dinç, 1 yorgun, 0 bitkin; `K.slack` = loads carried slowly); debug `fn.desertBot/dzPlay/dzRaid/dzCamp/dzRender`. Images: docs/qa48-kervan-*.
 
 ## Music (v44)
 - `snd-syn.txt` — `NilSynth()`: self-contained music synthesiser (its source text is also the render Worker's body, so it must not use game names). Instruments (Karplus-Strong oud/bass, modal harp/kanun, ney/reed wind phrases, wavetable drones/choir, modal darbuka/bendir/tabl/riq/sistrum/zills/bowl), buses + EQ, ping-pong echo, half-rate FFT convolution reverb, master compressor + soft ceiling, the nine compositions (`composeMenu/Port/Bazaar/Temple/Sail` + v47 scene tunes `composeRace/Chase/Rough/Dive`; a bus may override its EQ per track, e.g. the muffled dive) and `TRACKS` (tempo, bars, reverb, measured bus gains and loudness trims). `job(name)` renders in steps (`step(ms)`), `onSeg` streams 1 s segments.

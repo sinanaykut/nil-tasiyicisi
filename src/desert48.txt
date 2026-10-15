@@ -1,0 +1,596 @@
+  /* ================= v48 the desert road (owner: "the caravan journey is very much like the sea voyage; what if we take damage?") =================
+     The desert has its own screen: a side view of the trail with the donkey caravan walking over the dunes, a day/night sky, the
+     destination's palms on the horizon, the donkeys and the water skins as the road's resources, and a choice of tomorrow's way.
+     Stops are desert-only scenes (firm path in the dunes, sandstorm, canyon ledges, star path at night, mirage) plus the oasis, the
+     sand tomb and the raiders. Damage lands on the donkeys (core.txt dk*): 2 dinç, 1 yorgun, 0 bitkin (carries nothing).
+     06-voyage.txt dispatches here: makeVoyage → dzInit, renderVoy → dzRender, chooseNode → dzChoose, afterStop → dzAfter,
+     skipVoyage → dzSkip, endVoyage → dzResult. */
+  const DZ_PLAY = ['dunes', 'canyon', 'sstorm', 'stars'];
+  const DK_NAMES = ['Pamuk', 'Kara', 'Boncuk', 'Tarçın', 'Fındık', 'Zeytin', 'Ceviz', 'Lokum'];
+  const DK_COL = ['#A28F7B', '#7F6C5C', '#B4A18A', '#8E7765', '#9A8A7A', '#86735F', '#AE9A82', '#7A6B60'];
+  const DK_ST = ['bitkin', 'yorgun', 'dinç'];
+  const DZ_SUB = {
+    dunes:'Sağlam yolda kal, yumuşak kuma basma', canyon:'Rehber taşlı kayaya bas', sstorm:'Rüzgâr gelince eşekleri çöktür',
+    stars:'Gece yürü: doğru yıldızı izle', oasis:'Su, gölge, dinlenme', mirage:'Gerçek vahayı seraptan ayır', dtomb:'Mührü çöz, lahdi aç', ruin:'Mührü çöz, lahdi aç'
+  };
+  let DZS = null;                        /* the running scene */
+  const dzK = () => S && S.caravan ? dkFix(S.caravan) : null;
+  const dzR = k => vRng((VG.plan.seed | 0) + VG.layer * 977 + (k || 0) * 131);
+  function dzInit(V) {
+    Object.assign(V, { dz:true, revealAll:true, raceDone:true, tod:'dawn', dzStage:'pick', dzDays:0, dzLost:0, dzSlow:0, dzLines:[], camp:null, dzRaid:null, dzHurt:0 });
+    const K = dzK(); if (K) { V.hp = dkWalk(K); V.maxhp = K.donkeys; }
+  }
+  const dzSync = () => { const K = dzK(); if (K && VG) VG.hp = dkWalk(K); };
+
+  /* ---------- drawings ---------- */
+  const DZ_I = 'stroke="#2B1D14" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"';
+  /* one donkey facing right in a 64x48 box (hooves at y 46); st: 2 dinç, 1 yorgun, 0 bitkin; packs: what it carries */
+  function dzDonkey(i, st, packs, x, sc) {
+    const C = st > 0 ? DK_COL[i % DK_COL.length] : '#A39C94';
+    const leg = (cx, k, d) => '<rect class="dz-leg ' + k + '" x="' + (cx - 2) + '" y="24" width="4.2" height="20" rx="1.8" fill="' + C + '"' + (d ? ' style="animation-delay:' + d + 's"' : '') + '/><rect x="' + (cx - 2.2) + '" y="42" width="4.6" height="3.4" rx="1" fill="#2B1D14"/>';
+    let s = '<g class="dz-dk s' + st + '" transform="translate(' + x + ' 0) scale(' + sc + ')" ' + DZ_I + '>';
+    s += '<path class="dz-tl" d="M14 17q-7 2-8 12" fill="none" stroke-width="2.4"/><path d="M6.5 28l-2.6 5 4.6-1.6z" fill="#2B1D14"/>';
+    s += '<g class="dz-legs">' + leg(18, 'b') + leg(42, 'b') + '</g>';
+    s += '<g class="dz-bd"><path d="M14 19q0-8 9-8h17q9 0 9 8v3q0 6-7 6H21q-7 0-7-6z" fill="' + C + '"/><path d="M21 25.5q10 2.6 21 0" fill="none" stroke="#E2D4BE" stroke-width="3"/>';
+    s += '<g class="dz-hd"><path d="M42 17l6-10q2-3 6-2l6 4q3 2 1 5l-3 2h-6l-4 7z" fill="' + C + '"/><path d="M57 8.6l4 2.6q2 2 0 4l-3 .8z" fill="#E2D4BE" stroke-width="1.2"/><path d="M49.5 6l-4-8 4.6 1.4 2 6z" fill="' + C + '"/><path d="M53 5l.6-8 3.4 3.4-1.4 5z" fill="' + C + '"/><circle cx="54" cy="8.6" r="1.1" fill="#2B1D14" stroke="none"/><path d="M44.5 15l5-8.6" fill="none" stroke="#4E3D2E" stroke-width="2.6"/></g>';
+    if (packs) s += '<path d="M21 11h17l1.6 8H19.6z" fill="#B7412E"/><path d="M22 13.5h15" stroke="#F2C65A" stroke-width="1.4"/><rect x="20" y="1.5" width="9.5" height="10.5" rx="3.4" fill="' + packs[0] + '"/><rect x="29.5" y="3" width="9.5" height="9" rx="3" fill="' + packs[1] + '"/><path d="M24 6.5h11" stroke="#6E4A2A" stroke-width="1.2"/><ellipse cx="18.5" cy="20" rx="3" ry="4.4" fill="#7A5230"/>';
+    s += '</g>' + leg(22, 'a') + leg(38, 'a');
+    if (st === 1) s += '<g class="dz-sw" stroke="none"><path d="M62 0q2.4 3.4 0 4.6q-2.4-1.2 0-4.6z" fill="#7FC4E8"/><path d="M66 6q1.8 2.6 0 3.4q-1.8-.8 0-3.4z" fill="#7FC4E8"/></g>';
+    if (st === 0) s += '<text x="56" y="-2" class="dz-zz" stroke="none" fill="#5A4632" font-size="10" font-weight="800">!</text>';
+    return s + '</g>';
+  }
+  /* our guide in front: kilt, head cloth, a staff */
+  const dzGuide = x => '<g class="dz-gd" transform="translate(' + x + ' 0)" ' + DZ_I + '><rect class="dz-leg a" x="6" y="28" width="3.6" height="16" rx="1.6" fill="#B47A52"/><rect class="dz-leg b" x="10.5" y="28" width="3.6" height="16" rx="1.6" fill="#B47A52"/>' +
+    '<path d="M4 20h13l2 10H3z" fill="#F7EFDF"/><path d="M6 8h9l1 13H5z" fill="#B47A52"/><path d="M16 12l6 5" stroke-width="3" fill="none" stroke="#B47A52"/><path d="M22 2v44" stroke="#6E4A2A" stroke-width="2.4"/><circle cx="11" cy="4" r="5" fill="#B47A52"/><path d="M5 3q6-7 12 0l1 6-3-3H8l-3 4z" fill="#F7EFDF"/><path d="M5 22h14" stroke="#1F5FA8" stroke-width="2"/></g>';
+  const DZ_PACK = [['#C98A2E', '#E6C98A'], ['#5A7FB0', '#C9A063'], ['#C9A063', '#B7412E'], ['#E6C98A', '#2BA59A']];
+  /* the caravan as one svg: guide in front (right), donkeys behind it; at most `max` donkeys drawn */
+  function dzCaravan(max, noMore) {
+    const K = dzK(), n = K ? K.donkeys : 3, dk = K ? K.dk : [2, 2, 2], m = Math.min(n, max || 8), sp = m > 5 ? 38 : 44, sc = m > 5 ? 0.86 : 1;
+    const w = 30 + (m - 1) * sp + 64 * sc + 6;
+    let s = '<svg class="dz-car" viewBox="-4 -12 ' + (w + 8) + ' 62" width="' + (w + 8) + '" height="62" aria-hidden="true">';
+    s += '<path d="M8 45H' + (w - 6) + '" stroke="#2B1D14" stroke-width="1.2" stroke-dasharray="1 9" opacity=".35"/>';
+    s += '<path d="M' + (w - 26) + ' 20Q' + (w * 0.5) + ' 28 20 22" fill="none" stroke="#6E4A2A" stroke-width="1.3" opacity=".7"/>';
+    for (let k = m - 1; k >= 0; k--) s += dzDonkey(k, dk[k], dk[k] > 0 ? DZ_PACK[k % 4] : null, (m - 1 - k) * sp, sc);
+    s += dzGuide(w - 24);
+    return s + (n > m && !noMore ? '<text x="0" y="-2" font-size="12" font-weight="800" fill="#2B1D14">+' + (n - m) + '</text>' : '') + '</svg>';
+  }
+  /* small round pictures for the stops */
+  function dzIcon(t) {
+    const g = { sky:'#9FD0E8', sand:'#E6C98A', sand2:'#D2AE6C', ink:'#2B1D14' };
+    const B = (bg, inner) => '<svg class="dz-ic" viewBox="0 0 48 48" aria-hidden="true"><defs><clipPath id="dzc' + (++uid) + '"><circle cx="24" cy="24" r="21"/></clipPath></defs><g clip-path="url(#dzc' + uid + ')"><rect width="48" height="48" fill="' + bg + '"/>' + inner + '</g><circle cx="24" cy="24" r="21" fill="none" stroke="#2B1D14" stroke-width="2.4"/></svg>';
+    const dunes = '<path d="M0 34q12-10 24-4t24-4V48H0z" fill="' + g.sand + '"/><path d="M0 40q14-8 28-2t20-2V48H0z" fill="' + g.sand2 + '"/>';
+    switch (t) {
+      case 'dunes': return B(g.sky, '<circle cx="34" cy="14" r="6" fill="#F2C65A" stroke="#2B1D14" stroke-width="1.6"/>' + dunes + '<path d="M8 41q8-4 16 0t16 0" fill="none" stroke="#7A5A30" stroke-width="1.6" stroke-dasharray="2 3"/>');
+      case 'canyon': return B('#F0C890', '<path d="M0 8l14 6 2 34H0z" fill="#A9653A" stroke="#2B1D14" stroke-width="1.6"/><path d="M48 6l-14 8-3 34h17z" fill="#8F4F2C" stroke="#2B1D14" stroke-width="1.6"/><path d="M16 36h16l-2 5H18z" fill="#C9A063" stroke="#2B1D14" stroke-width="1.4"/><path d="M22 34l2-4 2 4z" fill="#8A7A6A"/>');
+      case 'sstorm': return B('#E2A866', '<path d="M6 16q14-8 30 0M2 26q18-8 36 0M8 36q14-6 30 0" fill="none" stroke="#F7E3B8" stroke-width="3.4" stroke-linecap="round"/><path d="M26 22q6-2 8 3t-4 6" fill="none" stroke="#8F4F2C" stroke-width="2.4" stroke-linecap="round"/>');
+      case 'stars': return B('#22305A', '<circle cx="16" cy="14" r="1.6" fill="#F7E7A6"/><circle cx="21" cy="17" r="1.6" fill="#F7E7A6"/><circle cx="26" cy="20" r="1.6" fill="#F7E7A6"/><circle cx="36" cy="31" r="6" fill="#CFE6FF" opacity=".35"/><path d="M36 25l1.6 4.4 4.4 1.6-4.4 1.6L36 37l-1.6-4.4-4.4-1.6 4.4-1.6z" fill="#F4FAFF" stroke="#2B1D14" stroke-width="1"/><path d="M0 42q14-6 26-2t22-2V48H0z" fill="#3E3A5E"/>');
+      case 'oasis': return B(g.sky, dunes + '<ellipse cx="22" cy="38" rx="12" ry="4" fill="#4C97B8" stroke="#2B1D14" stroke-width="1.4"/><path d="M30 38V18" stroke="#6E4A2A" stroke-width="2.6"/><path d="M30 18q-9-4-13 3q8-2 13-1q4-5 12-2q-4-6-12 0z" fill="#3E8E5A" stroke="#2B1D14" stroke-width="1.3"/>');
+      case 'mirage': return B(g.sky, dunes + '<path class="dz-shim" d="M8 26q8-3 16 0t16 0" fill="none" stroke="#5FB8DA" stroke-width="4" stroke-linecap="round" opacity=".8"/><text x="24" y="20" text-anchor="middle" font-size="13" font-weight="800" fill="#2B1D14">?</text>');
+      case 'dtomb': case 'ruin': return B(g.sky, '<path d="M2 44q8-26 22-28t22 28z" fill="' + g.sand + '" stroke="#2B1D14" stroke-width="1.6"/><path d="M18 46V32q6-5 12 0v14z" fill="#2B1D14"/><path d="M16 32h16l-2-3H18z" fill="#E8D4A8" stroke="#2B1D14" stroke-width="1.2"/>');
+      case 'raid': return B('#F0C890', '<path d="M0 34q16-12 30-6t18-2V48H0z" fill="#D2AE6C"/><g fill="#2B1D14"><path d="M12 24h10l2 4h-4l-2 6h-2l-1-6h-3z"/><circle cx="16" cy="19" r="3"/><path d="M28 22h10l2 4h-4l-2 6h-2l-1-6h-3z"/><circle cx="32" cy="17" r="3"/></g>');
+      default: return B(g.sky, dunes);
+    }
+  }
+  /* the panorama: layered divs (composited strips) + the caravan svg */
+  const dzDune = (h, c, c2, seed) => { const r = vRng(seed); let d = 'M0 ' + h; for (let x = 0; x < 520; x += 65) { const a = h - 10 - r() * 22; d += ' Q' + (x + 32) + ' ' + a + ' ' + (x + 65) + ' ' + h; } return '<svg viewBox="0 0 520 100" preserveAspectRatio="none" aria-hidden="true"><path d="' + d + ' V100H0z" fill="' + c + '"/><path d="' + d + '" fill="none" stroke="' + c2 + '" stroke-width="1.6"/></svg>'; };
+  const dzStrip = inner => '<div class="dzstrip">' + inner + inner + '</div>';
+  function dzHorizon() {
+    /* the destination: an oasis town's palms, or the hub's walls and the Nile's green strip, coming closer day by day */
+    const dest = VG.plan.dest, river = isRiver(dest);
+    let s = '<svg viewBox="0 0 120 60" aria-hidden="true">';
+    if (river) s += '<path d="M0 52q30-6 60-2t60-2v12H0z" fill="#7FAF6A"/><path d="M14 52V34h18v18zM34 52V28h22v24zM60 52V36h16v16z" fill="#C9A87A" stroke="#6E5A40" stroke-width="1.2"/><path d="M86 52V20" stroke="#6E5A40" stroke-width="2"/><path d="M80 22h14l-7-10z" fill="#C9A87A" stroke="#6E5A40" stroke-width="1.2"/>';
+    else s += '<ellipse cx="60" cy="52" rx="40" ry="5" fill="#7FAF6A"/>' + [22, 40, 58, 78, 96].map((x, k) => '<path d="M' + x + ' 52V' + (30 - (k % 2) * 8) + '" stroke="#6E5A40" stroke-width="2"/><path d="M' + x + ' ' + (30 - (k % 2) * 8) + 'q-9-3-12 3q7-2 12-1q4-5 11-1q-3-6-11-1z" fill="#4E8A56"/>').join('');
+    return s + '</svg>';
+  }
+  function dzPanHtml() {
+    return '<div class="dzpan" id="dzpan"><div class="dzsky"><i class="sk d0"></i><i class="sk d1"></i><i class="sk d2"></i><i class="sk d3"></i>' +
+      '<svg class="dzstars" viewBox="0 0 400 140" preserveAspectRatio="xMidYMid slice" aria-hidden="true">' + (() => { const r = vRng(77); let s = ''; for (let k = 0; k < 46; k++) s += '<circle cx="' + (r() * 400).toFixed(1) + '" cy="' + (r() * 130).toFixed(1) + '" r="' + (0.6 + r() * 1.3).toFixed(1) + '"' + (k % 7 === 0 ? ' class="tw"' : '') + '/>'; return s; })() + '</svg>' +
+      '<i class="dzsun"></i><i class="dzmoon"></i></div>' +
+      '<div class="dzlay far">' + dzStrip(dzDune(70, '#E9C58C', '#D9AE72', 3)) + '</div>' +
+      '<div class="dzhz" id="dzhz">' + dzHorizon() + '</div>' +
+      '<div class="dzlay mid">' + dzStrip(dzDune(60, '#DDB06E', '#C49455', 9)) + '</div>' +
+      '<div class="dzlay gnd">' + dzStrip('<svg viewBox="0 0 520 60" preserveAspectRatio="none" aria-hidden="true"><rect width="520" height="60" fill="#E7C487"/><path d="M0 30q130-8 260 0t260 0" fill="none" stroke="#C99C5C" stroke-width="5" stroke-dasharray="3 12" stroke-linecap="round"/><path d="M40 48l6-3M150 52l5-2M300 46l6-3M420 52l5-2" stroke="#B88A4E" stroke-width="2" stroke-linecap="round"/></svg>') + '</div>' +
+      '<div class="dzcarw" id="dzcarw"></div><i class="dzfire" aria-hidden="true"><b></b><b></b></i></div>';
+  }
+
+  /* ---------- the road screen ---------- */
+  function dzRender() {
+    const v = $('#voy'); if (!VG || !v) return;
+    v.classList.add('dzv');
+    let root = $('#dz48');
+    if (!root || VG.dzRoot !== root) {
+      v.innerHTML = '<div class="dz48" id="dz48"><div class="dzh" id="dzh"></div>' + dzPanHtml() + '<div class="dztrk" id="dztrk"></div><div class="dzlow"><div class="dzdk" id="dzdk"></div><div class="dzopt" id="dzopt"></div></div><div class="dzsc" id="dzsc" hidden></div></div>';
+      root = $('#dz48'); VG.dzRoot = root; VG.dzCarKey = '';
+    }
+    if (DZS) { dzHud(); return; }
+    root.dataset.tod = VG.tod; root.classList.toggle('camp', VG.dzStage === 'camp');
+    dzHud(); dzTrack(); dzCarDraw(); renderHud();
+    $('#dzopt').innerHTML = VG.dzStage === 'camp' ? dzCampHtml() : dzPickHtml();
+    const hz = $('#dzhz'); if (hz) hz.style.setProperty('--k', (0.45 + 0.55 * Math.min(1, VG.layer / Math.max(1, VG.layers.length - 1))).toFixed(2));
+    const f = document.querySelector('#dzopt .vnode:not(:disabled)'); if (f && !reduce && window.innerWidth > 860) f.focus({ preventScroll:true });
+    renderPanel();
+  }
+  function dzHud() {
+    const p = VG.plan, n = VG.layers.length, d = Math.min(VG.layer + 1, n);
+    const el = $('#dzh'); if (el) el.innerHTML = '<span class="dzr">' + cIco(p.from, 18) + '<b>' + esc(CITIES[p.from].name) + '</b><i>→</i>' + cIco(p.dest, 18) + '<b>' + esc(CITIES[p.dest].name) + '</b></span><span class="dzday">' + ico(VG.tod === 'night' || VG.tod === 'dusk' ? 'i-moon' : 'i-sun', 15) + d + '/' + n + '. gün' + (VG.dzSlow ? ' <em>+' + VG.dzSlow + ' yavaş</em>' : '') + '</span>' +
+      '<span class="vlife dzhh" title="Canın: akıncılar ve lanet götürür">' + heartsHtml(Math.max(0, VG.hh), VG.hhMax) + '</span>';
+    const dk = $('#dzdk'); if (dk) dk.innerHTML = dzDkHtml();
+  }
+  /* the donkeys and the water skins: what the desert takes from you */
+  function dzDkHtml(compact) {
+    const K = dzK(); if (!K) return '';
+    const w = dkWalk(K), L = load(S), C = cap(S), left = Math.max(0, VG ? VG.layers.length - VG.dzDays : 0), short = K.water < left;
+    let s = '<div class="dzdkh"><b>' + ico('i-donkey', 16) + 'Eşekler</b><small>' + w + '/' + K.donkeys + ' yük taşıyor · yük <b class="' + (L > C ? 'bad' : '') + '">' + L + '/' + C + '</b></small></div><div class="dzdks">';
+    K.dk.forEach((v, i) => { s += '<span class="dkc s' + v + '" title="' + DK_NAMES[i % 8] + ': ' + DK_ST[Math.max(0, v)] + '">' + ico('i-donkey', compact ? 22 : 26) + '<i class="pp"><b></b><b></b></i><small>' + (compact ? '' : esc(DK_NAMES[i % 8])) + '</small></span>'; });
+    s += '</div><div class="dzw' + (short ? ' low' : '') + '" title="Her gün bir tulum su içilir">' + Array.from({ length:Math.min(10, K.water) }, () => ico('i-water', 15)).join('') + '<b>' + K.water + ' tulum</b><small>' + (VG ? 'yol ' + left + ' gün' + (short ? ' · yetmez!' : '') : 'her gün 1') + '</small></div>';
+    return s;
+  }
+  function dzTrack() {
+    const el = $('#dztrk'); if (!el) return;
+    const p = VG.plan, n = VG.layers.length, at = VG.dzStage === 'camp' ? VG.layer + 1 : VG.layer;
+    let s = '<span class="tci">' + cIco(p.from, 22) + '</span><span class="tln">';
+    for (let k = 1; k < n; k++) s += '<i class="tpin' + (k <= at ? ' done' : '') + '" style="left:' + (100 * k / n).toFixed(1) + '%"></i>';
+    s += '<i class="tfill" style="width:' + (100 * at / n).toFixed(1) + '%"></i><span class="tmk" style="left:' + (100 * at / n).toFixed(1) + '%">' + ico('i-donkey', 20) + '</span></span><span class="tci">' + cIco(p.dest, 22) + '</span>';
+    if (el.dataset.k !== s) { el.innerHTML = s; el.dataset.k = s; }
+  }
+  function dzCarDraw() {
+    const K = dzK(), key = K ? K.dk.join('') + K.donkeys : 'x', w = $('#dzcarw'); if (!w) return;
+    if (VG.dzCarKey !== key) { VG.dzCarKey = key; w.innerHTML = dzCaravan(8); }
+  }
+  const dots = (n, on) => Array.from({ length:3 }, (_, k) => '<i class="' + (k < n ? on : '') + '"></i>').join('');
+  function dzPickHtml() {
+    const i = VG.layer, opts = VG.layers[i] || [], last = i === VG.layers.length - 1;
+    let s = '<div class="dzq">' + ico('i-map', 15) + '<b>' + (i + 1) + '. gün</b> · Bugün hangi yoldan gidelim?' + (last ? ' <small>Yarın ' + esc(CITIES[VG.plan.dest].name) + '!</small>' : '') + '</div><div class="dzops">';
+    opts.forEach((nd, j) => {
+      const d = NODES[nd.t] || NODES.dunes;
+      s += '<button type="button" class="vnode dzo t-' + nd.t + '" data-vnode="' + i + ':' + j + '" aria-label="' + esc(d.name + ': ' + d.desc) + '">' + dzIcon(nd.t) +
+        '<span class="dzot"><b>' + esc(d.name) + '</b><small>' + esc(DZ_SUB[nd.t] || d.desc) + '</small></span><span class="dzor"><em class="rk" title="Tehlike">' + dots(d.risk, 'on') + '</em><em class="gn" title="Ödül">' + dots(d.gain, 'on') + '</em></span></button>';
+    });
+    return s + '</div><p class="dzleg"><span><em class="rk"><i class="on"></i></em> tehlike</span><span><em class="gn"><i class="on"></i></em> ödül</span><span>Her gün 1 tulum su içilir</span></p>';
+  }
+
+  /* ---------- a day: pick → walk → stop → (raiders) → camp ---------- */
+  function dzChoose(i, j) {
+    if (!VG || DZS) return;
+    if (VG.dzStage === 'camp') { dzCampPick(j); return; }
+    if (VG.dzStage !== 'pick' || i !== VG.layer || VG.picks[i] != null || !VG.layers[i] || !VG.layers[i][j]) return;
+    VG.picks[i] = j; const nd = VG.layers[i][j];
+    play('click'); VG.dzStage = 'walk'; VG.tod = 'day'; VG.dzLines = [];
+    const root = $('#dz48'); if (root) { root.dataset.tod = 'day'; root.classList.add('walk'); }
+    document.querySelectorAll('#dzopt .vnode').forEach(b => { b.disabled = b.dataset.vnode !== i + ':' + j; b.classList.toggle('chosen', !b.disabled); });
+    const tm = $('#dztrk .tmk'); if (tm) tm.style.left = (100 * (i + 0.5) / VG.layers.length).toFixed(1) + '%';
+    const my = VG;
+    setTimeout(() => { if (VG !== my || phase !== 'sea') return; const r = $('#dz48'); if (r) r.classList.remove('walk'); dzStop(nd); }, reduce ? 150 : 1500);
+  }
+  function dzStop(nd) {
+    const t = nd.t;
+    if (t === 'dtomb' || t === 'ruin') { VG.dzStage = 'stop'; VG.dzLog0 = VG.log.length; nodeCard('dtomb'); return; }
+    if (t === 'oasis') { dzOasis(); return; }
+    VG.dzStage = 'scene';
+    ({ dunes:dzPath, sstorm:dzStorm, canyon:dzCanyon, stars:dzStars, mirage:dzMirage })[t]();
+  }
+  /* knocks on the donkeys inside a scene (counted as hits); returns true when the whole caravan is down */
+  function dzHit(n, why) {
+    const K = dzK(); if (!K || n <= 0) return false;
+    const h = dkHurt(K, n, dzR(VG.acc.hits + 5)); VG.acc.hits += n; VG.dzHurt += n; dzSync();
+    const nm = h.down.concat(h.tired).map(i => DK_NAMES[i % 8]);
+    const t = (why || 'Eşek tökezledi') + ': ' + nm.join(', ') + (h.down.length ? ' bitkin düştü!' : ' yoruldu.');
+    if (DZS) { DZS.why = why || 'Eşek tökezledi'; h.tired.forEach(i => { DZS.hurt[i] = 1; }); h.down.forEach(i => { DZS.hurt[i] = 0; }); }
+    else VG.dzLines.push({ k:'bad', t });
+    play('hit'); buzz('hit');
+    dzFloat(t, 'bad');
+    if (DZS && DZS.el) { const l = DZS.el.querySelector('.dzslive'); if (l) l.innerHTML = dzDkHtml(true); }
+    return dkWalk(K) === 0;
+  }
+  function dzFloat(t, k) { const st = DZS && DZS.el && DZS.el.querySelector('.dzss'); if (!st) { toast(t); return; } const f = document.createElement('div'); f.className = 'dzfl ' + (k || ''); f.textContent = t; st.appendChild(f); setTimeout(() => f.remove(), 1700); }
+  const dzNote = (title, text, kind, ic) => VG.acc.notes.push({ kind:kind || 'info', title, text, ico:ic });
+  function dzWater(dv) { const K = dzK(); if (!K) return 0; const w0 = K.water; K.water = Math.max(0, K.water + dv); return K.water - w0; }
+  function dzOasis() {
+    const K = dzK(); VG.dzStage = 'scene';
+    const w = dzWater(2), n = K ? dkRest(K, true) : 0, h = VG.hh < VG.hhMax; if (h) VG.hh++; dzSync();
+    VG.dzLines.push({ k:'good', t:'Vahada tulumlar doldu: +' + w + ' su.' }, { k:'good', t:n ? 'Eşekler hurmaların gölgesinde dinlendi: her biri +1 güç.' : 'Eşekler zaten dinçti, suya kandılar.' });
+    if (h) VG.dzLines.push({ k:'good', t:'Sen de dinlendin: +1 can.' });
+    dzNote('Vaha', 'Tulumlar doldu (+' + w + ' su)' + (n ? ', eşekler dinlendi' : '') + '.', 'good', 'i-water');
+    VG.dzOasisDates = !!S.inv.hurma; play('splash');
+    dzAfter(curPick());
+  }
+  function dzAfter(nd) {
+    if (!VG) return;
+    if (VG.dzStage === 'stop') { VG.log.slice(VG.dzLog0 || 0).forEach(t => VG.dzLines.push({ k:/lanet!|düştün/.test(t) ? 'bad' : 'info', t })); if (!VG.dzLines.length) VG.dzLines.push({ k:'info', t:'Mezara dokunmadan yola devam ettin.' }); }
+    dzSync();
+    if (VG.hp > 0 && nd && nd.amb && !VG.chaseDone) { VG.chaseDone = true; dzRaid(); return; }
+    dzCampOpen();
+  }
+  /* evening: a skin of water is drunk; a dry day tires two donkeys; a down donkey's load must be carried slowly or left */
+  function dzCampOpen() {
+    if (!VG) return;
+    if (faintCheck()) return;
+    const K = dzK(); VG.dzDays++;
+    if (K && VG.hp > 0) {
+      if (K.water > 0) { K.water--; VG.dzLines.push({ k:'info', t:'Akşam bir tulum su içildi (kalan ' + K.water + ').' }); }
+      else { const h = dkHurt(K, 2, dzR(31)); VG.acc.hits += 2; VG.dzHurt += 2; dzSync(); const t = 'Su kalmadı! Susuz kalan ' + h.down.concat(h.tired).map(i => DK_NAMES[i % 8]).join(' ve ') + ' yoruldu.'; VG.dzLines.push({ k:'bad', t }); dzNote('Su bitti', t, 'bad', 'i-water'); }
+    }
+    VG.dzStage = 'camp'; VG.tod = VG.picks[VG.layer] != null && VG.layers[VG.layer][VG.picks[VG.layer]].t === 'stars' ? 'night' : 'dusk';
+    Snd.mode('sea');
+    dzRender();
+  }
+  const dzOver = () => { const K = dzK(); return K ? load(S) - cap(S) : 0; };
+  const dzSlowOk = () => S.day + VG.plan.days + 1 <= S.days;
+  function dzCampHtml() {
+    const K = dzK(), down = K && dkWalk(K) === 0, over = dzOver(), last = VG.layer >= VG.layers.length - 1;
+    const lines = VG.dzLines.slice(-5);
+    let s = '<div class="dzcamp' + (down ? ' bad' : over > 0 ? ' warn' : '') + '"><div class="dzct"><b>' + (down ? 'Kervan dağıldı!' : over > 0 ? 'Bir eşek yükünü taşıyamıyor' : (VG.layer + 1) + '. günün akşamı') + '</b>';
+    s += lines.map(l => '<p class="' + l.k + '">' + esc(l.t) + '</p>').join('');
+    if (down) s += '<p class="bad">Bütün eşekler bitkin: yükü taşıyacak eşek kalmadı. Eşekleri toplayıp yola devam edersin ama düşen yüklerin bir kısmı kumda kalır.</p>';
+    else if (over > 0) s += '<p class="warn">Bitkin eşek yük taşıyamaz: ' + over + ' yük fazla. Diğerlerine dağıtıp yavaş yürüyebilir ya da fazlayı burada bırakabilirsin.</p>';
+    s += '</div><div class="dzcb">';
+    if (down) s += '<button type="button" class="vnode t-camp btn go1" data-vnode="camp:0">Devam</button>';
+    else if (over > 0) {
+      const dl = dzDropPreview(over);
+      s += '<button type="button" class="vnode t-camp dzcc" data-vnode="camp:1"' + (dzSlowOk() ? '' : ' disabled') + '><b>' + ico('i-donkey', 18) + 'Dağıt, yavaş yürü</b><small>' + (dzSlowOk() ? 'Yol 1 gün uzar: 1 tulum su daha' : 'Sefer bitmeden yetişemezsin') + '</small></button>';
+      s += '<button type="button" class="vnode t-camp dzcc" data-vnode="camp:2"><b>' + ico('i-close', 18) + 'Fazlayı bırak</b><small>' + esc(dl) + ' kumda kalır</small></button>';
+    } else {
+      if (VG.dzOasisDates && VG.layers[VG.layer][VG.picks[VG.layer]] && VG.layers[VG.layer][VG.picks[VG.layer]].t === 'oasis') s += '<button type="button" class="vnode t-camp dzcc" data-vnode="camp:3"' + (freeCap(S) > 0 ? '' : ' disabled') + '><b>' + ico('i-hurma', 18) + 'Hurma topla</b><small>' + (freeCap(S) > 0 ? Math.min(6, freeCap(S)) + ' hurma heybeye' : 'heybelerde yer yok') + '</small></button>';
+      s += '<button type="button" class="vnode t-camp btn go1" data-vnode="camp:0">' + (last ? ico('i-donkey', 18) + esc(CITIES[VG.plan.dest].name) + '\'' + (/[aıou][^aeıioöuü]*$/.test(CITIES[VG.plan.dest].name) ? 'a' : 'e') + ' var' : ico('i-sun', 18) + 'Sabah yola devam') + '</button>';
+    }
+    return s + '</div></div>';
+  }
+  function dzDropPreview(over) {
+    const out = []; let left = over;
+    GOODS.filter(x => S.inv[x.id].n > 0).sort((a, b) => a.base - b.base).forEach(g => { if (left <= 0) return; const k = Math.min(left, S.inv[g.id].n); left -= k; out.push(k + ' ' + g.short.toLowerCase()); });
+    return out.join(', ') || 'yük';
+  }
+  function dzCampPick(k) {
+    if (!VG || VG.dzStage !== 'camp') return;
+    const K = dzK();
+    if (K && dkWalk(K) === 0) { play('wreck'); endVoyage(); return; }
+    const over = dzOver();
+    if (over > 0 && k === 1 && dzSlowOk()) {
+      K.slack = (K.slack || 0) + over; VG.plan.days++; VG.dzSlow++;
+      const t = 'Bitkin eşeğin yükünü diğerlerine dağıttın: kervan yavaşladı, yol 1 gün uzadı.'; VG.dzLines.push({ k:'info', t }); dzNote('Yavaş yürüyüş', t, 'info', 'i-donkey'); play('click'); dzRender(); return;
+    }
+    if (over > 0 && (k === 2 || k === 1)) {
+      const dr = dkDrop(S); VG.dzLost += dr.val;
+      const t = 'Taşıyamadıkların kumda kaldı: ' + (dr.lost.join(', ') || 'yok') + '.'; VG.dzLines.push({ k:'bad', t }); dzNote('Yük bırakıldı', t, 'bad', 'i-chest'); play('bad'); dzRender(); return;
+    }
+    if (k === 3) { const n = addGoods(S, 'hurma', 6); VG.dzOasisDates = false; if (n) { VG.dzLines.push({ k:'good', t:n + ' hurma topladın.' }); dzNote('Vaha', n + ' hurma topladın.', 'good', 'i-hurma'); play('pick'); } dzRender(); return; }
+    if (over > 0) { dzRender(); return; }
+    VG.dzStage = 'pick'; VG.tod = 'dawn'; VG.dzOasisDates = false;
+    advance();
+  }
+
+  /* ---------- scenes: one overlay over the road, a stage, and one kind of tap ---------- */
+  function dzScene(kind, title, help, cls) {
+    const box = $('#dzsc'); if (!box) return null;
+    if ($('#tut')) $('#tut').hidden = true; heroOverlay(false);
+    box.hidden = false; box.className = 'dzsc k-' + kind + ' ' + (cls || '');
+    box.innerHTML = '<div class="dzsh">' + dzIcon(kind === 'raid' ? 'raid' : kind) + '<div><b>' + esc(title) + '</b><p>' + help + '</p></div></div><div class="dzss" id="dzss"></div><div class="dzsb"><div class="dzslive">' + dzDkHtml(true) + '</div><div class="dzctl" id="dzctl"></div></div>';
+    DZS = { kind, el:box, t0:performance.now(), timers:[], raf:0, done:false, bot:null, hurt:{}, why:'', l0:VG.dzLines.length };
+    enterFx(box);
+    renderPanel();
+    return DZS;
+  }
+  function dzEnd(res) {
+    const z = DZS; if (!z || z.done) return; z.done = true;
+    cancelAnimationFrame(z.raf); z.timers.forEach(clearTimeout); if (z.off) z.off();
+    /* one line for the donkeys this scene hurt: "Rüzgâr çarptı: Kara bitkin düştü, Pamuk yoruldu." */
+    const hk = Object.keys(z.hurt);
+    if (hk.length && VG) { const dn = hk.filter(i => !z.hurt[i]).map(i => DK_NAMES[i % 8]), tr = hk.filter(i => z.hurt[i]).map(i => DK_NAMES[i % 8]); VG.dzLines.splice(z.l0, 0, { k:'bad', t:z.why + ': ' + [dn.length ? dn.join(', ') + ' bitkin düştü' : '', tr.length ? tr.join(', ') + ' yoruldu' : ''].filter(Boolean).join('; ') + '.' }); }
+    const fin = () => {
+      if (DZS !== z) return; DZS = null;
+      const box = $('#dzsc'); if (box) { box.hidden = true; box.innerHTML = ''; }
+      if (!VG) return;
+      if (res && res.coins) { VG.acc.coins += res.coins; }
+      dzSync();
+      if (z.kind === 'raid') dzCampOpen(); else dzAfter(curPick());
+    };
+    z.timers = []; setTimeout(fin, reduce ? 300 : 1300);
+  }
+  function dzStopScene() { const z = DZS; if (!z) return; z.done = true; cancelAnimationFrame(z.raf); z.timers.forEach(clearTimeout); if (z.off) z.off(); DZS = null; const box = $('#dzsc'); if (box) { box.hidden = true; box.innerHTML = ''; } }
+  const dzLater = (fn, ms) => { const z = DZS; const id = setTimeout(() => { if (DZS === z && !z.done) fn(); }, ms); z.timers.push(id); return id; };
+
+  /* 1. Kum tepeleri: the trail forks between the dune crest and the hollow; soft sand swallows hooves. Tap a lane to walk there. */
+  function dzPath() {
+    const z = dzScene('dunes', 'Kum tepeleri: sağlam yol', '<b>Yumuşak kum</b> (koyu, ünlemli) gelince <b>öbür yola dokun</b>. Su tulumlarını topla.');
+    if (!z) return;
+    const st = $('#dzss'), r = dzR(11), D = 3.6, ev = [];
+    st.innerHTML = '<div class="pth"><i class="ln l0"></i><i class="ln l1"></i><div class="pcar" id="pcar">' + dzCaravan(3, true) + '</div><div class="pgo"><i id="pgoF"></i><span>' + ico('i-donkey', 14) + '</span></div></div>';
+    let tt = 1.4, last = -1;
+    for (let k = 0; k < 10; k++) {
+      const pick = k % 3 === 2 && r() < 0.8, lane = pick ? (r() < 0.5 ? 0 : 1) : (last >= 0 && r() < 0.35 ? last : (r() < 0.5 ? 0 : 1));
+      ev.push({ t:tt, lane, kind:pick ? (r() < 0.6 ? 'water' : 'coin') : 'soft', el:null, done:false }); if (!pick) last = lane;
+      tt += 1.25 + r() * 0.7;
+    }
+    const total = tt + D;
+    const pth = st.querySelector('.pth'), W = pth.clientWidth || 380, car = $('#pcar');
+    ev.forEach(e => {
+      const d = document.createElement('i'); d.className = 'pob ' + e.kind + ' l' + e.lane; d.style.animationDuration = D + 's'; d.style.animationDelay = e.t + 's';
+      d.style.setProperty('--dx', -(W + 140) + 'px');
+      if (e.kind !== 'soft') d.innerHTML = ico(e.kind === 'water' ? 'i-water' : 'i-coin', 26);
+      pth.appendChild(d); e.el = d;
+    });
+    $('#pgoF').style.animationDuration = total + 's';
+    let lane = 1; car.dataset.lane = 1;
+    const go = l => { if (z.done || l === lane) return; lane = l; car.dataset.lane = l; play('tick'); };
+    pth.addEventListener('pointerdown', e => { const b = pth.getBoundingClientRect(); go(e.clientY < b.top + b.height * 0.52 ? 0 : 1); });
+    $('#dzctl').innerHTML = '<button type="button" class="btn dzbig" id="dzsw">' + ico('i-donkey', 20) + 'Yol değiştir ↕</button>';
+    $('#dzsw').onclick = () => go(1 - lane);
+    const kd = e => { if (e.key === 'ArrowUp') { e.preventDefault(); go(0); } else if (e.key === 'ArrowDown') { e.preventDefault(); go(1); } else if (e.key === ' ') { e.preventDefault(); go(1 - lane); } };
+    window.addEventListener('keydown', kd); z.off = () => window.removeEventListener('keydown', kd);
+    /* where the caravan's front is (px from the left edge of the stage) and how wide a patch is */
+    const pr = pth.getBoundingClientRect(), cr = car.getBoundingClientRect(), cx0 = cr.left - pr.left, cx1 = cr.right - pr.left, PW = 92;
+    let hits = 0, water = 0, coins = 0;
+    z.bot = now => {
+      const t = (now - z.t0) / 1000;
+      const near = (L, a, b) => ev.some(e => !e.done && e.kind === 'soft' && e.lane === L && (() => { const x = W - (W + 140) * ((t - e.t) / D); return x < cx1 + a && x + PW > cx1 - b; })());
+      for (const e of ev) { if (e.done || e.kind !== 'soft' || e.lane !== lane) continue; const x = W - (W + 140) * ((t - e.t) / D); if (x < cx1 + 90 && x + PW > cx1 - 70) { if (e.miss == null) e.miss = r() < 0.12; if (!e.miss && !near(1 - lane, 40, 120)) go(1 - lane); } }
+    };
+    const tick = now => {
+      if (z.done) return;
+      const t = (now - z.t0) / 1000;
+      for (let k = 0; k < ev.length; k++) {
+        const e = ev[k]; if (e.done) continue;
+        const x = W - (W + 140) * ((t - e.t) / D);
+        if (x + PW < cx1 - 70) { e.done = true; continue; }
+        if (x < cx1 - 26 && x + PW > cx1 - 70 && e.lane === lane) {
+          e.done = true;
+          if (e.kind === 'soft') { hits++; e.el.classList.add('hit'); car.classList.remove('shk'); void car.offsetWidth; car.classList.add('shk'); if (dzHit(1, 'Yumuşak kum')) { dzEnd({}); return; } }
+          else { e.el.classList.add('got'); if (e.kind === 'water') { water++; dzWater(1); dzFloat('+1 tulum su', 'good'); play('splash'); } else { const c = 30 + Math.floor(r() * 40); coins += c; dzFloat('+' + c + ' deben', 'good'); play('coin'); } }
+        }
+      }
+      if (t > total) {
+        if (!hits) { const K = dzK(); const n = K ? dkRest(K, false) : 0; VG.dzLines.push({ k:'good', t:'Yumuşak kuma hiç basmadın.' + (n ? ' Serin bir kumulun gölgesinde en yorgun eşek dinlendi (+1).' : '') }); }
+        if (water) VG.dzLines.push({ k:'good', t:'Yolda ' + water + ' tulum su buldun.' });
+        if (coins) VG.dzLines.push({ k:'good', t:'Kumda ' + coins + ' deben buldun.' });
+        dzNote('Kum tepeleri', hits ? hits + ' kez yumuşak kuma bastınız.' : 'Sağlam yoldan şaşmadın.', hits ? 'bad' : 'good', 'i-donkey');
+        dzEnd({ coins }); return;
+      }
+      z.raf = requestAnimationFrame(tick);
+    };
+    z.raf = requestAnimationFrame(tick);
+  }
+
+  /* 2. Kum fırtınası: hold to make the donkeys kneel and cover the loads while a gust passes; walk between gusts to the rock */
+  function dzStorm() {
+    const z = dzScene('sstorm', 'Kum fırtınası', '<b>Rüzgâr geliyor!</b> yazınca butonu <b>basılı tut</b>: eşekler çöker, yükler örtülür. Rüzgâr geçince bırak, kayaya yürü.', 'storm');
+    if (!z) return;
+    Snd.scene('sandstorm');
+    const st = $('#dzss'), r = dzR(13);
+    st.innerHTML = '<div class="stm"><i class="sand s1"></i><i class="sand s2"></i><div class="srock" id="srock"></div><div class="scar" id="scar">' + dzCaravan(4, true) + '</div><div class="sgust" id="sgust"></div><div class="swarn" id="swarn">' + ico('i-storm', 26) + '<b>Rüzgâr geliyor!</b><i></i></div><div class="sbar"><i id="sbarF"></i><span>' + ico('i-donkey', 14) + '</span><em>Kaya</em></div></div>';
+    $('#dzctl').innerHTML = '<button type="button" class="btn dzbig hld" id="dzhold">' + ico('i-donkey', 20) + 'Çöktür! <small>(basılı tut)</small></button>';
+    const gusts = []; let gt = 2.2;
+    for (let k = 0; k < 5; k++) { gusts.push({ t:gt, hit:gt + 1.5, done:false, warn:false }); gt += 2.6 + r() * 1.4; }
+    const NEED = 8.5, LIMIT = gt + 6;
+    let hold = false, walked = 0, last = performance.now(), hits = 0, saved = 0;
+    const car = $('#scar'), warn = $('#swarn'), gust = $('#sgust'), bar = $('#sbarF'), btn = $('#dzhold'), stm = st.querySelector('.stm');
+    const set = on => { if (z.done || hold === on) return; hold = on; car.classList.toggle('kneel', on); btn.classList.toggle('on', on); if (on) play('lash'); };
+    const dn = e => { e.preventDefault(); set(true); }, up = () => set(false);
+    [btn, stm].forEach(el => { el.addEventListener('pointerdown', dn); ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => el.addEventListener(ev, up)); });
+    const kd = e => { if (e.key === ' ' || e.key === 'ArrowDown') { e.preventDefault(); set(true); } }, ku = e => { if (e.key === ' ' || e.key === 'ArrowDown') set(false); };
+    window.addEventListener('keydown', kd); window.addEventListener('keyup', ku);
+    z.off = () => { window.removeEventListener('keydown', kd); window.removeEventListener('keyup', ku); };
+    z.bot = now => { const t = (now - z.t0) / 1000; const g = gusts.find(x => !x.done); const want = g && t > g.hit - (g.miss ? -1 : 0.55) && t < g.hit + 0.5; if (g && g.miss == null) g.miss = r() < 0.12; set(!!want && !(g && g.miss)); };
+    stm.classList.add('walk');
+    const tick = now => {
+      if (z.done) return;
+      const t = (now - z.t0) / 1000, dt = Math.min(0.1, (now - last) / 1000); last = now;
+      if (!hold) walked += dt;
+      if (z.walk !== !hold) { z.walk = !hold; stm.classList.toggle('walk', z.walk); }
+      const pc = Math.min(100, Math.round(100 * walked / NEED)); if (pc !== z.pc) { z.pc = pc; bar.style.width = pc + '%'; }
+      for (let k = 0; k < gusts.length; k++) {
+        const g = gusts[k]; if (g.done) continue;
+        if (!g.warn && t >= g.t) { g.warn = true; warn.classList.remove('on'); void warn.offsetWidth; warn.classList.add('on'); play('gust'); gust.classList.remove('go'); void gust.offsetWidth; gust.classList.add('go'); }
+        if (t >= g.hit) {
+          g.done = true; warn.classList.remove('on');
+          if (hold) { saved++; dzFloat('Yükler örtülü: kayıp yok!', 'good'); buzz('near'); }
+          else { hits++; stm.classList.remove('flash'); void stm.offsetWidth; stm.classList.add('flash'); if (dzHit(1, 'Rüzgâr çarptı')) { dzEnd({}); return; } }
+        }
+      }
+      if (walked >= NEED || t > LIMIT) {
+        const late = walked < NEED;
+        if (late) { const w = dzWater(-1); VG.dzLines.push({ k:'bad', t:'Kayaya yetişemedin: fırtına geceye kadar sürdü' + (w ? ', fazladan 1 tulum su içildi.' : '.') }); }
+        else VG.dzLines.push({ k:'good', t:'Kayanın arkasına sığındınız.' + (saved ? ' ' + saved + ' rüzgârı eşekler çökerek atlattı.' : '') });
+        if (!hits && !late) { const K = dzK(); if (K) dkRest(K, false); VG.dzLines.push({ k:'good', t:'Fırtınayı kayıpsız atlattın: eşekler kayanın gölgesinde soluklandı.' }); }
+        dzNote('Kum fırtınası', hits ? hits + ' rüzgâr eşeklere çarptı.' : 'Fırtınayı kayıpsız atlattın.', hits ? 'bad' : 'good', 'i-storm');
+        car.classList.remove('kneel'); stm.classList.add('safe');
+        dzEnd({}); return;
+      }
+      z.raf = requestAnimationFrame(tick);
+    };
+    z.raf = requestAnimationFrame(tick);
+  }
+
+  /* 3. Kayalık geçit: three steps; tap the ledge with the guide's cairn, never the cracked one */
+  function dzCanyon() {
+    const z = dzScene('canyon', 'Kayalık geçit', 'Güvenli kayada rehberin <b>üst üste taşları</b> var. <b>Taşlı kayaya dokun</b>, çatlak kayaya basma.');
+    if (!z) return;
+    const st = $('#dzss'), r = dzR(17), STEPS = 3; let step = 0, wrong = 0;
+    st.innerHTML = '<div class="cyn"><i class="wall l"></i><i class="wall r"></i><div class="cled" id="cled"></div><div class="ccar" id="ccar">' + dzCaravan(2, true) + '</div><div class="cdots" id="cdots"></div></div>';
+    const show = () => {
+      const n = step === 0 ? 2 : 3, safe = Math.floor(r() * n);
+      z.safe = safe;
+      $('#cdots').innerHTML = Array.from({ length:STEPS }, (_, k) => '<i class="' + (k < step ? 'ok' : k === step ? 'on' : '') + '"></i>').join('');
+      $('#cled').innerHTML = Array.from({ length:n }, (_, k) => '<button type="button" class="ledge ' + (k === safe ? 'safe' : 'bad') + '" data-led="' + k + '" aria-label="' + (k + 1) + '. kaya">' +
+        '<svg viewBox="0 0 100 60" aria-hidden="true"><path d="M6 30l10-14h66l12 14-8 22H14z" fill="#B9784A" stroke="#2B1D14" stroke-width="2.4" stroke-linejoin="round"/><path d="M16 16h66l12 14H6z" fill="#D29A64" stroke="#2B1D14" stroke-width="2.4" stroke-linejoin="round"/>' +
+        (k === safe ? '<g transform="translate(46 -4)"><ellipse cx="6" cy="18" rx="9" ry="4" fill="#9A8A78" stroke="#2B1D14" stroke-width="1.6"/><ellipse cx="6" cy="12" rx="7" ry="3.4" fill="#B3A595" stroke="#2B1D14" stroke-width="1.6"/><ellipse cx="6" cy="7" rx="4.6" ry="2.8" fill="#C9BCA9" stroke="#2B1D14" stroke-width="1.6"/></g>'
+          : '<path d="M30 20l8 8-4 6 8 8M64 18l-6 10 8 4-4 10" fill="none" stroke="#2B1D14" stroke-width="2"/><g class="peb"><circle cx="40" cy="56" r="2.6" fill="#8A6236"/><circle cx="62" cy="58" r="2" fill="#8A6236"/></g>') + '</svg></button>').join('');
+      $('#cled').querySelectorAll('[data-led]').forEach(b => { b.onclick = () => pickL(+b.dataset.led, b); });
+      z.wait = performance.now();
+    };
+    const pickL = (k, b) => {
+      if (z.done || z.busy) return; z.busy = true;
+      const ok = k === z.safe; b.classList.add(ok ? 'good' : 'fall');
+      const c = $('#ccar'); c.classList.remove('hop'); void c.offsetWidth; c.classList.add('hop');
+      if (ok) { play('good'); dzFloat('Sağlam kaya!', 'good'); } else { wrong++; if (dzHit(1, 'Kaya ufalandı')) { dzEnd({}); return; } }
+      dzLater(() => { z.busy = false; step++; if (step < STEPS) { show(); return; } fin(); }, 900);
+    };
+    const fin = () => {
+      if (!wrong) {
+        if (!VG.shortcut && VG.layers[VG.layer + 1] && shortcut()) VG.dzLines.push({ k:'good', t:'Geçidi tökezlemeden aştın; rehber kestirme bir vadi gösterdi: yol 1 gün kısaldı!' });
+        else { VG.acc.coins += 60; VG.dzLines.push({ k:'good', t:'Geçidi tökezlemeden aştın. Kayaların dibinde 60 deben buldun.' }); }
+      } else VG.dzLines.push({ k:'bad', t:wrong + ' kez ufalanan kayaya bastın.' });
+      dzNote('Kayalık geçit', wrong ? wrong + ' kez kaya ufalandı.' : 'Geçidi tökezlemeden aştın.', wrong ? 'bad' : 'good', 'i-bolt');
+      dzEnd({});
+    };
+    z.bot = now => { if (z.busy || now - z.wait < 700) return; const bs = $('#cled') && $('#cled').querySelectorAll('[data-led]'); if (!bs || !bs.length) return; const k = r() < 0.85 ? z.safe : (z.safe + 1) % bs.length; bs[k].click(); };
+    show();
+  }
+
+  /* 4. Yıldız yolu: at night, follow Orion's belt down to Sopdet (Sirius); tap the right star */
+  function dzStars() {
+    VG.tod = 'night'; const root = $('#dz48'); if (root) root.dataset.tod = 'night';
+    const z = dzScene('stars', 'Yıldız yolu', 'Avcının <b>kemerindeki üç yıldızı</b> bul, kemeri <b>aşağı doğru</b> izle: ilk parlak mavi-beyaz yıldız <b>Sopdet</b>. Ona dokun.', 'night');
+    if (!z) return;
+    const st = $('#dzss'), r = dzR(19), ang = (r() * 50 - 25) * Math.PI / 180, cx = 150 + r() * 16 - 8, cy = 104 + r() * 10, SC = 1.35;
+    const P = (x, y) => { const c = Math.cos(ang), s = Math.sin(ang); x *= SC; y *= SC; return [(cx + x * c - y * s).toFixed(1), (cy + x * s + y * c).toFixed(1)]; };
+    /* Orion (belt slanting down to the left), Sirius down-left along the belt, Aldebaran up-right, Procyon to the east */
+    const ori = [[-30, -38], [26, -34], [-26, 40], [30, 36]], belt = [[-10, 2], [0, -1], [10, -4]], sword = [[-2, 12], [-1, 18]];
+    const cand = [{ id:'sirius', x:-78, y:30, c:'#EAF4FF', g:'#BFE0FF', r:5.6, ok:true }, { id:'alde', x:72, y:-36, c:'#FFC59A', g:'#F0A070', r:4.4 }, { id:'proc', x:-92, y:-28, c:'#FFF2C2', g:'#F7E7A6', r:4.2 }];
+    const star = (x, y, rr, c) => { const p = P(x, y); return '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="' + rr + '" fill="' + (c || '#F7E7A6') + '"/>'; };
+    let s = '<svg class="sky" viewBox="0 0 300 250" preserveAspectRatio="xMidYMid meet" aria-hidden="false"><rect x="-300" y="-300" width="900" height="900" fill="url(#dzng' + (++uid) + ')"/><defs><linearGradient id="dzng' + uid + '" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox"><stop offset="0" stop-color="#0E1630"/><stop offset="1" stop-color="#2A3466"/></linearGradient></defs>';
+    const rb = vRng(5); for (let k = 0; k < 90; k++) s += '<circle cx="' + (rb() * 400 - 50).toFixed(1) + '" cy="' + (rb() * 300 - 80).toFixed(1) + '" r="' + (0.5 + rb() * 0.9).toFixed(1) + '" fill="#D8DDF2" opacity="' + (0.4 + rb() * 0.5).toFixed(2) + '"/>';
+    const bl0 = P(-120, 35), bl1 = P(120, -37);
+    s += '<path class="hint" d="M' + bl0[0] + ' ' + bl0[1] + 'L' + bl1[0] + ' ' + bl1[1] + '" stroke="#F7E7A6" stroke-width="1.2" stroke-dasharray="3 4" opacity="0"/>';
+    const fig = [ori[0], belt[0], ori[2], belt[0], belt[2], ori[3], belt[2], ori[1], ori[0]].map(([x, y]) => P(x, y).join(' ')).join('L');
+    s += '<path class="ori" d="M' + fig + '" fill="none" stroke="#8C96C8" stroke-width=".8" opacity=".5"/>';
+    s += ori.map(([x, y], k) => star(x, y, k === 0 ? 3 : 2.4, k === 0 ? '#FFB98A' : '#DCE6FF')).join('') + belt.map(([x, y]) => star(x, y, 2.6, '#F2F6FF')).join('') + sword.map(([x, y]) => star(x, y, 1.4, '#C8D2F2')).join('');
+    s += cand.map(c => { const p = P(c.x, c.y); return '<g class="cand" data-star="' + c.id + '" transform="translate(' + p[0] + ' ' + p[1] + ')"><circle r="16" fill="transparent"/><circle class="halo" r="' + (c.r * 2.4) + '" fill="' + c.g + '" opacity=".25"/><path d="M0 -' + (c.r * 1.9) + 'L' + (c.r * .45) + ' -' + (c.r * .45) + 'L' + (c.r * 1.9) + ' 0L' + (c.r * .45) + ' ' + (c.r * .45) + 'L0 ' + (c.r * 1.9) + 'L-' + (c.r * .45) + ' ' + (c.r * .45) + 'L-' + (c.r * 1.9) + ' 0L-' + (c.r * .45) + ' -' + (c.r * .45) + 'z" fill="' + c.c + '"/><circle class="ring" r="11" fill="none" stroke="#F7E7A6" stroke-width="1.4" stroke-dasharray="3 3"/></g>'; }).join('');
+    s += '<path d="M-200 226q160-16 320-6t380-4V600H-200z" fill="#1D1A30"/></svg>';
+    st.innerHTML = '<div class="nsky">' + s + '<div class="ncar">' + dzCaravan(3, true) + '</div></div>';
+    $('#dzctl').innerHTML = '<button type="button" class="btn dzbig ghost" id="dzhint">' + ico('i-map', 18) + 'İpucu: kemeri uzat</button>';
+    $('#dzhint').onclick = () => { st.querySelector('.sky').classList.add('show'); play('tick'); };
+    z.wait = performance.now();
+    const pickS = id => {
+      if (z.done || z.busy) return; z.busy = true;
+      const c = cand.find(x => x.id === id), g = st.querySelector('[data-star="' + id + '"]'); if (g) g.classList.add(c.ok ? 'ok' : 'no');
+      if (c.ok) {
+        const K = dzK(), w = dzWater(1), n = K ? dkRest(K, false) : 0; play('good'); dzFloat('Sopdet! Doğru yol.', 'good');
+        VG.dzLines.push({ k:'good', t:'Sopdet\'i izledin: serin gecede yürüdünüz, ' + (w ? '1 tulum su artırdınız' : 'su harcamadınız') + (n ? ', en yorgun eşek dinlendi' : '') + '.' });
+        dzNote('Yıldız yolu', 'Sopdet\'i izledin: serin gecede yol aldınız.', 'good', 'i-moon');
+      } else {
+        st.querySelector('.sky').classList.add('show');
+        const w = dzWater(-1); dzFloat('Yanlış yıldız!', 'bad');
+        VG.dzLines.push({ k:'bad', t:'Yanlış yıldızı izledin: bütün gece dolaştınız' + (w ? ', 1 tulum su boşa gitti.' : '.') });
+        dzNote('Yıldız yolu', 'Yanlış yıldızı izledin, yolu kaybettiniz.', 'bad', 'i-moon');
+        if (dzHit(1, 'Gece boyu dolaşan')) { dzEnd({}); return; }
+      }
+      dzEnd({});
+    };
+    st.querySelectorAll('[data-star]').forEach(g => { g.addEventListener('click', () => pickS(g.dataset.star)); });
+    z.bot = now => { if (now - z.wait > 900) pickS(r() < 0.85 ? 'sirius' : 'alde'); };
+  }
+
+  /* 5. Serap: three lakes shimmer on the horizon; the real oasis has birds, shadows under its palms and tracks leading to it */
+  function dzMirage() {
+    const z = dzScene('mirage', 'Serap', 'Gerçek vahada <b>kuşlar</b> uçar, hurmaların <b>gölgesi</b> düşer, <b>izler</b> oraya gider. Serap titrer, havada durur. Gerçek vahaya dokun.');
+    if (!z) return;
+    const st = $('#dzss'), r = dzR(23), real = Math.floor(r() * 3);
+    const lake = (k, ok) => '<button type="button" class="mlk ' + (ok ? 'real' : 'fake') + '" data-lake="' + k + '" aria-label="' + (k + 1) + '. göl"><svg viewBox="0 0 120 80" aria-hidden="true">' +
+      (ok ? '<g class="birds" stroke="#2B1D14" stroke-width="1.6" fill="none"><path d="M40 10q4-4 8 0q4-4 8 0"/><path d="M64 4q3-3 6 0q3-3 6 0"/></g>' : '') +
+      '<g class="lk"><ellipse cx="60" cy="' + (ok ? 60 : 50) + '" rx="40" ry="9" fill="' + (ok ? '#4C97B8' : '#7FC4E0') + '"' + (ok ? ' stroke="#2B1D14" stroke-width="2"' : ' opacity=".9"') + '/>' +
+      [34, 78].map(x => '<path d="M' + x + ' ' + (ok ? 58 : 48) + 'V' + (ok ? 30 : 22) + '" stroke="' + (ok ? '#6E4A2A' : '#7E9A98') + '" stroke-width="3"/><path d="M' + x + ' ' + (ok ? 30 : 22) + 'q-11-4-15 3q9-2 15-1q5-6 14-2q-4-7-14 0z" fill="' + (ok ? '#3E8E5A' : '#7FAF9A') + '"' + (ok ? ' stroke="#2B1D14" stroke-width="1.4"' : '') + '/>' + (ok ? '<ellipse cx="' + (x + 8) + '" cy="66" rx="10" ry="2.6" fill="rgba(43,29,20,.35)"/>' : '<path d="M' + x + ' 52V70" stroke="#8FB8C8" stroke-width="2" opacity=".5"/>')).join('') + '</g>' +
+      (ok ? '<path d="M50 80l3-4M62 80l-2-4M56 74l3-4M60 70l-2-3" stroke="#7A5A30" stroke-width="2.4" stroke-linecap="round"/>' : '') + '</svg></button>';
+    const tx = 18.6 + 33.3 * real;
+    st.innerHTML = '<div class="mrg"><svg class="mtrk" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="M30 86Q' + ((30 + tx) / 2).toFixed(1) + ' 66 ' + tx.toFixed(1) + ' 50" fill="none" stroke="#8A6236" stroke-width="1.4" stroke-dasharray="1.2 3.2" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg><div class="mhz">' + [0, 1, 2].map(k => lake(k, k === real)).join('') + '</div><div class="mcar">' + dzCaravan(3, true) + '</div></div>';
+    $('#dzctl').innerHTML = '<button type="button" class="btn dzbig ghost" id="dzskip">' + ico('i-close', 18) + 'Yoldan sapma</button>';
+    z.wait = performance.now();
+    const pickM = k => {
+      if (z.done || z.busy) return; z.busy = true;
+      const b = st.querySelector('[data-lake="' + k + '"]');
+      if (k === real) {
+        b.classList.add('ok'); const K = dzK(), w = dzWater(3), n = K ? dkRest(K, true) : 0; play('splash'); dzFloat('Gerçek vaha! +' + w + ' su', 'good');
+        VG.dzLines.push({ k:'good', t:'Gerçek vahayı buldun: +' + w + ' tulum su' + (n ? ', eşekler dinlendi (+1 güç)' : '') + '.' });
+        dzNote('Serap', 'Gerçek vahayı buldun: +' + w + ' su.', 'good', 'i-water');
+      } else if (k >= 0) {
+        b.classList.add('no'); st.querySelector('.mlk.real').classList.add('ok'); const w = dzWater(-1); dzFloat('Serapmış!', 'bad');
+        VG.dzLines.push({ k:'bad', t:'Göl yaklaştıkça kaçtı: serapmış. Boşa yürüdünüz' + (w ? ', 1 tulum su gitti.' : '.') });
+        dzNote('Serap', 'Serabın peşinden boşa yürüdün.', 'bad', 'i-water');
+        if (dzHit(1, 'Boşa yürüyen')) { dzEnd({}); return; }
+      } else { VG.dzLines.push({ k:'info', t:'Yoldan sapmadın: rehber gülümsedi, "Çöl sabırlıyı sever."' }); play('click'); }
+      dzEnd({});
+    };
+    st.querySelectorAll('[data-lake]').forEach(b => { b.onclick = () => pickM(+b.dataset.lake); });
+    $('#dzskip').onclick = () => pickM(-1);
+    z.bot = now => { if (now - z.wait > 900) pickM(r() < 0.8 ? real : (real + 1) % 3); };
+  }
+
+  /* 6. Akıncılar: riders on the crest. Run, pay the toll or fight (the hero's hearts) */
+  function dzRaid() {
+    const K = dzK(), z = dzScene('raid', 'Çöl akıncıları!', 'Tepede atlılar belirdi. <b>Ne yapalım?</b>', 'raid');
+    if (!z) return;
+    Snd.mode('chase'); play('chase'); buzz('caught');
+    const pts = K ? dkPts(K) / (K.donkeys * DK_MAX) : 1, over = dzOver() > 0 || (K && K.slack > 0);
+    const pRun = Math.max(0.25, Math.min(0.9, 0.3 + 0.55 * pts - (over ? 0.15 : 0))), pWin = S.hero === 'ahmose' ? 0.8 : 0.6;
+    const toll = Math.min(S.cash, Math.round(S.cash * 0.08 + 60)), pc = n => Math.round(n * 100);
+    const st = $('#dzss');
+    st.innerHTML = '<div class="rdz"><div class="rcrest">' + Array.from({ length:4 }, (_, k) => '<i class="rider" style="--k:' + k + '"><svg viewBox="0 0 40 36" aria-hidden="true"><path d="M4 26q2-8 10-9h12q6 0 8-6l3 2-3 8q-2 4-8 5v8h-3v-7H14v7h-3v-8z" fill="#3A2A1E"/><path d="M15 16l2-10h5l1 10z" fill="#F7EFDF" stroke="#2B1D14" stroke-width="1.2"/><circle cx="19.5" cy="5" r="3" fill="#3A2A1E"/><path d="M23 9l9-6" stroke="#6E4A2A" stroke-width="1.6"/></svg></i>').join('') + '</div><div class="rcar">' + dzCaravan(4, true) + '</div></div>';
+    const opt = (k, ic, t, sub) => '<button type="button" class="dzrc" data-raid="' + k + '">' + ico(ic, 22) + '<b>' + t + '</b><small>' + sub + '</small></button>';
+    $('#dzctl').innerHTML = '<div class="dzraid">' + opt('run', 'i-donkey', 'Kaç!', 'Kurtulma şansı %' + pc(pRun) + (pts < 0.75 ? ' (eşekler yorgun)' : '') + ' · yakalanırsan yükün dörtte biri gider, −1 can') +
+      opt('pay', 'i-coin', 'Haraç öde', fmt(toll) + ' deben · kimse yaralanmaz') + opt('fight', 'i-bolt', 'Savaş', '−1 can · kazanma şansı %' + pc(pWin) + ' (+120 deben) · kaybedersen yükün dörtte biri gider') + '</div>';
+    const r = dzR(29); z.wait = performance.now();
+    const loseQ = () => { const v0 = S.stats.lostVal || 0, l = loseFrac(S, 0.25); VG.dzLost += (S.stats.lostVal || 0) - v0; return l.join(', ') || 'boş heybeler'; };
+    const pickR = k => {
+      if (z.done || z.busy) return; z.busy = true; VG.dzRaid = k; const a = VG.acc; let t, kind = 'good';
+      st.querySelector('.rdz').classList.add('k-' + k);
+      if (k === 'pay') { S.cash -= toll; t = fmt(toll) + ' deben haraç ödedin. Akıncılar selam verip çekildi.'; kind = 'info'; a.caught = false; a.escaped = true; play('coin'); }
+      else if (k === 'run') {
+        if (r() < pRun) { t = 'Eşekleri kamçıladın, kum tepelerinin arkasında akıncıları kaybettin!'; a.caught = false; a.escaped = true; play('escape'); }
+        else { VG.hh = Math.max(0, VG.hh - 1); t = 'Yorgun eşekler yetişemedi: akıncılar yetişti. Boğuştun (−1 can); aldıkları: ' + loseQ() + '.'; kind = 'bad'; a.caught = true; a.escaped = false; play('caught'); }
+      } else {
+        VG.hh = Math.max(0, VG.hh - 1);
+        if (r() < pWin) { a.coins += 120; t = 'Savaştın (−1 can) ve akıncıları kovaladın! Kaçarken düşürdükleri 120 deben senin.'; a.caught = false; a.escaped = true; play('good'); }
+        else { t = 'Savaştın ama çok kalabalıktılar (−1 can). Aldıkları: ' + loseQ() + '.'; kind = 'bad'; a.caught = true; a.escaped = false; play('caught'); }
+      }
+      VG.dzLines.push({ k:kind === 'info' ? 'info' : kind, t }); dzNote('Çöl akıncıları', t, kind, 'i-bolt'); dzFloat(kind === 'bad' ? 'Yakalandın!' : k === 'pay' ? 'Haraç ödendi' : 'Kurtuldun!', kind === 'bad' ? 'bad' : 'good');
+      dzHud(); renderPlate();
+      dzEnd({});
+    };
+    st.parentNode.querySelectorAll('[data-raid]').forEach(b => { b.onclick = () => pickR(b.dataset.raid); });
+    z.bot = now => { if (now - z.wait > 900) pickR(r() < 0.5 ? 'pay' : 'run'); };
+  }
+
+  /* ---------- skip, result, panel ---------- */
+  function dzSkip() {
+    if (!VG) return;
+    dzStopScene();
+    const p = VG.plan, q = quickSea(p), total = VG.layers.length, remain = Math.max(0, total - VG.layer) / total, a = VG.acc, K = dzK();
+    const h = Math.round(q.hits * remain);
+    if (K && h > 0) { const r0 = dkHurt(K, h, dzR(41)); void r0; a.hits += h; const dr = dkDrop(S); VG.dzLost += dr.val; dzNote(h + ' kez tökezlediniz', 'Eşekler yoruldu: ' + dkWord(K) + '.' + (dr.lost.length ? ' Bitkin eşeğin yükü kumda kaldı: ' + dr.lost.join(', ') + '.' : ''), 'bad', 'i-donkey'); }
+    if (!VG.chaseDone) { a.caught = q.caught; a.escaped = !q.caught; if (q.hurt) VG.hh = Math.max(0, VG.hh - q.hurt); VG.chaseDone = true; VG.dzSkipChase = true; }
+    a.coins += Math.round(q.coins * remain);
+    dzSync();
+    endVoyage(true);
+  }
+  function dzResult(res) {
+    const K = dzK();
+    res.dzDays = VG.dzDays; res.dzPend = 0; res.dzLost = VG.dzLost; res.wreck = !!K && dkWalk(K) === 0;
+    if (VG.dzRaid) res.raid = VG.dzRaid;
+    else if (VG.plan.chaser && !VG.dzSkipChase) { res.raid = 'none'; res.caught = false; res.notes = (res.notes || []).concat([{ kind:'info', title:'Akıncı izleri', ico:'i-bolt', text:'Yolda akıncıların izlerini gördün ama yollarınız kesişmedi.' }]); }
+    if (K && VG.dzHurt) res.notes = [{ kind:'bad', title:'Eşekler yoruldu', ico:'i-donkey', text:'Yolda ' + VG.dzHurt + ' kez yoruldular. Varışta: ' + dkWord(K) + '.' + (VG.dzSlow ? ' Bitkin eşeğin yükünü taşımak için ' + VG.dzSlow + ' gün yavaş yürüdünüz.' : '') }].concat(res.notes || []);
+    const box = $('#voy'); if (box) box.classList.remove('dzv');
+  }
+  /* the side panel on wide screens */
+  function dzPanel() {
+    const p = VG.plan, K = dzK();
+    let s = '<div class="pbody dzp"><div class="mhead"><h2>Çöl yolu</h2><span class="muted">' + esc(CITIES[p.from].name) + ' → ' + esc(CITIES[p.dest].name) + ' · ' + p.days + ' gün</span></div>';
+    s += '<div class="box"><h3>' + (DZS ? 'Sahne' : 'Kervan') + '</h3><p class="muted" style="margin:0 0 6px">Her eşeğin 2 gücü var: <b>dinç</b> ve <b>yorgun</b> eşek yük taşır, <b>bitkin</b> eşek taşıyamaz. Yumuşak kum, rüzgâr ve kayalar eşekleri yorar; susuz gün ikisini birden. Vaha ve gölge dinlendirir.</p>' + (K ? '<div class="dzpl">' + K.dk.map((v, i) => '<span class="s' + v + '">' + ico('i-donkey', 18) + '<b>' + esc(DK_NAMES[i % 8]) + '</b><i class="pp"><b></b><b></b></i><small>' + DK_ST[Math.max(0, v)] + '</small></span>').join('') + '</div>' : '') + '</div>';
+    s += '<div class="box"><div class="och big"><i title="Canın">' + ico('i-heart', 16) + Math.max(0, VG.hh) + '/' + VG.hhMax + '</i>' + (K ? '<i title="Su">' + ico('i-water', 16) + K.water + '</i><i title="Yük">' + ico('i-chest', 16) + load(S) + '/' + cap(S) + '</i>' : '') + '<i title="Yolda bulunan">' + ico('i-coin', 16) + '+' + fmt(VG.acc.coins) + '</i></div></div>';
+    s += '<div class="box"><div class="cargo">' + (load(S) ? GOODS.filter(g => S.inv[g.id].n).map(g => '<span class="cg">' + gIco(g.id, 20) + S.inv[g.id].n + '</span>').join('') : '<span class="muted">Heybeler boş.</span>') + '</div></div>';
+    return s + '<button class="btn wide" type="button" data-act="quick" title="Kalan günleri zar belirler">Yolculuğu atla 🎲</button></div>';
+  }
+  /* the caravan in town: the stop sheet and the hold card show the donkeys; the keeper rests them for a fee */
+  function dzStopHtml() {
+    const K = S.caravan; if (!K) return '';
+    dkFix(K); const c = dkCareCost(K);
+    return '<div class="dzstop"><div class="dzdkh"><b>' + ico('i-donkey', 16) + 'Eşeklerin</b><small>' + esc(dkWord(K)) + '</small></div><div class="dzdks">' + K.dk.map((v, i) => '<span class="dkc s' + v + '" title="' + DK_NAMES[i % 8] + ': ' + DK_ST[Math.max(0, v)] + '">' + ico('i-donkey', 24) + '<i class="pp"><b></b><b></b></i><small>' + esc(DK_NAMES[i % 8]) + '</small></span>').join('') + '</div>' +
+      (c ? '<div class="dzcare"><span>Yorgun eşek bir darbede bitkin düşer.</span><button type="button" class="btn sm" data-dzact="care"' + (S.cash >= c ? '' : ' disabled') + '>' + ico('i-donkey', 16) + 'Eşekçiye baktır · ' + fmt(c) + '</button></div>' : '<small class="dzok">Hepsi dinç, yola hazır.</small>') + '</div>';
+  }
+  const dzMiniDk = (dk, w) => '<span class="dzmini">' + dk.map(v => '<i class="s' + v + '">' + ico('i-donkey', 15) + '</i>').join('') + (w != null ? '<em>' + ico('i-water', 13) + w + '</em>' : '') + '</span>';
+  document.addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest('[data-dzact]'); if (!b || b.disabled) return;
+    if (b.dataset.dzact === 'care') { const c = dkCare(S); if (c) { play('coin'); toast('Eşekçi eşekleri yemledi, nallarını düzeltti: hepsi dinç (' + fmt(c) + ' deben).'); save(); renderAll(); if (sheetName === 'travel') showTravel(); } else play('no'); }
+  });
+  window.addEventListener('resize', () => { if (VG && VG.dz && !DZS && !$('#voy').hidden) { VG.dzCarKey = ''; dzCarDraw(); } });
+  /* debug: the bots play the desert scenes through this */
+  function dzBot() { if (DZS && !DZS.done && DZS.bot) DZS.bot(performance.now()); }
+  setTimeout(() => { const N = window.__nil; if (N && N.fn) Object.assign(N.fn, { desertBot:dzBot, dzRender:() => { if (VG && VG.dz) { VG.dzCarKey = ''; dzRender(); } }, dzCamp:() => { if (VG && VG.dz && !DZS) dzCampOpen(); }, dzScene:() => DZS && DZS.kind, dzPlay:t => { if (VG && VG.dz && !DZS) { VG.dzStage = 'scene'; VG.dzLines = []; dzStop({ t }); } }, dzRaid:() => { if (VG && VG.dz && !DZS) { VG.dzLines = []; dzRaid(); } } }); }, 0);
