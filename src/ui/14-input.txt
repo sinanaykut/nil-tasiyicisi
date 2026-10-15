@@ -9,10 +9,10 @@
     if (!t) { if (e.target.id === 'veil' && !sheetLock) closeSheet(); return; }
     if (t.dataset.tile) { pickGood(t.dataset.tile); return; }
     if (t.dataset.dlg != null) { dlgPick(+t.dataset.dlg); return; }
-    if (t.dataset.hgg) { DLG = null; closeSheet(); msel = t.dataset.hgg; renderPanel(); hag28(t.dataset.hgg); return; }
+    if (t.dataset.hgg) { if (DLG && sheetName === 'say') { hagSetupInDialog(t.dataset.hgg); return; } DLG = null; closeSheet(); msel = t.dataset.hgg; renderPanel(); hag28(t.dataset.hgg); return; }
     if (t.dataset.hag28) { hag28(msel, t.dataset.hag28); return; }
-    if (t.dataset.hgside) { if (hgSide) { hgSide.side = t.dataset.hgside; hgSide.n = hgMax(hgSide.g, hgSide.side); play('tick'); renderPanel(); } return; }
-    if (t.dataset.hgq) { if (hgSide) { const mx = hgMax(hgSide.g, hgSide.side), v = t.dataset.hgq; hgSide.n = v === 'all' ? mx : Math.max(1, Math.min(mx, Math.min(hgSide.n, mx) + +v)); play('tick'); renderPanel(); } return; }
+    if (t.dataset.hgside) { if (hgSide) { hgSide.side = t.dataset.hgside; hgSide.n = hgMax(hgSide.g, hgSide.side); play('tick'); hgSetupRepaint(); } return; }
+    if (t.dataset.hgq) { if (hgSide) { const mx = hgMax(hgSide.g, hgSide.side), v = t.dataset.hgq; hgSide.n = v === 'all' ? mx : Math.max(1, Math.min(mx, Math.min(hgSide.n, mx) + +v)); play('tick'); hgSetupRepaint(); } return; }
     if (t.dataset.pad) return;
     if (t.dataset.audio) { Snd.unlock(); if (t.dataset.audio === 'music') Snd.setMusic(!Snd.pref.music); else { Snd.setSfx(!Snd.pref.sfx); play('click'); } paintAudio(); return; }
     if (t.dataset.hero) { heroSel = t.dataset.hero; play('tick'); showHeroPick(heroMode); return; }
@@ -136,6 +136,7 @@
     else if (act === 'unpick') { msel = null; hgSide = false; play('click'); renderPanel(); placeTutor(); }
     else if (act === 'hag28') { hag28(msel); }
     else if (act === 'hgBack') { hgSide = false; renderPanel(); }
+    else if (act === 'hgPickBack') { play('click'); hagPickInDialog(); }
     else if (act === 'hgStart') hgStart();
     else if (act === 'dlgNext') dlgNext();
     else if (act === 'mkOpen') { play('click'); market(true); }

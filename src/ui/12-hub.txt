@@ -10,12 +10,18 @@
   const shown28 = gid => deals(S.city, gid) || S.inv[gid].n > 0;
   const TAGW = { steal:'Kelepir', cheap:'Ucuz', ok:'Olağan', dear:'Pahalı', boom:'Fırladı' }, TAGA = { steal:'⇊', cheap:'↓', ok:'', dear:'↑', boom:'⇈' };
   function priceTag(g, p) { const r = p / g.base; return r < 0.55 ? 'steal' : r < 0.82 ? 'cheap' : r > 1.9 ? 'boom' : r > 1.25 ? 'dear' : 'ok'; }
+  /* v48: one price signal for the market tiles and the merchant's stall in the conversation: the price shown here
+     (your buy discount or craft sell bonus included), its tag against the usual price, and the best price seen in another town */
+  function priceSig(g) {
+    const p = Math.round(S.prices[S.city][g.id]), tg = priceTag(g, p);
+    return { p, tg, show:g.craft ? Math.round(p * (1 + sellBonus(S))) : Math.round(p * (1 - buyDisc(S))), word:TAGW[tg], arrow:TAGA[tg], best:bestElsewhere(g.id) };
+  }
   /* v45: five dots = how full the merchant's storeroom is for this good (all five: he takes no more of it) */
   function dots5(gid, stk, mx) { const n = stk >= 99 && !mx ? 5 : Math.min(5, Math.ceil(5 * stk / Math.max(1, mx || STOCK[gid]))); return Array.from({ length:5 }, (_, k) => '<i' + (k < n ? ' class="on"' : '') + '></i>').join(''); }
   function tileHtml(g) {
     const it = S.inv[g.id], on = msel === g.id, held = it.n ? '<i class="held" title="Elindeki">' + it.n + '</i>' : '';
     if (!deals(S.city, g.id)) return '<button type="button" class="tile off' + (on ? ' sel' : '') + '" data-tile="' + g.id + '" aria-pressed="' + on + '" aria-label="' + esc(g.name) + ': burada alınıp satılmaz">' + held + '<span class="ti">' + gIco(g.id, 28) + '</span><b class="tn">' + esc(g.short) + '</b><span class="tp no">satılmaz</span></button>';
-    const p = Math.round(S.prices[S.city][g.id]), tg = priceTag(g, p), stk = S.stock ? S.stock[S.city][g.id] : 99, mx = S.stock ? stockMax(S, S.city, g.id) : 0, full = !!S.stock && stk >= mx, show = g.craft ? Math.round(p * (1 + sellBonus(S))) : Math.round(p * (1 - buyDisc(S)));
+    const sg = priceSig(g), p = sg.p, tg = sg.tg, stk = S.stock ? S.stock[S.city][g.id] : 99, mx = S.stock ? stockMax(S, S.city, g.id) : 0, full = !!S.stock && stk >= mx, show = sg.show;
     const hot = (S.mods || []).some(m => m.city === S.city && (!m.g || m.g === g.id) && S.day >= m.from && S.day <= m.until);
     return '<button type="button" class="tile t-' + tg + (g.craft ? ' sellonly' : '') + (on ? ' sel' : '') + (it.n ? ' have' : '') + (full ? ' full' : '') + '" data-tile="' + g.id + '" aria-pressed="' + on + '" aria-label="' + esc(g.name) + ', ' + fmt(show) + ' deben, ' + TAGW[tg] + (it.n ? ', elinde ' + it.n : '') + (full ? ', tüccarın deposu dolu' : '') + '" title="' + esc(priceWhy(g, p)) + '">' + held + (hot ? '<i class="hot" title="Sethi ya da kriz">!</i>' : '') +
       '<span class="ti">' + gIco(g.id, 28) + '</span><b class="tn">' + esc(g.short) + '</b><span class="tp ' + tg + '">' + fmt(show) + (TAGA[tg] ? '<em>' + TAGA[tg] + '</em>' : '') + '</span>' +

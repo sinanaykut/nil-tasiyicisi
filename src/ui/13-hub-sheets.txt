@@ -49,12 +49,46 @@
     dlgSay([f.thanks, 'Karşılığında: ' + r.got.join(', ') + '.'], { mood:'happy', lv:3, html:giftCard(i), choices:merchChoices(), sub:(MERCHANTS[i].title || CITIES[i].name) + ' · ' + hearts(trustLv(S)) + ' ' + TRUST[trustLv(S)].name });
     trustToast(r.lvUp, i);
   }
-  /* pick a good to haggle over, inside the dialogue */
+  /* pick a good to haggle over, inside the dialogue: his stall with today's price signal on every good
+     (v48: the same tags as the market tiles: Ucuz green ↓, Pahalı red ↑, and the best price seen in another town) */
+  function hgPickTile(g) {
+    const ok = canHaggle28(S, g.id), sg = priceSig(g), it = S.inv[g.id], b = sg.best;
+    const far = !ok ? '<span class="hgbest">bugün oldu</span>' : b && b.p > sg.show * 1.08 ? '<span class="hgbest" title="Gördüğün en iyi fiyat">' + cIco(b.i, 11) + esc(CITIES[b.i].name) + ' ' + fmt(b.p) + '</span>' : it.n && (!b || b.p <= sg.show) ? '<span class="hgbest here">en iyisi burada</span>' : '';
+    return '<button type="button" class="tile sm hgt" data-hgg="' + g.id + '"' + (ok ? '' : ' disabled') + ' aria-label="' + esc(g.name) + ', ' + fmt(sg.show) + ' deben, ' + sg.word + (it.n ? ', elinde ' + it.n : '') + '">' + (it.n ? '<i class="held" title="Elindeki">' + it.n + '</i>' : '') +
+      '<span class="ti">' + gIco(g.id, 26) + '</span><b class="tn">' + esc(g.short) + '</b><span class="tp">' + fmt(sg.show) + '</span><span class="hgw ' + sg.tg + '">' + (sg.arrow ? sg.arrow + ' ' : '') + sg.word + '</span>' + far + '</button>';
+  }
   function hagPickInDialog() {
     if (typeof haggleDeal !== 'function') { DLG = null; closeSheet(); showHaggle(); return; }
+    hgSide = false;
     const gs = GOODS.filter(g => deals(S.city, g.id) && ((!g.craft && S.stock[S.city][g.id] > 0) || S.inv[g.id].n > 0));
-    const html = '<div class="hgpick">' + gs.map(g => { const ok = canHaggle28(S, g.id); return '<button type="button" class="tile sm" data-hgg="' + g.id + '"' + (ok ? '' : ' disabled') + '><span class="ti">' + gIco(g.id, 26) + '</span><b class="tn">' + esc(g.short) + '</b><span class="tp">' + (ok ? fmt(S.prices[S.city][g.id]) : 'bugün oldu') + '</span></button>'; }).join('') + '</div>';
-    dlgSay(['Hangi mal için konuşalım? Tezgâhıma iyi bak.'], { html, choices:[] });
+    const html = '<div class="hgpick">' + gs.map(hgPickTile).join('') + '</div>';
+    dlgSay(['Tezgâhım burada. Yeşil etiketliler bugün ucuz, kırmızılar pahalı. Hangisini konuşalım?'], { html, choices:[] });
+  }
+  /* v48: the chosen good is set up right here in the conversation (side, how many), then the haggle starts: no trip to the market panel */
+  function hagSetupInDialog(gid, side) {
+    const g = gById(gid); if (!g || !DLG || sheetName !== 'say') return;
+    if (!canHaggle28(S, gid)) { play('no'); return; }
+    side = side || (hgMax(gid, 'buy') ? 'buy' : 'sell');
+    if (!hgMax(gid, side)) side = side === 'buy' ? 'sell' : 'buy';
+    if (!hgMax(gid, side)) { play('no'); toast(S.inv[gid].n ? 'Tüccarın deposunda yer yok: bu malı şimdi almaz.' : 'Ne paran ne ambarın buna yetiyor.'); return; }
+    hgSide = { g:gid, side, n:hgMax(gid, side), dlg:true }; play('click');
+    const both = hgMax(gid, 'buy') && S.inv[gid].n && hgMax(gid, 'sell');
+    dlgSay([g.short + ' mi? ' + (both ? 'Alacak mısın, satacak mısın? Bir de kaç tane?' : side === 'buy' ? 'Kaç tane alacaksın?' : 'Kaç tane satacaksın?')], { html:hgSetupHtml(), choices:[] });
+  }
+  function hgSetupHtml() {
+    const H = hgSide, g = gById(H.g), mx = hgMax(g.id, H.side), n = Math.max(1, Math.min(H.n, mx)), h = hgHint(g.id, H.side), sg = priceSig(g);
+    const both = hgMax(g.id, 'buy') && S.inv[g.id].n && hgMax(g.id, 'sell');
+    const q = H.side === 'buy' ? quoteBuy(S, g.id, n) : quoteSell(S, g.id, n), tot = H.side === 'buy' ? q.cost : q.rev;
+    return '<div class="hgset"><div class="hgsg">' + gIco(g.id, 34) + '<span><b>' + esc(g.name) + ' <em class="hgw ' + sg.tg + '">' + (sg.arrow ? sg.arrow + ' ' : '') + sg.word + '</em></b><small class="hgh ' + h[0] + '">' + esc(h[1]) + '</small></span>' +
+      '<button type="button" class="btn sm hgsb" data-act="hgPickBack">' + ico('i-stall', 16) + 'Başka mal</button></div>' +
+      '<div class="hgsr">' + (both ? '<span class="hgss" role="group" aria-label="Alış ya da satış"><button type="button" class="btn sm' + (H.side === 'buy' ? ' on' : '') + '" data-hgside="buy" aria-pressed="' + (H.side === 'buy') + '">Alıyorum</button><button type="button" class="btn sm' + (H.side === 'sell' ? ' on' : '') + '" data-hgside="sell" aria-pressed="' + (H.side === 'sell') + '">Satıyorum</button></span>' : '<span class="hgsl">' + (H.side === 'buy' ? 'Alıyorsun' : 'Satıyorsun') + '</span>') +
+      '<span class="qstep" role="group" aria-label="Miktar"><button type="button" class="chip" data-hgq="-1" aria-label="Azalt"' + (n > 1 ? '' : ' disabled') + '>−</button><b>' + n + '</b><button type="button" class="chip" data-hgq="1" aria-label="Artır"' + (n < mx ? '' : ' disabled') + '>+</button><button type="button" class="chip" data-hgq="all" aria-pressed="' + (n === mx) + '">Hepsi</button></span></div>' +
+      '<button type="button" class="btn go1 hgo" data-act="hgStart" data-first><b>Pazarlığa başla</b><small>' + n + ' ' + esc(g.short.toLowerCase()) + ' · olağan ' + fmt(tot) + '</small></button></div>';
+  }
+  /* side or amount changed: repaint wherever the setup lives (the conversation or the market bar) */
+  function hgSetupRepaint() {
+    if (hgSide && hgSide.dlg) { const x = $('#dlgX'); if (x && DLG && sheetName === 'say') { x.innerHTML = hgSetupHtml(); return; } hgSide = false; }
+    renderPanel();
   }
   /* the v28 haggle over one good: hand over to haggleDeal, then strike the deal */
   /* how much a side allows right now: what you can afford and carry, or what you hold */
@@ -98,14 +132,19 @@
     const H = hgSide; if (!H || !canHaggle28(S, H.g)) return;
     const n = Math.max(1, Math.min(H.n, hgMax(H.g, H.side))); if (!hgMax(H.g, H.side)) { play('no'); return; }
     hgSide = false;
-    guideOnce('haggle', PANEB.haggle, () => hagGo(H.g, H.side, n), 'sly');
+    if (H.dlg) closeSheet();
+    guideOnce('haggle', PANEB.haggle, () => hagGo(H.g, H.side, n, H.dlg), 'sly');
   }
-  function hagGo(gid, side, n) {
+  /* v48: today's haggle streak (any town): each deal won in a row opens the next merchant a little (+1 % room, up to +3 %) */
+  const hgSerNow = () => S.hgSer && S.hgSer.d === S.day ? S.hgSer.n : 0;
+  /* the merchant's mood is the same for every good at his stall all day: a seed kept for the whole voyage */
+  function hgDaySeed() { if (S.hgSeed == null) S.hgSeed = Math.floor(Math.random() * 1e9); return ((S.hgSeed + S.city * 7919 + S.day * 104729) ^ 0x5BD1E9) | 0; }
+  function hagGo(gid, side, n, fromDlg) {
     /* the honest price of that many: the average of the normal deal, which already moves with every unit */
     const q = side === 'buy' ? quoteBuy(S, gid, n) : quoteSell(S, gid, n); n = q.n; if (!n) { play('no'); renderPanel(); return; }
     const g = gById(gid), unit = (side === 'buy' ? q.cost : q.rev) / n;
     const se = SEASONS[seasonIdx(S)].mult[gid] || 1, crisis = (S.mods || []).filter(m => m.city === S.city && (!m.g || m.g === gid) && S.day >= m.from && S.day <= m.until).reduce((a, m) => a * m.mult, 1);
-    const o = { ci:S.city, g:gid, side, qty:n, unit, stock:S.stock ? S.stock[S.city][gid] : 0, stockFull:(S.stockBase ? S.stockBase[S.city][gid] : STOCK[gid]) || 0, stockMax:S.stock ? stockMax(S, S.city, gid) : 0, want:+((CITIES[S.city].mult[gid] || 1) * se * crisis).toFixed(3), trust:trustLv(S), mood:Math.max(-1, Math.min(1, moodBoost * 0.4 + (trustLv(S) - 1) * 0.2)), seed:((S.rs || 7) * 131 + S.city * 97 + S.day * 13 + GOODS.indexOf(g)) | 0, who:S.city };
+    const o = { ci:S.city, g:gid, side, qty:n, unit, stock:S.stock ? S.stock[S.city][gid] : 0, stockFull:(S.stockBase ? S.stockBase[S.city][gid] : STOCK[gid]) || 0, stockMax:S.stock ? stockMax(S, S.city, gid) : 0, want:+((CITIES[S.city].mult[gid] || 1) * se * crisis).toFixed(3), trust:trustLv(S), mood:Math.max(-1, Math.min(1, moodBoost * 0.4 + (trustLv(S) - 1) * 0.2)), seed:((S.rs || 7) * 131 + S.city * 97 + S.day * 13 + GOODS.indexOf(g)) | 0, mseed:hgDaySeed(), streak:hgSerNow(), who:S.city };
     let done = false, st0 = null;
     try {
       haggleDeal(o, r => {
@@ -113,12 +152,16 @@
         /* walking away before a single offer costs nothing: the good can be haggled again today */
         const none = !r.done && !r.angry && st0 && !st0.round && !st0.praised && !st0.walked;
         if (!none) hgMark(S, gid, r);
+        const ser0 = hgSerNow();
+        if (!none) S.hgSer = { d:S.day, n:r.done ? (r.mult !== 1 ? Math.min(typeof HG_SER === 'number' ? HG_SER : 3, ser0 + 1) : ser0) : 0 };
         let res = null;
         if (r.done && r.mult > 0) res = side === 'buy' ? dealBuy(S, gid, n, unit * r.mult) : dealSell(S, gid, n, unit * r.mult);
         moodBoost = r.angry ? -1 : res && res.n ? 1 : 0;
         line = r.angry ? (FACE_LINES[S.city] || {}).walk || 'Yeter! Bugün başka pazarlık yok.' : res && res.n ? (FACE_LINES[S.city] || {}).ok || 'Anlaştık.' : pickLine();
         save(); closeSheet(); renderAll();
-        if (res && res.n) { play(side === 'buy' ? 'buy' : 'sell'); toast((side === 'buy' ? res.n + ' ' + gName(gid) + ' aldın · −' + fmt(res.cost) : res.n + ' ' + gName(gid) + ' sattın · +' + fmt(res.rev)) + ' (birimi ' + fmt(res.unit) + ', olağan ' + fmt(Math.round(unit)) + ')'); trustToast(res.lvUp, S.city); pulseCargo(); }
+        /* started in the conversation: come back to him, ready for the next good */
+        if (fromDlg && phase === 'port' && !S.over) showMerchant();
+        if (res && res.n) { play(side === 'buy' ? 'buy' : 'sell'); toast((side === 'buy' ? res.n + ' ' + gName(gid) + ' aldın · −' + fmt(res.cost) : res.n + ' ' + gName(gid) + ' sattın · +' + fmt(res.rev)) + ' (birimi ' + fmt(res.unit) + ', olağan ' + fmt(Math.round(unit)) + ')' + (S.hgSer && S.hgSer.n > ser0 ? ' · Seri ' + S.hgSer.n + '!' : '')); trustToast(res.lvUp, S.city); pulseCargo(); }
         else if (r.angry) { play('bad'); toast(MERCHANT_NAMES[S.city] + ' küstü: bugün başka pazarlık yok.'); }
         else play('click');
       });

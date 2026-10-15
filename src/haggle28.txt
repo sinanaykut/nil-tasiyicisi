@@ -9,31 +9,52 @@
      b = calls you back after a walk-away, n = lets you go, h = reaction to praise */
   const HG_M = [
     { room:'glance', lim:'tap', praise:1, pat:0, o:['Kedilerim bu malı çok sever. Fiyatı da ona göre.', 'Getirdiğine kediler bir baksın bakalım.'],
-      c:['Kediler homurdandı ama olsun: {p}.', 'Bıyıklarım titredi… {p}.'], f:'{p}. Kedi tüyüne yemin, aşağısı yok.', y:'Peki. Kediler de onayladı, anlaştık!',
+      c:['Kediler homurdandı ama olsun: {p}.', 'Bıyıklarım titredi… {p}.', 'Kara kedi kucağıma atladı. Uğurdur: {p}.', 'Bastet şahit olsun, {p}.', 'Mırr… peki, {p}.'], f:['{p}. Kedi tüyüne yemin, aşağısı yok.', '{p}. Kediler bile bu fiyata şaşırdı.', 'Kedimin mamasını da düşünmeliyim. {p}, son.'], y:'Peki. Kediler de onayladı, anlaştık!',
       a:'Kediler tıslıyor, ben de! Çık dükkânımdan!', b:'Dur, dur! Kediler arkandan miyavladı. Gel: {p}.', n:'Güle güle. Kediler zaten seni pek sevmemişti.', h:'Kedilerimi mi beğendin? Ah, ne iyi insansın!' },
     { room:'scratch', lim:'arms', praise:-1, pat:1, o:['Kırk yıllık taş gibi sağlam mal. Fiyatı da sağlam.', 'Göster bakalım. Taşı da malı da elle yoklarım.'],
-      c:['Keski gibi yavaş yavaş: {p}.', 'Piramit bir günde yapılmaz. {p}.'], f:'{p}. Bu taş daha fazla yontulmaz.', y:'Olur. Piramit gibi sağlam bir anlaşma.',
+      c:['Keski gibi yavaş yavaş: {p}.', 'Piramit bir günde yapılmaz. {p}.', 'Taşı bir parmak yonttum: {p}.', 'Dedem bu fiyata kızardı ama… {p}.', 'Mala bak, terime bak. {p}.'], f:['{p}. Bu taş daha fazla yontulmaz.', '{p}. Bu kayayı kimse kımıldatamaz.', 'Kırk yıldır bu fiyatı veririm: {p}.'], y:'Olur. Piramit gibi sağlam bir anlaşma.',
       a:'Kırk yılda böyle hakaret duymadım. Yürü!', b:'Acele etme evlat. Otur. {p} olsun.', n:'Yolun açık olsun. Taş beklemeyi bilir.', h:'Dalkavukluğu bırak. Taş tatlı sözden anlamaz.' },
     { room:'eyebrow', lim:'frown', praise:1, pat:0, o:['Deftere bakıyorum… fiyat burada yazıyor.', 'Ne getirdin? Deftere yazmadan bir bakayım.'],
-      c:['Kamışı batırıyorum: {p}.', 'Bir satırı siliyorum… {p}.'], f:'{p}. Mürekkep kurudu, değişmez.', y:'Yazıldı, mühürlendi. Anlaştık.',
+      c:['Kamışı batırıyorum: {p}.', 'Bir satırı siliyorum… {p}.', 'Hesabı bir daha yaptım: {p}.', 'Kalemi biraz geri çektim: {p}.', 'Sayılar yalan söylemez: {p}.'], f:['{p}. Mürekkep kurudu, değişmez.', '{p}. Defterin kenarına bile yazdım, değişmez.', 'Toplam belli: {p}. Kalemi bıraktım.'], y:'Yazıldı, mühürlendi. Anlaştık.',
       a:'Adını kara mürekkeple yazdım. Git!', b:'Bekle! Defterde bir hata buldum: {p}.', n:'Defteri kapattım. Başka gün.', h:'Yazımı mı beğendin? Osiris şahit, kızardım.' },
     { room:'lean', lim:'sweat', praise:1, pat:-1, o:['EN İYİ MAL KHA\'DA! Fiyatı da EN İYİ!', 'GETİR BAKALIM! Kha her şeyi alır!'],
-      c:['HA! {p}, daha ne istiyorsun?!', 'Kulağım çınlıyor… {p}!'], f:'{p}! SON! Başka laf yok!', y:'ANLAŞTIK! Bütün Vaset duydu!',
+      c:['HA! {p}, daha ne istiyorsun?!', 'Kulağım çınlıyor… {p}!', 'BAĞIRMA! Tamam, {p}!', 'Bütün pazar bize bakıyor! {p}!', 'Of, of! {p} olsun!'], f:['{p}! SON! Başka laf yok!', '{p}! Sesim kısılsa da bu!', 'DUYDUN MU? {p}! NOKTA!'], y:'ANLAŞTIK! Bütün Vaset duydu!',
       a:'YETER! Tezgâhı kapatıyorum! DIŞARI!', b:'HEY HEY! Nereye? Gel, {p}!', n:'GİT O ZAMAN! …Bir dahaki sefere.', h:'DOĞRU SÖYLÜYORSUN! Herkes duysun!' },
     { room:'smile', lim:'glance', praise:0, pat:0, o:['Taş gibi berrak konuşayım: fiyat bu.', 'Güneyde her şeyin değeri bellidir. Seninkinin de.'],
-      c:['Dağların hatırına: {p}.', 'Taşı ışığa tuttum… {p}.'], f:'{p}. Lapis kadar sert son söz.', y:'Güzel. Mal sahibini buldu.',
+      c:['Dağların hatırına: {p}.', 'Taşı ışığa tuttum… {p}.', 'Sabır taşı gibi: {p}.', 'Güneyin rüzgârı yumuşattı beni. {p}.', 'Peki, {p}. Ama bir daha olmaz.'], f:['{p}. Lapis kadar sert son söz.', '{p}. Dağ yerinden oynamaz.', 'Ben taşa benzerim: {p}, değişmem.'], y:'Güzel. Mal sahibini buldu.',
       a:'Sabrım lapis kadar nadirdi. Bitti!', b:'Dur. Nehir gibi acele etme. {p}.', n:'Taş bekler. Ben de beklerim.', h:'Güzel söz. Ama fiyat değişmez… pek.' },
     { room:'eyebrow', lim:'arms', praise:-1, pat:0, o:['Kâhin bugün bu fiyatı uygun gördü.', 'Kâhine soracağım. Sen önce bir göster.'],
-      c:['Kâhin hapşırdı… hayra yoruyorum: {p}.', 'Amun sabırlıdır, ben değilim. {p}.'], f:'{p}. Bir daha sorarsam kâhin küser.', y:'Kâhin onayladı. Tuzla mühürledik.',
+      c:['Kâhin hapşırdı… hayra yoruyorum: {p}.', 'Amun sabırlıdır, ben değilim. {p}.', 'Yıldızlara baktım: {p}.', 'Tuz kristali parladı. İşaret bu: {p}.', 'Kâhin göz kırptı. {p}.'], f:['{p}. Bir daha sorarsam kâhin küser.', '{p}. Tanrılar bu fiyatı yazdı.', 'Kehanet açık: {p}. Gerisi yok.'], y:'Kâhin onayladı. Tuzla mühürledik.',
       a:'Kâhin "git" dedi. Ben de diyorum: GİT!', b:'Dur! Kâhin seni geri çağırdı: {p}.', n:'Kâhin zaten gideceğini söylemişti.', h:'Tatlı dil kâhini kandırmaz. Beni hiç.' },
     { room:'lean', lim:'tap', praise:1, pat:1, o:['Önce bir hurma ye. Sonra fiyat.', 'Ne getirdin bakalım? Al, hurma ye.'],
-      c:['Peki, {p}. Ama bir hurma daha yiyeceksin.', 'Kuyunun hatırına: {p}.'], f:'Son salkım, son söz: {p}.', y:'Anlaştık! Tatlı bir pazarlık oldu.',
+      c:['Peki, {p}. Ama bir hurma daha yiyeceksin.', 'Kuyunun hatırına: {p}.', 'Hurma tatlı, sen tatlı… {p}.', 'Gölgeye otur, serinle. {p}.', 'Annem görse kızardı. {p} olsun.'], f:['Son salkım, son söz: {p}.', '{p}. Hurmanın çekirdeği gibi sert bu.', 'Kuyunun dibi belli: {p}.'], y:'Anlaştık! Tatlı bir pazarlık oldu.',
       a:'Hurmamı yedin, sabrımı da! Hadi bakalım!', b:'Nereye? Hurman yarım kaldı! {p}, otur.', n:'Git ama hurmanı al. Yolda acıkırsın.', h:'Ay, tatlı dilli! Al bir hurma daha.' },
     { room:'glance', lim:'scratch', praise:0, pat:0, o:['Punt\'tan geldi. Babun bile kokladı.', 'Babun bir koklasın, sonra konuşuruz.'],
-      c:['Babun kaşını kaldırdı… {p}.', 'Dalgalar sakin, ben de: {p}.'], f:'Denizin tuzu üstüne: {p}, son!', y:'Anlaştık! Babun alkışlıyor.',
+      c:['Babun kaşını kaldırdı… {p}.', 'Dalgalar sakin, ben de: {p}.', 'Babun bir muz istedi. Ben de {p} istiyorum.', 'Rüzgâr döndü: {p}.', 'Yelkeni indirdim. {p}.'], f:['Denizin tuzu üstüne: {p}, son!', '{p}. Babun bile pazarlığı bıraktı.', 'Kızıldeniz şahit: {p}, son!'], y:'Anlaştık! Babun alkışlıyor.',
       a:'Babun dişlerini gösterdi. Ben de! Git!', b:'Hop! Babun paçana yapıştı. {p}, dön.', n:'Babunum esnedi. Pazarlık bitti demek.', h:'Babunuma söyle, o sever. Ben tüccarım.' }
   ];
-  const HG_OFF = [0.05, 0.12, 0.20], HG_MAX = 4;
+  /* v48: the merchant's mood of the day (same for every good at his stall that day), one plain rule each */
+  const HG_DAY = {
+    calm:{ p:0.4 },
+    hurry:{ p:0.15, name:'Acelesi var', rule:'Acelesi var: 3 teklif hakkın var ama payı geniş.', o:['Çabuk ol, kervanım kalkıyor!', 'Kısa kes, dükkânı kapatacağım.', 'Hadi hadi, güneş batıyor!'] },
+    bluff:{ p:0.15, name:'Blöfçü', rule:'Bugün blöfçü: yüzü sık sık yanıltır.', o:['Bugün yüzüme güvenme… ya da güven. Bilemezsin.', 'Ben bugün taş gibiyim. Belki.'] },
+    proud:{ p:0.15, name:'Övgü bekliyor', rule:'Bugün gururlu: övgüye bayılır ama sabrı az.', o:['Bugün pazarın en iyi tüccarı kim? Söyle bakalım.', 'Tezgâhımı gördün mü? Nil\'in en güzeli!'] },
+    sleepy:{ p:0.15, name:'Uykulu', rule:'Bugün uykulu: sabırlı ama pek esnemez.', o:['Ahh… (esniyor) Ne diyordun?', 'Gece kedi bağırdı, uyuyamadım. Yavaş konuş.'] }
+  };
+  /* v48: special moments (one at most per haggle) and a few lines everyone shares, so no line repeats too soon */
+  const HG_SP = {
+    rival:{ buy:['Arkadan biri seslendi: "Ben alırım, hepsini!"', 'Bir kervancı yaklaştı: "Bu mal hâlâ satılık mı?"', 'Yan tezgâhtan biri malı gözüne kestirdi.'], sell:['Yan tezgâhtaki bağırdı: "Bende daha ucuzu var!"', 'Bir satıcı daha geldi, aynı maldan getirmiş.', 'Kapıda biri bekliyor: elinde aynı mal.'],
+      r:['Görüyorsun, kapımda bekleyen var. {p}.', 'Rakip çıktı! Artık {p}.', 'Kalabalık arttı, fiyat sertleşti: {p}.'] },
+    flash:['Bak, sana özel: {p}. Ama hemen!', 'Son teklifim {p}. Kum saati döndü!', 'Şimdi el sıkışırsak {p}. Sonra yok!', 'Hemen dersen {p}. Saymaya başladım!'],
+    gone:['Kum bitti, teklif de bitti.', 'Geç kaldın dostum. O teklif gitti.', 'Düşünürken fırsat uçtu gitti.'],
+    quiz:{ buy:['Gözlerime bak. Sence daha iner miyim?', 'Hadi, yüzümü oku: daha var mı?', 'Bir tahmin et bakalım: daha indirir miyim?'], sell:['Gözlerime bak. Sence daha çıkar mıyım?', 'Hadi, yüzümü oku: daha var mı?', 'Bir tahmin et: daha veririm mi?'] },
+    ok:['Gözün keskin! Hadi, sana {p}.', 'Ha! Yakaladın beni. {p} olsun.', 'Seni kandıramıyorum. {p}.'],
+    no:['Yanıldın! Yüzüm seni kandırdı.', 'Hah, bilemedin. Fiyat yerinde.', 'Yüzüme bakıp yanıldın. Olur böyle.'],
+    fin:['Son sözüm: bundan öte yok.', 'Kesemin dibi göründü. Bu kadar.', 'Daha zorlarsan küserim. Bu son.'],
+    y:['Elini ver, anlaştık!', 'Hayırlı olsun, bereketli olsun!', 'Tamam, tamam. Senin olsun.']
+  };
+  const HG_OFF = [0.05, 0.12, 0.20], HG_MAX = 4, HG_SER = 3;
+  function hgDayOf(r) { let x = r, k = 'calm'; for (const id of Object.keys(HG_DAY)) { x -= HG_DAY[id].p; if (x < 0) { k = id; break; } } return k; }
   function hgRng(seed) {
     let a = typeof seed === 'number' ? seed >>> 0 : String(seed == null ? Math.random() : seed).split('').reduce((h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0, 2166136261);
     if (!a) a = 0x9E3779B9;
@@ -55,14 +76,39 @@
     const st = { o, ci, M, rnd, buy:o.side !== 'sell', R:hgRoom(o, rnd), cur:0, round:0, praised:false, walked:false, fin:false, res:null,
       pat:Math.max(2, 3 + M.pat + ((o.trust || 0) >= 2 ? 1 : 0) + ((o.mood || 0) > 0.4 ? 1 : 0) - ((o.mood || 0) < -0.4 ? 1 : 0)),
       shelf:hgShelf(f), f, crowd:hgCrowd(o.want || 1), tell:null, bluff:false, mood:(o.mood || 0) > 0.3 ? 'happy' : (o.mood || 0) < -0.3 ? 'sad' : 'neutral', log:[] };
+    /* v48: his mood of the day, the day's streak, and the special moment slot */
+    st.day = HG_DAY[o.day] ? o.day : hgDayOf(o.mseed != null ? hgRng(o.mseed)() : rnd());
+    st.max = HG_MAX; st.bp = 0.15; st.praiseV = M.praise; st.sp = null; st.flash = 0; st.quiz = false; st.final = false;
+    st.ser = Math.max(0, Math.min(HG_SER, o.streak | 0));
+    if (st.day === 'hurry') { st.max = 3; st.R += 0.025; }
+    else if (st.day === 'bluff') st.bp = 0.3;
+    else if (st.day === 'proud') { st.praiseV = 1; st.pat = Math.max(2, st.pat - 1); }
+    else if (st.day === 'sleepy') { st.pat++; st.R -= 0.015; }
+    st.R = hgR(Math.max(0.02, Math.min(0.26, st.R + st.ser * 0.01)));
     hgTell(st);
     return st;
   }
-  /* body language shows how much room is left; ~15 % of the time he bluffs */
+  /* body language shows how much room is left; ~15 % of the time he bluffs (30 % on a bluffing day) */
   function hgTell(st) {
-    const has = st.R - st.cur >= 0.03; st.bluff = st.rnd() < 0.15;
+    const has = st.R - st.cur >= 0.03; st.bluff = st.rnd() < (st.bp || 0.15);
     st.tell = (has !== st.bluff) ? st.M.room : st.M.lim;
   }
+  /* v48: after an answer that leaves the haggle open, sometimes something happens (50 %, once per haggle):
+     rival = someone else wants the deal, his room shrinks; flash = a "last offer" that is gone in a few seconds;
+     quiz = "read my face": guess right and he gives a little extra */
+  function hgMoment(st, out) {
+    if (st.sp || st.fin || st.final || st.round >= st.max || (!st.force && st.rnd() >= 0.5)) return;
+    const left = st.R - st.cur, A = ['quiz'];
+    if (left > 0.02) A.push('rival');
+    if (left >= 0.03) A.push('flash');
+    const k = st.force && A.indexOf(st.force) >= 0 ? st.force : A[Math.floor(st.rnd() * A.length)]; st.force = null;
+    st.sp = k; out.sp = k;
+    if (k === 'rival') { st.R = hgR(Math.max(st.cur + 0.005, st.R - 0.025)); st.mood = 'surprised'; hgTell(st); }
+    else if (k === 'flash') { st.flash = hgR(st.cur + left * 0.6); st.mood = 'sly'; }
+    else { st.quiz = true; st.mood = 'sly'; }
+  }
+  /* no room left: he says it is his last word and only "accept" or "leave" remain */
+  function hgFinal(st, out) { if (!st.fin && st.round > 0 && st.R - st.cur < 0.008) { st.final = true; out.last = true; } }
   const hgR = x => Math.round(x * 1000) / 1000;
   /* one player action → { ev, tell, bluff, learn } ; acts: offer (k = 0..2), praise, walk, accept, leave.
      A tell is learned only when the answer showed its meaning: he gave ground after a "room" tell, or held firm after a "limit" tell. */
@@ -79,33 +125,48 @@
     if (st.fin) return null;
     const M = st.M, prevTell = st.tell, prevBluff = st.bluff, out = { act, ev:'', tell:prevTell, bluff:prevBluff, learn:null };
     const end = (done, angry, ev) => { st.fin = true; out.ev = ev; st.res = { done, mult:done ? hgR(st.buy ? 1 - st.cur : 1 + st.cur) : 1, angry:!!angry }; if (!done) delete st.res.mult; };
+    /* v48: the "last offer" waits only for "accept"; anything else (or the clock) takes it back */
+    if (act === 'flashGone') { if (!st.flash) return null; st.flash = 0; out.ev = 'gone'; st.mood = 'neutral'; return out; }
+    if (act === 'accept') { if (st.flash) { st.cur = st.flash; out.flash = true; } st.flash = 0; end(true, false, 'deal'); return out; }
+    if (act === 'leave') { end(false, false, 'leave'); return out; }
+    if (act === 'guess') {
+      if (!st.quiz || (k !== 0 && k !== 1)) return null;
+      st.quiz = false; st.flash = 0;
+      const truth = st.R - st.cur >= 0.03 ? 0 : 1;
+      out.learn = (truth === 0) === (prevTell === M.room) ? (truth === 0 ? 'room' : 'limit') : null;
+      if (k === truth) { st.cur = hgR(Math.min(0.24, st.cur + 0.015)); st.R = Math.max(st.R, st.cur); out.ev = 'guessOk'; st.mood = 'happy'; }
+      else { st.pat = Math.max(1, st.pat - 1); out.ev = 'guessNo'; st.mood = 'sly'; }
+      hgTell(st); hgFinal(st, out);
+      return out;
+    }
     if (act === 'praise') {
       if (st.praised) return null;
-      st.praised = true; out.ev = 'praise'; out.praise = M.praise;
-      if (M.praise > 0) { st.R = Math.min(0.26, st.R + 0.025); st.pat++; st.mood = 'happy'; }
-      else if (M.praise < 0) { st.R = Math.max(0.02, st.R - 0.01); st.pat--; st.mood = 'angry'; if (st.pat <= 0) { end(false, true, 'angry'); return out; } }
+      st.flash = 0; st.quiz = false;
+      st.praised = true; out.ev = 'praise'; out.praise = st.praiseV;
+      if (st.praiseV > 0) { st.R = Math.min(0.26, st.R + (st.day === 'proud' ? 0.03 : 0.025)); st.pat++; st.mood = 'happy'; if (st.final && st.R - st.cur >= 0.008) st.final = false; }
+      else if (st.praiseV < 0) { st.R = Math.max(0.02, st.R - 0.01); st.pat--; st.mood = 'angry'; if (st.pat <= 0) { end(false, true, 'angry'); return out; } }
       else { st.R += 0.01; st.mood = 'thinking'; }
       hgTell(st); return out;
     }
-    if (act === 'accept') { end(true, false, 'deal'); return out; }
-    if (act === 'leave') { end(false, false, 'leave'); return out; }
-    if (st.round >= HG_MAX) return null;
+    if (st.round >= st.max) return null;
     if (act === 'walk') {
       if (st.walked) return null;
+      st.flash = 0; st.quiz = false;
       st.walked = true; st.round++;
-      if (st.R - st.cur >= 0.03) { st.cur = hgR(st.cur + (st.R - st.cur) * 0.7); out.ev = 'back'; st.mood = 'surprised'; hgTell(st); }
+      if (st.R - st.cur >= 0.03) { st.cur = hgR(st.cur + (st.R - st.cur) * 0.7); out.ev = 'back'; st.mood = 'surprised'; hgTell(st); hgFinal(st, out); }
       else end(false, false, 'bye');
       return out;
     }
     if (act === 'offer') {
       const a = HG_OFF[k];
-      if (a == null || a <= st.cur + 1e-9) return null;
+      if (a == null || a <= st.cur + 1e-9 || st.final) return null;
+      st.flash = 0; st.quiz = false;
       st.round++;
       if (a <= st.R) {
         /* easy for him → yes; close to his limit → he haggles back a little first, then gives in if you insist */
-        if (a <= st.R - 0.035 || st.asked === a || st.round >= HG_MAX) { st.cur = a; out.ev = 'yes'; st.mood = 'happy'; end(true, false, 'yes'); return out; }
+        if (a <= st.R - 0.035 || st.asked === a || st.round >= st.max) { st.cur = a; out.ev = 'yes'; st.mood = 'happy'; end(true, false, 'yes'); return out; }
         st.asked = a; st.cur = hgR(Math.max(st.cur, a - 0.02 - st.rnd() * 0.015)); out.ev = 'counter'; st.mood = 'thinking'; hgTell(st);
-        if (st.round >= HG_MAX) out.last = true;
+        if (st.round >= st.max) out.last = true; else { hgFinal(st, out); hgMoment(st, out); }
         return out;
       }
       st.asked = a;
@@ -117,7 +178,7 @@
       out.ev = st.cur - before < 0.005 ? 'firm' : 'counter';
       st.mood = st.pat <= 1 ? 'angry' : out.ev === 'firm' ? 'sly' : 'thinking';
       hgTell(st);
-      if (st.round >= HG_MAX) out.last = true;
+      if (st.round >= st.max) out.last = true; else { hgFinal(st, out); if (st.pat > 1) hgMoment(st, out); }
       return out;
     }
     return null;
@@ -128,9 +189,9 @@
     return st.buy ? [0.04, 0.08, 0.13, 0.18][s] + [0.02, 0, -0.015, -0.03][c] : [0.03, 0.05, 0.1, 0.17][c] + [0.02, 0.01, 0, -0.01][s];
   }
   function hgPick(st, strat, known) {
-    const offs = HG_OFF.map((a, k) => a > st.cur + 1e-9 ? k : -1).filter(k => k >= 0), canOff = st.round < HG_MAX;
+    const offs = HG_OFF.map((a, k) => a > st.cur + 1e-9 ? k : -1).filter(k => k >= 0), canOff = st.round < st.max && !st.final;
     if (strat === 'random') {
-      const A = []; if (canOff) offs.forEach(k => A.push(['offer', k])); if (!st.praised) A.push(['praise']); if (canOff && !st.walked) A.push(['walk']); A.push(['accept']);
+      const A = []; if (canOff) offs.forEach(k => A.push(['offer', k])); if (!st.praised) A.push(['praise']); if (st.round < st.max && !st.walked) A.push(['walk']); if (st.quiz) A.push(['guess', 0], ['guess', 1]); A.push(['accept']);
       return A[Math.floor(st.rnd() * A.length)];
     }
     if (strat === 'greedy') return canOff && offs.length ? ['offer', offs[offs.length - 1]] : ['accept'];
@@ -138,14 +199,17 @@
     /* the reader: knows each merchant's tells (from the notebook) and what the shelf and the crowd mean */
     known = known || {};
     const M = st.M, cues = strat === 'cues', mean = known[st.tell] || (cues ? null : st.tell === M.room ? 'room' : st.tell === M.lim ? 'limit' : null);
-    if (!st.praised && (known.praise != null ? known.praise : cues ? 0 : M.praise) > 0) return ['praise'];
     if (st.est == null) st.est = hgGuess(st);
+    /* v48 moments: take a fair "last offer", answer the face quiz when the face is known */
+    if (st.flash) { if (mean === 'limit' || st.flash >= st.est - 0.01 || !canOff) return ['accept']; }
+    if (st.quiz && mean) return ['guess', mean === 'room' ? 0 : 1];
+    if (!st.praised && (st.day === 'proud' || (known.praise != null ? known.praise : cues ? 0 : M.praise) > 0)) return ['praise'];
     if (st.lastCur != null && st.cur > st.lastCur) st.est = mean === 'room' ? Math.max(st.est, st.cur + 0.05) : Math.min(st.est, st.cur + 0.01);
     st.lastCur = st.cur;
     if (!canOff || st.mood === 'angry' || (mean === 'limit' && st.cur > 0)) return ['accept'];
     const want = st.est + (mean === 'room' ? 0.035 : -0.01);
     let pickK = -1; offs.forEach(k => { if (HG_OFF[k] <= want) pickK = k; });
-    if (mean === 'room' && !st.walked && st.round < HG_MAX - 1 && (pickK < 0 || st.est - HG_OFF[pickK] > 0.035)) return ['walk'];
+    if (mean === 'room' && !st.walked && st.round < st.max - 1 && (pickK < 0 || st.est - HG_OFF[pickK] > 0.035)) return ['walk'];
     if (pickK >= 0) return ['offer', pickK];
     return st.cur > 0 || !offs.length ? ['accept'] : ['offer', offs[0]];
   }
@@ -233,33 +297,52 @@
     const st = hgNew(o);
     PZ = { kind:'haggle', tok:Math.random(), timers:[], cb, st, called:false, auto:null };
     hgBind();
-    if (window.__nil && window.__nil.fn) { window.__nil.fn.haggleAuto = haggleAuto; window.__nil.fn.haggleDeal = haggleDeal; }
+    if (window.__nil && window.__nil.fn) { window.__nil.fn.haggleAuto = haggleAuto; window.__nil.fn.haggleDeal = haggleDeal; window.__nil.fn.haggleMoment = hgForceMoment; }
     const g = gById(o.g) || { name:o.g }, nm = hgName(st), q = st.o.qty || 1;
     let s = '<div class="hg' + (st.buy ? ' buy' : ' sell') + '">';
-    s += '<div class="hghd"><h2 id="shTitle">Pazarlık · ' + esc(nm) + '<small>' + gIco(o.g, 18) + ' <b>' + fmt(q) + ' ' + esc(g.short || g.name) + '</b> ' + (st.buy ? 'alıyorsun' : 'satıyorsun') + '</small></h2><span class="hgrd" id="hgRd" aria-label="Tur"></span><button class="btn sm hgx" type="button" data-hg="leave">Vazgeç</button></div>';
+    const D = HG_DAY[st.day] || {};
+    s += '<div class="hghd"><h2 id="shTitle">Pazarlık · ' + esc(nm) + '<small>' + gIco(o.g, 18) + ' <b>' + fmt(q) + ' ' + esc(g.short || g.name) + '</b> ' + (st.buy ? 'alıyorsun' : 'satıyorsun') + (D.name ? '<i class="hgday d-' + st.day + '" title="' + esc(D.rule) + '">' + esc(D.name) + '</i>' : '') + (st.ser ? '<i class="hgser" title="Bugün art arda anlaştın: tüccarlar duydu, payları biraz açık">Seri ' + st.ser + ' · +%' + st.ser + '</i>' : '') + '</small></h2><span class="hgrd" id="hgRd" aria-label="Tur"></span><button class="btn sm hgx" type="button" data-hg="leave">Vazgeç</button></div>';
     s += '<div class="hgl"><div class="hgstage" id="hgBust"></div><div class="hgtell" id="hgTell" aria-live="polite"></div><div class="hgbook" id="hgBook"></div></div>';
     s += '<div class="hgr"><div class="hgscene">' + hgShelfSVG(st) + hgShelfSVG(st, true) + '<div class="hgcues"><span>' + hgShelfIco() + HG_SHELF_T[st.shelf] + '</span><span>' + hgPplIco() + HG_CROWD_T[st.crowd] + '</span></div></div>';
     s += '<div class="hgbub" id="hgBub" aria-live="polite"></div>';
     s += '<div class="hgdeal" id="hgDeal"></div><div class="hgbtns" id="hgBtns"></div></div>';
-    s += '<p class="hghint">' + (st.buy ? 'Raf doluysa ve alan azsa çok indirir.' : 'Rafı boşsa ve alan çoksa çok öder.') + ' Yüzüne de bak: bazen blöf yapar.</p></div>';
+    s += '<p class="hghint">' + (D.rule ? '<b>' + esc(D.rule) + '</b> ' : '') + (st.buy ? 'Raf doluysa ve alan azsa çok indirir.' : 'Rafı boşsa ve alan çoksa çok öder.') + (D.rule ? '' : ' Yüzüne de bak: bazen blöf yapar.') + '</p></div>';
     openSheet(s, true, 'pz', true);
     hgPaint({ ev:'open' }, true);
     return st;
   }
   const hgShelfIco = () => '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="3" y="3" width="18" height="18" fill="#8E5A33" stroke="#2B1D14" stroke-width="2"/><path d="M3 12h18" stroke="#2B1D14" stroke-width="2"/><rect x="6" y="6" width="5" height="5" fill="#E2C88E"/><rect x="13" y="14" width="5" height="6" fill="#E2C88E"/></svg>';
   const hgPplIco = () => '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="8" cy="7" r="3.5" fill="#B57A50" stroke="#2B1D14" stroke-width="1.6"/><circle cx="16.5" cy="8" r="3" fill="#B57A50" stroke="#2B1D14" stroke-width="1.6"/><path d="M2 22q0-9 6-9t6 9zM11 22q1-8 5.5-8t5.5 8z" fill="#2BA59A" stroke="#2B1D14" stroke-width="1.6"/></svg>';
+  /* v48: a line from a pool, never the same one twice in a row for that merchant (recent lines are skipped) */
+  const HG_RECENT = {};
+  function hgPickLine(key, arr) {
+    arr = [].concat(arr || []); if (arr.length < 2) return arr[0] || '';
+    const r = HG_RECENT[key] = HG_RECENT[key] || [], keep = Math.min(arr.length - 1, 4);
+    const free = arr.filter(t => r.indexOf(t) < 0), t = (free.length ? free : arr)[Math.floor(Math.random() * (free.length || arr.length))];
+    r.push(t); while (r.length > keep) r.shift();
+    return t;
+  }
   function hgLine(st, ev) {
-    const M = st.M, p = '<b>' + hgUnitTxt(hgPrice(st, st.cur)) + ' deben</b>', L = t => esc(t).replace('{p}', p);
-    if (ev.ev === 'open') return esc(M.o[st.buy ? 0 : 1]) + ' Tanesi ' + p + '.';
-    if (ev.ev === 'counter') return L(M.c[st.round % 2]) + (ev.last ? ' <em>Son sözüm.</em>' : '');
-    if (ev.ev === 'firm') return L(M.f);
-    if (ev.ev === 'yes' || ev.ev === 'deal') return esc(M.y);
-    if (ev.ev === 'angry') return esc(M.a);
-    if (ev.ev === 'back') return L(M.b);
-    if (ev.ev === 'bye') return esc(M.n);
-    if (ev.ev === 'praise') return esc(M.h) + (st.fin ? '' : ' ' + (M.praise > 0 ? 'Tanesi ' + p + '.' : ''));
-    if (ev.ev === 'leave') return 'Peki. Kapım açık.';
-    return '';
+    const M = st.M, p = '<b>' + hgUnitTxt(hgPrice(st, st.cur)) + ' deben</b>', L = t => esc(t).replace('{p}', p), K = st.ci + ':', side = st.buy ? 'buy' : 'sell';
+    const fin = ev.last ? ' <em>' + esc(st.final ? hgPickLine('fin', HG_SP.fin) : 'Son sözüm.') + '</em>' : '';
+    let t = '';
+    if (ev.ev === 'open') return (HG_DAY[st.day] && HG_DAY[st.day].o ? esc(hgPickLine(K + 'd', HG_DAY[st.day].o)) + ' ' : '') + esc(M.o[st.buy ? 0 : 1]) + ' Tanesi ' + p + '.';
+    if (ev.ev === 'counter') t = L(hgPickLine(K + 'c', M.c));
+    else if (ev.ev === 'firm') t = L(hgPickLine(K + 'f', M.f));
+    else if (ev.ev === 'yes' || ev.ev === 'deal') return esc(Math.random() < 0.6 ? M.y : hgPickLine('y', HG_SP.y)) + (ev.flash ? ' <em>Tam zamanında!</em>' : '');
+    else if (ev.ev === 'angry') return esc(M.a);
+    else if (ev.ev === 'back') t = L(M.b);
+    else if (ev.ev === 'bye') return esc(M.n);
+    else if (ev.ev === 'praise') t = esc(st.day === 'proud' && M.praise <= 0 ? 'Doğru söylüyorsun! Bugün bunu kimse fark etmedi.' : M.h) + (st.fin ? '' : st.praiseV > 0 ? ' Tanesi ' + p + '.' : '');
+    else if (ev.ev === 'leave') return 'Peki. Kapım açık.';
+    else if (ev.ev === 'gone') t = esc(hgPickLine('gone', HG_SP.gone)) + ' Tanesi ' + p + '.';
+    else if (ev.ev === 'guessOk') t = L(hgPickLine('ok', HG_SP.ok));
+    else if (ev.ev === 'guessNo') t = esc(hgPickLine('no', HG_SP.no)) + ' Tanesi ' + p + '.';
+    /* the special moment comes after his answer */
+    if (ev.sp === 'rival') t = '<span class="hgsp rival">' + esc(hgPickLine('rv' + side, HG_SP.rival[side])) + '</span> ' + L(hgPickLine('rvr', HG_SP.rival.r));
+    else if (ev.sp === 'flash') t += ' <span class="hgsp flash">' + esc(hgPickLine('fl', HG_SP.flash)).replace('{p}', '<b>' + hgUnitTxt(hgPrice(st, st.flash)) + ' deben</b>') + '</span>';
+    else if (ev.sp === 'quiz') t += ' <span class="hgsp quiz">' + esc(hgPickLine('qz' + side, HG_SP.quiz[side])) + '</span>';
+    return t + fin;
   }
   function hgPaint(ev, first) {
     if (!PZ || PZ.kind !== 'haggle') return;
@@ -279,7 +362,7 @@
         (ks.length || known.praise != null ? ks.map(t => '<span>' + hgGlyph(t) + '<em class="' + known[t] + '">' + (known[t] === 'room' ? 'verir' : 'sınır') + '</em></span>').join('') + (known.praise != null ? '<span class="pr">Övgü: <em class="' + (known.praise > 0 ? 'room' : known.praise < 0 ? 'limit' : '') + '">' + (known.praise > 0 ? 'sever' : known.praise < 0 ? 'sevmez' : 'fark etmez') + '</em></span>' : '') : '<small>Defterin boş: yüzünü izle, öğrendikçe yazılır.</small>');
     }
     const bub = $('#hgBub'); if (bub) { bub.innerHTML = '<b>' + esc(nm) + '</b>' + hgLine(st, ev); bub.classList.remove('pop'); void bub.offsetWidth; bub.classList.add('pop'); }
-    const rd = $('#hgRd'); if (rd) rd.innerHTML = Array.from({ length:HG_MAX }, (_, k) => '<i class="' + (k < st.round ? 'on' : '') + '"></i>').join('');
+    const rd = $('#hgRd'); if (rd) rd.innerHTML = Array.from({ length:st.max }, (_, k) => '<i class="' + (k < st.round ? 'on' : '') + '"></i>').join('');
     const dl = $('#hgDeal');
     if (dl) {
       const u = hgPrice(st, st.cur), list = st.o.unit, tot = u * q, diff = Math.abs(list - u) * q;
@@ -297,11 +380,14 @@
       let h = '';
       if (st.fin) h = '<button class="btn go1 hgok" type="button" data-hg="done" data-first>' + (st.res.done ? 'Tamam' : st.res.angry ? 'Pazardan çık' : 'Pazara dön') + '</button>';
       else {
-        const canOff = st.round < HG_MAX;
+        const canOff = st.round < st.max && !st.final;
+        /* v48: the face quiz: an extra row; ignoring it is fine (any other move closes it) */
+        if (st.quiz) h += '<div class="hgquiz"><span>' + hgGlyph(st.tell) + '<b>Yüzünü oku:</b></span><button class="btn hgq0" type="button" data-hg="guess" data-k="0">Daha ' + (st.buy ? 'iner' : 'çıkar') + '</button><button class="btn hgq1" type="button" data-hg="guess" data-k="1">Sınırda</button></div>';
         h += '<div class="hgoff">' + HG_OFF.map((a, k) => '<button class="btn hgo o' + k + '" type="button" data-hg="offer" data-k="' + k + '"' + (!canOff || a <= st.cur + 1e-9 ? ' disabled' : '') + '><b>' + hgPct(st, a) + '</b><small>' + hgUnitTxt(hgPrice(st, a)) + '</small></button>').join('') + '</div>';
         h += '<div class="hgact"><button class="btn hga" type="button" data-hg="praise"' + (st.praised ? ' disabled' : '') + '>' + ico('i-whisper', 18) + 'Övgü</button>';
         h += '<button class="btn hga" type="button" data-hg="walk"' + (st.walked || !canOff ? ' disabled' : '') + '>' + hgWalkIco() + 'Gidiyormuş gibi yap</button>';
-        h += '<button class="btn go1 hgk" type="button" data-hg="accept"' + (canOff ? '' : ' data-first') + '>Kabul<small>' + hgUnitTxt(hgPrice(st, st.cur)) + '</small></button></div>';
+        h += st.flash ? '<button class="btn go1 hgk flash" type="button" data-hg="accept" data-first>Hemen kabul!<small>' + hgUnitTxt(hgPrice(st, st.flash)) + '</small><i class="hgclk" aria-hidden="true"></i></button></div>'
+          : '<button class="btn go1 hgk" type="button" data-hg="accept"' + (canOff ? '' : ' data-first') + '>Kabul<small>' + hgUnitTxt(hgPrice(st, st.cur)) + '</small></button></div>';
       }
       bt.innerHTML = h;
       const f = bt.querySelector('[data-first]') || bt.querySelector('.hgo:not([disabled])');
@@ -327,7 +413,11 @@
     else if (e === 'yes' || e === 'deal') PZ.c40.react('laugh');
     else if (e === 'back') PZ.c40.react('wave');
     else if (e === 'bye') PZ.c40.update({ act:'shrug' });
-    else if (e === 'praise' && st.M.praise > 0) PZ.c40.react('laugh');
+    else if (e === 'praise' && st.praiseV > 0) PZ.c40.react('laugh');
+    else if (e === 'guessOk') PZ.c40.react('laugh');
+    else if (e === 'guessNo' || e === 'gone') PZ.c40.update({ act:'shrug' });
+    else if (ev && ev.sp === 'rival') PZ.c40.react('wave');
+    else if (ev && ev.sp) PZ.c40.update({ act:'pop' });
     return true;
   }
   function hgTalk() {
@@ -338,7 +428,7 @@
   }
   function hgLearn(st, ev) {
     const known = hgKnown(st.ci), name = hgName(st); let msg = '';
-    if (ev.act === 'praise') { if (known.praise == null) { known.praise = st.M.praise; msg = name + (st.M.praise > 0 ? ' övgüyü sever.' : st.M.praise < 0 ? ' övgüden hoşlanmaz.' : ' için övgü fark etmez.'); } }
+    if (ev.act === 'praise') { if (known.praise == null && st.day !== 'proud') { known.praise = st.M.praise; msg = name + (st.M.praise > 0 ? ' övgüyü sever.' : st.M.praise < 0 ? ' övgüden hoşlanmaz.' : ' için övgü fark etmez.'); } }
     else if (ev.learn && ev.tell && !ev.bluff && !known[ev.tell]) { known[ev.tell] = ev.learn; msg = name + ' ' + HG_TELL[ev.tell] + ' → ' + (ev.learn === 'room' ? 'daha verir.' : 'sınırda.'); }
     if (msg) { meta.tells28 = meta.tells28 || {}; meta.tells28[st.ci] = known; saveMeta(); toast(msg + ' Deftere yazıldı.'); }
   }
@@ -347,17 +437,26 @@
     const st = PZ.st;
     if (act === 'done') { hgClose(); return; }
     const ev = hgStep(st, act, k); if (!ev) { play('no'); return; }
+    if (PZ.flashT) { clearTimeout(PZ.flashT); PZ.flashT = 0; }
     hgLearn(st, ev);
-    play(ev.ev === 'angry' ? 'bad' : ev.ev === 'yes' || ev.ev === 'deal' ? 'haggle' : ev.ev === 'bye' || ev.ev === 'leave' ? 'no' : 'tick');
-    if (ev.ev === 'angry') buzz([60, 40, 60]); else if (ev.ev === 'yes' || ev.ev === 'deal') buzz([15, 20, 30]);
+    play(ev.ev === 'angry' ? 'bad' : ev.ev === 'yes' || ev.ev === 'deal' || ev.ev === 'guessOk' ? 'haggle' : ev.ev === 'bye' || ev.ev === 'leave' || ev.ev === 'guessNo' || ev.ev === 'gone' ? 'no' : 'tick');
+    if (ev.ev === 'angry') buzz([60, 40, 60]); else if (ev.ev === 'yes' || ev.ev === 'deal' || ev.ev === 'guessOk') buzz([15, 20, 30]); else if (ev.sp) buzz('pick');
     hgPaint(ev);
+    /* the "last offer" stands for a few seconds only */
+    if (st.flash && !st.fin) { const tok = PZ.tok; PZ.flashT = setTimeout(() => { if (PZ && PZ.tok === tok && PZ.st.flash) hgDo('flashGone'); }, HG_FLASH_MS); PZ.timers.push(PZ.flashT); }
   }
+  const HG_FLASH_MS = 6000;
   function hgClose() {
     if (!PZ || PZ.kind !== 'haggle' || PZ.called) return;
     PZ.called = true; const cb = PZ.cb, res = Object.assign({}, PZ.st.res || { done:false, angry:false });
     pzClear();
     try { if (typeof cb === 'function') cb(res); }
     finally { if (document.querySelector('#sheet .hg')) closeSheet(); }
+  }
+  /* debug helper (?debug): the next counter brings this special moment ('rival' | 'flash' | 'quiz') */
+  function hgForceMoment(k) {
+    if (!PZ || PZ.kind !== 'haggle') return false;
+    PZ.st.sp = null; PZ.st.force = k; return true;
   }
   /* test helper: plays the open haggle through the same buttons' code path */
   function haggleAuto(strategy, opt) {
