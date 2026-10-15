@@ -317,7 +317,9 @@
     if (i === S.city || canGo(S, i)) return null;
     if (!isRiver(i)) {
       const h = CITIES[i].hub, toHub = S.city === h ? 0 : isRiver(S.city) ? travelDays(S, h) : null;
-      return { hub:h, toHub, car:CITIES[i].days, hubOk:S.city !== h && canGo(S, h), locked:!has(S, 'desert') };
+      /* v46: from another desert town the first leg is the caravan back to our own hub */
+      const back = !isRiver(S.city) && S.city !== h ? CITIES[S.city].hub : null;
+      return { hub:h, toHub, car:CITIES[i].days, hubOk:S.city !== h && canGo(S, h), locked:!has(S, 'desert'), back, backOk:back != null && canGo(S, back) };
     }
     if (!isRiver(S.city)) { const h = CITIES[S.city].hub; return { back:h, hubOk:canGo(S, h) }; }
     return null;
@@ -475,14 +477,17 @@
       rows.push(['i-donkey', 'Kervan ' + c.days + ' günde gider: eşekleri ' + carFrom(i) + ' kiralarsın' + (w.toHub ? ' (' + CITIES[w.hub].name + ' buradan ' + w.toHub + ' gün)' : '') + '.', 'info']);
       if (!w.locked && !S.contra && S.city === w.hub && why) rows.push(['i-sun', why + '.', 'warn']);
       else if (!w.locked && !S.contra && !isRiver(S.city)) rows.push(['i-boat', 'Önce ' + CITIES[CITIES[S.city].hub].dat + ' dönmelisin.', 'warn']);
+      else if (!w.locked && !S.contra && !w.hubOk && S.city !== w.hub) { const wh = whyNot(S, w.hub); rows.push(['i-sun', CITIES[w.hub].name + ': ' + (wh || 'şimdi gidilmez') + '.', 'warn']); }
     } else if (why) rows.push([w && w.back != null ? 'i-donkey' : 'i-sun', why + '.', 'warn']);
     const gl = (L, k) => L.map(g => '<em class="' + k + '">' + gIco(g, 16) + '</em>').join('');
     if (h.lo.length || h.hi.length) rows.push(['i-coin', '<span class="tvph">' + (h.lo.length ? 'Ucuz: ' + gl(h.lo, 'lo') : '') + (h.hi.length ? ' Pahalı: ' + gl(h.hi, 'hi') : '') + (h.seen ? '' : ' <small>(tahmin)</small>') + '</span>', 'info', true]);
     oi.have.forEach(o => rows.push([ordDz(o) ? 'i-donkey' : 'i-scroll', (ordDz(o) ? 'Kervan işi: ' : 'Sipariş: ') + o.q + ' ' + gName(o.g) + ' · ' + o.due + '. güne kadar · +' + fmt(o.reward), 'good']));
     oi.post.forEach(({ o }) => rows.push([ordDz(o) ? 'i-donkey' : 'i-scroll', 'Panoda ' + (ordDz(o) ? 'kervan işi' : 'sipariş') + ': ' + ordWord(o) + ' · +' + fmt(o.reward), 'info']));
     s += '<div class="irows">' + rows.map(([ic, t, k, raw]) => '<div class="irow ' + k + '"><span class="iI">' + ico(ic, 16) + '</span><span>' + (raw ? t : esc(t)) + '</span></div>').join('') + '</div>';
-    const first = w && w.hub != null ? (w.hubOk && !w.locked && !S.contra ? w.hub : null) : w && w.back != null && w.hubOk ? w.back : null;
-    if (first != null) s += '<button class="btn wide tvfirst" type="button" data-city="' + first + '">' + ico(isRiver(S.city) ? 'i-boat' : 'i-donkey', 20) + 'Önce ' + esc(CITIES[first].dat) + ' g' + 'it · ' + travelDays(S, first) + ' gün</button>';
+    /* v46 (owner: "tapping a caravan town shows no travel button"): the first leg starts right here; the plan is kept (S.way46),
+       so at the hub the caravan stop and the travel card already point at the desert town */
+    const first = w && w.hub != null ? (w.hubOk && !w.locked && !S.contra ? w.hub : w.backOk ? w.back : null) : w && w.back != null && w.hubOk ? w.back : null;
+    if (first != null) s += '<button class="btn go1 wide tvfirst" type="button" data-act="goVia" data-via="' + first + '" data-to="' + i + '">' + ico(isRiver(S.city) ? 'i-boat' : 'i-donkey', 22) + (isRiver(S.city) ? 'Önce ' + esc(CITIES[first].dat) + ' g' + 'it' : esc(CITIES[first].dat) + ' dön') + ' · ' + travelDays(S, first) + ' gün</button><small class="tvnext">' + (w.hub != null && first === w.hub ? 'Oradan ' + esc(c.dat) + ' kervanla ' + c.days + ' gün' : 'Sonra oradan ' + esc(c.dat)) + '</small>';
     return s + '</div>';
   }
   /* the caravan, prepared right in the travel card */
@@ -505,6 +510,8 @@
     if (guide().step === 'ship') guideTo('city');
     if (!isRiver(S.city)) { const hub = CITIES[S.city].hub; if (canGo(S, hub)) sel = hub; }
     if (sel != null && !canGo(S, sel)) sel = null;
+    /* v46: a planned way ("Önce Mennefer'e" for Siwa): at the hub the card opens on the caravan's town */
+    if (pre == null && S.way46 != null && S.way46 !== S.city && CITIES[S.way46]) sel = S.way46;
     /* v45: a town asked for by name opens on its card even when it cannot be reached now (it says why, and the way there) */
     if (pre != null && CITIES[pre] && pre !== S.city) sel = pre;
     const three = use3DMap(), g = guide();

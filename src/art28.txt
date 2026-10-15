@@ -755,7 +755,9 @@
     /* v45: a caravan hub's caravan stop: two pack donkeys and their driver at the west end of the quay, in front of the market
        (the desert road leaves westward); its plaque hangs above them so the market's plaque keeps its place */
     const carS = spots.caravan && river;
-    if (carS) m += spot28('caravan', 'Kervan durağı: çöl yolu', caravan28(176, QY + 4, 0.7, 2, P).replace('class="shipG"', 'class="carS"'), [112, QY - 84, 128, 104], [196, QY - 126], 'Kervan', 'i-donkey');
+    /* v46: now that every hub has it from the first run, it stays clear of the market's middle (a tap there is the market) and inside
+       the picture a desktop shows (x ≥ 110): smaller donkeys, a narrower hit box, a short plaque right over them */
+    if (carS) m += spot28('caravan', 'Kervan: çöl yolu' + (o.carTo ? ', ' + o.carTo : ''), caravan28(160, QY + 4, 0.6, 2, P).replace('class="shipG"', 'class="carS"'), [110, QY - 76, 98, 94], [178, QY - 112], 'Kervan', 'i-donkey');
     m += crisisNear28(o, P, hasW);
     /* walkers on the quay */
     m += (carS ? '' : pp28(132, QY + 4, 1.3, '#FBF3DF', 'jar', false, 'walk', -3)) + pp28(560, QY + 2, 1.25, '#E6CB95', 'sack', true, 'walk2', -9);

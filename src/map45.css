@@ -13,7 +13,10 @@
 .tvph em.lo{background:#BFE3B4}.tvph em.hi{background:#F4B9A6}
 .tvph small{color:var(--ink2);font-weight:700}
 .irow.warn .iI{background:#F6D58E}
-.tvfirst{display:flex;align-items:center;justify-content:center;gap:6px;background:#FBF3DF}
+.tvfirst{display:flex;align-items:center;justify-content:center;gap:6px}
+.tvfirst:not(.go1){background:#FBF3DF}
+/* v46: the first leg of a caravan way starts from the far-town card; a line under it says what follows */
+.tvnext{display:block;text-align:center;font:700 12px/1.25 Nunito,sans-serif;color:#7A4E2A;margin-top:-2px}
 .mk.far:not(:disabled){cursor:pointer}
 .mk.far.sel{opacity:1}
 .mk .ml small .ico{width:11px;height:11px;vertical-align:-1px;margin-right:2px}
@@ -36,3 +39,9 @@
 /* ===== v45: the caravan stop in the town ===== */
 .v3t-l.car{background:#F6D58E}
 .pin.sp-caravan .pi{background:#F6D58E}
+
+/* ===== v46 (owner: "tapping a caravan town shows no travel button"): on phones the card is taller than the sheet,
+   so its go button (sail / caravan / the first leg of the way) stays pinned to the bottom of the sheet while the card scrolls ===== */
+@media (max-width:899px){
+  .sheet.travel28 .tvgo,.sheet.travel28 .tvfirst{position:sticky;bottom:4px;z-index:3;box-shadow:0 3px 0 var(--ink),0 10px 0 6px var(--pap),0 -8px 14px 4px var(--pap)}
+}

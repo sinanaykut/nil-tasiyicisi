@@ -59,6 +59,7 @@ function migrate(S) {
   if (!S.crises) S.crises = [];
   if (!S.feat) S.feat = Object.assign({}, FEAT_ALL);
   if (!S.feat.haggle) S.feat.haggle = true;
+  if (!S.feat.desert) S.feat.desert = true;   /* v46: a run saved before the caravans opened gets them too */
   if (!S.boat) S.boat = 'nehir';
   if (!S.dev) S.dev = {};
   if (!S.work) S.work = [];
@@ -266,9 +267,10 @@ function travelDays(S, dest) {
   if (s >= 2 && d >= 2) d--;
   return Math.max(1, d);
 }
-/* features open one by one over the first free runs, so a newcomer meets one system at a time */
+/* features open one by one over the first free runs, so a newcomer meets one system at a time.
+   v46 (owner: "if a town has a caravan road, the caravan should be there"): the desert caravans are open from the very first run */
 const FEAT_ALL = { haggle:true, crisis:true, quest:true, contra:true, desert:true, atolye:true };
-const featFor = runs => ({ haggle:true, crisis:runs >= 1, quest:runs >= 2, contra:runs >= 2, desert:runs >= 1, atolye:runs >= 1 });
+const featFor = runs => ({ haggle:true, crisis:runs >= 1, quest:runs >= 2, contra:runs >= 2, desert:true, atolye:runs >= 1 });
 const has = (S, f) => !S.feat || !!S.feat[f];
 /* market crises: announced a day ahead, last a few days, and come with a choice when you are there */
 const CRISES = {

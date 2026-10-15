@@ -106,6 +106,8 @@
       cv.addEventListener('pointermove', e => { if (pointerX != null) { const r = cv.getBoundingClientRect(); pointerX = e.clientX - r.left; pointerY = e.clientY - r.top; } });
       const off = () => { pointerX = null; pointerY = null; };
       cv.addEventListener('pointerup', off); cv.addEventListener('pointercancel', off);
+      /* v46: a long press must not open the browser's menu (it cancels the touch on phones: the diver would stop) */
+      cv.addEventListener('contextmenu', e => e.preventDefault());
       window.addEventListener('blur', () => { keys = {}; });
       document.addEventListener('visibilitychange', () => { paused = document.hidden || held; last = performance.now(); });
       window.addEventListener('resize', () => { if (st) resize(); });

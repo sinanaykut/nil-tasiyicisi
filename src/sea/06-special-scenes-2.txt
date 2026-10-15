@@ -214,19 +214,24 @@
         hull(s) {
           const q = (a, c, b, n) => { const o = []; for (let k = 0; k <= n; k++) { const t = k / n, u = 1 - t; o.push([u * u * a[0] + 2 * u * t * c[0] + t * t * b[0], u * u * a[1] + 2 * u * t * c[1] + t * t * b[1]]); } return o; };
           const keel = q([-196, -78], [-170, 20], [-40, 26], 10).concat(q([60, 26], [150, 20], [196, -88], 10));
-          const deckL = [[-196, -78], [-172, -62], [10, -54], [22, -50]], deckR = [[98, -60], [110, -66], [176, -76], [196, -88]];
+          /* v46 (owner: "you can't get into the wreck through the opening"): the gap is wider (x 14..104, centre GX) */
+          const GX = 59, HG = 45, deckL = [[-196, -78], [-172, -62], [4, -54], [GX - HG, -50]], deckR = [[GX + HG, -60], [114, -67], [176, -76], [196, -88]];
           const cabin = [[112, -66], [114, -98], [174, -108], [176, -76]];
           const segs = [];
           [keel, deckL, deckR, cabin].forEach(pl => { for (let k = 1; k < pl.length; k++) segs.push(pl[k - 1][0], pl[k - 1][1], pl[k][0], pl[k][1]); });
           s.walls = new Float32Array(segs);
           /* inside = within keel + deck line (the gap closed at deck height) */
-          s.hullPoly = keel.slice().reverse().concat(deckL, [[60, -56]], deckR.slice(0, -1));
-          s.lp = [0, 0]; s.wp = [0, 0];
-          const gi = this.loc(s, 60, -14), go = this.loc(s, 60, -88);
-          s.gate = { ix:gi.x, iy:gi.y, ox:go.x, oy:go.y, x:(gi.x + go.x) / 2, y:(gi.y + go.y) / 2 };
-          s.bumps = 0; s.bumpCd = 0;
-          /* for bots and tests: the next way point towards (x, y) */
+          s.hullPoly = keel.slice().reverse().concat(deckL, [[GX, -56]], deckR.slice(0, -1));
+          s.lp = [0, 0]; s.wp = [0, 0]; s.gx = GX; s.hg = HG;
+          /* the diver's collision circle (local units): smaller than the drawn diver, so the gap is easy to hit */
+          const f = this.wf(s), sz = Math.max(1.2, Math.min(1.6, H / 470, W / 300));
+          s.rl = Math.max(6, Math.min(8 * sz, 13 * f.ws)) / f.ws;
+          const gi = this.loc(s, GX, -18), go = this.loc(s, GX, -94), up = this.loc(s, GX, -128);
+          s.gate = { ix:gi.x, iy:gi.y, ox:go.x, oy:go.y, ux:up.x, uy:up.y, x:(gi.x + go.x) / 2, y:(gi.y + go.y) / 2, hw:HG * f.ws };
+          s.bumps = 0; s.bumpCd = 0; s.assist = 0;
+          /* for bots and tests: the next way point towards (x, y), and the hull test */
           s.way = (x, y) => this.way(s, x, y);
+          s.inHull = (x, y) => this.inHull(s, x, y);
         },
         /* screen → local (inverse of loc), written into s.lp so nothing is allocated per frame */
         toL(s, x, y) { const f = this.wf(s), c = Math.cos(f.a), n = Math.sin(f.a), dx = x - f.x, dy = y - f.y; s.lp[0] = (dx * c + dy * n) / f.ws; s.lp[1] = (-dx * n + dy * c) / f.ws; return s.lp; },
@@ -236,26 +241,45 @@
           return c;
         },
         /* where to swim next on the way to (tx, ty): through the gap in the deck when the target is on the other side of the hull */
-        way(s, tx, ty) {
-          const d = s.dv, tin = this.inHull(s, tx, ty), g = s.gate, p = this.toL(s, d.x, d.y), lx = p[0], ly = p[1];
-          /* the throat: inside the gap, not yet under the deck */
-          const throat = lx > 18 && lx < 102 && ly < -30 && ly > -96, deep = !!d.inside && !throat, near = Math.abs(lx - 60) < 14;
+        /* v46: the column over the gap (a diver inside it passes the deck straight up or down), and the throat (inside the gap itself) */
+        way(s, tx, ty, want) {
+          const d = s.dv, tin = want != null ? want : this.inHull(s, tx, ty), g = s.gate, p = this.toL(s, d.x, d.y), lx = p[0], ly = p[1];
+          const col = Math.abs(lx - s.gx) < s.hg - s.rl * 0.7, throat = Math.abs(lx - s.gx) < s.hg + 4 && ly < -26 && ly > -102, deep = !!d.inside && !throat;
           let w = null;
-          if (tin) { if (!deep) w = throat || (near && ly > -100) ? [g.ix, g.iy] : [g.ox, g.oy]; }
-          else if (deep || throat) w = throat || near ? [g.ox, g.oy - 18] : [g.ix, g.iy];
+          if (tin) {
+            if (!d.inside || throat) {
+              if (throat || (col && ly > -170)) w = [g.ix, g.iy];   /* over the gap (or in it): straight down into the hold */
+              else if (ly > -98 && (lx < -186 || lx > 186)) { const q = this.loc(s, lx, -116); w = [q.x, q.y]; }   /* beside the hull: rise over the rail first */
+              else w = [g.ox, g.oy];   /* above the deck: to the mouth of the gap */
+            }
+          } else if (deep || throat) w = throat || col ? [g.ux, g.uy] : [g.ix, g.iy];   /* inside: under the gap, then up and out */
           s.wp[0] = w ? w[0] : tx; s.wp[1] = w ? w[1] : ty;
+          return s.wp;
+        },
+        /* v46: where a finger means "in the wreck": in the hold, or on its planks just above or below it (fingers are not precise) */
+        wantIn(s, x, y) { const k = 16 * this.wf(s).ws; return this.inHull(s, x, y) || this.inHull(s, x, y + k) || this.inHull(s, x, y - k); },
+        /* v46: keys and pads: the only way through the deck is the gap, so pushing up in the hold or down onto the deck slides there */
+        assist(s, d, ix, iy) {
+          const p = this.toL(s, d.x, d.y), lx = p[0], ly = p[1], dx = s.gx - lx, off = Math.abs(dx) > s.hg - s.rl * 1.2;
+          s.wp[0] = ix; s.wp[1] = iy;
+          if (Math.abs(ix) > 0.75) return s.wp;
+          if (d.inside && iy < -0.3) { s.assist = 1; if (off) { s.wp[0] = Math.sign(dx); s.wp[1] = -0.2; } else s.wp[0] = Math.max(-1, Math.min(1, dx / 26)) * 0.7; }
+          else if (!d.inside && iy > 0.3 && lx > -200 && lx < 200 && ly < -40 && ly > -200) {
+            s.assist = 1; const k = Math.max(0, Math.min(1, (ly + 200) / 90));
+            if (off) { s.wp[0] = ix * (1 - k) + Math.sign(dx) * k; s.wp[1] = k > 0.6 ? 0.3 : iy; } else s.wp[0] = Math.max(-1, Math.min(1, dx / 26)) * 0.6;
+          }
           return s.wp;
         },
         /* move with the hull in the way: small sub-steps, push out of any plank and slide along it; a hard knock costs a little breath */
         move(s, d, dt) {
-          const f = this.wf(s), c = Math.cos(f.a), n = Math.sin(f.a), ws = f.ws, Wl = s.walls;
-          const sz = Math.max(1.2, Math.min(1.6, H / 470, W / 300)), rl = Math.max(6, Math.min(9 * sz, 16 * ws)) / ws;
-          let mx = d.vx * dt, my = d.vy * dt; const steps = Math.max(1, Math.ceil(Math.hypot(mx, my) / 4)); mx /= steps; my /= steps;
+          const f = this.wf(s), c = Math.cos(f.a), n = Math.sin(f.a), ws = f.ws, Wl = s.walls, rl = s.rl;
+          /* swept in small steps (never more than a third of the radius), so the circle cannot tunnel through a plank */
+          let mx = d.vx * dt, my = d.vy * dt; const steps = Math.max(1, Math.ceil(Math.hypot(mx, my) / Math.max(1.5, rl * ws * 0.33))); mx /= steps; my /= steps;
           let hit = false, nx = 0, ny = 0;
           for (let k = 0; k < steps; k++) {
             d.x = Math.max(16, Math.min(W - 16, d.x + mx)); d.y = Math.max(s.sea + 12, Math.min(s.floor - 10, d.y + my));
             const p = this.toL(s, d.x, d.y); let lx = p[0], ly = p[1], moved = false;
-            for (let pass = 0; pass < 2; pass++) for (let i = 0; i < Wl.length; i += 4) {
+            for (let pass = 0; pass < 3; pass++) for (let i = 0; i < Wl.length; i += 4) {
               const ax = Wl[i], ay = Wl[i + 1], ex = Wl[i + 2] - ax, ey = Wl[i + 3] - ay, L2 = ex * ex + ey * ey;
               const t = Math.max(0, Math.min(1, ((lx - ax) * ex + (ly - ay) * ey) / L2)), ddx = lx - ax - ex * t, ddy = ly - ay - ey * t, D = Math.hypot(ddx, ddy);
               if (D < rl && D > 1e-4) { const u = (rl - D) / D; lx += ddx * u; ly += ddy * u; nx = ddx / D; ny = ddy / D; hit = moved = true; }
@@ -267,8 +291,8 @@
           if (!hit) return;
           /* the plank's normal on screen: cancel the push into it (with a small bounce) and keep the slide */
           const Nx = nx * c - ny * n, Ny = nx * n + ny * c, vn = d.vx * Nx + d.vy * Ny;
-          if (vn < 0) { d.vx -= 1.25 * vn * Nx; d.vy -= 1.25 * vn * Ny; }
-          if (vn < -70 && s.bumpCd <= 0 && s.pull <= 0 && !s.finishing) {
+          if (vn < 0) { d.vx -= vn * Nx; d.vy -= vn * Ny; }   /* v46: slide along the plank, no bounce (no jitter at the gap's edges) */
+          if (vn < -110 && !s.assist && s.bumpCd <= 0 && s.pull <= 0 && !s.finishing) {
             s.bumpCd = 0.8; s.bumps++; s.air = Math.max(0.02, s.air - 0.03); s.shake = Math.max(s.shake || 0, 0.12); sfx('tick');
             for (let k = 0; k < 4; k++) s.bubbles.push({ x:d.x - Nx * 10, y:d.y - Ny * 10, r:rnd(1.5, 3), v:rnd(40, 80) });
             if (s.bumps <= 2 || s.bumps % 5 === 0) floatText(Math.max(100, Math.min(W - 100, d.x)), d.y - 34, 'Tahtaya çarptın! · nefes −', '#FFD2C4');
@@ -277,7 +301,7 @@
         init(s, o) {
           /* on phones the seabed sits above the touch pads */
           const sea = Math.round(H * 0.17), floor = Math.round(coarse ? H - 108 : H * 0.9);
-          Object.assign(s, { dur:26, air:1, airSec:9 + (o.extra || 0) * 0.4, sea, floor, boatX:W * 0.5, items:[], eels:[], fish:[], bubbles:[], snow:[], banked:0, blackouts:0, bites:0, inv:0, finishing:0, tut:5, told:{}, pull:0, refill:0 });
+          Object.assign(s, { dur:30, air:1, airSec:12.5 + (o.extra || 0) * 0.4,   /* v46: 9 s → 12.5 s: the way into the hold and out again through the deck gap is longer than the old straight dive */ sea, floor, boatX:W * 0.5, items:[], eels:[], fish:[], bubbles:[], snow:[], banked:0, blackouts:0, bites:0, inv:0, finishing:0, tut:5, told:{}, pull:0, refill:0 });
           s.dv = { x:s.boatX + 30, y:sea + 18, vx:0, vy:0, face:1, item:null, kick:0, dash:0, cd:0, bub:0 };
           const f = this.wf(s);
           /* where loot can lie: in the hold, at the broken stern, on the sand around the wreck */
@@ -297,6 +321,7 @@
           const spots = sand.slice(0, 3).concat(inside.slice(0, 5)).sort(() => 0);
           types.forEach((t, k) => { const p = k < 3 ? sand[k] : inside[k - 3]; s.items.push({ t, x:p.x + (k < 3 ? rnd(-8, 8) : 0), y:p.y, fy:p.y, r:t === 'chest' ? 20 : 17, ph:R() * 6, inside:k >= 3 }); });
           if (o.special) { const p = this.loc(s, 150, -46); s.items.push({ t:o.special, x:p.x, y:p.y, fy:p.y, r:19, special:true, ph:0, inside:true }); }
+          s.items.forEach(i => { i.inside = this.inHull(s, i.x, i.y); });   /* v46: phones are narrow: the hull covers some sand spots, so those finds lie in the hold */
           /* eels hide in holes in the hull and warn before they strike */
           const holes = [[-88, -4, -1], [96, -8, 1], [124, -90, -1]], ne = 2 + (o.rich || o.special ? 1 : 0);
           for (let k = 0; k < ne; k++) { const p = this.loc(s, holes[k][0], holes[k][1]); s.eels.push({ x:p.x, y:p.y, dir:holes[k][2], st:'hide', t:0, cd:1.5 + k, hx:p.x, hy:p.y, tx:0, ty:0, ph:R() * 6, inside:k < 2 }); }
@@ -318,12 +343,21 @@
         step(s, dt) {
           s.t += dt; if (s.msgT > 0) s.msgT -= dt; if (s.inv > 0) s.inv -= dt; if (s.shake > 0) s.shake -= dt; if (s.tut > 0) s.tut -= dt; if (s.refill > 0) s.refill -= dt;
           const d = s.dv, sea = s.sea, floor = s.floor, sc = Math.max(0.8, Math.min(1.3, H / 560));
-          let ix = 0, iy = 0;
-          if (pointerX != null && pointerY != null) { const dx = pointerX - d.x, dy = pointerY - d.y, L = Math.hypot(dx, dy); if (L > 12) { ix = dx / L * Math.min(1, L / 60); iy = dy / L * Math.min(1, L / 60); } }
-          else { ix = ((keys.R || padR) ? 1 : 0) - ((keys.L || padL) ? 1 : 0); iy = (keys.D ? 1 : 0) - (keys.U ? 1 : 0); const L = Math.hypot(ix, iy); if (L > 0) { ix /= L; iy /= L; } }
+          let ix = 0, iy = 0; s.assist = 0;
+          if (pointerX != null && pointerY != null) {
+            /* v46 touch/mouse: a finger near a find means that find; a finger in or on the wreck means "into the hold";
+               the way goes round the hull through the gap, at full speed while it is routed */
+            let tx = pointerX, ty = pointerY, want = null;
+            if (!d.item) { let bd = Math.max(48, 36 * sc), best = null; for (const i of s.items) { if (i.banked || i.taken || i.full) continue; const q = Math.hypot(i.x - tx, i.y - ty); if (q < bd) { bd = q; best = i; } } if (best) { tx = best.x; ty = best.y; want = best.inside; } }
+            if (want == null) want = this.wantIn(s, tx, ty);
+            const w = this.way(s, tx, ty, want), routed = w[0] !== tx || w[1] !== ty, dx = w[0] - d.x, dy = w[1] - d.y, L = Math.hypot(dx, dy);
+            if (routed) s.assist = 1;
+            if (L > (routed ? 2 : 12)) { const k = routed ? 1 : Math.min(1, L / 60); ix = dx / L * k; iy = dy / L * k; }
+          } else {
+            ix = ((keys.R || padR) ? 1 : 0) - ((keys.L || padL) ? 1 : 0); iy = (keys.D ? 1 : 0) - (keys.U ? 1 : 0); const L = Math.hypot(ix, iy); if (L > 0) { ix /= L; iy /= L; }
+            if (L > 0) { const a = this.assist(s, d, ix, iy); ix = a[0]; iy = a[1]; }
+          }
           /* out of breath: the crew hauls the diver up by the rope */
-          /* touch: a finger on the other side of the hull leads the diver through the gap in the deck */
-          if (pointerX != null && pointerY != null && (ix || iy)) { const w = this.way(s, pointerX, pointerY); if (w[0] !== pointerX || w[1] !== pointerY) { const dx = w[0] - d.x, dy = w[1] - d.y, L = Math.max(1, Math.hypot(dx, dy)); ix = dx / L; iy = dy / L; } }
           if (s.pull > 0) { s.pull -= dt; if (d.inside) { const w = this.way(s, s.boatX, sea); ix = (w[0] - d.x) / Math.max(30, Math.abs(w[0] - d.x)); iy = Math.max(-1, Math.min(1, (w[1] - d.y) / 30)); } else { ix = (s.boatX - d.x) / Math.max(40, Math.abs(s.boatX - d.x)) * 0.5; iy = -1; } if (s.pull <= 0 && s.blackouts >= 2 && !s.finishing) { s.finishing = 0.9; flash('Tayfa seni tekneye aldı. Dalış bitti.'); } }
           if (s.finishing) { if (d.inside) { const w = this.way(s, d.x, sea); ix = (w[0] - d.x) / Math.max(30, Math.abs(w[0] - d.x)); iy = Math.max(-1, Math.min(1, (w[1] - d.y) / 30)); } else { ix = 0; iy = -1; } }
           const it0 = d.item, heavy = it0 ? (it0.t === 'chest' || it0.t === 'mask' || it0.special ? 0.66 : 0.82) : 1;
@@ -472,11 +506,16 @@
           /* v45: far-side planks (dark, behind the cargo hold) */
           cx.strokeStyle = 'rgba(107,74,48,.55)'; cx.lineWidth = 2; cx.beginPath(); [[-150, -24, -40, -20], [-30, -2, 120, -6], [-140, -40, 90, -44]].forEach(([x0, y0, x1, y1]) => { cx.moveTo(x0, y0); cx.lineTo(x1, y1); }); cx.stroke();
           /* the deck: solid planks, broken open in one place (the only way into the hold), jagged ends */
-          cx.beginPath(); cx.moveTo(-196, -80); cx.lineTo(-172, -64); cx.lineTo(10, -57); cx.lineTo(18, -60); cx.lineTo(24, -52); cx.lineTo(14, -46); cx.lineTo(4, -48); cx.lineTo(-172, -54); cx.lineTo(-190, -70); cx.closePath(); outline(wood, 2.4);
-          cx.beginPath(); cx.moveTo(96, -56); cx.lineTo(102, -64); cx.lineTo(110, -69); cx.lineTo(176, -79); cx.lineTo(196, -91); cx.lineTo(188, -78); cx.lineTo(176, -70); cx.lineTo(110, -60); cx.lineTo(104, -54); cx.closePath(); outline(wood, 2.4);
-          cx.strokeStyle = wood2; cx.lineWidth = 1.4; cx.beginPath(); for (let x = -150; x < 10; x += 26) { cx.moveTo(x, -62 + (x + 170) * 0.04); cx.lineTo(x, -53 + (x + 170) * 0.035); } for (let x = 124; x < 180; x += 22) { cx.moveTo(x, -69 - (x - 110) * 0.15); cx.lineTo(x, -61 - (x - 110) * 0.14); } cx.stroke();
+          /* v46: daylight falls through the gap into the hold, so the way in reads at a glance */
+          cx.beginPath(); cx.moveTo(-6, -170); cx.lineTo(124, -170); cx.lineTo(104, -60); cx.lineTo(96, 18); cx.lineTo(22, 18); cx.lineTo(14, -50); cx.closePath(); cx.fillStyle = 'rgba(255,236,170,.13)'; cx.fill();
+          cx.beginPath(); cx.moveTo(14, -50); cx.lineTo(104, -60); cx.lineTo(92, 14); cx.lineTo(26, 14); cx.closePath(); cx.fillStyle = 'rgba(255,236,170,.12)'; cx.fill();
+          cx.beginPath(); cx.moveTo(-196, -80); cx.lineTo(-172, -64); cx.lineTo(2, -57); cx.lineTo(10, -60); cx.lineTo(16, -52); cx.lineTo(6, -46); cx.lineTo(-4, -48); cx.lineTo(-172, -54); cx.lineTo(-190, -70); cx.closePath(); outline(wood, 2.4);
+          cx.beginPath(); cx.moveTo(102, -56); cx.lineTo(108, -64); cx.lineTo(116, -69); cx.lineTo(176, -79); cx.lineTo(196, -91); cx.lineTo(188, -78); cx.lineTo(176, -70); cx.lineTo(116, -60); cx.lineTo(110, -54); cx.closePath(); outline(wood, 2.4);
+          /* the broken plank ends, picked out in gold */
+          cx.lineCap = 'round'; cx.strokeStyle = '#F2C65A'; cx.lineWidth = 3; cx.beginPath(); cx.moveTo(10, -60); cx.lineTo(16, -52); cx.lineTo(6, -46); cx.moveTo(108, -64); cx.lineTo(102, -56); cx.lineTo(110, -54); cx.stroke(); cx.lineCap = 'butt';
+          cx.strokeStyle = wood2; cx.lineWidth = 1.4; cx.beginPath(); for (let x = -150; x < 2; x += 26) { cx.moveTo(x, -62 + (x + 170) * 0.04); cx.lineTo(x, -53 + (x + 170) * 0.035); } for (let x = 128; x < 180; x += 22) { cx.moveTo(x, -69 - (x - 110) * 0.15); cx.lineTo(x, -61 - (x - 110) * 0.14); } cx.stroke();
           /* splinters around the gap */
-          cx.strokeStyle = C.ink; cx.lineWidth = 1.6; cx.beginPath(); cx.moveTo(24, -52); cx.lineTo(32, -58); cx.moveTo(18, -60); cx.lineTo(26, -66); cx.moveTo(96, -56); cx.lineTo(88, -62); cx.moveTo(102, -64); cx.lineTo(94, -70); cx.stroke();
+          cx.strokeStyle = C.ink; cx.lineWidth = 1.6; cx.beginPath(); cx.moveTo(16, -52); cx.lineTo(24, -58); cx.moveTo(10, -60); cx.lineTo(18, -66); cx.moveTo(102, -56); cx.lineTo(94, -62); cx.moveTo(108, -64); cx.lineTo(100, -70); cx.stroke();
           /* the cabin standing on the stern deck */
           cx.beginPath(); cx.moveTo(112, -66); cx.lineTo(114, -98); cx.lineTo(174, -108); cx.lineTo(176, -76); cx.closePath(); outline('#5B4030', 2.2);
           for (let k = 0; k < 4; k++) { cx.fillStyle = k % 2 ? 'rgba(251,243,223,.35)' : 'rgba(183,65,46,.45)'; cx.fillRect(118 + k * 14, -96 - k * 2.4, 7, 24); }
@@ -494,7 +533,7 @@
           /* eel holes */
           [[-88, -4], [96, -8], [124, -90]].forEach(([x, y]) => { cx.beginPath(); cx.ellipse(x, y, 10, 8, 0, 0, Math.PI * 2); outline('#120C0A', 2); });
           /* moss, barnacles, a sand drift over the keel */
-          cx.strokeStyle = moss; cx.lineWidth = 3; cx.beginPath(); for (let x = -180; x < 190; x += 14) { if (x > 18 && x < 100) continue; const y = -64 + Math.abs(x) * -0.05 + (x % 28 ? 3 : -2); cx.moveTo(x, y); cx.lineTo(x + 2 + Math.sin(s.t * 2 + x) * 2, y - 8); } cx.stroke();
+          cx.strokeStyle = moss; cx.lineWidth = 3; cx.beginPath(); for (let x = -180; x < 190; x += 14) { if (x > 8 && x < 108) continue; const y = -64 + Math.abs(x) * -0.05 + (x % 28 ? 3 : -2); cx.moveTo(x, y); cx.lineTo(x + 2 + Math.sin(s.t * 2 + x) * 2, y - 8); } cx.stroke();
           cx.fillStyle = '#D8CDB0'; for (let k = 0; k < 18; k++) { cx.beginPath(); cx.arc(-170 + k * 20 + (k % 3) * 4, 14 - (k % 4) * 6, 1.8, 0, Math.PI * 2); cx.fill(); }
           cx.beginPath(); cx.moveTo(-220, 34); cx.quadraticCurveTo(-120, 4, -20, 20); cx.quadraticCurveTo(80, 30, 220, 14); cx.lineTo(220, 60); cx.lineTo(-220, 60); cx.closePath(); cx.fillStyle = '#B49A6C'; cx.fill();
           cx.restore();
@@ -560,7 +599,8 @@
             const up = !!d.inside, b = Math.sin(s.t * 5) * 5, ax = G.x, ay = (up ? G.oy - 4 : G.oy - 22) + (up ? -b : b);
             cx.save(); cx.globalAlpha = 0.85; cx.translate(ax, ay); if (up) cx.rotate(Math.PI);
             cx.beginPath(); cx.moveTo(0, 14); cx.lineTo(12, -2); cx.lineTo(5, -2); cx.lineTo(5, -14); cx.lineTo(-5, -14); cx.lineTo(-5, -2); cx.lineTo(-12, -2); cx.closePath(); outline('#FFF2B0', 2); cx.restore();
-            if (s.t < 9 || s.bumps > 0 && s.bumpCd > 0) textC(up ? 'Çıkış' : 'Giriş', ax, ay - (up ? -30 : 20), 13, '#FFF2B0');
+            if (s.t < 9 || (s.bumps > 0 && s.bumpCd > 0) || Math.hypot(d.x - G.x, d.y - G.y) < 170) textC(up ? 'Çıkış' : 'Giriş', ax, ay - (up ? -30 : 20), 13, '#FFF2B0');
+            if (!up) { cx.save(); cx.globalAlpha = 0.35 + 0.2 * Math.sin(s.t * 4); cx.setLineDash([6, 6]); cx.lineWidth = 2; cx.strokeStyle = '#FFF2B0'; cx.beginPath(); cx.moveTo(G.ox - G.hw * 1.9, G.oy - 46); cx.lineTo(G.ox - G.hw * 0.75, G.oy + 18); cx.moveTo(G.ox + G.hw * 1.9, G.oy - 46); cx.lineTo(G.ox + G.hw * 0.75, G.oy + 18); cx.stroke(); cx.restore(); }
           }
           s.fish.forEach(f => { cx.save(); cx.translate(f.x, f.y + Math.sin(f.ph * 2) * 3); cx.scale(f.vx > 0 ? 1 : -1, 1); cx.beginPath(); cx.ellipse(0, 0, 10, 5, 0, 0, Math.PI * 2); outline(f.c, 1.2); cx.beginPath(); cx.moveTo(-9, 0); cx.lineTo(-16, -5 + Math.sin(f.ph * 9) * 2); cx.lineTo(-16, 5 + Math.sin(f.ph * 9) * 2); cx.closePath(); outline(f.c, 1.2); cx.fillStyle = C.ink; cx.beginPath(); cx.arc(5, -1, 1.2, 0, Math.PI * 2); cx.fill(); cx.restore(); });
           /* lifeline from the boat */

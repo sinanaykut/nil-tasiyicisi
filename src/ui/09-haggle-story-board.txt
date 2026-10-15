@@ -328,6 +328,7 @@
   function showUnlocks() {
     if (!S || S.mode !== 'free' || S.over || S.day > 1 || S.stats.trips) return false;
     let seen = meta.seenFeat || (meta.runs >= 2 ? ['haggle', 'quest', 'contra'] : []);
+    if (meta.runs === 0 && !seen.includes('desert')) seen = seen.concat('desert');   /* v46: a newcomer meets the caravan in town (its stop, Paneb's word in the travel card), not on the first sheet */
     const list = Object.keys(FEATS).filter(k => (k === 'sethi' || k === 'tekne' ? meta.runs >= 1 : S.feat && S.feat[k]) && !seen.includes(k));
     if (meta.runs === 0) ['sethi', 'haggle'].forEach(k => { if (!seen.includes(k)) seen = seen.concat(k); });
     meta.seenFeat = seen.concat(list); saveMeta();

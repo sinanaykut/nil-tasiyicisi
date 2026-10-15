@@ -66,6 +66,9 @@ body.at-sea .news{display:none}
 .pads .pb{width:96px;height:62px;border-radius:16px;font-size:15px;background:rgba(143,211,224,.92)}
 .pads button.on{transform:translateY(2px);box-shadow:0 1px 0 var(--ink)}
 @media (pointer:coarse){ body.at-sea .pads{display:flex} }
+/* v46: in the wreck dive you swim where you hold your finger; the left/right pads could not go up or down, so only the kick button stays */
+body[data-scene="dive"] .pads [data-pad="L"],body[data-scene="dive"] .pads [data-pad="R"]{visibility:hidden}
+#sea{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 
 /* ---------- river route ---------- */
 .route{background:var(--pap);border:3px solid var(--ink);border-radius:var(--r);box-shadow:0 4px 0 #0A1222;padding:8px 10px;display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:10px;align-items:stretch}

@@ -1,4 +1,4 @@
-# Nil Kervancısı source map (v40)
+# Nil Kervancısı source map (v46)
 
 Build: `./build.sh` (runs `python3 src/assemble.py`) → dist/. Order is in assemble.py.
 Folders ui/, sea/, v3/ are single files split by section; parts are joined in name order (same IIFE scope, so names are shared).
@@ -192,6 +192,21 @@ asik (knucklebones duel, ≈47 %), bakla (shell game, adaptive pace `meta.qShell
 follows (`qkShow`). Tavern menu (ui/13 showTavern): "Uzun oyunlar" = the dialogue choices, "Kısa oyunlar" = `quickMenuHtml(ci)`
 tiles (`opts.html`); ui/12 keeps the tavern pin bright while quick bets remain. Debug: `fn.showQuick(id)`, `fn.quickAuto({ fast,
 n, cheat })` (tavernAuto drives it too), `fn.quickSim(id, n, call)`, `fn.quickLeft()`. Images: docs/qa45-oyun.
+v46 caravans & wreck (owner report): the desert caravans are open from the first run (`featFor` desert:true, old saves get
+`S.feat.desert`; run 0 marks 'desert' seen so the first sheet stays Paneb's). `spotsHere().caravan` is on in every hub (no unlock gate)
+and in the desert towns (there it is the 'ship' spot itself, "Kervan · yola çık"); `openSpot('caravan')` → `showTravel(carDest | hub)`.
+Plaques: 3D "Kervan · Siwa'ya" (`townOpts().carTo`), 2D "Kervan" (smaller donkeys at x 110–208, clear of the market's middle).
+Far-town card (`farCard`, ui/13): the first-leg button is `data-act="goVia"` (`goVia(a, b)` in ui/05) and leaves at once
+("Önce Mennefer'e git · 1 gün", from another desert town "Mennefer'e dön"), with a `.tvnext` line; the plan is kept in `S.way46`
+(dropped when you head elsewhere, `wayLeg`); at the hub `landDone` toasts and taps the caravan stop and `showTravel()` opens on it.
+On phones the travel card's go buttons (`.tvgo`, `.tvfirst`) are sticky at the sheet's bottom (map45.css), never below the fold.
+Wreck dive (`sea/06`): gap x 14..104 (GX 59, HG 45, `s.gx/s.hg`), collision circle `s.rl` (≈11 px), swept sub-steps ≤ rl/3, three
+passes, pure slide (no bounce), knocks only > 110 px/s and never while assisted. `way(s, x, y, want)`: a column over the gap
+(straight down/up), the mouth above the deck, beside the hull rise first. Pointer: snaps to a find within ~48 px, `wantIn` (hold ±16
+units: fingers are imprecise), routed steering at full speed. Keys/pads: `assist()` slides up-in-the-hold / down-on-the-deck to the gap.
+`contextmenu` blocked on #sea; the left/right pads are hidden in the dive (they could not go up or down). Items get `inside = inHull()`
+(on phones the hull covers the old sand spots). Air 12.5 s (was 9), dive 30 s (was 26). A light shaft and gold plank ends mark the
+gap, dashed funnel lines over it. Debug: `st.way`, `st.inHull`. Images: docs/qa46.
 
 ## Music (v44)
 - `snd-syn.txt` — `NilSynth()`: self-contained music synthesiser (its source text is also the render Worker's body, so it must not use game names). Instruments (Karplus-Strong oud/bass, modal harp/kanun, ney/reed wind phrases, wavetable drones/choir, modal darbuka/bendir/tabl/riq/sistrum/zills/bowl), buses + EQ, ping-pong echo, half-rate FFT convolution reverb, master compressor + soft ceiling, the six compositions (`composeMenu/Port/Bazaar/Temple/Sail/Chase`) and `TRACKS` (tempo, bars, reverb, measured bus gains and loudness trims). `job(name)` renders in steps (`step(ms)`), `onSeg` streams 1 s segments.

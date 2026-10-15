@@ -589,6 +589,8 @@
     if (heroDesert()) return;
     if (repairNag()) return;
     S.hq = S.hq || {};
+    /* v46: on a planned way the hub's caravan stop is where to go next */
+    if (S.way46 != null) { const b = S.way46; if (S.city === b) S.way46 = null; else if (canGo(S, b) && !isRiver(b) && CITIES[b].hub === S.city) setTimeout(() => { if (phase === 'port' && $('#veil').hidden) { toast('Kervan durağı burada: ' + CITIES[b].dat + ' ' + CITIES[b].days + ' gün. Kervana dokun.'); tapFx('caravan'); } }, 400); }
     if (!S.hq['c' + S.city]) { S.hq['c' + S.city] = 1; save(); setTimeout(() => { if ($('#veil').hidden && phase === 'port') heroQuip('arrive', { c:CITIES[S.city].name }); }, 500); }
     if (!CITIES.some((c, i) => canGo(S, i))) toast('Bu son durağın. Malını sat, sonra "Seferi bitir"e bas.');
   }

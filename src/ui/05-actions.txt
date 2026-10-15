@@ -35,10 +35,18 @@
     const again = document.querySelector('[data-' + kind + '="' + gid + '"]:not(:disabled)'); if (again) again.focus({ preventScroll:true });
   }
   let departing = false;
+  /* v46: is town a the first leg on the way to town b (its caravan hub, or our own hub when we stand in another desert town) */
+  const wayLeg = (a, b) => b != null && !isRiver(b) && (a === CITIES[b].hub || (!isRiver(S.city) && a === CITIES[S.city].hub));
+  function goVia(a, b) {
+    if (phase !== 'port' || !S || S.over || !canGo(S, a)) { play('no'); return; }
+    sel = a; S.way46 = b; go();
+  }
   function go() {
     if (phase !== 'port' || sel == null || !canGo(S, sel) || S.over) return;
     if (departing) return;
     if (['ship', 'city', 'sail'].includes(guide().step)) guideTo('voyage');
+    /* v46: a planned way is kept while we sail its first leg, dropped when we head anywhere else */
+    if (S.way46 != null && (sel === S.way46 || !wayLeg(sel, S.way46))) S.way46 = null;
     if (!isRiver(sel) && !S.caravan) { carGo(sel); return; }
     if (sheetName) closeSheet();
     if (!isRiver(sel) || !isRiver(S.city)) { plan = seaPlan(S, sel, false); rapid = false; S.voyage = plan; save(); play('sail'); enterSea(); return; }

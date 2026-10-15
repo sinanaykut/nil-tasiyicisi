@@ -8,7 +8,7 @@
     let T = null, G = null;
     const INK = '#2B1D14', RED = X.RED;
     const SPOTS = ['market', 'ship', 'hero', 'temple', 'tavern', 'work', 'yard', 'hapu', 'board', 'well', 'caravan'];
-    const SNAME = { market:'Pazar', ship:'Tekne · yola çık', temple:'Tapınak', tavern:'Meyhane', work:'Atölye', yard:'Tersane', hapu:'Hapu\'nun evi', board:'Sipariş panosu', well:'Kuyu', caravan:'Kervan durağı' };
+    const SNAME = { market:'Pazar', ship:'Tekne · yola çık', temple:'Tapınak', tavern:'Meyhane', work:'Atölye', yard:'Tersane', hapu:'Hapu\'nun evi', board:'Sipariş panosu', well:'Kuyu', caravan:'Kervan' };
     const SICO = { market:'i-stall', ship:'i-boat', hero:'i-heart', temple:'i-temple', tavern:'i-senet', work:'i-workshop', yard:'i-anchor', hapu:'i-coin', board:'i-scroll', well:'i-water', caravan:'i-donkey' };
     /* v45: the river towns where a desert caravan sets out (Mennefer → Siwa, Abidos → Harga, Vaset → Saww): a caravan stop on the quay */
     const CARHUB = { mennefer:1, abidos:1, vaset:1 }, CARSP = { x:80, z:74, y:8, r:18, top:20 };
@@ -608,7 +608,7 @@ void main() {
         k.stick([56, 0, 106], [56, 30, 106], 1, '#6B4226'); k.stick([56, 30, 106], [76, 26, 116], 0.8, '#6B4226'); k.stick([76, 26, 116], [76, 14, 116], 0.25, '#5A4632');
         for (let i = 0; i < 4; i++) B3(k, '#C9955A', 50, i * 1.6, 132 - i * 0.4, 18, 1.6, 4);
         barrel(B, 46, 108); B.spots.yard = { x:70, z:118, y:8, r:24, top:30 };
-        if (CARHUB[id]) B.spots.caravan = Object.assign({}, CARSP);   /* v45: the donkeys themselves are dynamic (only while caravans can leave) */
+        if (CARHUB[id]) B.spots.caravan = Object.assign({}, CARSP);   /* v45: the donkeys themselves are dynamic parts (v46: every hub, from the first run) */
         B.walk.push([[52, 96], [40, 102], [38, 120], [52, 118]]);   /* v41: on the paving by the slip, clear of the carrier, the barrel and the plank stack */
       }
       /* a low wall with merlons behind the plaza, opening onto the temple stairs */
@@ -1185,7 +1185,7 @@ void main() {
           let L = lab[key];
           if (!on) { if (L) L.hidden = true; return; }
           if (!L) { L = lab[key] = document.createElement('button'); L.type = 'button'; L.className = 'v3t-l'; labs.appendChild(L); L.addEventListener('focus', () => highlight(key, true)); L.addEventListener('blur', () => highlight(key, false)); }
-          const name = key === 'ship' ? (desert || o2.caravan ? 'Kervan · yola çık' : SNAME.ship) : key === 'hero' ? heroName(o2.hero) : SNAME[key];
+          const name = key === 'ship' ? (desert || o2.caravan ? 'Kervan · yola çık' : SNAME.ship) : key === 'hero' ? heroName(o2.hero) : key === 'caravan' && o2.carTo ? SNAME.caravan + ' · ' + o2.carTo : SNAME[key];
           const badge = key === 'board' && notes.board ? '<i class="v3t-n">' + notes.board + '</i>' : key === 'work' && notes.work === 'ready' ? '<i class="v3t-n">!</i>' : key === 'temple' && notes.temple === 'done' ? '<i class="v3t-n ok">✓</i>' : '';
           const ic = typeof ico === 'function' ? ico(key === 'ship' && (desert || o2.caravan) ? 'i-donkey' : SICO[key], 15) : '';
           const html = ic + '<b>' + name + '</b>' + badge;
