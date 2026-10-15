@@ -253,7 +253,7 @@
   function renderPanel() {
     renderMbar();
     const P = $('#panel');
-    if (phase === 'sea') { P.innerHTML = seaPanel(); return; }
+    if (phase === 'sea') { P.innerHTML = VG && VG.dz ? dzPanel() : seaPanel(); return; }
     if (msel && !shown28(msel)) msel = null;
     P.innerHTML = '<div class="pbody mk28"><div class="mhrow">' + merchHead() + '<button type="button" class="x mkx" data-act="mkClose" aria-label="Pazarı kapat">' + ico('i-close', 18) + '</button></div>' + marketHtml() + '<div class="abar" id="abar">' + abarHtml() + '</div></div>';
   }

@@ -404,6 +404,7 @@
       '<i class="hbar ' + lv + '"><em style="width:' + Math.round(f * 100) + '%"></em></i>' +
       (S.caravan ? '' : plankHtml(hullNow(S), maxHp(S), 'hgv')) +
       (chips ? '<span class="hcs">' + chips + '</span>' : '<span class="hcs empty">Ambar boş · pazardan mal al</span>') + '</button>';
+    if (K) s += dzMiniDk(dkFix(K).dk);   /* v48: the donkeys' strength */
     if (K) { s += '<div class="hw" title="Günlük su">' + Array.from({ length:Math.min(8, K.water) }, () => ico('i-water', 13)).join('') + '<b>' + K.water + ' gün su</b>' + (/^(siwa|kharga)$/.test(CITIES[S.city].id) ? '' : '<button type="button" class="hbtn" data-act="water1"' + (S.cash >= K.donkeys * WATER_COST ? '' : ' disabled') + '>+1 · ' + K.donkeys * WATER_COST + '</button>') + '</div>'; }
     return s;
   }

@@ -472,6 +472,7 @@
     if (notes.length) s += '<div class="irows">' + notes.map(([ic, t, k]) => '<div class="irow ' + k + '"><span class="iI">' + ico(ic, 16) + '</span><span>' + esc(t) + '</span></div>').join('') + '</div>';
     if (cr) s += '<button class="btn sm rapid" type="button" data-act="rapid" aria-pressed="' + rapid + '" title="Bir gün kısa ama nehir kayalarla dolu">' + (rapid ? '✓ ' : '') + 'Kestirme: 1 gün kısa, azgın sular</button>';
     if (dz && !S.caravan) s += caravanHtml(sel);
+    if (fromDz && S.caravan) s += dzStopHtml();   /* v48: the caravan stop shows the donkeys and the keeper */
     const lab = dz && !S.caravan ? 'Kervanla yola çık' : fromDz ? 'Kervanla dön' : 'Yelken aç';
     const cost = dz && !S.caravan ? caravanCost(S, sel, carN) : 0;
     s += '<button class="btn go1 wide tvgo" type="button" data-act="go"' + (cost > S.cash ? ' disabled' : '') + '>' + ico(dz || fromDz ? 'i-donkey' : 'i-boat', 22) + (cost > S.cash ? 'Kira için paran yetmiyor' : lab) + '</button></div>';

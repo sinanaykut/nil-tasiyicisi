@@ -21,6 +21,7 @@
     ruin:       { name:'Gömülü tapınak',   ico:'i-temple',  risk:2, gain:3, desc:'Kumların altında unutulmuş bir mabet: kapısındaki mührü çöz, sandığı aç. Açgözlülük lanet getirir.' },
     /* v42: the road has no temples any more (the towns have them); old tombs instead: a seal to turn, a coffin to open, a curse to fear */
     tomb:       { name:'Kaya mezarı',      ico:'i-ankh',    risk:2, gain:3, desc:'Kayalara oyulmuş eski bir mezar. Mührü çöz, lahdi aç: muska ve papirüs çıkar. Açgözlülük lanet getirir.' },
+    stars:      { name:'Yıldız yolu',      ico:'i-moon',    risk:2, gain:2, desc:'Gündüz çok sıcak: serin gecede yıldızlara bakarak yürü. Doğru yıldızı izlersen su kazanırsın.' },
     dtomb:      { name:'Kum mezarı',       ico:'i-chest',   risk:2, gain:3, desc:'Rüzgâr kumun altından bir mezar kapısı çıkarmış. Mührü çöz, lahdi aç. Açgözlülük lanet getirir.' }
   };
   const SCENE_NODES = ['calm', 'rapids', 'storm', 'wreck', 'night', 'treasure', 'forgers', 'dunes', 'canyon', 'sstorm'];
@@ -32,7 +33,7 @@
     const r = vRng(p.seed ^ 0x5bd1e995), n = Math.max(1, p.days), layers = [];
     const easy = firstRun() && S.stats.trips === 0;
     for (let i = 0; i < n; i++) {
-      const pool = p.terrain === 'desert' ? { dunes:2.4, canyon:1.4, sstorm:p.season === 2 ? 2.2 : 1.4, oasis:i > 0 ? 1.4 : 0.5, mirage:1.1, dtomb:i > 0 ? 1 : 0.4 } : easy ? (i === 0 ? { calm:1 } : { calm:2, market:1.5, wreck:1 }) : p.rapid ? { rapids:3, storm:1.4, wreck:1 } : { calm:2.4, rapids:2.2, storm:p.season === 0 ? 2.3 : 1.3, wreck:1.4, night:p.contra ? 3 : 1, market:1.3, tomb:i > 0 ? 1.2 : 0.6, boatman:1 };
+      const pool = p.terrain === 'desert' ? { dunes:2.2, canyon:1.4, sstorm:p.season === 2 ? 2.2 : 1.4, stars:1.3, oasis:i > 0 ? 1.4 : 0.5, mirage:1.1, dtomb:i > 0 ? 1 : 0.4 } : easy ? (i === 0 ? { calm:1 } : { calm:2, market:1.5, wreck:1 }) : p.rapid ? { rapids:3, storm:1.4, wreck:1 } : { calm:2.4, rapids:2.2, storm:p.season === 0 ? 2.3 : 1.3, wreck:1.4, night:p.contra ? 3 : 1, market:1.3, tomb:i > 0 ? 1.2 : 0.6, boatman:1 };
       const k = easy ? (i === 0 ? 1 : 2) : p.rapid ? 2 : n === 1 ? 3 : (r() < 0.6 ? 3 : 2), opts = [];
       while (opts.length < k) {
         const ks = Object.keys(pool).filter(x => !opts.includes(x)); if (!ks.length) break;
@@ -40,7 +41,7 @@
         for (const x of ks) { q -= pool[x]; if (q < 0) { pk = x; break; } }
         opts.push(pk);
       }
-      if (!opts.some(x => SCENE_NODES.includes(x))) opts[0] = p.terrain === 'desert' ? ['dunes', 'canyon', 'sstorm'][Math.floor(r() * 3)] : SCENE_NODES[Math.floor(r() * 5)];
+      if (p.terrain === 'desert' ? !opts.some(x => DZ_PLAY.includes(x)) : !opts.some(x => SCENE_NODES.includes(x))) opts[0] = p.terrain === 'desert' ? ['dunes', 'canyon', 'sstorm', 'stars'][Math.floor(r() * 4)] : SCENE_NODES[Math.floor(r() * 5)];
       layers.push(opts.map(t => ({ t, links:[], amb:false, rev:false, fresh:false })));
     }
     /* each stop leads to one or two stops of the next day, so a choice commits you to a branch */
@@ -61,9 +62,12 @@
       nd.q = true; nd.rev = true;
     }
     /* hp/maxhp: the boat's planks (the caravan's strength in the desert); hh/hhMax: the hero's hearts */
-    return { plan:p, layers, layer:0, picks:[], hp:p.hp, maxhp:Math.max(p.hp, p.hpMax || p.hp), hh:p.hh != null ? p.hh : heroHp(S), hhMax:p.hhMax || heroMax(S), extra:0, bonus:0, morale:S.qPerk === 'ba' ? 5 : 3, prophecy:null, torn:false, scout:false, revealAll:easy, easy, shortcut:false, seedN:0, scene:null,
+    const V = { plan:p, layers, layer:0, picks:[], hp:p.hp, maxhp:Math.max(p.hp, p.hpMax || p.hp), hh:p.hh != null ? p.hh : heroHp(S), hhMax:p.hhMax || heroMax(S), extra:0, bonus:0, morale:S.qPerk === 'ba' ? 5 : 3, prophecy:null, torn:false, scout:false, revealAll:easy, easy, shortcut:false, seedN:0, scene:null,
       chaseDone:!p.chaser, raceDone:!p.rival || p.terrain === 'desert', log:[],
       acc:{ hits:0, coins:0, crates:0, got:{}, left:0, overboard:0, near:0, nearCoins:0, maxCombo:0, caught:false, escaped:!!p.chaser, beatRival:false, spotted:false, notes:[] } };
+    /* v48: the desert road has its own screen and scenes (desert48.txt) */
+    if (p.terrain === 'desert') dzInit(V);
+    return V;
   }
   const curNode = () => VG.layer > 0 && VG.picks[VG.layer - 1] != null ? VG.layers[VG.layer - 1][VG.picks[VG.layer - 1]] : null;
   const curPick = () => VG.picks[VG.layer] != null ? VG.layers[VG.layer][VG.picks[VG.layer]] : null;
@@ -71,7 +75,7 @@
   const visible = (i, nd) => VG.revealAll || nd.rev || i <= VG.layer + 1;
   const stars = (n, ch) => n ? ch.repeat(n) : '–';
   function vnote(txt, kind) { VG.log.push(txt); VG.acc.notes.push({ kind:kind || 'info', title:'Yolda', text:txt }); toast(txt); }
-  function setMorale(dv) { const was = VG.morale; VG.morale = Math.max(0, Math.min(5, VG.morale + dv)); if (VG.morale !== was && (VG.morale === 0 || VG.morale === 5)) toast(VG.morale === 5 ? 'Tayfa coşkulu: her sahnede +1 kürek hamlesi.' : 'Tayfa isteksiz: her sahnede 1 kürek hamlesi eksik.'); }
+  function setMorale(dv) { const was = VG.morale; VG.morale = Math.max(0, Math.min(5, VG.morale + dv)); if (VG.morale !== was && !VG.dz && (VG.morale === 0 || VG.morale === 5)) toast(VG.morale === 5 ? 'Tayfa coşkulu: her sahnede +1 kürek hamlesi.' : 'Tayfa isteksiz: her sahnede 1 kürek hamlesi eksik.'); }
   const moraleBonus = () => (VG.morale >= 4 ? 1 : 0) - (VG.morale <= 1 ? 1 : 0);
   /* route surgery used by consequences */
   function insertNode(li, t) {
@@ -95,9 +99,6 @@
   function consequence(t, res) {
     const L = VG.layer, has = i => !!VG.layers[i];
     if (t === 'calm') { setMorale(1); const g = VG.hp < VG.maxhp, h = VG.hh < VG.hhMax; if (g) VG.hp++; if (h) VG.hh++; if (g || h) vnote('Sakin suda mola: ' + [g ? 'tayfa gövdeye 1 tahta çaktı' : '', h ? 'sen dinlendin (+1 can)' : ''].filter(Boolean).join(', ') + '. Moral +1.', 'good'); }
-    if (t === 'dunes') { setMorale(1); if (VG.hp < VG.maxhp) { VG.hp++; vnote('Eşekler serin bir kumulun gölgesinde soluklandı: güç +1.', 'good'); } }
-    if (t === 'canyon') { if (res.hits === 0) { setMorale(1); if (!VG.shortcut && has(L + 1) && shortcut()) vnote('Geçidi tökezlemeden aştın; kestirme bir vadi buldun: yol 1 gün kısaldı!', 'good'); } else if (res.hits >= 2) setMorale(-1); }
-    if (t === 'sstorm') { if (res.hits === 0) { setMorale(1); vnote('Fırtınayı kayıpsız atlattın. Tayfa sana hayran.', 'good'); } else if (S.caravan) { S.caravan.water = Math.max(0, S.caravan.water - 1); setMorale(-1); vnote('Kum fırtınasında bir su tulumu patladı: −1 günlük su.', 'bad'); } }
     if (t === 'rapids') {
       if (res.hits === 0) { setMorale(1); if (!VG.shortcut && has(L + 1) && shortcut()) vnote('Hiç çarpmadan geçtin ve akıntıya kapıldın: yolculuk 1 gün kısaldı!', 'good'); }
       else if (res.hits >= 2) setMorale(-1);
@@ -158,13 +159,14 @@
         P('M40 54V36q10-7 20 0v18z', '#2B1D14', 2) + P('M36 36h28l-2-5H38z', '#E8D4A8', 1.8) + '<rect x="45" y="24" width="10" height="7" rx="3" fill="#F2C65A" stroke="' + K + '" stroke-width="1.5"/>' +
         P('M28 54v-9h6v9z', '#E8D4A8', 1.6) + '<circle cx="31" cy="42" r="3" fill="#E8D4A8" stroke="' + K + '" stroke-width="1.5"/>' + P('M66 54v-9h6v9z', '#E8D4A8', 1.6) + '<circle cx="69" cy="42" r="3" fill="#E8D4A8" stroke="' + K + '" stroke-width="1.5"/>' +
         glow(50, 48, 7, '#F2C65A') + F('M14 52l16 7', 'none', ' stroke="' + water + '" stroke-width="4" stroke-linecap="round" opacity=".85"'),
+      stars: () => base('#3A4A78', '#6E5A8A', '#4E406A') + F('M12 52q14-10 30-4t30-6', 'none', ' stroke="#8A7AA8" stroke-width="2.4" stroke-linecap="round"') + '<circle cx="34" cy="26" r="1.8" fill="#F7E7A6"/><circle cx="40" cy="29" r="1.8" fill="#F7E7A6"/><circle cx="46" cy="32" r="1.8" fill="#F7E7A6"/>' + glow(62, 44, 8, '#CFE6FF') + '<path d="M62 37l2 5 5 2-5 2-2 5-2-5-5-2 5-2z" fill="#F4FAFF" stroke="' + K + '" stroke-width="1.2"/>' + '<circle cx="72" cy="20" r="1.4" fill="#F7E7A6"/><circle cx="22" cy="40" r="1.3" fill="#F7E7A6"/>',
       dtomb: () => base(sand, sandL, sandR) + P('M12 54q6-28 38-30q30 2 38 30z', '#D8B46E', 2.2) + F('M24 40q8-8 16-9M60 32q10 3 16 10', 'none', ' stroke="' + sandR + '" stroke-width="2" stroke-linecap="round"') +
         P('M42 56V42q8-6 16 0v14z', '#2B1D14', 2) + P('M39 42h22l-2-4H41z', '#E8D4A8', 1.6) + glow(50, 50, 6, '#F2C65A') +
         P('M66 58l12-6 8 3-12 6z', '#D9A43A', 1.8) + F('M70 57l9-4', 'none', ' stroke="' + K + '" stroke-width="1.2"') + '<circle cx="24" cy="22" r="6" fill="#F2C65A" stroke="' + K + '" stroke-width="1.8"/>',
       fog: () => base('#D8C9A2', '#C4B28A', '#A89670') + '<text x="50" y="52" text-anchor="middle" font-family="Cinzel,serif" font-weight="700" font-size="30" fill="rgba(43,29,20,.55)">?</text>',
       city: () => base(pap, sandL, sandR) + F('M8 46q20-10 42-4', 'none', ' stroke="#9CBF6E" stroke-width="4" stroke-linecap="round" opacity=".9"') + P('M22 52V34h16v18z', '#E8D4A8', 2) + P('M40 52V26h16v26z', '#F3E2B8', 2) + P('M58 52V36h16v16z', '#E8D4A8', 2) + '<rect x="27" y="40" width="5" height="5" fill="' + K + '"/><rect x="45" y="32" width="6" height="6" fill="' + K + '"/><rect x="45" y="42" width="6" height="10" fill="' + K + '"/><rect x="63" y="42" width="5" height="5" fill="' + K + '"/>' + flag(40, 26, '#D9A43A') + palm(82, 50, .7)
     };
-    const T = { desert:1, dunes:1, canyon:1, sstorm:1, oasis:1, mirage:1, ruin:1, dtomb:1 };
+    const T = { desert:1, dunes:1, canyon:1, sstorm:1, stars:1, oasis:1, mirage:1, ruin:1, dtomb:1 };
     return { tile(t, cls) { const f = D[t] || D.calm; return '<svg class="vt ' + (cls || '') + '" viewBox="0 0 100 90" aria-hidden="true">' + f() + '</svg>'; }, desert:t => !!T[t], D };
   })();
   /* Sethi's green-and-gold boat, parked on the board when he races this voyage */
@@ -195,6 +197,8 @@
   }
   function renderVoy() {
     if (!VG) return;
+    $('#voy').classList.toggle('dzv', !!VG.dz);
+    if (VG.dz) { dzRender(); return; }
     const p = VG.plan, a = VG.acc;
     let s = '<div class="vhead">' + boatSil(p.terrain === 'desert') + '<b>' + esc(CITIES[p.from].name) + ' → ' + esc(CITIES[p.dest].name) + '</b><span>' + Math.min(VG.layer + 1, VG.layers.length) + '/' + VG.layers.length + '. gün</span>' +
       lifeChips() +
@@ -347,6 +351,7 @@
   function enterFx(el) { if (!el || reduce) return; el.classList.remove('m-enter'); void el.offsetWidth; el.classList.add('m-enter'); clearTimeout(el._mt); el._mt = setTimeout(() => el.classList.remove('m-enter'), 450); }
   function showMap(direct) { if (!VG || phase !== 'sea') return; heroOverlay(false); const v = $('#voy'), was = v.hidden; $('#sea').hidden = true; v.hidden = false; document.body.classList.add('on-map'); renderVoy(); renderPanel(); if (was && !direct) enterFx(v); }
   function chooseNode(i, j) {
+    if (VG && VG.dz) { dzChoose(i, j); return; }
     if (!VG || !reachable(i, j) || VG.picks[i] != null) return;
     VG.picks[i] = j; const nd = VG.layers[i][j];
     play('click');
@@ -394,6 +399,7 @@
     afterStop(curPick());
   }
   function afterStop(nd) {
+    if (VG.dz) { dzAfter(nd); return; }
     if (nd && nd.amb && !VG.chaseDone) { VG.chaseDone = true; VG.inChase = true; toast('Pusu! ' + ({ haydut:'Haydutlar', medjay:'Medjay devriyesi', tefeci:'Tefecinin adamları', djedi:'Djedi\'nin adamları', bedevi:'Çöl akıncıları' }[VG.plan.chaser] || 'Biri') + ' bu durakta seni bekliyordu.'); playScene('chase'); return; }
     advance();
   }
@@ -414,11 +420,13 @@
   function endVoyage(quick) {
     const a = VG.acc;
     const res = { path:VG.picks.map((j, i) => VG.layers[i] && VG.layers[i][j] ? VG.layers[i][j].t : null).filter(Boolean), hp:Math.max(0, VG.hp), hh:Math.max(0, VG.hh), hits:a.hits, wreck:VG.hp <= 0, caught:a.caught, escaped:a.escaped && !!VG.plan.chaser, coins:a.coins, crates:a.crates, got:a.got, left:0, overboard:a.overboard, prophecy:VG.prophecy, near:a.near, nearCoins:a.nearCoins, maxCombo:a.maxCombo, beatRival:a.beatRival, spotted:a.spotted, notes:a.notes, quick:!!quick, ramUsed:!!a.ramUsed };
+    if (VG.dz) dzResult(res);
     VG = null; heroOverlay(false);
     landed(res);
   }
   function skipVoyage() {
     if (!VG) return;
+    if (VG.dz) { dzSkip(); return; }
     Sea.stop();
     const p = VG.plan, q = quickSea(p), total = VG.layers.length, remain = Math.max(0, total - VG.layer) / total, a = VG.acc;
     const h = Math.min(VG.hp, Math.round(q.hits * remain)); a.hits += h; VG.hp -= h;

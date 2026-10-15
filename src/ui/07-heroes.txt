@@ -52,7 +52,7 @@
     const h = HEROES[S.hero], ok = heroCan(VG ? 'voy' : 'port'), used = heroUsedNow(), K = S.caravan, mood = ok ? 'happy' : 'neutral';
     el.classList.remove('none'); el.classList.toggle('ready', ok); el.classList.toggle('used', !ok && used); el.classList.toggle('water', !!K);
     const av = $('#hpAv'); if (av.dataset.k !== S.hero + mood) { av.dataset.k = S.hero + mood; av.innerHTML = heroImg(S.hero, 40, { mood }); }
-    $('#hpName').textContent = h.name; $('#hpTitle').textContent = K ? K.water + ' gün su · ' + K.donkeys + ' eşek' : h.title;
+    $('#hpName').textContent = h.name; $('#hpTitle').textContent = K ? K.water + ' gün su · ' + (dkWalk(K) < K.donkeys ? dkWalk(K) + '/' : '') + K.donkeys + ' eşek' : h.title;
     const L = lifeNow(), hp = $('#hHp'); hp.innerHTML = plateHearts(); hp.setAttribute('aria-label', 'Can ' + L.h + '/' + L.m);
     el.classList.toggle('hurt', L.h < L.m); el.dataset.d = L.h <= 1 ? 3 : L.h < L.m ? 2 : 0;
     const pw = $('#hpPow'); pw.hidden = !(ok || used || h.when === 'voy'); pw.innerHTML = ico('i-bolt', 12); pw.title = h.power + (ok ? ' · hazır' : used ? ' · kullanıldı' : h.when === 'voy' && !VG ? ' · yolculukta' : '');

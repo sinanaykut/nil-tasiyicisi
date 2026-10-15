@@ -6,6 +6,7 @@ const BOT = () => {
   const N = window.__nil; let lastB = 0; const keys = {};
   const key = (k, on) => { if (!!keys[k] === on) return; keys[k] = on; window.dispatchEvent(new KeyboardEvent(on ? 'keydown' : 'keyup', { key:k })); };
   setInterval(() => {
+    if (N.fn.desertBot) N.fn.desertBot();   /* v48: the desert road's own scenes (DOM, not Sea) */
     const st = N.Sea.peek(); if (!st || st.end || st.count > 0) { N.Sea.setPad('L', false); N.Sea.setPad('R', false); ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].forEach(k => key(k, false)); return; }
     const g = N.Sea.geo();
     if (st.cfg) {
