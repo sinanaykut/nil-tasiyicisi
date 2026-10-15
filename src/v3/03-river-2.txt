@@ -148,7 +148,12 @@
       const st = curSt; v.g.position.set(curApi.sx(p.u, p.y), 0, -p.y);
       const bob = Math.sin(st.t * 4 + p.y) * 2; v.b.position.y = (p.k === 'lotus' ? 7 : 12) + bob; if (v.spin) v.b.rotation.y = Math.sin(clock * 2.2 + p.y) * 0.7;
       const gl = 0.25 + 0.15 * Math.sin(st.t * 6 + p.y); v.glow.scale.set(18 + gl * 10, 1, 18 + gl * 10); v.glow.position.y = 0.6; v.ring.scale.set(16, 1, 16); v.ring.position.y = 0.5;
+      /* v48: with the hold full a crate floats low, without its glow; the 2D HUD hangs a grey DOLU tag at p.tx/p.ty */
+      const fl = (p.k === 'crate' || p.k === 'cache') && !!(p.full || st.hf);
+      if (v.glow.visible === fl) { v.glow.visible = v.ring.visible = !fl; }
+      if (fl) { v.b.position.y = 5 + bob * 0.5; const q = _pj || (_pj = new T.Vector3()); q.set(v.g.position.x, 30, v.g.position.z).project(cam); p.tx = (q.x + 1) / 2 * curApi.W; p.ty = (1 - q.y) / 2 * curApi.H; }
     }
+    let _pj = null;
     function updPatrol(v, pt) {
       const L = U.uL.value, Gl = U.uG.value;
       v.g.position.set(curApi.sx(pt.u, pt.y), 0, -pt.y); v.b.mat.uniforms.uRow.value = curSt.t * 6;
@@ -184,6 +189,7 @@
       /* camera: fixed lateral position so the boat stays where the 2D boat (and the pointer steering) expects it */
       let shx = 0, shz = 0; if (st.shake > 0) { shx = (Math.random() * 12 - 6) * st.shake * 2; shz = (Math.random() * 12 - 6) * st.shake * 2; }
       cam.position.set(W / 2 + shx, camGeo.h, bz + camGeo.back + shz);
+      cam.updateMatrixWorld();   /* v48: the full-hold tags are placed from this frame's camera */
       /* ground strip */
       const gg = ground.geometry, gp = gg.attributes.position, gx = gg.attributes.aCX, nr = ground.userData.nr, yb = st.dist - vis.behind - 40, yt = st.dist + vis.ahead + 80, xl = W / 2 - vis.side - 200, xr = W / 2 + vis.side + 200;
       for (let i = 0; i < nr; i++) { const y = yb + (yt - yb) * i / (nr - 1), c = api.centerX(y); gp.setXYZ(i * 2, xl, 0, -y); gp.setXYZ(i * 2 + 1, xr, 0, -y); gx.setX(i * 2, c); gx.setX(i * 2 + 1, c); }

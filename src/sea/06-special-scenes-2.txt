@@ -100,7 +100,7 @@
           s.texts.forEach(t => { t.life -= dt; t.y -= 40 * dt; }); s.texts = s.texts.filter(t => t.life > 0);
           if (s.t >= s.dur) {
             const ratio = s.calm / s.dur;
-            if (ratio >= 0.75) { s.coins += 140; const t = !s.lost && cargoRoom() > 0 ? cargoTake() : null; if (!s.lost && !t) s.left = (s.left || 0) + 1; flash(s.lost ? 'Tekneyi dik tuttun! +140 deben' : t ? 'Kusursuz! +140 deben ve bir sandık' + (t.txt ? ' (' + t.txt + ')' : '') : 'Kusursuz! +140 deben · ambar dolu, sandık kaldı'); sfx('escape'); }
+            if (ratio >= 0.75) { s.coins += 140; const t = !s.lost && cargoRoom() > 0 ? cargoTake() : null; if (!s.lost && !t) { s.left = (s.left || 0) + 1; fullNote(true); } flash(s.lost ? 'Tekneyi dik tuttun! +140 deben' : t ? 'Kusursuz! +140 deben ve bir sandık' + (t.txt ? ' (' + t.txt + ')' : '') : 'Kusursuz! +140 deben · ambar dolu, sandık kaldı'); sfx('escape'); }
             else if (ratio >= 0.62) { s.coins += 60; flash('Fırtınayı atlattın. +60 deben'); }
             else flash('Fırtına geçti.');
             finish();
@@ -377,10 +377,10 @@
             heroHurt(1); floatText(Math.max(110, Math.min(W - 110, d.x)), d.y - 40, 'Kendinden geçtin: −1 can', '#FFB3BE');
             flash(s.hh === 0 ? 'Canın bitti!' : s.blackouts >= 2 ? 'Havan yine bitti!' : 'Havan bitti! Tayfa seni yukarı çekiyor'); sfx('no');
           }
-          const room = cargoRoom() > 0; s.items.forEach(i => { if (i.t === 'amphora' && !i.banked && !i.taken) i.full = !room; });
+          const room = cargoRoom() > 0; s.items.forEach(i => { if (i.t === 'amphora' && !i.banked && !i.taken) i.full = !room; }); if (!room && !s.fullSaid && s.t > 1.2 && s.items.some(i => i.full)) fullNote();   /* v48: said once, early, so the grey jars make sense */
           if (!d.item && !s.finishing && s.pull <= 0) {
             const nf = s.items.find(i => i.full && !i.told && Math.hypot(i.x - d.x, i.y - d.y) < i.r + 18 && (!i.inside || d.inside));
-            if (nf) { nf.told = true; floatText(Math.max(100, Math.min(W - 100, d.x)), d.y - 34, 'Ambar dolu: küpü alamazsın', '#FFB4A0'); sfx('no'); }
+            if (nf) { nf.told = true; floatText(Math.max(100, Math.min(W - 100, d.x)), d.y - 34, 'Ambar dolu: küpü alamazsın', '#FFB4A0'); sfx('no');  fullNote(); }
             const it = s.items.find(i => !i.taken && !i.banked && !i.full && (!i.inside || d.inside) && Math.hypot(i.x - d.x, i.y - d.y) < i.r + 18); if (it) { it.taken = true; d.item = it; sfx('tick'); floatText(Math.max(100, Math.min(W - 100, d.x)), d.y - 34, it.special ? 'Ud! Tekneye götür ↑' : 'Tekneye götür ↑', '#FFF8EC'); } }
           s.items.forEach(i => { i.ph += dt; if (i === d.item) { i.x = d.x + d.face * 22; i.y = d.y + 14; } else if (!i.banked && i.y < i.fy) i.y = Math.min(i.fy, i.y + 90 * dt); else if (!i.banked && i.y > i.fy + 1) i.fy = i.y; });
           /* eels: hide → warn (0.75 s, "!") → strike at where you were → back off */
@@ -587,7 +587,7 @@
             if (i.banked || i === d.item) return;
             const gl = 0.22 + 0.12 * Math.sin(s.t * 3 + i.x), hr = i.r + 14;
             /* v45: with the hold full an amphora stays where it is, greyed */
-            if (i.full) { cx.save(); cx.globalAlpha = 0.45; this.item(i, 1.15); cx.restore(); return; }
+            if (i.full) { cx.save(); cx.globalAlpha = 0.45; this.item(i, 1.15); cx.restore(); fullTag(i.x, i.y - i.r - 16); return; }
             blot(spr(i.special ? 'gl2' : 'gl1', i.special ? '160,240,240' : '255,236,160'), i.x, i.y, hr, i.special ? gl + 0.2 : gl);
             this.item(i, 1.25);
             const sp = Math.max(0, Math.sin(i.ph * 2.6)), sxp = i.x + 12, syp = i.y - 14;

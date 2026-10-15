@@ -398,6 +398,24 @@ div.contra p{margin:0;flex:1}
 .tut-target{position:relative;z-index:3;box-shadow:0 0 0 4px var(--gold),0 0 0 8px rgba(217,164,58,.4)!important;animation:tutglow 1.2s ease-in-out infinite}
 @keyframes tutglow{50%{box-shadow:0 0 0 4px var(--gold),0 0 0 12px rgba(217,164,58,.15)}}
 @media (prefers-reduced-motion: reduce){ .tut-target{animation:none} }
+/* v48: the guide's arrow and ring over what to tap (never takes a tap) */
+.tutarw{position:fixed;left:0;top:0;width:0;height:0;z-index:26;pointer-events:none}
+.tutarw[hidden]{display:none}
+.tutarw .ta-ring{position:absolute;left:0;top:0;border-radius:14px;border:3px solid #FFD75E;box-shadow:0 0 0 1.5px rgba(43,29,20,.55),0 0 16px 4px rgba(255,205,80,.6),inset 0 0 0 1.5px rgba(43,29,20,.35),inset 0 0 12px rgba(255,215,94,.4);animation:taRing 1.3s ease-out infinite;will-change:opacity}
+.tutarw.spot .ta-ring{border-radius:50%}
+.tutarw .ta-a{position:absolute;left:0;top:0;width:34px;height:40px}
+.tutarw .ta-a span{display:block;width:34px;height:40px;transform-origin:50% 50%}
+.tutarw.up .ta-a span{transform:rotate(180deg)}
+.tutarw svg{display:block;overflow:visible;filter:drop-shadow(0 3px 0 rgba(43,29,20,.45));animation:taBob .8s ease-in-out infinite alternate}
+.tutarw path{fill:#FFD75E;stroke:#2B1D14;stroke-width:2.6;stroke-linejoin:round}
+@keyframes taBob{from{transform:translateY(-9px)}to{transform:translateY(0)}}
+@keyframes taRing{0%{opacity:1}70%{opacity:.25}100%{opacity:1}}
+@media (prefers-reduced-motion: reduce){ .tutarw svg,.tutarw .ta-ring{animation:none} }
+/* v48: the hold could not take everything: its meters flash red */
+.hfull{animation:hfull .6s ease-in-out 3}
+@keyframes hfull{0%,55%{background:#F29B7E;transform:scale(1.07);box-shadow:0 0 0 3px #B7412E,0 0 16px rgba(183,65,46,.7)}}
+@media (prefers-reduced-motion: reduce){ .hfull{animation:none;box-shadow:0 0 0 3px #B7412E} }
+.ntext.hfnote{margin-top:6px;padding:6px 10px;border-radius:10px;background:#F6C9A8;border:2px solid #B7412E;color:#5A1E14;font-weight:700;font-size:13.5px}
 .mplay{display:flex;align-items:center;gap:10px;background:var(--ink);color:var(--pap);border-radius:12px;padding:8px 10px}
 .mplay small{display:block;font-size:11px;color:var(--gold);font-weight:800;text-transform:uppercase;letter-spacing:.05em}
 .mplay b{font-family:Cinzel,serif;font-size:16px}

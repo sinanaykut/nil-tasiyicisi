@@ -51,6 +51,7 @@
       const evId = S.pendingEvent, idx = +t.dataset.choice, r = resolveEvent(S, idx); save(); renderAll();
       play(r && r.kind === 'good' ? 'good' : r && r.kind === 'bad' ? 'bad' : 'click');
       showEventResult(evId, idx, r);
+      if (r && r.text && HOLD_RE.test(r.text)) holdWarn();
       return;
     }
     if (t.dataset.act === 'heroGo') { heroGo(); return; }
@@ -95,7 +96,7 @@
     else if (act === 'mSfx') { Snd.setSfx(!Snd.pref.sfx); play('click'); paintAudio(); updateMusic(); }
     else if (act === 'mHap') { setHaptic(!haptic.on); play('click'); updateMusic(); }
     else if (act === 'm3d') { const on = !V3.pref(); T3fail = 0; const p3 = V3.setPref(on); if (!on) town3Off(); lastScene = ''; Promise.resolve(p3).then(() => { if (S && phase === 'port') { lastScene = ''; renderAll(); } }); play('click'); updateMusic(); toast(on ? '3B görünüm açık: nehir ve çöl sahneleri üç boyutlu.' : '3B görünüm kapalı.'); }
-    else if (act === 'workGet') { const k = collectWork(S); if (k) { play('coin'); save(); renderAll(); toast(k + ' ' + gName(WORKS[S.city].out) + ' ambara alındı.'); showWork(); } else play('no'); }
+    else if (act === 'workGet') { const k = collectWork(S); if (k) { play('coin'); save(); renderAll(); const w2 = workAt(S, S.city), rest = w2 && w2.g === WORKS[S.city].out ? w2.n : 0; toast(k + ' ' + gName(WORKS[S.city].out) + ' ambara alındı.' + (rest > 0 ? ' Ambar doldu: ' + rest + ' tanesi atölyede seni bekliyor.' : '')); if (rest > 0) holdWarn(); showWork(); } else play('no'); }
     else if (act === 'workMinus') { workN = Math.max(1, workN - 1); play('tick'); showWork(); }
     else if (act === 'workPlus') { workN = Math.min(workMax(S, S.city), workN + 1); play('tick'); showWork(); }
     else if (act === 'workMax') { workN = workMax(S, S.city); play('tick'); showWork(); }

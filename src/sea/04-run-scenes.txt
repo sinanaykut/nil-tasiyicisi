@@ -235,7 +235,7 @@
       if (st.cfg && view && view.wants && view.wants(st)) {
         cx.clearRect(0, 0, W, H);
         let ok = false; try { ok = view.draw(st, API()) !== false; } catch (e) { ok = false; try { console.warn('3D view off:', e); } catch (e2) {} if (view.hide) try { view.hide(); } catch (e3) {} view = null; }
-        st.v3 = ok; if (ok) { drawHud(); return; }
+        st.v3 = ok; if (ok) { fullTags3(); drawHud(); return; }
       }
       if (view && view.hide) try { view.hide(); } catch (e) {}
       st.v3 = false;

@@ -248,8 +248,8 @@
     const st = tutStep();
     const hk = st && st.el && st.el.classList.contains('v3t-l') ? st.el.dataset.spot : null;
     if (T3 && T3hi !== hk) { if (T3hi) T3.highlight(T3hi, false); if (hk) T3.highlight(hk, true); T3hi = hk; }
-    if (!st || !st.el) { box.hidden = true; return; }
-    st.el.classList.add('tut-target');
+    if (!st || !st.el) { box.hidden = true; tutArrow(null); return; }
+    st.el.classList.add('tut-target'); tutArrow(st.el);
     /* the same tip is not re-drawn on every render (no flicker, no portrait rebuild) */
     if (box.dataset.k !== st.text || !box.firstChild) { box.dataset.k = st.text; box.innerHTML = tutInner('Paneb', st.text); }
     tutBind(box, () => tutDo(st));
@@ -303,13 +303,66 @@
     if (k && T3 && T3.where) { const w = T3.where(k), pr = $('#port').getBoundingClientRect(); if (w && isFinite(w.y) && isFinite(w.h)) { t = Math.min(t, pr.top + w.y); b = Math.max(b, pr.top + w.y + w.h); l = Math.min(l, pr.left + w.x); rt = Math.max(rt, pr.left + w.x + w.w); } }
     return { top:t, bottom:b, left:l, right:rt, width:rt - l, height:b - t };
   }
+  /* v48 (owner: "when the guide says 'tap the market', an arrow could appear over the market, or that spot could glow"):
+     a bouncing arrow over whatever Paneb asks you to tap, and a soft ring pulsing round it. It never takes a tap (pointer-events:none),
+     follows its target while the town pans or zooms (every frame for a moment after any touch, wheel or scroll, else 4 times a second,
+     so an idle town costs next to nothing), and goes away by itself once the target loses its .tut-target mark or a sheet covers it */
+  const TA = { el:null, aim:null, box:null, ring:null, arw:null, raf:0, tmo:0, fast:0, x:-1, y:-1, w:-1, h:-1, up:-1 };
+  function tutArrow(el) {
+    if (!TA.box) {
+      const a = document.createElement('div'); a.id = 'tutArw'; a.className = 'tutarw'; a.setAttribute('aria-hidden', 'true'); a.hidden = true;
+      a.innerHTML = '<i class="ta-ring"></i><b class="ta-a"><span><svg viewBox="0 0 34 40" width="34" height="40"><path d="M11 3h12v16h8.5L17 37 2.5 19H11z"/></svg></span></b>';
+      document.body.appendChild(a); TA.box = a; TA.ring = a.firstChild; TA.arw = a.lastChild;
+      const wake = () => { TA.fast = performance.now() + 1200; tutArwKick(); };
+      ['pointerdown', 'pointermove', 'wheel', 'scroll', 'resize', 'keydown'].forEach(ev => window.addEventListener(ev, wake, { passive:true, capture:true }));
+    }
+    if (TA.el !== el) { TA.x = -1; TA.box.hidden = true; }
+    TA.el = el || null; TA.fast = performance.now() + 1200;
+    if (!el) return;
+    TA.box.classList.toggle('spot', !!(el.dataset && el.dataset.spot && !el.classList.contains('v3t-l')));
+    TA.aim = (el.querySelector && el.querySelector('.spot-lab')) || el;   /* a 2D building: the arrow points at its name plaque */
+    tutArwKick();
+  }
+  /* run the follower now (an idle one waits on a timer, not on every frame) */
+  function tutArwKick() { if (!TA.el) return; if (TA.tmo) { clearTimeout(TA.tmo); TA.tmo = 0; } if (!TA.raf) TA.raf = requestAnimationFrame(tutArwTick); }
+  function tutArwTick(now) {
+    TA.raf = 0; const el = TA.el, a = TA.box; if (!a || !el) return;
+    const veil = $('#veil');
+    if (!el.isConnected || !el.classList.contains('tut-target') || (!veil.hidden && !veil.contains(el))) { a.hidden = true; TA.el = null; return; }
+    {
+      const rr = el.getBoundingClientRect(), r = TA.aim && TA.aim !== el ? TA.aim.getBoundingClientRect() : rr, vw = window.innerWidth, vh = window.innerHeight;
+      if (r.width < 3 || r.height < 3 || r.bottom < 4 || r.top > vh - 4 || r.right < 4 || r.left > vw - 4 || el.classList.contains('v3t-off')) { if (!a.hidden) a.hidden = true; TA.x = -1; }
+      else {
+        /* above the target, pointing down; below it (pointing up) when there is no room above or the guide's bubble/strip sits there */
+        /* a big target (a whole 2D building) may take the arrow inside it, pointing at its middle */
+        const t = $('#tut'), q = t && !t.hidden ? t.getBoundingClientRect() : null, cx = r.left + r.width / 2;
+        const free = (y0, y1) => y0 >= 4 && y1 <= vh - 4 && !(q && q.bottom > y0 && q.top < y1 && q.right > cx - 17 && q.left < cx + 17);
+        let up = 0, ty = r.top;
+        if (free(r.top - 50, r.top)) ty = r.top;
+        else if (free(r.bottom, r.bottom + 50)) { up = 1; ty = r.bottom; }
+        else if (r.height > 110) ty = r.top + r.height * 0.42;
+        else ty = Math.max(54, r.top);
+        const x = Math.round(cx), y = Math.round(ty), w = Math.round(rr.width), h = Math.round(rr.height);
+        if (x !== TA.x || y !== TA.y || w !== TA.w || h !== TA.h || up !== TA.up) {
+          TA.x = x; TA.y = y; TA.w = w; TA.h = h; TA.up = up; TA.fast = Math.max(TA.fast, now + 400);   /* still moving: keep up every frame */
+          const pad = a.classList.contains('spot') ? 4 : 7;
+          TA.ring.style.transform = 'translate(' + Math.round(rr.left - pad) + 'px,' + Math.round(rr.top - pad) + 'px)'; TA.ring.style.width = (w + pad * 2) + 'px'; TA.ring.style.height = (h + pad * 2) + 'px';
+          TA.arw.style.transform = 'translate(' + (x - 17) + 'px,' + (up ? y + 4 : y - 46) + 'px)';
+          a.classList.toggle('up', !!up);
+        }
+        if (a.hidden) a.hidden = false;
+      }
+    }
+    if (now < TA.fast) TA.raf = requestAnimationFrame(tutArwTick);
+    else TA.tmo = setTimeout(() => { TA.tmo = 0; if (!TA.raf) TA.raf = requestAnimationFrame(tutArwTick); }, 250);
+  }
   /* highlight inside an open sheet (merchant dialog, travel sheet) */
   function guideMark() {
     const g = guide(); if (g.off || !g.step) return;
     let el = null;
     if (g.step === 'market' && sheetName === 'say') el = document.querySelector('#dlgCh [data-dlg="0"]');
     if (sheetName === 'travel') el = g.step === 'city' || g.step === 'sell' && load(S) && !sellPick() ? [...document.querySelectorAll('#sheet [data-city="' + guideDest() + '"]')].find(e => e.offsetParent) || null : g.step === 'sail' ? document.querySelector('#sheet [data-act="go"]') : null;
-    if (el) el.classList.add('tut-target');
+    if (el) { el.classList.add('tut-target'); tutArrow(el); }
   }
   /* a one-time explanation the first time a system is met */
   function guideOnce(key, lines, then, mood) {
@@ -455,6 +508,16 @@
     el.style.setProperty('--ax', Math.round(Math.max(14, Math.min(w - 14, cx - x))) + 'px');
   }
   function pulseCargo() { const el = $('#hold'); if (!el || reduce) return; el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); }
+  /* v48 (owner: "if there is no room left on the boat for that good, it could warn about it, or take as much as fits"):
+     whatever finds goods takes what fits; what did not fit is said once, plainly, and the hold meters flash red */
+  const HOLD_RE = /(Ambar|Heybeler) dol|sığmadı|yer yoktu|ambar doluydu/;
+  const heybe = () => !!((VG && VG.plan && VG.plan.terrain === 'desert') || (S && S.caravan && phase !== 'port'));
+  function holdLeftTxt(n, g) { return (heybe() ? 'Heybeler doldu: ' : 'Ambar doldu: ') + n + ' ' + (g ? gName(g).toLocaleLowerCase('tr') : 'mal') + ' sığmadı, geride kaldı.'; }
+  function holdWarn(text) {
+    if (text) toast(text);
+    try { renderHud(); } catch (e) {}
+    document.querySelectorAll('.hud .st.load, #hold').forEach(el => { el.classList.remove('hfull'); void el.offsetWidth; el.classList.add('hfull'); clearTimeout(el._hf); el._hf = setTimeout(() => el.classList.remove('hfull'), 1800); });
+  }
   function tapFx(k) {
     document.querySelectorAll('[data-spot="' + k + '"]').forEach(el => { el.classList.remove('tap'); void el.getBoundingClientRect(); el.classList.add('tap'); setTimeout(() => el.classList.remove('tap'), 420); });
   }
