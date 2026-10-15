@@ -45,3 +45,46 @@
 @media (max-width:899px){
   .sheet.travel28 .tvgo,.sheet.travel28 .tvfirst{position:sticky;bottom:4px;z-index:3;box-shadow:0 3px 0 var(--ink),0 10px 0 6px var(--pap),0 -8px 14px 4px var(--pap)}
 }
+
+/* ===== v47: the caravan's plaque in the 3D town stays over the donkeys, with a short leader when lifted ===== */
+.v3t-l.carpin::after{left:var(--lx,50%)}
+.v3t-l.carpin::before{content:'';position:absolute;left:var(--lx,50%);top:calc(100% + 3px);width:2px;margin-left:-1px;height:var(--ll,0px);background:#2B1D14;border-radius:1px;box-shadow:0 0 0 1.5px rgba(251,243,223,.75);pointer-events:none}
+/* v47: 2D town on a phone: a spot whose picture lies beyond the crop (the caravan at the quay's west end) points toward it */
+.stag .sarr{font:900 15px/1 Nunito,sans-serif;font-style:normal;color:#F2C65A;margin:0 4px 0 -2px}
+.stag.offr .sarr{margin:0 -2px 0 4px}
+.stag.offl,.stag.offr{border-style:dashed}
+
+/* ===== v47 (owner: "on the map it is hard to see where I am"): the "you are here" pin, the ripple, the locate button ===== */
+.v3m-you,.mk .youp{position:absolute;left:0;top:0;z-index:5;display:flex;align-items:center;gap:5px;padding:2px 10px 2px 2px;border-radius:999px;border:2px solid #2B1D14;background:#F2C65A;color:#2B1D14;font:900 12.5px/1 Nunito,sans-serif;white-space:nowrap;pointer-events:none;box-shadow:0 0 0 2px #FFF8EC,0 4px 0 2px rgba(43,29,20,.35)}
+.v3m-you::after,.mk .youp::after{content:'';position:absolute;left:var(--tx,20px);bottom:-7px;width:10px;height:10px;margin-left:-5px;background:#F2C65A;border-right:2px solid #2B1D14;border-bottom:2px solid #2B1D14;transform:rotate(45deg)}
+.v3m-you.dn::after,.mk .youp.dn::after{bottom:auto;top:-7px;transform:rotate(225deg)}
+.v3m-you .yf,.mk .youp .yf{position:relative;display:grid;place-items:center;width:30px;height:30px;flex:none;border-radius:50%;border:2px solid #2B1D14;background:#FFF8EC}
+.v3m-you .yf .havw,.mk .youp .yf .havw{width:26px!important;height:26px!important;border-radius:50%;overflow:hidden;display:block}
+.v3m-you .yf .havw svg,.mk .youp .yf .havw svg{width:100%;height:100%;display:block}
+.v3m-you .yb,.mk .youp .yb{position:absolute;right:-7px;bottom:-6px;display:grid;place-items:center;width:18px;height:18px;border-radius:50%;border:1.5px solid #2B1D14;background:#1F5FA8;color:#FFF8EC;font-style:normal}
+.v3m-you .yb.car,.mk .youp .yb.car{background:#B7412E}
+.v3m-you .yb .ico,.mk .youp .yb .ico{width:11px;height:11px}
+.v3m-you b,.mk .youp b{font:900 12.5px/1 Nunito,sans-serif;letter-spacing:.2px}
+.v3m-sm .v3m-you{font-size:12px}
+.v3m-pulse,.mk .ypulse{position:absolute;left:0;top:0;z-index:0;pointer-events:none}
+.v3m-pulse i,.mk .ypulse i{position:absolute;inset:0;border-radius:50%;border:3px solid #F2C65A;box-shadow:0 0 0 1.5px rgba(43,29,20,.6),inset 0 0 0 1.5px rgba(43,29,20,.4);opacity:0;animation:v3mPulse 2.4s cubic-bezier(.2,.6,.4,1) infinite}
+.v3m-pulse i:nth-child(2),.mk .ypulse i:nth-child(2){animation-delay:1.2s}
+@keyframes v3mPulse{0%{transform:scale(.72);opacity:0}12%{opacity:1}100%{transform:scale(1.55);opacity:0}}
+@media (prefers-reduced-motion:reduce){.v3m-pulse i,.mk .ypulse i{animation:none;opacity:.9;transform:scale(1.08)}.v3m-pulse i:nth-child(2),.mk .ypulse i:nth-child(2){display:none}}
+/* the current town's plaque: gold, a heavier frame (3D) */
+.v3m-l.here{background:linear-gradient(#F6D27A,#E9B23C);border-width:2.5px;box-shadow:0 0 0 2px #FFF8EC,0 3px 0 2px rgba(43,29,20,.35);z-index:3}
+.v3m-l.here b{font-weight:900}
+/* the 2D map: the pin over the current town, the ripple around its token, its name in a gold pill */
+.mk .youp{left:calc(50% - 20px);top:auto;bottom:calc(50% + 27px);--tx:20px;padding-right:8px;font-size:12px}
+.mk .youp .yf{width:28px;height:28px}.mk .youp .yf .havw{width:24px!important;height:24px!important}.mk .youp b{font-size:12px}
+.mk .youp.dn{bottom:auto;top:calc(50% + 28px)}
+.mk.here .ml{z-index:2}
+.mk.here .ml b{display:inline-block;padding:1px 7px;border-radius:8px;border:2px solid #2B1D14;background:#F2C65A;text-shadow:none}
+.mk .ypulse{left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px}
+.mk.here .md{box-shadow:0 0 0 3px #FFF8EC,0 0 0 5px #2B1D14,0 3px 0 4px rgba(43,29,20,.3)}
+/* the locate button in the map's zoom stack */
+.zoomctl .zme{background:#F2C65A;color:#2B1D14}
+.zoomctl .zme svg{width:24px;height:24px;display:block}
+.tv3 > .zoomctl .zme svg{width:22px;height:22px}
+.mk .youp.lf{left:auto;right:calc(50% + 27px);bottom:auto;top:50%;transform:translateY(-50%)}
+.mk .youp.lf::after{left:auto;right:-7px;bottom:auto;top:50%;margin:-5px 0 0;transform:rotate(-45deg)}

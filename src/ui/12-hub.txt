@@ -372,7 +372,7 @@
     const sv = port.querySelector('.pscene svg'); if (!sv) return;
     let ship = null;
     if (useTS) {
-      port.querySelectorAll('.pscene [data-spot]').forEach(el => { if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '0'); if (!el.getAttribute('role')) el.setAttribute('role', 'button'); const r = el.getBoundingClientRect(); if (el.dataset.spot === 'ship') ship = r; if (small) out.push({ k:el.dataset.spot, x:r.left + r.width / 2 - sr.left, y:r.top - sr.top + Math.min(26, r.height * 0.25), tag:true }); });
+      port.querySelectorAll('.pscene [data-spot]').forEach(el => { if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '0'); if (!el.getAttribute('role')) el.setAttribute('role', 'button'); const r = el.getBoundingClientRect(); if (el.dataset.spot === 'ship') ship = r; if (small) { const cx = r.left + r.width / 2 - sr.left; out.push({ k:el.dataset.spot, x:cx, y:r.top - sr.top + Math.min(26, r.height * 0.25), tag:true, off:cx < 6 ? 'l' : cx > sr.width - 6 ? 'r' : '' }); } });   /* v47: a spot whose picture is off the phone's crop says so (an arrow toward it) */
     } else {
       const nar = sr.width / Math.max(1, sr.height) < 1.5, P = fallbackPins(nar);
       Object.keys(P).forEach(k => { if (!here[k]) return; const q = vbPt(sv, P[k][0], P[k][1]); if (q) out.push({ k, x:q[0] - sr.left, y:q[1] - sr.top }); });
@@ -383,12 +383,12 @@
     /* keep pins on screen and apart */
     const job = workAt(S, S.city), bc = boardCount();
     const nm = k => k === 'ship' && !isRiver(S.city) ? 'Kervan · yola çık' : SPOT_NAME[k];
-    out.forEach(o => { const hw = o.tag ? (nm(o.k).replace(' · yola çık', '').length * 7 + 22) / 2 + 4 : 38; o.x = Math.max(hw, Math.min(sr.width - hw, o.x)); o.y = Math.max(small ? 62 : 70, Math.min(sr.height - 30, o.y)); });
+    out.forEach(o => { const hw = o.tag ? (nm(o.k).replace(' · yola çık', '').length * 7 + 22 + (o.off ? 12 : 0)) / 2 + 4 : 38; o.x = Math.max(hw, Math.min(sr.width - hw, o.x)); o.y = Math.max(small ? 62 : 70, Math.min(sr.height - 30, o.y)); });
     /* a tag is a small plaque: its width follows its text; a pin is a round button with a label under it */
-    out.forEach(o => { o.w = o.tag ? nm(o.k).replace(' · yola çık', '').length * 7 + 22 : 70; o.h = o.tag ? 26 : 46; });
+    out.forEach(o => { o.w = o.tag ? nm(o.k).replace(' · yola çık', '').length * 7 + 22 + (o.off ? 12 : 0) : 70; o.h = o.tag ? 26 : 46; });
     out.sort((a, b) => a.y - b.y).forEach((o, i) => { for (let pass = 0; pass < 3; pass++) for (let j = 0; j < i; j++) { const p = out[j]; if (Math.abs(p.x - o.x) < (p.w + o.w) / 2 + 4 && Math.abs(p.y - o.y) < (p.h + o.h) / 2) o.y = Math.min(sr.height - 12, p.y + (p.h + o.h) / 2 + 2); } });
     const note = k => k === 'board' && bc ? '<i class="pn">' + bc + '</i>' : k === 'work' && job && S.day >= job.ready ? '<i class="pn">!</i>' : k === 'hapu' && (canContra(S) && contraOffer(S)) ? '<i class="pn">!</i>' : '';
-    box.innerHTML = out.map(o => '<button type="button" class="' + (o.tag ? 'stag' : 'pin') + ' sp-' + o.k + ((k => (k === 'temple' && !canTemple(S)) || (k === 'tavern' && !canTavern(S) && !(typeof quickLeft === 'function' && quickLeft(S, S.city))))(o.k) ? ' dim' : '') + '" data-spot="' + o.k + '" style="left:' + Math.round(o.x) + 'px;top:' + Math.round(o.y) + 'px" aria-label="' + esc(nm(o.k)) + '">' + (o.tag ? '' : '<span class="pi">' + ico(o.k === 'ship' && !isRiver(S.city) ? 'i-donkey' : SPOT_ICO[o.k], 24) + '</span>') + '<b>' + esc(o.tag ? nm(o.k).replace(' · yola çık', '') : nm(o.k)) + '</b>' + note(o.k) + '</button>').join('');
+    box.innerHTML = out.map(o => '<button type="button" class="' + (o.tag ? 'stag' : 'pin') + (o.off ? ' off' + o.off : '') + ' sp-' + o.k + ((k => (k === 'temple' && !canTemple(S)) || (k === 'tavern' && !canTavern(S) && !(typeof quickLeft === 'function' && quickLeft(S, S.city))))(o.k) ? ' dim' : '') + '" data-spot="' + o.k + '" style="left:' + Math.round(o.x) + 'px;top:' + Math.round(o.y) + 'px" aria-label="' + esc(nm(o.k)) + '">' + (o.tag ? '' : '<span class="pi">' + ico(o.k === 'ship' && !isRiver(S.city) ? 'i-donkey' : SPOT_ICO[o.k], 24) + '</span>') + (o.off === 'l' ? '<i class="sarr" aria-hidden="true">‹</i>' : '') + '<b>' + esc(o.tag ? nm(o.k).replace(' · yola çık', '') : nm(o.k)) + '</b>' + (o.off === 'r' ? '<i class="sarr" aria-hidden="true">›</i>' : '') + note(o.k) + '</button>').join('');
     placeHold(ship ? { left:ship.left - sr.left, top:ship.top - sr.top, right:ship.right - sr.left, bottom:ship.bottom - sr.top } : null, sr);
   }
   /* the hold, right next to the ship (or the donkeys) */

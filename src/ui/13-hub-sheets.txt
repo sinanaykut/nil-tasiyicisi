@@ -324,6 +324,9 @@
     if (!isRiver(S.city)) { const h = CITIES[S.city].hub; return { back:h, hubOk:canGo(S, h) }; }
     return null;
   }
+  /* v47: your face for the map's "you are here" pin (cached: the travel card redraws the model often) */
+  let youFaceK = '', youFace = '';
+  const youFaceH = () => { const k = S.hero || ''; if (k !== youFaceK) { youFaceK = k; try { youFace = heroImg(k, 26, { mood:'happy' }); } catch (e) { youFace = ''; } } return youFace; };
   function mapModel() {
     const cri = crisisList().filter(c => c.state !== 'past'), sp = S.rival.plan, sx = sethiXY();
     const rd = sel != null && sel !== S.city && canGo(S, sel) ? travelDays(S, sel) - (rapid && canRapid(S, sel) ? 1 : 0) : 0;
@@ -333,7 +336,7 @@
         badges:(() => { const oi = ordInfo(i); return { sethi:sethiAt(S) === i || !!(sp && sp.to === i && S.day < sp.arrive), crisis:!!cri.find(x => x.city === i), order:oi.have.length > 0 || !!(S.contra && S.contra.to === i), orderDz:oi.haveDz, post:oi.post.length > 0, postDz:oi.postDz, work:!!(S.work || []).find(w => w.city === i) }; })() })),
       roads:RIVER.slice(0, -1).map(i => ({ a:i, b:i + 1, desert:false, days:1 })).concat(CITIES.map((c, i) => i).filter(i => !isRiver(i)).map(i => ({ a:CITIES[i].hub, b:i, desert:true, days:CITIES[i].days, shut:!has(S, 'desert') }))),
       route:rd ? { to:sel, days:rd, risk:riskOf(sel)[2], desert:!isRiver(sel) || !isRiver(S.city) } : null,
-      me:{ boat:S.boat, up:S.up, dev:S.dev, car:!isRiver(S.city) },
+      me:{ boat:S.boat, up:S.up, dev:S.dev, car:!isRiver(S.city), face:youFaceH() },
       sethi:sx ? { x:sx[0], y:sx[1], to:sp && S.day < sp.arrive ? sp.to : null, race:!!(sp && rd && sel === sp.to && Math.abs(S.day + rd - sp.arrive) <= 1), label:sp ? (S.day >= sp.arrive ? CITIES[sp.to].name + ' · boşaltıyor' : 'Sethi → ' + CITIES[sp.to].name + ' · ' + sp.arrive + '. gün') + (sp && rd && sel === sp.to && Math.abs(S.day + rd - sp.arrive) <= 1 ? ' · yarış!' : '') : 'Sethi' } : null };
   }
   /* the painted map: sand, the green valley, the river, the seas and the desert roads */
@@ -401,14 +404,22 @@
     saww:'<ellipse cx="0" cy="8" rx="17" ry="7.5" fill="#3572BC"/><path d="M-17 7c0-6 6-10 14-10 3 3-2 7-14 10Z" fill="#E7C88E"/><path d="M-6 10h20l-3 4h-15Z" fill="#7A4426"/><path d="M3 10V-12" stroke-width="1.4"/><path d="M-3-10h12l-1 16h-10Z" fill="#FBF3DF" stroke-width="1.2"/><path d="M-2.6-4h10.6M-2.2 1h9.6" stroke="#B7412E" stroke-width="1.6"/><path d="M3-12l5-1.5-5-1.5" fill="#1F5FA8" stroke-width="1"/>'
   };
   const mapTok = i => { const id = CITIES[i] && CITIES[i].id, b = MTOK[id]; return b ? '<svg class="mtok" viewBox="-20 -20 40 40" width="34" height="34" aria-hidden="true"><g fill="none" stroke="#2B1D14" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round">' + b + '</g></svg>' : cIco(i, 22); };
+  /* v47: the pin goes over the town, or under it, or to its left: wherever no other town's button is */
+  function youSide(i, p) {
+    const near = (dx0, dx1, dy0, dy1) => CITIES.some((c, j) => { if (j === i) return false; const q = mxy(j), dx = q[0] - p[0], dy = q[1] - p[1]; return dx > dx0 && dx < dx1 && dy > dy0 && dy < dy1; });
+    if (p[1] > 64 && !near(-62, 120, -78, 0)) return '';
+    if (p[1] < MH - 70 && !near(-62, 120, 0, 78)) return ' dn';
+    return ' lf';
+  }
   function mapMarkers() {
     const M = mapModel(), sx = sethiXY(), sp = S.rival.plan;
     let s = M.cities.map(c => {
       const i = c.i, p = mxy(i), here = c.here, ok = c.reach, b = c.badges;
       const side = i === 7 || i === 6 || i === 5 ? ' bot' : '';   /* v45: Siwa's name below too: its caravan road leaves to the right */
       /* v45: every town can be tapped (a far one shows why and how to get there); a far desert town names its caravan hub */
-      const sub = here ? 'buradasın' : ok ? c.days + ' gün' : c.via ? ico('i-donkey', 11) + esc(carFrom(i)) : esc(c.why && c.why.length <= 16 ? c.why : '');
+      const sub = here ? '' : ok ? c.days + ' gün' : c.via ? ico('i-donkey', 11) + esc(carFrom(i)) : esc(c.why && c.why.length <= 16 ? c.why : '');
       return '<button type="button" class="mk' + (here ? ' here' : ok ? ' reach' : ' far') + (sel === i ? ' sel' : '') + (isRiver(i) ? '' : ' dz') + side + '" data-city="' + i + '"' + (here ? ' disabled' : '') + ' style="left:' + (p[0] / MW * 100).toFixed(2) + '%;top:' + (p[1] / MH * 100).toFixed(2) + '%" aria-pressed="' + (sel === i) + '" aria-label="' + esc(c.name) + (here ? ', buradasın' : ok ? ', ' + c.days + ' gün' : ', ' + (whyNot(S, i) || 'yetişmez') + (c.via ? ', kervan ' + c.via : '')) + '">' +
+        (here ? '<span class="ypulse" aria-hidden="true"><i></i><i></i></span><span class="youp' + youSide(i, p) + '" aria-hidden="true"><span class="yf">' + youFaceH() + '<i class="yb' + (isRiver(i) ? '' : ' car') + '">' + ico(isRiver(i) ? 'i-boat' : 'i-donkey', 11) + '</i></span><b>Buradasın</b></span>' : '') +
         '<span class="md">' + mapTok(i) + (b.order ? '<i class="bd ord' + (b.orderDz ? ' dz' : '') + '">' + ico(b.orderDz ? 'i-donkey' : 'i-scroll', 12) + '</i>' : b.post ? '<i class="bd ord of' + (b.postDz ? ' dz' : '') + '">' + ico(b.postDz ? 'i-donkey' : 'i-scroll', 12) + '</i>' : '') + (b.work ? '<i class="bd wk">' + ico('i-workshop', 11) + '</i>' : '') + (b.crisis ? '<i class="bd cri">⚠</i>' : '') + '</span><span class="ml"><b>' + esc(c.name) + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</span></button>';
     }).join('');
     if (sx) { const p = [20 + sx[0] * 360, 14 + sx[1] * 410]; s += '<span class="msethi" style="left:' + ((p[0] - 46) / MW * 100).toFixed(2) + '%;top:' + ((p[1] - 10) / MH * 100).toFixed(2) + '%" title="' + esc(M.sethi.label) + '"><svg viewBox="0 0 40 42" aria-hidden="true"><use href="#boatRival"/></svg><em>' + (sp && S.day < sp.arrive ? sp.arrive + '. gün' : 'Sethi') + '</em></span>'; }

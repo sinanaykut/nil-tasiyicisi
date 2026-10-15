@@ -11,7 +11,22 @@
     const SNAME = { market:'Pazar', ship:'Tekne · yola çık', temple:'Tapınak', tavern:'Meyhane', work:'Atölye', yard:'Tersane', hapu:'Hapu\'nun evi', board:'Sipariş panosu', well:'Kuyu', caravan:'Kervan' };
     const SICO = { market:'i-stall', ship:'i-boat', hero:'i-heart', temple:'i-temple', tavern:'i-senet', work:'i-workshop', yard:'i-anchor', hapu:'i-coin', board:'i-scroll', well:'i-water', caravan:'i-donkey' };
     /* v45: the river towns where a desert caravan sets out (Mennefer → Siwa, Abidos → Harga, Vaset → Saww): a caravan stop on the quay */
-    const CARHUB = { mennefer:1, abidos:1, vaset:1 }, CARSP = { x:80, z:74, y:8, r:18, top:20 };
+    /* v47 (owner: "the caravan label sits as if on the ship in front"): the caravan waits in its own yard on land, at the town's
+       south-west edge (lot 9 and the tree beside it give way), not on the quay among the boats; the plaque hangs right over the donkeys */
+    const CARHUB = { mennefer:1, abidos:1, vaset:1 }, CARSP = { x:-10, z:106, y:8, r:26, top:17, car:true };
+    /* the yard: trodden ground, a low mud wall behind, a trough and a tether post at the head of the file, fodder and jars at its tail */
+    function carYard(B) {
+      const k = B.k, x0 = CARSP.x, z0 = CARSP.z, MW = '#C99D6C', MD = '#A57748';
+      B.gnd.push(['road', [[x0 - 34, z0 - 2], [x0 + 28, z0 + 2]], 34], ['road', [[x0 - 34, z0 - 2], [x0 - 70, z0 - 30], [-100, 60]], 16]);
+      for (let x = x0 - 34; x < x0 + 30; x += 9) { B3(k, MW, x + 4.5, 0, z0 - 17, 9, 4.6, 3.4); if ((x / 9 | 0) % 2) B3(k, MD, x + 4.5, 4.6, z0 - 17, 4, 1.4, 3.4); }
+      B.sh.push([x0 - 34, z0 - 19, x0 + 30, z0 - 15, 5]);
+      /* the trough (water) and the tether post by the lead donkey */
+      B3(k, '#B8895A', x0 - 30, 0, z0 + 12, 12, 3.2, 5); B3(k, '#3F7CC4', x0 - 30, 3.2, z0 + 12, 10, 0.3, 3.4); B.sh.push([x0 - 36, z0 + 9, x0 - 24, z0 + 15, 3]);
+      k.stick([x0 - 40, 0, z0 - 2], [x0 - 40, 11, z0 - 2], 0.8, '#6B4226'); k.add('sph5', '#5A3A22', x0 - 40, 11.4, z0 - 2, 1);
+      /* fodder and water jars at the tail */
+      B3(k, '#D9B65A', x0 + 22, 0, z0 - 8, 7, 3.6, 5); B3(k, '#CDA64E', x0 + 22, 3.6, z0 - 8, 6, 3, 4.4); B.blobs.push([x0 + 22, z0 - 8, 4]);
+      pot(B, x0 + 22, z0 + 8, 0.9); pot(B, x0 + 26, z0 + 12, 0.75, '#D9A43A'); sack(B, x0 + 18, z0 + 14);
+    }
     const CID = ['perbastet', 'mennefer', 'abidos', 'vaset', 'abu', 'siwa', 'kharga', 'saww'];
     /* per-city colours: walls, second wall tone, trims (corners, frames), the accent band under the roofs, roof, ground, paving */
     const CP = {
@@ -500,12 +515,13 @@ void main() {
         if (i % 5 === 4) yield;
         const kind = C.lots[i]; if (!kind) continue;
         if (B.id === 'mennefer' && i === 11) continue;
+        if (i === 9 && CARHUB[B.id] && B.pal.water) continue;   /* v47: the caravan yard */
         const [x, z, w, d, door] = L;
         bldg(B, kind, x, z, w, d, { door, beasts:C.pen });
         if (/^(h1|h2|hR|hT|dove)$/.test(kind) && R() < 0.4) doorPots(B, door === 'x' ? x + w / 2 + 3 : x - w / 4, door === 'x' ? z + d / 4 : z + d / 2 + 1);
       }
       yield;
-      TSP.forEach(([x, z, s], i) => tree(B, C.big[i % C.big.length], x, z, s));
+      TSP.forEach(([x, z, s], i) => { if (i === 2 && CARHUB[B.id] && B.pal.water) return; tree(B, C.big[i % C.big.length], x, z, s); });
       TSM.forEach(([x, z], i) => tree(B, C.mid[i % C.mid.length], x, z, 0.9));
       TSS.forEach(([x, z], i) => put(B, C.small[i % C.small.length], x, 0, z, i, 0.9));
       /* beyond the houses: the fields (river towns) or the desert edge, with their beasts and plants */
@@ -608,7 +624,7 @@ void main() {
         k.stick([56, 0, 106], [56, 30, 106], 1, '#6B4226'); k.stick([56, 30, 106], [76, 26, 116], 0.8, '#6B4226'); k.stick([76, 26, 116], [76, 14, 116], 0.25, '#5A4632');
         for (let i = 0; i < 4; i++) B3(k, '#C9955A', 50, i * 1.6, 132 - i * 0.4, 18, 1.6, 4);
         barrel(B, 46, 108); B.spots.yard = { x:70, z:118, y:8, r:24, top:30 };
-        if (CARHUB[id]) B.spots.caravan = Object.assign({}, CARSP);   /* v45: the donkeys themselves are dynamic parts (v46: every hub, from the first run) */
+        if (CARHUB[id]) { B.spots.caravan = Object.assign({}, CARSP); carYard(B); }   /* v45: the donkeys themselves are dynamic parts (v46: every hub, from the first run; v47: in their own yard) */
         B.walk.push([[52, 96], [40, 102], [38, 120], [52, 118]]);   /* v41: on the paving by the slip, clear of the carrier, the barrel and the plank stack */
       }
       /* a low wall with merlons behind the plaza, opening onto the temple stairs */
@@ -1156,10 +1172,10 @@ void main() {
           if (o2.sethiHere) { const s = mkPart(k => X.boatKit(k, boatSpecOf(o2, true)), 128, -2, -60, Math.PI, 0.9); s.boat = true; s.sethi = true; }
           /* v45: a caravan hub: three pack donkeys and their driver wait on the quay south of the hero (the caravan stop) */
           if (o2.spots && o2.spots.caravan && CARHUB[CID[ci]]) {
+            /* v47: in the yard, a file heading west (out of town), the driver at its head */
             const c0 = CARSP;
-            for (let j = 0; j < 3; j++) mkPart(k => X.donkey(k, { pack:1 + (j % 2), saddle:j ? '#1F5FA8' : '#B7412E', s:1 }), c0.x + 1 + (j % 2) * 1.5, 0, c0.z - 12 + j * 12, Math.PI, 0.72);
-            mkPart(k => X.person(k, 0, 0, '#E6CB95', { stick:true, s:1 }), c0.x - 2, 0, c0.z - 22, 0.5, 0.75);
-            mkPart(k => { k.add('c8', '#C98E62', 0, 3, 0, 3, 6, 3); k.add('c8', '#5A3A22', 0, 6.4, 0, 1.2, 1.4, 1.2); k.add('c8', '#B88A5A', 4, 2.5, 2, 2.6, 5, 2.6); }, c0.x - 3, 0, c0.z + 22, 0, 0.9);
+            for (let j = 0; j < 3; j++) mkPart(k => X.donkey(k, { pack:1 + (j % 2), saddle:j ? '#1F5FA8' : '#B7412E', s:1 }), c0.x - 14 + j * 15, 0, c0.z + (j % 2) * 3 - 1, -Math.PI / 2, 0.72);
+            mkPart(k => X.person(k, 0, 0, '#E6CB95', { stick:true, s:1 }), c0.x - 30, 0, c0.z - 7, -0.9, 0.75);
           }
         } else if (p.water) {
           /* v41: a sea port reached by caravan (Saww): our boat waits at the river, so the donkeys stand in a file on the quay, not our ship in the sea */
@@ -1271,28 +1287,37 @@ void main() {
         /* v41: other plaques, the cartouche and the zoom buttons weigh the same (it used to prefer hiding under the buttons); two more places
            off to the side of the top; and a second pass: a plaque still overlapping is placed again knowing where all the others went */
         const C = {}, R = {};
+        /* v47: the caravan's plaque (and the donkeys' in desert towns) never wanders off: it stays over the beasts, at most a short
+           leader line above them, and it is placed first so the other plaques make room */
+        const pinned = k2 => k2 === 'caravan' || (k2 === 'ship' && (!(CP[CID[cur.ci]] || {}).water || !!cur.caravan));
         const choose = (k2, others) => {
           const c = C[k2], w = c.w, h = c.h, top = c.top, mid = c.mid;
-          const cands = [[top[0] - w / 2, top[1] - h], [top[0] - w / 2, top[1] - h - 14], [mid[0] + 18, mid[1] - h / 2], [mid[0] - w - 18, mid[1] - h / 2], [mid[0] - w / 2, mid[1] + 14], [top[0] - w / 2, top[1] - h - 30], [top[0] - w * 0.88, top[1] - h - 4], [top[0] - w * 0.12, top[1] - h - 4],
+          const cands = pinned(k2) ? [[top[0] - w / 2, top[1] - h], [top[0] - w / 2, top[1] - h - 12], [top[0] - w * 0.3, top[1] - h - 4], [top[0] - w * 0.7, top[1] - h - 4], [top[0] - w / 2, top[1] - h - 24], [top[0] - w * 0.25, top[1] - h - 16], [top[0] - w * 0.75, top[1] - h - 16], [top[0] - w / 2, top[1] - h - 38]]
+            : [[top[0] - w / 2, top[1] - h], [top[0] - w / 2, top[1] - h - 14], [mid[0] + 18, mid[1] - h / 2], [mid[0] - w - 18, mid[1] - h / 2], [mid[0] - w / 2, mid[1] + 14], [top[0] - w / 2, top[1] - h - 30], [top[0] - w * 0.88, top[1] - h - 4], [top[0] - w * 0.12, top[1] - h - 4],
             [mid[0] + 18, mid[1] - h - 4], [mid[0] - w - 18, mid[1] - h - 4], [mid[0] + 18, mid[1] + 4], [mid[0] - w - 18, mid[1] + 4]];
           let best = null, bo = 1e9;
           for (let ci2 = 0; ci2 < cands.length; ci2++) {
             const [x, y] = cands[ci2], rr = { x:Math.max(3, Math.min(W - w - 3, x)), y:Math.max(3, Math.min(H - h - 3, y)), w, h }; let ov = 0;
             for (const q of base) if (q.own !== k2) ov += area(rr, q) * (q.own ? 4 : 3);
-            for (const q of others) ov += area(rr, q) * 3;
+            for (const q of others) ov += area(rr, q) * (q.pin ? 12 : 3);   /* v47: never over the caravan's plaque */
             ov += ci2 * 2; if (ov < bo) { bo = ov; best = rr; } if (ov <= ci2 * 2) break;
           }
           return { r:best, ov:bo };
         };
         const done = [];
+        keys.sort((a, b) => pinned(b) - pinned(a));
         keys.forEach(k2 => {
           const L = lab[k2], s = spotOf(k2); if (!s) return;
           { const m = scr(s.x, s.y, s.z), off = m[0] < 4 || m[0] > W - 4 || m[1] < 4 || m[1] > H - 4; if (L.classList.contains('v3t-off') !== off) L.classList.toggle('v3t-off', off); if (off) { L._r = null; return; } }
           C[k2] = { w:L.offsetWidth, h:L.offsetHeight, top:scr(s.x, s.top + 4, s.z), mid:scr(s.x, s.y, s.z) };
-          const b = choose(k2, done.map(q => R[q].r)); R[k2] = b; done.push(k2);
+          const b = choose(k2, done.map(q => R[q].r)); if (pinned(k2)) b.r.pin = true; R[k2] = b; done.push(k2);
         });
-        done.forEach(k2 => { if (R[k2].ov <= 14) return; const b = choose(k2, done.filter(q => q !== k2).map(q => R[q].r)); if (b.ov < R[k2].ov) R[k2] = b; });
-        done.forEach(k2 => { const L = lab[k2], best = R[k2].r; L.style.transform = 'translate(' + Math.round(best.x) + 'px,' + Math.round(best.y) + 'px)'; L._r = best; });
+        done.forEach(k2 => { if (R[k2].ov <= 14) return; const b = choose(k2, done.filter(q => q !== k2).map(q => R[q].r)); if (b.ov < R[k2].ov) { if (pinned(k2)) b.r.pin = true; R[k2] = b; } });
+        done.forEach(k2 => { const L = lab[k2], best = R[k2].r; L.style.transform = 'translate(' + Math.round(best.x) + 'px,' + Math.round(best.y) + 'px)'; L._r = best;
+          /* the leader: from the plaque's tail down to the beasts (only on pinned plaques, only when lifted off them) */
+          if (pinned(k2)) { const c = C[k2], ll = Math.round(c.top[1] - (best.y + best.h) - 6), lx = Math.round(Math.max(10, Math.min(best.w - 10, c.top[0] - best.x))), v = ll > 3 ? ll + 'px' : '0px';
+            L.classList.add('carpin'); if (L.style.getPropertyValue('--ll') !== v) L.style.setProperty('--ll', v); if (L.style.getPropertyValue('--lx') !== lx + 'px') L.style.setProperty('--lx', lx + 'px'); }
+          else if (L.classList.contains('carpin')) L.classList.remove('carpin'); });
       }
       /* hit test: plaques, then the nearest spot (screen) within a finger, then nothing */
       function hitTest(cx, cy) {

@@ -81,12 +81,15 @@
     if (old && old.parentNode === host) return;
     if (old) old.remove();
     const d = document.createElement('div'); d.id = id; d.className = 'zoomctl';
-    d.innerHTML = '<button type="button" data-zoom="in" aria-label="Yakınlaş">+</button><button type="button" data-zoom="out" aria-label="Uzaklaş">−</button><button type="button" data-zoom="reset" aria-label="Görünümü sıfırla">⟲</button>';
+    d.innerHTML = '<button type="button" data-zoom="in" aria-label="Yakınlaş">+</button><button type="button" data-zoom="out" aria-label="Uzaklaş">−</button><button type="button" data-zoom="reset" aria-label="Görünümü sıfırla">⟲</button>' +
+      /* v47: on the travel map, "Konumuma git" (where am I): glides to your town */
+      (id === 'zm' ? '<button type="button" class="zme" data-zoom="me" aria-label="Konumuma git" title="Konumuma git"><svg viewBox="-12 -12 24 24" aria-hidden="true"><circle r="7.5" fill="none" stroke="currentColor" stroke-width="2.4"/><circle r="3" fill="#B7412E" stroke="currentColor" stroke-width="1.4"/><path d="M0-11.5v4M0 7.5v4M-11.5 0h4M7.5 0h4" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button>' : '');
     d.addEventListener('click', e => {
       const b = e.target.closest('[data-zoom]'); if (!b) return; e.stopPropagation();
       const v = id === 'z3' ? T3 : tvMap; if (!v || !v.zoom) return;
       play('tick');
       if (b.dataset.zoom === 'reset') { if (v.resetView) v.resetView(); return; }
+      if (b.dataset.zoom === 'me') { if (v.locate) v.locate(); return; }
       const z = typeof v.zoom() === 'number' ? v.zoom() : 1; v.zoom(z * (b.dataset.zoom === 'in' ? 1.35 : 1 / 1.35));
     });
     host.appendChild(d);
