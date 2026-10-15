@@ -55,7 +55,7 @@
     $('#sheet').classList.remove('talk28', 'travel28');
     $('#veil').hidden = true; $('#veil').classList.remove('m-cont'); $('#sheet').innerHTML = ''; sheetLock = false; requestAnimationFrame(() => { if (!S) return; placeTutor(); /* a hurt hull is mentioned once, as soon as nothing else is open */ if (phase === 'port' && $('#veil').hidden && !departing) repairNag(); });
     if (phase === 'sea') Sea.pause(false);
-    if (sheetName === 'title' || (sheetName === 'music' && musicBack === 'toTitle')) Snd.mode(phase === 'sea' ? 'sea' : 'port');
+    if (sheetName === 'title' || (sheetName === 'music' && musicBack === 'toTitle')) Snd.mode(phase === 'sea' ? Snd.lastSea() : 'port');
     sheetName = '';
     if (opener && document.body.contains(opener)) opener.focus({ preventScroll:true });
     opener = null;
@@ -94,8 +94,8 @@
     const inf = Snd.info();
     let s = '<div class="sh-h"><h2 id="shTitle">Müzik<small>Parçalar oyunun içinde, notadan sese çevrilerek hazırlanır</small></h2>' + (back ? backBtn(back) : xBtn) + '</div>';
     s += '<div class="mplay"><span class="eq" aria-hidden="true"><i></i><i></i><i></i></span><div><small>Şimdi çalıyor</small><b id="mNow"></b></div><button class="btn sm gold" type="button" data-act="mNext">Sonraki parça ⏭</button></div>';
-    s += '<div class="tracks">' + inf.tracks.filter(t => t.id !== 'sail').map(t => '<button class="trk" type="button" data-track="' + t.id + '"><b>' + esc(t.name) + '</b><small>' + esc(t.desc) + '</small><span class="ts"></span></button>').join('') + '</div>';
-    s += '<p class="muted" style="margin:0">Seçtiğin parça limanda çalar. Nehirde "Yelkenler Açık" çalar; biri peşine düşünce davullar ve nefesliler girer.</p>';
+    s += '<div class="tracks">' + inf.tracks.filter(t => !t.scene && t.id !== 'sail').map(t => '<button class="trk" type="button" data-track="' + t.id + '"><b>' + esc(t.name) + '</b><small>' + esc(t.desc) + '</small><span class="ts"></span></button>').join('') + '</div>';
+    s += '<p class="muted" style="margin:0">Seçtiğin parça limanda çalar. Yolda "Yelkenler Açık" çalar; dalgalı suda, pusuda, Sethi ile yarışta ve batıkta her sahnenin kendi müziği vardır.</p>';
     s += '<p class="muted" id="mDiag" style="margin:0;font-size:11.5px"></p><div class="row"><button class="btn sm" type="button" data-act="mAuto"></button><button class="btn sm" type="button" data-act="mOn"></button><button class="btn sm" type="button" data-act="mSfx"></button>' + (haptic.can ? '<button class="btn sm" type="button" data-act="mHap"></button>' : '') + (V3.available() ? '<button class="btn sm" type="button" data-act="m3d"></button>' : '') + '</div><div id="installSlot">' + installHtml() + '</div>';
     openSheet(s, !!back, 'music');
     updateMusic();

@@ -1,10 +1,11 @@
   /* ================= sound =================
-     Six pieces are composed in code and rendered once by NilSynth (snd-syn.txt) into seamless looping buffers:
-     the title theme, three port tunes, the sailing theme and a chase layer that sits exactly on top of it.
+     Nine pieces are composed in code and rendered once by NilSynth (snd-syn.txt) into seamless looping buffers:
+     the title theme, three port tunes, the sailing theme, and one piece per kind of river scene: rough water
+     (rapids, storm, sandstorm), the ambush chase, the race with Sethi (locked to the race drum) and the dive.
      Rendering runs in a Web Worker (built from NilSynth's own source), or, where Workers are not allowed, in
      short slices on the main thread, so input never waits. The first tune is played while it is still being
      rendered (one-second segments, handed over to the finished loop at its end). Finished tunes are kept in
-     IndexedDB (16-bit) so later visits start at once; at most three are held decoded in memory.
+     IndexedDB (16-bit) so later visits start at once; at most four (and 58 MB) are held decoded in memory.
      Nothing is synthesised live while music plays, so busy frames cannot crackle. Effects stay short and live. */
   /* the render worker's message loop (its source text is sent to the worker; it must stay self-contained) */
   function SndWorkerMain(S) {
@@ -37,7 +38,7 @@
     let ac = null, out, mGain, sBus, mode = 'port', started = false;
     const bufs = {}, srcs = {}, gains = {};
     const pref = { music: lsGet(MUS) !== '0', sfx: lsGet(SFX) !== '0' };
-    const SR = 32000, MUSIC_VER = 'm45', MAXBUF = 3, SEGMIN = 2;
+    const SR = 32000, MUSIC_VER = 'm47', MAXBUF = 4, MAXMB = 58, SEGMIN = 2;
     const midi = n => 440 * Math.pow(2, (n - 69) / 12);
     /* a short warm room for the effects */
     function impulse(c, sec, decay) {
@@ -52,8 +53,17 @@
       port2: { sec:32 * 4 * 60 / 116, name:'Çarşı Davulları',  desc:'Hareketli pazar · kamış, ud ve el çırpma' },
       port3: { sec:20 * 4 * 60 / 66,  name:'Tapınak Gölgesi',  desc:'Gizemli ve dingin · ney, arp, sistrum' },
       sail:  { sec:32 * 4 * 60 / 104, name:'Yelkenler Açık',   desc:'Nehir yolculuğu · arp dalgaları ve ney' },
-      chase: { sec:32 * 4 * 60 / 104, name:'Takip',            desc:'' }
+      rough: { sec:24 * 4 * 60 / 112, name:'Dalgalı Su',       desc:'Çağlayan ve fırtına · bendir, ud ve ney', scene:true },
+      chase: { sec:28 * 4 * 60 / 132, name:'Pusu',             desc:'Takip · alçak davullar ve ud', scene:true },
+      race:  { sec:20 * 4 * 60 / 100, name:'Sethi ile Yarış',  desc:'Yarış · tabl, darbuka ve kamış', scene:true },
+      dive:  { sec:16 * 4 * 60 / 72,  name:'Batık',            desc:'Su altı · arp, kanun ve kâse', scene:true }
     };
+    /* the scene kinds of Sea.play and the tune each one gets (calm water and the night crossing keep the sail tune) */
+    const SCENE = { calm:'sea', night:'sea', rapids:'rough', storm:'rough', sandstorm:'rough', chase:'chase', race:'race', dive:'dive' };
+    const MODE = { menu:1, port:1, sea:1, rough:1, chase:1, race:1, dive:1 };
+    /* the race tune is locked to the race drum (0.6 s a beat): the first drum stroke of the countdown is bar 0 */
+    const RACE_BEAT = 0.6;
+    let grid = null;
 
     /* ---------- the renderer: a Worker, or slices on the main thread ---------- */
     let wk = null, wkOk = null, syn = null, jobId = 0;
@@ -174,8 +184,8 @@
       if (mem16[name]) return Promise.all(mem16[name].map(i2f)).then(([L, R]) => toBuf(L, R));
       return cacheGet(name).then(rec => {
         if (rec && rec.L && rec.ch) return Promise.all(rec.ch.map(x => i2f(new Int16Array(x)))).then(([L, R]) => { stored[name] = true; fromDisk[name] = true; return toBuf(L, R); });
-        /* stream only when nothing is sounding yet (the player is waiting for this one); sail and chase must stay in lockstep */
-        const stream = name !== 'sail' && name !== 'chase' && !Object.keys(srcs).length;
+        /* stream only when nothing is sounding yet (the player is waiting for this one); the race tune starts on the drum grid */
+        const stream = name !== 'race' && !Object.keys(srcs).length;
         return synth(name, stream, urgentNow[name]).then(r => {
           stats[name] = r.stats;
           const b = toBuf(r.L, r.R);
@@ -207,9 +217,26 @@
     function loopSrc(k, when, offset) {
       const s = ac.createBufferSource(); s.buffer = bufs[k]; s.loop = true; s.connect(gainOf(k)); s.start(when, offset || 0); return s;
     }
+    /* the race tune's source goes through its own small gain, so it can be re-phased with a 40 ms crossfade */
+    function raceSrc(P, when, off) {
+      const g = ac.createGain(), s = ac.createBufferSource(); g.connect(gainOf(P.k));
+      s.buffer = bufs[P.k]; s.loop = true; s.connect(g); s.start(when, off);
+      s.onended = () => { try { s.disconnect(); g.disconnect(); } catch (e) {} };
+      P.sub = g; P.nodes.push(s); return s;
+    }
+    function rephase(P, t, pos) {
+      const d = bufs[P.k].duration, at = t + 0.03, off = (((pos + 0.03) % d) + d) % d, og = P.sub, old = P.nodes.splice(0);
+      og.gain.setValueAtTime(1, at); og.gain.linearRampToValueAtTime(0, at + 0.04); old.forEach(n => { try { n.stop(at + 0.06); } catch (e) {} });
+      raceSrc(P, at, off); P.sub.gain.setValueAtTime(0, at); P.sub.gain.linearRampToValueAtTime(1, at + 0.04);
+      P.a0 = at; P.p0 = off; P.rate = 1;
+    }
+    /* where a looping player is in its buffer (s): a0/p0 anchor it, rate is its playback rate (only the race tune bends it) */
+    const posOf = (P, t) => P.p0 + (t - P.a0) * P.rate;
     /* a player is what srcs[k] holds: a looping buffer, or a chain of streamed segments handing over to the loop */
     function player(k, when) {
-      const P = { k, t0:when, nodes:[], dead:false, stop() { P.dead = true; P.nodes.forEach(n => { try { n.stop(); } catch (e) {} try { n.disconnect(); } catch (e) {} }); P.nodes = []; } };
+      const P = { k, t0:when, a0:when, p0:0, rate:1, nodes:[], dead:false, stop() { P.dead = true; P.nodes.forEach(n => { try { n.stop(); } catch (e) {} try { n.disconnect(); } catch (e) {} }); P.nodes = []; } };
+      /* the race tune joins the drum grid wherever it is */
+      if (bufs[k] && k === 'race' && grid != null) { const d = bufs[k].duration; P.p0 = (((when - grid) % d) + d) % d; raceSrc(P, when, P.p0); return P; }
       if (bufs[k]) { P.nodes.push(loopSrc(k, when)); return P; }
       const st = streams[k]; if (!st || st.segs.length < SEGMIN) return null;
       st.players.push(P); st.segs.forEach(sg => schedSeg(P, sg));
@@ -238,7 +265,8 @@
       return pending[name];
     }
     function pump() {
-      while (busy < 1 && queue.length) {
+      /* one tune at a time; a tune the player is waiting for may run beside a background one (it gets most of the CPU) */
+      while (queue.length && (busy < 1 || (busy < 2 && urgentNow[queue[0].name]))) {
         busy++; const job = queue.shift();
         load(job.name).then(b => {
           bufs[job.name] = b; prog[job.name] = 1; busy--; touch(job.name);
@@ -251,29 +279,37 @@
     /* keep at most MAXBUF tunes decoded; a dropped one comes back from IndexedDB in a moment */
     function evict() {
       const d = desired(), keep = new Set(Object.keys(d).concat(Object.keys(srcs)));
-      if (mode === 'chase' || mode === 'sea') { keep.add('sail'); keep.add('chase'); }
-      let held = Object.keys(bufs).length;
-      for (let i = 0; i < lru.length && held > MAXBUF; i++) {
+      /* during a voyage the sail tune stays ready for the map between scenes */
+      if (atSea()) keep.add('sail');
+      /* at most MAXBUF tunes and MAXMB of decoded audio (the scene tunes are short, the port tunes long) */
+      let held = Object.keys(bufs).length, mb = Object.keys(bufs).reduce((s, k) => s + bufs[k].length * 8, 0) / 1048576;
+      for (let i = 0; i < lru.length && (held > MAXBUF || mb > MAXMB); i++) {
         const k = lru[i]; if (keep.has(k) || !stored[k] || !bufs[k]) continue;
-        delete bufs[k]; delete pending[k]; prog[k] = 0; held--; lru.splice(i, 1); i--;
+        mb -= bufs[k].length * 8 / 1048576; delete bufs[k]; delete pending[k]; prog[k] = 0; held--; lru.splice(i, 1); i--;
       }
     }
-    /* the tunes needed soon are decoded; the rest are only rendered once (if not stored yet) */
+    /* the tunes needed soon are decoded; the rest are only rendered once (if not stored yet):
+       the scene tunes first (a voyage can start any minute), then the other port tunes */
     function prefetch() {
-      const soon = [menuTrack, curPort, 'sail', 'chase'];
+      const soon = [menuTrack, curPort, 'sail'];
       soon.forEach(k => ensure(k));
-      db().then(() => ['port1', 'port2', 'port3', 'menu'].forEach(k => { if (!stored[k]) ensure(k); }));
+      db().then(() => ['rough', 'race', 'chase', 'dive', 'port1', 'port2', 'port3', 'menu'].forEach(k => { if (!stored[k]) ensure(k); }));
     }
+    const atSea = () => mode !== 'menu' && mode !== 'port';
     function gainOf(k) { if (!gains[k]) { gains[k] = ac.createGain(); gains[k].gain.value = 0; gains[k].connect(mGain); } return gains[k]; }
     function desired() {
       if (mode === 'menu') return { [menuTrack]:0.6 };
       if (mode === 'port') return { [curPort]:0.62 };
-      return { sail: mode === 'chase' ? 0.5 : 0.6, chase: mode === 'chase' ? 0.75 : 0 };
+      if (mode === 'sea') return { sail:0.6 };
+      return { [mode]: mode === 'dive' ? 0.6 : 0.62 };
     }
     function stopSrc(k) { if (srcs[k]) { srcs[k].stop(); delete srcs[k]; } }
     function apply(tc) {
       if (!ac || !started) return;
-      const d = desired(), names = Object.keys(d);
+      const d = desired();
+      /* the race tune waits until it is ready and the first drum stroke has set the grid; until then the old tune plays on */
+      if (d.race != null && (!bufs.race || grid == null)) { ensure('race', true).then(() => { if (grid != null && mode === 'race') apply(); }); return; }
+      const names = Object.keys(d);
       const live = k => bufs[k] || (names.length === 1 && streams[k] && streams[k].segs.length >= SEGMIN);
       const missing = names.filter(k => !live(k) && !srcs[k]);
       if (missing.length) { missing.forEach(k => ensure(k, true).then(() => apply())); return; }
@@ -354,19 +390,50 @@
       const t = ac.currentTime;
       mGain.gain.cancelScheduledValues(t); mGain.gain.setValueAtTime(mGain.gain.value, t); mGain.gain.linearRampToValueAtTime(0, t + 0.8);
     }
+    /* modes: menu, port, sea (the voyage map, calm water, night), rough, chase, race, dive */
+    let raceT = 0;
     function setMode(m) {
-      if (m === mode) return;
-      const was = mode; mode = m;
-      if (m === 'port' && (was === 'sea' || was === 'chase') && auto) { portVisits++; if (portVisits % 2 === 0) { const i = PORTS.indexOf(curPort); curPort = PORTS[i < 0 || i >= 2 ? 0 : i + 1]; } }
-      apply(m === 'chase' ? 0.25 : was === 'chase' ? 1.2 : 0.8);
+      if (!MODE[m] || m === mode) return;
+      const was = mode, wasSea = atSea(); mode = m; lastSea = atSea() ? m : lastSea;
+      if (m === 'port' && wasSea && auto) { portVisits++; if (portVisits % 2 === 0) { const i = PORTS.indexOf(curPort); curPort = PORTS[i < 0 || i >= 2 ? 0 : i + 1]; } }
+      clearTimeout(raceT);
+      if (m === 'race') { grid = null; raceT = setTimeout(() => { if (mode === 'race' && grid == null && ac) { grid = ac.currentTime; apply(0.3); } }, 1500); }
+      if (m !== 'sea' && atSea()) ensure(m, true);
+      /* into a chase or the race at once; a scene ends with a longer fade back to the sail tune */
+      apply(m === 'chase' || m === 'race' ? 0.25 : m === 'rough' ? 0.5 : m === 'dive' ? 0.9 : was === 'chase' || was === 'race' || was === 'rough' ? 1.2 : 0.8);
+    }
+    let lastSea = 'sea';
+    /* a river scene starts (Sea.play kinds) */
+    function scene(kind) { setMode(SCENE[kind] || 'sea'); }
+    /* the race drum struck (every 0.6 s of race time): the first stroke sets the grid, the others keep the tune on it.
+       Strokes come a frame late and dropped frames slow race time, so small errors are nudged away by bending the
+       playback rate (at most 2.5 %), big ones (a pause, a run of slow frames) by a re-phase with a 40 ms crossfade;
+       in the race's slow-motion moment the drum slows down and the tune just runs on. */
+    let beatPrev = 0, beatErr = 0, lastE = 0, rephN = 0;
+    function beat() {
+      if (!ac || mode !== 'race' || ac.state !== 'running') return;
+      const t = ac.currentTime, gap = t - beatPrev; beatPrev = t;
+      if (grid == null) { grid = t; clearTimeout(raceT); beatErr = 0; apply(0.25); return; }
+      const P = srcs.race, n = P && !P.dead && P.nodes[0];
+      if (!n || !n.playbackRate) return;
+      /* an irregular stroke (slow motion, a stalled frame) is not used; the tune runs on at its own speed */
+      if (gap > RACE_BEAT * 1.25 || gap < RACE_BEAT * 0.75) { if (P.rate !== 1) { P.p0 = posOf(P, t); P.a0 = t; P.rate = 1; try { n.playbackRate.setValueAtTime(1, t); } catch (e) {} } return; }
+      let e = posOf(P, t) % RACE_BEAT; if (e > RACE_BEAT / 2) e -= RACE_BEAT;
+      /* far off (after a pause or a run of slow frames): jump back onto the grid with a short crossfade */
+      lastE = e;
+      if (Math.abs(e) > 0.07) { rephase(P, t, posOf(P, t) - e); beatErr = 0; rephN++; return; }
+      beatErr = beatErr * 0.6 + e * 0.4;
+      const rate = Math.abs(beatErr) < 0.008 ? 1 : 1 - Math.max(-0.025, Math.min(0.025, beatErr / 1.2));
+      P.p0 = posOf(P, t); P.a0 = t; P.rate = rate;
+      try { n.playbackRate.setValueAtTime(rate, t); } catch (e2) {}
     }
     function setMusic(on) { pref.music = on; lsSet(MUS, on ? '1' : '0'); if (onChange) onChange(); if (on) prefetch(); if (!ac) return; if (on) startMusic(); else stopMusic(); }
     function setSfx(on) { pref.sfx = on; lsSet(SFX, on ? '1' : '0'); if (ac) sBus.gain.setTargetAtTime(on ? 0.7 : 0, ac.currentTime, 0.05); }
     function info() {
-      const playing = mode === 'menu' ? menuTrack : mode === 'port' ? curPort : 'sail';
+      const playing = mode === 'menu' ? menuTrack : mode === 'port' ? curPort : mode === 'sea' ? 'sail' : mode;
       const ready = id => !!bufs[id] || !!stored[id] || !!(srcs[id] && streams[id]);
       const mem = Object.keys(bufs).reduce((s, k) => s + bufs[k].length * 8, 0);
-      return { err:lastErr, ac:ac ? ac.state : 'none', srcs:Object.keys(srcs), gains:Object.fromEntries(Object.keys(gains).map(k => [k, +gains[k].gain.value.toFixed(2)])), mg:mGain ? +mGain.gain.value.toFixed(2) : -1, mode, auto, cur:curPort, playing, music:pref.music, started, worker:wkOk, memMB:+(mem / 1048576).toFixed(1), held:Object.keys(bufs), streaming:Object.keys(streams), stats, tracks:PORTS.concat(['sail']).map(id => ({ id, name:TRACKS[id].name, desc:TRACKS[id].desc, ready:ready(id), prog:Math.round((prog[id] || 0) * 100) })), allReady:Object.keys(TRACKS).every(k => bufs[k] || stored[k]) };
+      return { err:lastErr, ac:ac ? ac.state : 'none', srcs:Object.keys(srcs), gains:Object.fromEntries(Object.keys(gains).map(k => [k, +gains[k].gain.value.toFixed(2)])), mg:mGain ? +mGain.gain.value.toFixed(2) : -1, mode, auto, cur:curPort, playing, music:pref.music, started, worker:wkOk, memMB:+(mem / 1048576).toFixed(1), held:Object.keys(bufs), streaming:Object.keys(streams), stats, tracks:PORTS.concat(['sail', 'rough', 'chase', 'race', 'dive']).map(id => ({ id, name:TRACKS[id].name, desc:TRACKS[id].desc, scene:!!TRACKS[id].scene, ready:ready(id), prog:Math.round((prog[id] || 0) * 100) })), race:{ grid:grid != null, rate:srcs.race ? +srcs.race.rate.toFixed(3) : null, err:+beatErr.toFixed(3), e:+lastE.toFixed(3), reph:rephN }, allReady:Object.keys(TRACKS).every(k => bufs[k] || stored[k]) };
     }
     /* ---------- effects ---------- */
     const now = () => ac.currentTime;
@@ -430,5 +497,5 @@
     };
     function play(k) { if (!pref.sfx || !init() || !fx[k]) return; try { fx[k](); } catch (e) {} }
     function note(n) { if (!pref.sfx || !init()) return; try { pl(n, now(), 0.13, 1.1); glass(n + 12, now(), 0.022, 0.6); } catch (e) {} }
-    return { note, _bufs:bufs, prefetch, unlock:init, play, setMusic, setSfx, pref, mode:setMode, next, pick, setAuto, info, set onChange(f) { onChange = f; }, ready:() => Object.fromEntries(Object.keys(TRACKS).map(k => [k, !!bufs[k] || !!stored[k]])) };
+    return { note, _bufs:bufs, prefetch, unlock:init, play, setMusic, setSfx, pref, mode:setMode, scene, beat, lastSea:() => lastSea, next, pick, setAuto, info, set onChange(f) { onChange = f; }, ready:() => Object.fromEntries(Object.keys(TRACKS).map(k => [k, !!bufs[k] || !!stored[k]])) };
   })();

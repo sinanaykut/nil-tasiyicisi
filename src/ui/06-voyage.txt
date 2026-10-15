@@ -372,13 +372,15 @@
     o.hero = S.hero; heroOverlay(kind !== 'dive' && kind !== 'race');
     const info = Sea.play(kind, o, res => { heroOverlay(false); sceneDone(kind, res); });
     const pb = document.querySelector('[data-pad="B"]'); if (pb) pb.textContent = info.action;
-    if (kind === 'chase') Snd.mode('chase');
+    Snd.scene(kind);
     renderPanel();
   }
   function sceneDone(kind, res) {
     if (!VG) return;
     const a = VG.acc, nodeT = VG.sceneNode; VG.scene = null;
     VG.hp = res.hp; if (res.hh != null) VG.hh = res.hh; a.hits += res.hits; a.coins += res.coins; a.crates += res.crates; a.overboard += res.overboard || 0;
+    if (kind !== 'race') Snd.mode('sea');
+    VG.hp = res.hp; a.hits += res.hits; a.coins += res.coins; a.crates += res.crates; a.overboard += res.overboard || 0;
     if (res.left) { a.left += res.left; vnote('Ambar dolu: ' + res.left + ' ' + (VG.plan.terrain === 'desert' ? 'yük denki' : res.left === 1 && kind === 'dive' ? 'küp' : 'sandık') + ' geride kaldı.', 'bad'); }
     if (res.water && S.caravan) { S.caravan.water += res.water; vnote(res.water + ' su tulumu buldun: +' + res.water + ' günlük su.', 'good'); }
     if (res.ramUsed) a.ramUsed = true;

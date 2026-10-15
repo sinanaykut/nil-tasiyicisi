@@ -414,6 +414,7 @@
     /* a war drum: a short pitched thump straight into the audio context (respects the sfx switch) */
     function drumSnd(strong) {
       try {
+        if (typeof Snd !== 'undefined' && Snd.beat) Snd.beat();
         if (typeof Snd === 'undefined' || !Snd.pref || !Snd.pref.sfx) return;
         const ac = Snd.unlock(); if (!ac || ac.state !== 'running') return;
         const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
