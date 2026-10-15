@@ -429,6 +429,7 @@
   }
   /* ---------- stops without a scene ---------- */
   function nodeCard(t) {
+    if (stop48(t)) return;   /* v48: the village market and the rock tomb are drawn by stops48.txt */
     const p = VG.plan, r = vRng(p.seed + VG.layer * 131 + 7), nd = NODES[t], L = VG.layer;
     let s = '<div class="sh-h"><span class="vm big t-' + t + '">' + ico(nd.ico, 30) + '</span><h2 id="shTitle">' + esc(nd.name) + '<small>' + (L + 1) + '. gün · ' + esc(CITIES[p.from].name) + ' → ' + esc(CITIES[p.dest].name) + '</small></h2></div>';
     s += isoStage(t, { ico:nd.ico });
@@ -576,7 +577,9 @@
   }
   function nodeChoose(k) {
     const c = nodeChoices && nodeChoices[k]; if (!c) return;
-    const txt = c.run(); nodeChoices = null;
+    const txt = c.run();
+    if (txt === '@keep') { save(); renderHud(); return; }   /* v48: the stop drew its next step in the open sheet */
+    nodeChoices = null;
     save(); closeSheet(); renderHud();
     if (txt === '@night') { playScene('night', 'cpnight'); return; }
     if (txt === '@tomb') { tombLock(nodeType !== 'tomb'); return; }

@@ -48,6 +48,8 @@ Folders ui/, sea/, v3/ are single files split by section; parts are joined in na
 | tavern42.txt | 49 |
 | quick45.css | 8 |
 | quick45.txt | 33 |
+| stops48.css | 16 |
+| stops48.txt | 60 |
 | town29.css | 2 |
 | town29.txt | 134 |
 | ui/01-port-scene.txt | 36 |
