@@ -307,7 +307,7 @@ const dist = (a, b) => {
 };
 const pick = a => a[Math.floor(rng() * a.length)];
 const gById = id => GOODS.find(g => g.id === id);
-const linked = (a, b) => a !== b && (isRiver(a) && isRiver(b) || (!isRiver(b) && CITIES[b].hub === a) || (!isRiver(a) && CITIES[a].hub === b));
+const linked = (a, b) => a !== b && CITIES[a] && CITIES[b] && (isRiver(a) && isRiver(b) || (!isRiver(b) && CITIES[b].hub === a) || (!isRiver(a) && CITIES[a].hub === b));
 function travelDays(S, dest) {
   if (!isRiver(dest)) return CITIES[dest].days;
   if (!isRiver(S.city)) return CITIES[S.city].days;

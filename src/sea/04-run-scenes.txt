@@ -152,7 +152,8 @@
       pill(pad, pad, Math.max(12, (W - pad * 2) * pr), 12, C.gold);
       if (st.rival) { const rp = Math.min(1, st.rival.y / goal), rx = pad + (W - pad * 2) * rp; cx.beginPath(); cx.arc(rx, pad + 6, 6, 0, Math.PI * 2); outline('#3E8E5A', 1.6); }
       cx.font = '800 13px Nunito, sans-serif'; cx.textAlign = 'right';
-      const dest = (st.cfg ? st.cfg.title : SCN[st.kind].title) + (st.plan.label ? ' · ' + st.plan.label : '');
+      const scnTitle = st.cfg ? st.cfg.title : (SCN[st.kind] ? SCN[st.kind].title : '');
+      const dest = scnTitle + (st.plan.label ? ' · ' + st.plan.label : '');
       const tw = cx.measureText(dest).width + 18;
       if (!st.race || st.count > 0 || W > 820) { pill(W - pad - tw, pad + 18, tw, 22, C.white); cx.fillStyle = C.ink; cx.fillText(dest, W - pad - 9, pad + 34); }
       /* v47: two separate rows beside the hero's face: the hero's hearts (can), then the boat's planks (gövde) with a boat icon */
@@ -195,11 +196,13 @@
       }
       if (st.count > 0) {
         cx.save(); cx.font = '800 54px Cinzel, Georgia, serif'; cx.textAlign = 'center'; cx.lineWidth = 7; cx.strokeStyle = C.ink; cx.fillStyle = C.gold;
-        const t = st.race ? (st.count > 1.8 ? '3' : st.count > 1.2 ? '2' : st.count > 0.6 ? '1' : 'Kürek!') : st.count > 0.7 ? (st.cfg ? st.cfg.title : SCN[st.kind].title) : 'Başla!';
+        const scnTitle = st.cfg ? st.cfg.title : (SCN[st.kind] ? SCN[st.kind].title : '');
+        const t = st.race ? (st.count > 1.8 ? '3' : st.count > 1.2 ? '2' : st.count > 0.6 ? '1' : 'Kürek!') : st.count > 0.7 ? scnTitle : 'Başla!';
         cx.strokeText(t, W / 2, H * 0.42); cx.fillText(t, W / 2, H * 0.42);
         if (st.race) { cx.font = '800 24px Cinzel, Georgia, serif'; cx.lineWidth = 5; cx.fillStyle = C.white; cx.strokeText(st.cfg.title, W / 2, H * 0.42 - 62); cx.fillText(st.cfg.title, W / 2, H * 0.42 - 62); cx.fillStyle = C.gold; }
         cx.font = '700 14px Nunito, sans-serif'; cx.lineWidth = 4; cx.fillStyle = C.white;
-        const hint = (st.cfg ? st.cfg.hint : SCN[st.kind].hint)[coarse ? 1 : 0];
+        const hintArr = st.cfg ? st.cfg.hint : (SCN[st.kind] ? SCN[st.kind].hint : null);
+        const hint = hintArr ? hintArr[coarse ? 1 : 0] : '';
         cx.strokeText(hint, W / 2, H * 0.42 + 34); cx.fillText(hint, W / 2, H * 0.42 + 34);
         cx.restore();
       }
@@ -239,7 +242,7 @@
       }
       if (view && view.hide) try { view.hide(); } catch (e) {}
       st.v3 = false;
-      if (!st.cfg) { cx.save(); if (st.shake > 0) cx.translate(rnd(-6, 6) * st.shake * 2, rnd(-6, 6) * st.shake * 2); SC[st.kind].draw(st); cx.restore(); drawHud(); return; }
+      if (!st.cfg) { if (SC[st.kind] && SC[st.kind].draw) { cx.save(); if (st.shake > 0) cx.translate(rnd(-6, 6) * st.shake * 2, rnd(-6, 6) * st.shake * 2); SC[st.kind].draw(st); cx.restore(); drawHud(); return; } }
       cx.save();
       if (st.shake > 0) cx.translate(rnd(-6, 6) * st.shake * 2, rnd(-6, 6) * st.shake * 2);
       const dz = st.desert, dc = CITIES[st.plan.dest];
@@ -447,6 +450,6 @@
       /* 120 Hz phones: draw at most ~60 times a second */
       if (now - last < 15) { raf = requestAnimationFrame(loop); return; }
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
-      if (!paused) { if (st.hurtT > 0) st.hurtT -= dt; if (st.hullT > 0) st.hullT -= dt; if (!st.end) { if (st.cfg) step(dt); else { if (st.count > 0) st.count -= dt; else SC[st.kind].step(st, dt); } } if (!RT.nodraw) draw(); }
+      if (!paused) { if (st.hurtT > 0) st.hurtT -= dt; if (st.hullT > 0) st.hullT -= dt; if (!st.end) { if (st.cfg) step(dt); else { if (st.count > 0) st.count -= dt; else if (SC[st.kind] && SC[st.kind].step) SC[st.kind].step(st, dt); } } if (!RT.nodraw) draw(); }
       raf = requestAnimationFrame(loop);
     }
