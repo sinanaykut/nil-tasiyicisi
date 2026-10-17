@@ -154,7 +154,7 @@
       if (rev) { play(pr > 1500 ? 'big' : 'sell'); floatAt(t, '+' + fmt(rev) + '  (kâr ' + (pr >= 0 ? '+' : '') + fmt(pr) + ')', pr < 0); if (lvUp) { line = pickLine(); trustToast(lvUp, S.city); } save(); renderAll(); } else if (kept.length) play('no'); }
     else if (act === 'gift') { const f = giftOf(S.city), r = gift28(S); if (r) { line = f.thanks; play('good'); toast('Karşılığında: ' + r.got.join(', ') + '.'); trustToast(r.lvUp, S.city); save(); renderAll(); } }
     else if (act === 'accept') { if (acceptOrder(S)) { play('click'); toast('Sipariş deftere yazıldı.'); save(); renderAll(); } else play('no'); }
-    else if (act === 'deliver') { const o = deliverable(S)[0]; const r = o && deliver(S, o); if (r) { play('big'); floatAt(t, '+' + fmt(r.reward)); toast(MERCHANT_NAMES[r.from] + ' siparişin için teşekkür ediyor.' + (r.perk === 'itibar' ? ' Lonca\'da +2 itibar.' : r.perk ? ' ' + BLESS[r.perk].name + ' seninle.' : '')); trustToast(r.lvUp, r.from); save(); renderAll(); } }
+    else if (act === 'deliver') { const o = deliverable(S)[0]; const r = o && deliver(S, o); if (r) { play('big'); floatAt(t, '+' + fmt(r.reward)); toast(MERCHANT_NAMES[r.from] + ' siparişin için teşekkür ediyor.' + (r.perk === 'itibar' ? ' Lonca\'da +2 itibar.' : r.perk ? ' ' + BLESS[r.perk].name + ' seninle.' : '')); trustToast(r.lvUp, r.from); save(); renderAll(); if (sheetName === 'board') showBoard(); } }
     else if (act === 'pay') { const n = t.dataset.n === 'all' ? S.debt : 500; const p = payDebt(S, n); if (p) { play('sell'); floatAt(t, '−' + fmt(p), true); save(); renderAll(); if (!S.debt) toast('Hapu\'ya borcun kalmadı!'); if (sheetName === 'debt') showDebt(); } else play('no'); }
     else if (act === 'borrow') { const p = borrow(S, 500); if (p) { play('buy'); floatAt(t, '+' + fmt(p)); save(); renderAll(); if (sheetName === 'debt') showDebt(); } else play('no'); }
     else if (act === 'newAsk' || act === 'finishAsk') {
@@ -163,7 +163,21 @@
       setTimeout(() => { confirmA[act] = false; }, 4000);
     }
   });
-  document.addEventListener('input', e => { if (e.target && e.target.id === 'payR') payUpdate(); });
+  document.addEventListener('input', e => {
+    if (e.target && e.target.id === 'payR') payUpdate();
+    if (e.target && e.target.dataset.hginput != null) {
+      if (hgSide) {
+        const mx = hgMax(hgSide.g, hgSide.side);
+        let val = parseInt(e.target.value, 10);
+        if (isNaN(val) || val < 1) val = 1;
+        if (val > mx) val = mx;
+        hgSide.n = val;
+        hgSetupRepaint();
+        const inp = document.querySelector('[data-hginput]');
+        if (inp && document.activeElement !== inp) { inp.focus(); }
+      }
+    }
+  });
   function resumeVoyage() {
     if (S.voyageSnap && S.voyageSnap.v) { const v = S.voyage; S = migrate(S.voyageSnap); RS = S.rs == null ? null : S.rs; S.voyage = v; S.voyageSnap = null; }
     plan = S.voyage; closeSheet(); enterSea(); toast('Yarım kalan yolculuk baştan başlıyor.');

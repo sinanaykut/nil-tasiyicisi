@@ -112,9 +112,10 @@
     if (!PZ || PZ.kind !== 'scale' || PZ.left <= 0) return;
     const L = PZ.pos.map((p, k) => p === 1 ? k : -1).filter(k => k >= 0), Rr = PZ.pos.map((p, k) => p === 2 ? k : -1).filter(k => k >= 0);
     if (!L.length || !Rr.length) { toast('İki kefeye de taş koy.'); play('no'); return; }
+    if (L.length !== Rr.length) { toast('Kefelere eşit sayıda taş koymalısın (örneğin 3\'e 3 veya 1\'e 1).'); play('no'); return; }
     const wl = L.length - (L.includes(PZ.fake) ? 0.3 : 0), wr = Rr.length - (Rr.includes(PZ.fake) ? 0.3 : 0);
     PZ.tilt = wl > wr ? -1 : wl < wr ? 1 : 0; PZ.left--;
-    PZ.log.push((2 - PZ.left) + '. tartı: ' + L.map(k => k + 1).join(',') + ' | ' + Rr.map(k => k + 1).join(',') + ' → ' + (PZ.tilt === 0 ? 'dengede' : PZ.tilt < 0 ? 'sol ağır basıyor' : 'sağ ağır basıyor'));
+    PZ.log.push((2 - PZ.left) + '. tartı: [' + L.map(k => k + 1).join(',') + '] - [' + Rr.map(k => k + 1).join(',') + '] → ' + (PZ.tilt === 0 ? 'dengede' : PZ.tilt < 0 ? 'sağ kefe hafif (sol ağır)' : 'sol kefe hafif (sağ ağır)'));
     play('weigh'); scaleDraw();
   }
   function scalePick(k) { if (!PZ || PZ.kind !== 'scale') return; const ok = k === PZ.fake, cb = PZ.cb; toast(ok ? (k + 1) + '. taş boyalı kireç taşı çıktı!' : 'Yanlış: sahte olan ' + (PZ.fake + 1) + '. taştı.'); pzClear(); play(ok ? 'good' : 'bad'); cb(ok); }

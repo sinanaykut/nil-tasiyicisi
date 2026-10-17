@@ -179,6 +179,8 @@
 .hgsl{font-weight:800;font-size:14px;color:var(--ink2)}
 .hgset .qstep .chip{padding:5px 12px;font-size:15px}
 .hgset .qstep b{font-size:18px;min-width:34px}
+.hginput{width:52px;text-align:center;font-size:16px;font-weight:800;font-family:inherit;border:2px solid var(--ink);border-radius:6px;background:var(--pap);color:var(--ink);padding:2px 4px;-moz-appearance:textfield}
+.hginput::-webkit-outer-spin-button,.hginput::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .hgset .hgo{flex-direction:column;gap:0;min-height:52px;line-height:1.1;font-size:17px}
 .hgset .hgo small{font-size:12px;font-weight:800;opacity:.9}
 /* the merchant's day and today's streak, next to what you trade */

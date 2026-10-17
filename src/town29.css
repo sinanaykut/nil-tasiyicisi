@@ -4,7 +4,7 @@
 .v3-town.v3-on > :not(.v3-cv):not(.v3t-labs):not(.v3t-snap){visibility:hidden}
 .v3t-snap{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
 .v3t-labs{position:absolute;inset:0;pointer-events:none;z-index:2}
-.v3t-l{position:absolute;left:0;top:0;pointer-events:none;cursor:pointer;display:flex;align-items:center;gap:4px;padding:2px 8px 2px 5px;border:2px solid #2B1D14;border-radius:9px;background:rgba(251,243,223,.95);color:#2B1D14;font:800 12px/1.2 Nunito,sans-serif;white-space:nowrap;box-shadow:0 2px 0 rgba(43,29,20,.4);transition:transform .12s,background-color .15s}
+.v3t-l{position:absolute;left:0;top:0;pointer-events:none;cursor:pointer;display:flex;align-items:center;gap:4px;padding:2px 8px 2px 5px;border:2px solid #2B1D14;border-radius:9px;background:rgba(251,243,223,.95);color:#2B1D14;font:800 12px/1.2 Nunito,sans-serif;white-space:nowrap;box-shadow:0 2px 0 rgba(43,29,20,.4);transition:background-color .15s,opacity .15s}
 .v3t-l .ico{width:15px;height:15px;flex:none}
 .v3t-l b{font-weight:800}
 .v3t-l::after{content:'';position:absolute;left:50%;bottom:-6px;width:8px;height:8px;margin-left:-4px;background:inherit;border-right:2px solid #2B1D14;border-bottom:2px solid #2B1D14;transform:rotate(45deg)}
