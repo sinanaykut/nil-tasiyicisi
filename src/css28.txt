@@ -595,7 +595,8 @@ body.at-sea .cart,body.at-sea .spots,body.at-sea .hold{display:none}
   .mbar .mbm{flex:1;justify-content:flex-start;gap:8px;background:var(--gold)}
   .mbar .mbm span{display:flex;flex-direction:column;align-items:flex-start;line-height:1.1}
   .mbar .mbm b{font-size:16px}.mbar .mbm small{font-size:11px}
-  .mbar .abgo{font-size:16px;padding:8px 14px}
+  .mbar .abgo{font-size:16px;padding:8px 16px;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;flex-shrink:0}
+  .mbar .abgo span{line-height:1;white-space:nowrap}
   .hold.corner{right:auto;left:8px;bottom:64px}
   .title-art.t31 .logo-plate h2{font-size:32px}
 }
