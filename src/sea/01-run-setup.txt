@@ -120,7 +120,7 @@
     function setPad(side, on) { if (side === 'L') padL = on; else if (side === 'R') padR = on; else if (on) boost(); }
     function boost() {
       if (!st || st.end || st.count > 0 || paused) return;
-      if (!st.cfg) { SC[st.kind].action(st); return; }
+      if (!st.cfg) { if (SC[st.kind] && SC[st.kind].action) SC[st.kind].action(st); return; }
       if (st.race && st.race.tP != null) return;
       /* v47: the race has no oar charges any more: one pull per drum beat, judged by timing */
       if (st.race) { raceBoost(); return; }

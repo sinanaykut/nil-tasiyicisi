@@ -89,7 +89,7 @@
 .v3m-labs > .v3m-l{transition:background-color .25s,color .25s,box-shadow .25s,opacity .22s ease}
 .v3m-labs > .v3m-off{opacity:0!important;visibility:hidden!important;transition:opacity .16s ease,visibility 0s linear .16s!important}
 .v3m-labs[data-z="0"] .v3m-v,.v3m-labs[data-z="1"] .v3m-v{opacity:0;visibility:hidden!important}
-.v3t-labs > .v3t-l{transition:transform .12s,background-color .15s,opacity .22s ease}
+.v3t-labs > .v3t-l{transition:background-color .15s,opacity .22s ease}
 .v3t-labs.zm > .v3t-l{transition:background-color .15s,opacity .22s ease}
 .v3t-labs > .v3t-off{opacity:0;visibility:hidden;transition:opacity .16s ease,visibility 0s linear .16s}
 @media (prefers-reduced-motion:reduce){.v3m-labs > *,.v3t-labs > .v3t-l{transition:none!important}}
