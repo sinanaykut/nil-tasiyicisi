@@ -400,7 +400,7 @@
   }
   function afterStop(nd) {
     if (VG.dz) { dzAfter(nd); return; }
-    if (nd && nd.amb && !VG.chaseDone) { VG.chaseDone = true; VG.inChase = true; toast('Pusu! ' + ({ haydut:'Haydutlar', medjay:'Medjay devriyesi', tefeci:'Tefecinin adamları', djedi:'Djedi\'nin adamları', bedevi:'Çöl akıncıları' }[VG.plan.chaser] || 'Biri') + ' bu durakta seni bekliyordu.'); playScene('chase'); return; }
+    if (nd && nd.amb && !VG.chaseDone) { VG.chaseDone = true; VG.inChase = true; if (FIGHT[VG.plan.chaser]) { riverAmbush(); return; } toast('Pusu! ' + ({ haydut:'Haydutlar', medjay:'Medjay devriyesi', tefeci:'Tefecinin adamları', djedi:'Djedi\'nin adamları', bedevi:'Çöl akıncıları' }[VG.plan.chaser] || 'Biri') + ' bu durakta seni bekliyordu.'); playScene('chase'); return; }
     advance();
   }
   function advance() {
@@ -418,14 +418,18 @@
     skipVoyage(); return true;
   }
   function endVoyage(quick) {
+    stopAmbushCombat();
     const a = VG.acc;
     const res = { path:VG.picks.map((j, i) => VG.layers[i] && VG.layers[i][j] ? VG.layers[i][j].t : null).filter(Boolean), hp:Math.max(0, VG.hp), hh:Math.max(0, VG.hh), hits:a.hits, wreck:VG.hp <= 0, caught:a.caught, escaped:a.escaped && !!VG.plan.chaser, coins:a.coins, crates:a.crates, got:a.got, left:0, overboard:a.overboard, prophecy:VG.prophecy, near:a.near, nearCoins:a.nearCoins, maxCombo:a.maxCombo, beatRival:a.beatRival, spotted:a.spotted, notes:a.notes, quick:!!quick, ramUsed:!!a.ramUsed };
+    if (a.fought) res.fought = true;
     if (VG.dz) dzResult(res);
     VG = null; heroOverlay(false);
     landed(res);
   }
   function skipVoyage() {
     if (!VG) return;
+    if (activeAmbushCombat) { toast('Önce mücadeleyi bitir ya da geri çekil.'); return; }
+    stopAmbushCombat();
     if (VG.dz) { dzSkip(); return; }
     Sea.stop();
     const p = VG.plan, q = quickSea(p), total = VG.layers.length, remain = Math.max(0, total - VG.layer) / total, a = VG.acc;
@@ -639,6 +643,7 @@
     save(); renderAll(); play('fanfare'); showEnd(id, { rep, newAch });
   }
   function fresh(mode, hero) {
+    stopAmbushCombat();
     const dk = todayKey(); departing = false; $('#port').classList.remove('depart');
     Sea.stop(); plan = null; VG = null; phase = 'port'; document.body.classList.remove('at-sea', 'on-map'); $('#sea').hidden = true; $('#voy').hidden = true; $('#port').hidden = false; Snd.mode('port');
     S = mode === 'daily' ? newGame({ hero, daily:true, dateKey:dk, seed:seedOf('nil10-' + dk), arc:ARCS[Math.abs(seedOf('arc-' + dk)) % ARCS.length] }) : newGame({ hero, perks:Object.assign({}, meta.lv), feat:featFor(meta.runs), arc:featFor(meta.runs).quest ? ARCS[meta.runs % ARCS.length] : null });
@@ -650,5 +655,6 @@
     toast(mode === 'daily' ? 'Günün seferi başladı. Herkes aynı nehirle başlıyor.' : 'Yeni sefer başladı. Mennefer pazarındasın.');
     if (!showUnlocks()) qPort(true);
   }
+
 
 

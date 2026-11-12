@@ -1,0 +1,271 @@
+  /* The caravan's 3D diorama shares V3's ONE WebGL canvas. All game rules and
+     hit targets stay in desert48; this view can disappear without changing them. */
+  const DZ3 = (() => {
+    let live = null, pending = 0;
+    function stop() { pending++; if (live) { const v = live; live = null; v.dispose(); } }
+    function start() {
+      if (live || typeof V3 === 'undefined' || !V3.pref() || !VG || !VG.dz) return;
+      const token = ++pending, voyage = VG;
+      V3.load().then(ok => {
+        if (!ok || token !== pending || VG !== voyage || phase !== 'sea' || !V3.pref()) return;
+        try { live = make(voyage); } catch (e) { stop(); }
+      }).catch(() => {});
+    }
+    function make(voyage) {
+      const X = V3._x, T = X.T(), scene = new T.Scene(), resources = new Set(), props = [], animals = [], palms = [];
+      const random = vRng((voyage.plan.seed | 0) + 49381);
+      let dead = false, raf = 0, last = 0, time = 0, host = null, renderer = null, mode = '', skyKey = '', w = 0, h = 0;
+      const own = v => { resources.add(v); return v; };
+      const mat = (color, extra) => own(new T.MeshStandardMaterial(Object.assign({ color, flatShading:true, roughness:1, metalness:0 }, extra || {})));
+      const sand = mat('#DDB37B'), litSand = mat('#F1D39B'), clay = mat('#A56443'), rock = mat('#B58B68'), stone = mat('#D7BB8C');
+      const linen = mat('#F8EDCF'), blue = mat('#326D91'), leather = mat('#72503C'), ink = mat('#302B32'), leaf = mat('#426F55'), leafLight = mat('#659560');
+      const shadow = mat('#4D3736', { transparent:true, opacity:.16, depthWrite:false });
+      const boxGeo = own(new T.BoxGeometry(1, 1, 1)), ballGeo = own(new T.IcosahedronGeometry(1, 1));
+      const discGeo = own(new T.CircleGeometry(1, 20)), trunkGeo = own(new T.CylinderGeometry(.16, .24, 1, 7));
+      const planeGeo = own(new T.PlaneGeometry(1, 1)), camera = new T.OrthographicCamera(-15, 15, 10, -10, .1, 170);
+      camera.position.set(0, 17, 25); camera.lookAt(0, 0, 0); camera.updateMatrixWorld(true);
+      scene.fog = new T.Fog('#EACB9E', 35, 90);
+      const hemi = new T.HemisphereLight('#FFF4D8', '#866548', 1.1), sun = new T.DirectionalLight('#FFE3AA', 1.1);
+      sun.position.set(-18, 25, 12); scene.add(hemi, sun);
+      const groundY = (x, z) => -.2 + .18 * Math.sin(x * .24 + z * .13) + .14 * Math.cos(z * .34);
+      function mesh(parent, geo, material, x, y, z, sx, sy, sz) {
+        const m = new T.Mesh(geo, material); m.position.set(x, y, z); m.scale.set(sx || 1, sy || 1, sz || 1); parent.add(m); return m;
+      }
+      function shade(parent, x, z, sx, sz) { const m = mesh(parent, discGeo, shadow, x, .035, z, sx, sz, 1); m.rotation.x = -Math.PI / 2; return m; }
+      /* Merge rigid parts by material once. Articulated heads/legs stay separate;
+         the landscape and each animal body cost a handful of draws, not one
+         draw per stone, strap and hoof. Temporary buffers exist only at build. */
+      function bake(root) {
+        root.updateMatrixWorld(true);
+        const inv = new T.Matrix4().copy(root.matrixWorld).invert(), buckets = new Map(), remove = [];
+        root.traverse(m => {
+          if (!m.isMesh) return;
+          const matrix = new T.Matrix4().multiplyMatrices(inv, m.matrixWorld);
+          const g = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone(); g.applyMatrix4(matrix);
+          let b = buckets.get(m.material); if (!b) { b = []; buckets.set(m.material, b); } b.push(g); remove.push(m);
+        });
+        remove.forEach(m => m.parent.remove(m));
+        buckets.forEach((list, material) => {
+          let n = 0; list.forEach(g => { n += g.attributes.position.count; });
+          const p = new Float32Array(n * 3), normal = new Float32Array(n * 3), color = material.vertexColors ? new Float32Array(n * 3) : null;
+          let at = 0;
+          list.forEach(g => { p.set(g.attributes.position.array, at); normal.set(g.attributes.normal.array, at); if (color && g.attributes.color) color.set(g.attributes.color.array, at); at += g.attributes.position.array.length; g.dispose(); });
+          const g = own(new T.BufferGeometry()); g.setAttribute('position', new T.BufferAttribute(p, 3)); g.setAttribute('normal', new T.BufferAttribute(normal, 3));
+          if (color) g.setAttribute('color', new T.BufferAttribute(color, 3)); root.add(new T.Mesh(g, material));
+        });
+      }
+      /* A continuous faceted surface, with broad dunes sculpted on BOTH sides
+         of the winding track. Vertex colours give each face a sunward ridge. */
+      const terrain = own(new T.PlaneGeometry(110, 86, 55, 43)); terrain.rotateX(-Math.PI / 2);
+      const pos = terrain.attributes.position, cols = new Float32Array(pos.count * 3), col = new T.Color();
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i), z = pos.getZ(i), road = Math.sin(x * .08) * 2;
+        const edge = Math.min(1, Math.max(0, (Math.abs(z - road) - 3.5) / 9));
+        const dune = edge * (1.4 + 1.8 * Math.sin(x * .11 + z * .13) + .9 * Math.cos(x * .21 - z * .18));
+        pos.setY(i, groundY(x, z) + Math.max(0, dune));
+        col.set(Math.abs(z - road) < 3.3 ? '#F1D6A2' : '#D9AF74');
+        col.multiplyScalar(.92 + .1 * Math.sin(x * .7 + z * .3));
+        cols[i * 3] = col.r; cols[i * 3 + 1] = col.g; cols[i * 3 + 2] = col.b;
+      }
+      terrain.setAttribute('color', new T.BufferAttribute(cols, 3)); terrain.computeVertexNormals();
+      const ground = new T.Mesh(terrain, mat('#FFFFFF', { vertexColors:true })); scene.add(ground);
+      /* A raised sandy trail and paired caravan tracks run into the landscape. */
+      for (let i = 0; i < 34; i++) {
+        const x = (i - 17) * 3.1, z = Math.sin(x * .08) * 2;
+        const tile = mesh(scene, boxGeo, litSand, x, groundY(x, z) + .02, z, 3.2, .07, 3.5);
+        tile.rotation.y = -Math.cos(x * .08) * .14;
+        for (let j = 0; j < 2; j++) { const track = mesh(scene, boxGeo, sand, x, groundY(x, z) + .065, z + (j ? .7 : -.7), 2.6, .015, .055); track.rotation.y = tile.rotation.y; }
+      }
+      /* Sandstone mesas, not flat backdrop strips: their silhouettes and
+         bevelled strata remain readable at phone size. */
+      for (let i = 0; i < 14; i++) {
+        const g = new T.Group(), x = (i - 7) * 7.5, z = -20 - random() * 18, height = 3 + random() * 7;
+        mesh(g, ballGeo, i % 2 ? clay : rock, 0, height * .33, 0, 5 + random() * 3, height, 4 + random() * 3);
+        mesh(g, boxGeo, stone, 0, height * 1.1, 0, 4, .24, 3);
+        g.position.set(x, 0, z); scene.add(g);
+      }
+      const stones = own(new T.InstancedMesh(ballGeo, rock, 44)), stoneShadows = own(new T.InstancedMesh(discGeo, shadow, 44)), stamp = new T.Object3D();
+      stones.name = 'dz3-stones'; scene.add(stones, stoneShadows);
+      for (let i = 0; i < 44; i++) props.push({ x:random() * 78 - 39, z:(random() < .55 ? -1 : 1) * (5 + random() * 19), s:.25 + random() * 1.4, rx:random(), ry:random(), rz:random() });
+      function palm(x, z, size) {
+        const g = new T.Group(), crown = new T.Group();
+        mesh(g, trunkGeo, leather, 0, 2.3, 0, 1, 4.6, 1);
+        crown.position.y = 4.7; g.add(crown);
+        for (let j = 0; j < 7; j++) {
+          const a = j / 7 * Math.PI * 2, f = mesh(crown, ballGeo, j % 2 ? leaf : leafLight, Math.cos(a) * 1.15, -.15, Math.sin(a) * 1.15, 1.8, .13, .45);
+          f.rotation.y = -a; f.rotation.z = .18;
+        }
+        shade(g, 1.6, 1, 2.7, 1.3); g.remove(crown); bake(g); bake(crown); g.add(crown);
+        g.scale.setScalar(size); g.position.set(x, groundY(x, z), z); scene.add(g); palms.push(crown);
+      }
+      const oasis = new T.Group(); oasis.position.set(19, .12, -12); scene.add(oasis);
+      const water = mat('#489CAB', { transparent:true, opacity:.85 });
+      const pool = mesh(oasis, discGeo, water, 0, .1, 0, 5, 2.7, 1); pool.rotation.x = -Math.PI / 2;
+      for (let i = 0; i < 7; i++) palm(13 + random() * 14, -12 - random() * 6, .7 + random() * .4);
+      /* A half-buried gate, columns and a distant obelisk give the route a
+         destination and a recognisable ancient Egyptian silhouette. */
+      for (let i = 0; i < 2; i++) {
+        mesh(scene, boxGeo, stone, -22 + i * 4.3, 2, -9, 1.5, 4.5, 1.7);
+        mesh(scene, boxGeo, litSand, -22 + i * 4.3, 4.4, -9, 1.9, .35, 2);
+      }
+      mesh(scene, boxGeo, stone, -19.85, 4.7, -9, 6.5, .65, 2);
+      mesh(scene, boxGeo, blue, -19.8, 4.7, -7.98, 4.6, .09, .025);
+      const obelisk = own(new T.CylinderGeometry(.32, .65, 7, 4));
+      mesh(scene, obelisk, stone, 30, 3.5, -15, 1, 1, 1);
+      mesh(scene, own(new T.ConeGeometry(.45, 1, 4)), litSand, 30, 7.5, -15, 1, 1, 1);
+      /* Keep moving crowns and roadside stones out of the static-world batch. */
+      const staticWorld = new T.Group(); scene.add(staticWorld);
+      const rigid = scene.children.slice();
+      rigid.forEach(child => { if (child !== staticWorld && child !== hemi && child !== sun && child !== stones && child !== stoneShadows && !child.children.some(c => palms.includes(c))) staticWorld.add(child); });
+      bake(staticWorld);
+      const caravan = new T.Group(); caravan.name = 'dz3-caravan'; scene.add(caravan);
+      function donkey(i) {
+        const g = new T.Group(), body = new T.Group(), legs = [], coat = mat(DK_COL[i % DK_COL.length]); g.add(body);
+        mesh(body, ballGeo, coat, 0, 1.05, 0, 1.05, .56, .43);
+        mesh(body, ballGeo, linen, .1, .77, 0, .78, .16, .33);
+        const head = new T.Group(); head.position.set(.88, 1.33, 0); body.add(head);
+        mesh(head, ballGeo, coat, .17, .18, 0, .32, .53, .28).rotation.z = -.4;
+        mesh(head, boxGeo, linen, .5, -.02, 0, .43, .25, .31);
+        mesh(head, boxGeo, coat, .07, .76, -.16, .13, .66, .11).rotation.z = .15;
+        mesh(head, boxGeo, coat, .13, .76, .16, .13, .68, .11).rotation.z = -.12;
+        mesh(head, ballGeo, ink, .27, .3, .265, .045, .045, .025);
+        mesh(head, boxGeo, leather, .39, .12, 0, .07, .52, .59).rotation.z = -.35;
+        for (let j = 0; j < 4; j++) {
+          const leg = new T.Group(); leg.position.set(j < 2 ? -.65 : .65, .9, j % 2 ? -.25 : .25); g.add(leg);
+          mesh(leg, boxGeo, coat, 0, -.36, 0, .15, .75, .15);
+          mesh(leg, boxGeo, ink, .045, -.77, 0, .23, .15, .2); legs.push(leg);
+        }
+        mesh(body, boxGeo, i % 2 ? blue : mat('#A74737'), 0, 1.5, 0, 1.25, .12, 1.05);
+        const packs = new T.Group(); body.add(packs);
+        for (let j = 0; j < 2; j++) {
+          mesh(packs, boxGeo, j ? linen : sand, -.1, 1.45, j ? .55 : -.55, .8, .65, .4);
+          mesh(packs, boxGeo, leather, -.1, 1.48, j ? .77 : -.77, .07, .68, .035);
+        }
+        mesh(body, boxGeo, leather, -.98, .94, 0, .1, .7, .1).rotation.z = -.35;
+        body.remove(head, packs); bake(body); body.add(head, packs); bake(head); bake(packs);
+        for (let j = 0; j < legs.length; j++) bake(legs[j]);
+        shade(g, .35, .15, 1.55, .6);
+        const x = 5 - i * 2.55; g.position.set(x, groundY(x, 0), Math.sin(x * .08) * 1.3);
+        caravan.add(g); animals.push({ g, body, head, legs, packs, x, i });
+      }
+      const K = dzK(), count = Math.min(8, K ? K.donkeys : 3);
+      for (let i = 0; i < count; i++) donkey(i);
+      const guide = new T.Group(), guideBody = new T.Group(); guide.add(guideBody);
+      mesh(guideBody, ballGeo, mat('#9B654A'), 0, 1.7, 0, .28, .3, .27);
+      mesh(guideBody, boxGeo, linen, 0, 1.75, 0, .65, .17, .65);
+      mesh(guideBody, boxGeo, mat('#9B654A'), 0, 1.08, 0, .45, .65, .36);
+      mesh(guideBody, own(new T.CylinderGeometry(.28, .45, .65, 6)), linen, 0, .67, 0, 1, 1, 1);
+      mesh(guideBody, boxGeo, blue, 0, .99, 0, .5, .1, .4);
+      const guideLegs = [];
+      for (let i = 0; i < 2; i++) { const leg = mesh(guide, boxGeo, leather, 0, .3, i ? -.16 : .16, .13, .65, .13); guideLegs.push(leg); }
+      mesh(guideBody, boxGeo, leather, .55, 1, .35, .07, 2.05, .07).rotation.z = -.13;
+      shade(guide, .3, .1, .7, .35); guide.position.set(7.1, groundY(7.1, 0), .6); caravan.add(guide);
+      bake(guideBody);
+      const carWidth = 4.3 + Math.max(0, count - 1) * 2.55, carCenter = (7.7 + 3.4 - Math.max(0, count - 1) * 2.55) / 2;
+      const projection = new T.Vector3(), targetCar = { node:null, lane:'', width:0, height:0, top:0, kneel:false };
+      /* A single points buffer carries drifting sand; no meshes or vectors are
+         allocated in the animation loop. */
+      const dustGeo = own(new T.BufferGeometry()), dustPos = new Float32Array(84 * 3), dustBase = new Float32Array(84 * 3);
+      for (let i = 0; i < dustPos.length; i += 3) { dustBase[i] = random() * 40 - 20; dustBase[i + 1] = .15 + random() * 3; dustBase[i + 2] = random() * 20 - 10; }
+      dustGeo.setAttribute('position', new T.BufferAttribute(dustPos, 3));
+      const dustMat = own(new T.PointsMaterial({ color:'#FCE4B2', size:.12, transparent:true, opacity:.38, depthWrite:false }));
+      const dust = new T.Points(dustGeo, dustMat); scene.add(dust);
+      const fire = new T.Group(); fire.position.set(4, .3, 3); scene.add(fire);
+      const flame = mesh(fire, own(new T.ConeGeometry(.35, 1.2, 6)), own(new T.MeshBasicMaterial({ color:'#FFAD48' })), 0, .6, 0, 1, 1, 1);
+      mesh(fire, boxGeo, leather, 0, .1, 0, 1, .16, .16).rotation.y = .4;
+      const glow = new T.PointLight('#FFAD55', 1.5, 11); glow.position.set(4, 2, 3); scene.add(glow);
+      const owner = {
+        mount(cv) { if (host) { host.appendChild(cv); cv.classList.add('dz3-canvas'); } },
+        lose() { stop(); }, onLost() { stop(); }
+      };
+      function clearHost() { if (host) { host.classList.remove('dz3-ready'); host = null; } }
+      function dispose() {
+        if (dead) return; dead = true; cancelAnimationFrame(raf); clearHost(); X.glsRelease(owner);
+        if (X.GLS.cv) X.GLS.cv.classList.remove('dz3-canvas');
+        resources.forEach(v => v.dispose()); resources.clear(); scene.clear();
+      }
+      function frame(now) {
+        if (dead) return;
+        if (VG !== voyage || phase !== 'sea' || !V3.pref() || !document.getElementById('dz48')) { stop(); return; }
+        raf = requestAnimationFrame(guardedFrame);
+        if (now - last < 33 || document.hidden) return;
+        const dt = Math.min(.07, (now - (last || now)) / 1000); last = now;
+        const active = DZS && !DZS.done, kind = active ? DZS.kind : '', combat = active && DZS.combat;
+        /* Stars/mirages have meaningful precise SVG targets: their carefully
+           drawn sky stays unobstructed. The next frame returns to the road. */
+        const stage = active && /^(dunes|sstorm|canyon)$/.test(kind);
+        const next = combat || (active && !stage) ? null : document.getElementById(stage ? 'dzss' : 'dzpan');
+        if (!next || !next.isConnected || $('#voy').hidden) { if (host) { clearHost(); X.glsRelease(owner); } return; }
+        if (host !== next) { clearHost(); host = next; renderer = X.glsClaim(owner); if (!renderer) { stop(); return; } owner.mount(X.GLS.cv); w = 0; }
+        const nw = host.clientWidth, nh = host.clientHeight;
+        if (!nw || !nh) return;
+        if (nw !== w || nh !== h) {
+          w = nw; h = nh; const viewW = Math.max(20, Math.min(37, 23 * w / h));
+          camera.left = -viewW / 2; camera.right = viewW / 2; camera.top = viewW * h / w / 2; camera.bottom = -camera.top;
+          camera.updateProjectionMatrix(); renderer.setPixelRatio(Math.min(1.5, window.devicePixelRatio || 1)); renderer.setSize(w, h, false);
+        }
+        mode = kind || voyage.tod;
+        const night = voyage.tod === 'night', dusk = voyage.tod === 'dusk', storm = kind === 'sstorm';
+        const key = mode + (storm ? 's' : '');
+        if (key !== skyKey) {
+          skyKey = key; scene.background = new T.Color(storm ? '#D5A475' : night ? '#162541' : dusk ? '#D9947A' : '#AFCFE0');
+          scene.fog.color.set(storm ? '#D5A475' : night ? '#293B53' : dusk ? '#D7A27E' : '#EACB9E');
+          scene.fog.near = storm ? 9 : 35; scene.fog.far = storm ? 35 : 90;
+          hemi.color.set(night ? '#8AABD7' : '#FFF4D8'); hemi.intensity = night ? .85 : 1.1;
+          sun.color.set(night ? '#A4BFE5' : dusk ? '#FFB276' : '#FFE3AA'); sun.intensity = night ? .6 : 1.15;
+          sun.position.set(dusk ? 25 : -18, night ? 15 : dusk ? 9 : 25, 12);
+        }
+        const stormCar = kind === 'sstorm' && document.getElementById('scar');
+        const moving = stage ? !DZS.done && !(stormCar && stormCar.classList.contains('kneel')) : voyage.dzStage === 'walk';
+        if (!reduce) time += dt;
+        const pace = moving ? 1 : .15, march = moving && !reduce;
+        for (let i = 0; i < props.length; i++) {
+          const p = props[i]; if (march) { p.x -= dt * 2; if (p.x < -40) p.x += 80; }
+          const y = groundY(p.x, p.z);
+          stamp.position.set(p.x, y + p.s * .4, p.z); stamp.scale.set(p.s, p.s * .7, p.s * .8); stamp.rotation.set(p.rx, p.ry, p.rz); stamp.updateMatrix(); stones.setMatrixAt(i, stamp.matrix);
+          stamp.position.set(p.x + .25, y + .035, p.z + .2); stamp.scale.set(p.s * 1.3, p.s * .7, 1); stamp.rotation.set(-Math.PI / 2, 0, 0); stamp.updateMatrix(); stoneShadows.setMatrixAt(i, stamp.matrix);
+        }
+        stones.instanceMatrix.needsUpdate = true; stoneShadows.instanceMatrix.needsUpdate = true;
+        for (let i = 0; i < animals.length; i++) {
+          const a = animals[i], state = K ? K.dk[i] : 2, walk = march && state > 0, t = time * 8 + i * 1.9;
+          a.body.position.y = walk ? Math.abs(Math.sin(t)) * .09 : Math.sin(time * 1.4 + i) * .025;
+          a.head.rotation.z = state === 0 ? -.35 : state === 1 ? -.15 : .02 * Math.sin(time * 1.5 + i);
+          a.packs.visible = state > 0;
+          for (let j = 0; j < 4; j++) a.legs[j].rotation.z = walk ? Math.sin(t + (j === 0 || j === 3 ? 0 : Math.PI)) * .3 : 0;
+          a.g.scale.y = state === 0 ? .72 : 1;
+        }
+        for (let i = 0; i < palms.length; i++) palms[i].rotation.z = reduce ? 0 : Math.sin(time * 1.3 + i) * (storm ? .13 : .025);
+        guideBody.position.y = march ? Math.abs(Math.sin(time * 8)) * .06 : 0;
+        for (let i = 0; i < 2; i++) guideLegs[i].rotation.z = march ? Math.sin(time * 8 + i * Math.PI) * .3 : 0;
+        caravan.visible = true;
+        const carNode = stage ? document.getElementById(kind === 'dunes' ? 'pcar' : kind === 'sstorm' ? 'scar' : 'ccar') : null;
+        if (carNode) {
+          const cw = carNode.offsetWidth, ch = carNode.offsetHeight, lane = carNode.dataset.lane || '', kneel = carNode.classList.contains('kneel');
+          if (targetCar.node !== carNode || targetCar.lane !== lane || targetCar.width !== w || targetCar.height !== h || targetCar.top !== carNode.offsetTop || targetCar.kneel !== kneel) {
+            targetCar.node = carNode; targetCar.lane = lane; targetCar.width = w; targetCar.height = h; targetCar.top = carNode.offsetTop; targetCar.kneel = kneel;
+            const left = carNode.offsetLeft - (kind === 'canyon' ? cw / 2 : 0), bottom = carNode.offsetTop + ch * .9;
+            const scale = Math.max(.25, cw / w * (camera.right - camera.left) / carWidth);
+            projection.set(0, 0, 0).project(camera);
+            const groundZ = (1 - bottom / h * 2 - projection.y) * camera.top / (-17 / Math.hypot(17, 25));
+            caravan.scale.set(scale, scale * (kneel ? .6 : 1), scale);
+            caravan.position.set(camera.left + (left + cw / 2) / w * (camera.right - camera.left) - carCenter * scale, 0, groundZ);
+          }
+        } else {
+          targetCar.node = null; caravan.scale.setScalar(1); caravan.position.set(-carCenter, 0, 0);
+        }
+        fire.visible = !stage && voyage.dzStage === 'camp'; glow.visible = fire.visible;
+        flame.scale.y = 1 + Math.sin(time * 13) * .15; glow.intensity = 1.4 + Math.sin(time * 11) * .15;
+        for (let i = 0; i < dustPos.length; i += 3) { dustPos[i] = ((dustBase[i] + 20 - time * (storm ? 8 : pace)) % 40 + 40) % 40 - 20; dustPos[i + 1] = dustBase[i + 1] + Math.sin(time + i) * .08; dustPos[i + 2] = dustBase[i + 2]; }
+        dustGeo.attributes.position.needsUpdate = true; dustMat.opacity = storm ? .65 : moving ? .32 : .12;
+        renderer.setClearColor(scene.background, 1); renderer.render(scene, camera);
+        host.classList.add('dz3-ready');
+      }
+      const guardedFrame = now => { try { frame(now); } catch (e) { stop(); } };
+      /* Every subsequent frame uses the same guarded callback. A GPU/runtime
+         failure releases the view and immediately reveals the SVG fallback. */
+      const schedule = () => requestAnimationFrame(guardedFrame);
+      raf = schedule();
+      return { dispose };
+    }
+    return { start, stop, active:() => !!live };
+  })();

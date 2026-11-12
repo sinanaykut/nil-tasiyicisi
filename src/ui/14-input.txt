@@ -89,7 +89,7 @@
     else if (act === 'cont') { closeSheet(); if (S.voyage) resumeVoyage(); else if (S.pendingEvent && eventDef(S, S.pendingEvent)) showEvent(); else if (!showUnlocks()) qPort(true); }
     else if (act === 'new') { Snd.unlock(); showHeroPick('free'); }
     else if (act === 'daily') { Snd.unlock(); showHeroPick('daily'); }
-    else if (act === 'toTitle') { departing = false; $('#port').classList.remove('depart'); if (phase === 'sea') { Sea.stop(); plan = null; VG = null; phase = 'port'; document.body.classList.remove('at-sea', 'on-map'); $('#sea').hidden = true; $('#voy').hidden = true; $('#port').hidden = false; Snd.mode('port'); lastScene = ''; renderAll(); } showTitle(); }
+    else if (act === 'toTitle') { stopAmbushCombat(); departing = false; $('#port').classList.remove('depart'); if (phase === 'sea') { Sea.stop(); plan = null; VG = null; phase = 'port'; document.body.classList.remove('at-sea', 'on-map'); $('#sea').hidden = true; $('#voy').hidden = true; $('#port').hidden = false; Snd.mode('port'); lastScene = ''; renderAll(); } showTitle(); }
     else if (act === 'loadMenu') showLoad();
     else if (act === 'lonca') showLonca('toTitle');
     else if (act === 'lonca2') showLonca('endBack');
@@ -210,4 +210,5 @@
   window.addEventListener('resize', () => { if (S && phase === 'port') { renderStage(); placeTutor(); } if (VG && !$('#voy').hidden) drawVoyLines(); });
   ['mouseover', 'focusin'].forEach(ev => document.addEventListener(ev, e => { const n = e.target.closest && e.target.closest('.vnode[data-desc]'); const d = $('#vdesc'), m = n && String(n.className.baseVal != null ? n.className.baseVal : n.className).match(/t-(\w+)/); if (n && d) d.textContent = (m && NODES[m[1]] ? NODES[m[1]].name + ': ' : '') + n.dataset.desc; }));   /* v46: the fogged stop (no kind) no longer throws on hover */
   Sea.init($('#sea'), k => { if (k === 'chase') Snd.mode('chase'); play(k); buzz(k); });
+
 

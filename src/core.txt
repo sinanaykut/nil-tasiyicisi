@@ -852,20 +852,20 @@ function applySea(S, plan, res) {
     if (res.caught) {
       S.stats.caught++;
       if (plan.chaser === 'bedevi') { const lost = loseFrac(S, 0.3); if (S.caravan) S.caravan.water = Math.max(0, S.caravan.water - 1); out.push({ kind:'bad', title:'Çöl akıncıları yetişti', text:'Boğuştun ama çok kalabalıktılar (−1 can). Yüklerini ve bir tulum suyunu aldılar: ' + (lost.join(', ') || 'boş heybelere güldüler') + '.' }); }
-      else if (plan.chaser === 'haydut') { const lost = loseFrac(S, 0.3); out.push({ kind:'bad', title:'Haydutlar yetişti', text:'Güvertede boğuştun (−1 can). Ambarını yağmaladılar: ' + (lost.join(', ') || 'boş ambara küfrettiler') + '.' }); }
+      else if (plan.chaser === 'haydut') { const lost = loseFrac(S, 0.3); out.push({ kind:'bad', title:'Haydutlar yetişti', text:(res.fought ? 'Mücadelede geri çekildin. Ambarından aldıkları: ' : 'Güvertede boğuştun (−1 can). Ambarını yağmaladılar: ') + (lost.join(', ') || 'boş ambara küfrettiler') + '.' }); }
       else if (plan.chaser === 'medjay') {
         if (S.contra) { const f = Math.min(S.cash, Math.round(S.cash * 0.25 + 300)); S.cash -= f; S.contra = null; out.push({ kind:'bad', title:'Medjay kaçak malı buldu', text:'Hapu\'nun sandıklarına el koydular ve ' + fmtN(f) + ' deben ceza kestiler. Hapu da çok kızacak.' }); S.debt += 800; S.log.push({ d:S.day, t:'Kaçak sandıklar yakalandı. Hapu borcuna 800 deben "zarar" ekledi.' }); }
         else { const f = Math.min(S.cash, Math.round(S.cash * 0.15 + 50)); S.cash -= f; out.push({ kind:'bad', title:'Medjay seni durdurdu', text:'Kaçakçılık şüphesiyle ' + fmtN(f) + ' deben ceza kestiler.' }); }
       }
       else if (plan.chaser === 'djedi') {
-        if (S.quest && S.quest.cargo) { S.quest.cargo = 0; S.quest.f.stolen = true; out.push({ kind:'bad', title:'Djedi\'nin adamları heykeli kaptı', text:'Boğuşmada yaralandın (−1 can). Altın kedi gitti! Kâtip Merenre\'nin casuslarına göre Djedi onu Vaset\'te satmaya çalışacak.' }); }
-        else { const lost = loseFrac(S, 0.2); out.push({ kind:'bad', title:'Djedi\'nin adamları', text:'Boğuşmada yaralandın (−1 can). Heykeli bulamayınca öfkelerini ambardan çıkardılar: ' + (lost.join(', ') || 'boş ambar') + '.' }); }
+        if (S.quest && S.quest.cargo) { S.quest.cargo = 0; S.quest.f.stolen = true; out.push({ kind:'bad', title:'Djedi\'nin adamları heykeli kaptı', text:(res.fought ? 'Mücadelede geri çekildin. ' : 'Boğuşmada yaralandın (−1 can). ') + 'Altın kedi gitti! Kâtip Merenre\'nin casuslarına göre Djedi onu Vaset\'te satmaya çalışacak.' }); }
+        else { const lost = loseFrac(S, 0.2); out.push({ kind:'bad', title:'Djedi\'nin adamları', text:(res.fought ? 'Mücadelede geri çekildin. ' : 'Boğuşmada yaralandın (−1 can). ') + 'Heykeli bulamayınca öfkelerini ambardan çıkardılar: ' + (lost.join(', ') || 'boş ambar') + '.' }); }
       }
       else { const take = Math.min(S.cash, Math.round(S.debt * 0.3)); S.cash -= take; S.debt -= take; out.push({ kind:'bad', title:'Tefecinin adamları', text:'Hapu\'nun adamları seni yakaladı ve zorla ' + fmtN(take) + ' deben tahsil etti. Borcundan düştüler, en azından.' }); }
     } else {
       S.stats.escapes++;
       const who = { haydut:'Haydutları', medjay:'Medjay devriyesini', tefeci:'Tefecinin adamlarını', djedi:'Djedi\'nin adamlarını', bedevi:'Çöl akıncılarını' }[plan.chaser];
-      out.push({ kind:'good', title:'Kaçtın!', text: who + (dz ? ' kum fırtınasının içinde kaybettin.' : ' Nil\'in tozunda bıraktın.') });
+      out.push({ kind:'good', title:res.fought ? 'Yolunu savundun' : 'Kaçtın!', text: who + (res.fought ? ' mızrak ve kalkanla geri püskürttün. Yükün güvende.' : dz ? ' kum fırtınasının içinde kaybettin.' : ' Nil\'in tozunda bıraktın.') });
     }
   }
   if (res.spotted) {
@@ -1102,3 +1102,4 @@ function finish(S) {
   return S;
 }
 /*ENDCORE*/
+

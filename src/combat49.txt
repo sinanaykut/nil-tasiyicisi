@@ -1,0 +1,139 @@
+  /* Armed encounters: readable turns, with the same rules on the Nile and in the desert. */
+  const AMBUSH_TELLS = [
+    { id:'lunge', name:'Mızrağını doğrulttu', help:'Kalkanını kaldır. Darbeyi karşılayınca karşı saldırı fırsatı doğar.' },
+    { id:'sweep', name:'Silahını yana açtı', help:'Yana çekil. Geniş savuruşu kalkanla durdurmak zordur.' },
+    { id:'open', name:'Dengesini kaybetti', help:'Şimdi vurabilirsin. Hazır değilsen kalkanını kaldırıp nefeslen.' }
+  ];
+  function ambushNew(o) {
+    const max = Math.max(1, Math.min(4, Math.floor(o.maxHp || 3)));
+    const hp = Math.max(0, Math.min(max, Math.floor(o.hp == null ? max : o.hp)));
+    return { hp, maxHp:max,
+      enemy:3, maxEnemy:3, stamina:3, opening:false, turns:0, hits:0, done:hp <= 0, won:false,
+      seed:(o.seed || 0) >>> 0, tell:0, last:'', text:'Silahını hazırla. Önce rakibinin hareketine bak.', hero:o.hero || '' };
+  }
+  function ambushTell(s) { return AMBUSH_TELLS[(s.seed + s.turns) % AMBUSH_TELLS.length]; }
+  function ambushTurn(s, action) {
+    if (s.done || !['strike', 'guard', 'dodge', 'retreat'].includes(action)) return false;
+    if ((action === 'strike' || action === 'dodge') && s.stamina < 1) return false;
+    const tell = ambushTell(s).id; s.last = action;
+    let hurt = 0, dealt = 0;
+    if (action === 'retreat') { s.done = true; s.text = 'Yükün için daha fazla canını tehlikeye atmadın.'; return true; }
+    if (action === 'guard') {
+      s.stamina = Math.min(3, s.stamina + 1);
+      if (tell === 'lunge') { s.opening = true; s.text = 'Mızrağı kalkanınla saptırdın. Bir sonraki açıkta güçlü vurabilirsin.'; }
+      else if (tell === 'sweep') { hurt = 1; s.opening = false; s.text = 'Geniş savuruş kalkanının yanından geldi. Bu harekette yana çekilmelisin.'; }
+      else s.text = 'Kalkanının ardında nefeslendin. Gücün toparlandı.';
+    } else if (action === 'dodge') {
+      s.stamina--; s.opening = true;
+      s.text = tell === 'open' ? 'Mesafeni korudun. Rakibinin bir sonraki açığını bekliyorsun.' : 'Silah yanından geçti. Dengen yerinde; karşı saldırıya hazırsın.';
+    } else {
+      s.stamina--; dealt = s.opening && tell === 'open' ? 2 : 1;
+      if (tell !== 'open') hurt = 1;
+      s.opening = false;
+      s.text = hurt ? 'Vuruşun tuttu ama rakibinin saldırısına da açık kaldın.' : dealt === 2 ? 'Hazırladığın karşı saldırı tuttu! Rakip iki adım geri çekildi.' : 'Açığı gördün ve rakibi geri püskürttün.';
+    }
+    s.hits += hurt; s.hp = Math.max(0, s.hp - hurt); s.enemy = Math.max(0, s.enemy - dealt); s.turns++;
+    if (s.hp <= 0 || s.enemy <= 0 || s.turns >= 12) {
+      s.done = true; s.won = s.hp > 0 && s.enemy <= 0;
+      s.text = s.won ? 'Yol açıldı. Saldırganlar geri çekiliyor!' : s.hp <= 0 ? 'Canın tükendi. Tayfan seni güvenli yere çekti.' : 'Mücadele uzadı. Tayfanı korumak için geri çekildin.';
+    }
+    return true;
+  }
+  function ambushFigure(who, enemy) {
+    const cloth = enemy ? '#9B4D37' : who === 'neferet' ? '#2B777C' : who === 'sitre' ? '#426895' : '#E7DBC0';
+    const skin = enemy ? '#A56D47' : '#B98056';
+    return '<svg viewBox="0 0 170 230" aria-hidden="true"><ellipse cx="84" cy="216" rx="50" ry="9" fill="#221C1D" opacity=".2"/>' +
+      '<g stroke="#46342C" stroke-width="2" stroke-linejoin="round"><path d="M66 147l-8 60h15l14-49 7 49h16l-8-64" fill="' + skin + '"/>' +
+      '<path d="M56 206h18v9H48q0-7 8-9zm37 0h18l9 9H93z" fill="#5F422C"/><path d="M61 80q24-12 44 0l14 75q-33 15-68 0z" fill="' + cloth + '"/>' +
+      '<path d="M64 86l17 65m20-65-9 65" fill="none" stroke="#FFF3D5" opacity=".55"/><path d="M59 126h52v9H57z" fill="#AD813D"/>' +
+      '<path d="M65 82 43 112 26 97l-8 9 26 28 30-29m29-23 17 24 11-30 10 4-8 51q-4 9-13 0l-20-24" fill="' + skin + '"/>' +
+      '<path d="M71 63v19q13 9 24 0V61" fill="' + skin + '"/><path d="M62 32q22-22 44 0l-2 30q-19 24-38 0z" fill="' + skin + '"/>' +
+      '<path d="M59 36q-1-25 25-25t27 25l-8 12-5-23H70l-5 23z" fill="' + (enemy ? '#E2C89E' : '#293039') + '"/><path d="M66 36h38" stroke="#D9AF5D" stroke-width="5"/>' +
+      '<path d="M71 47h8m12 0h8M80 65h11" fill="none" stroke-linecap="round"/>' +
+      '<path d="M135 100V12" stroke="#67492E" stroke-width="5"/><path d="M135 2l-7 21 7-5 7 5z" fill="#BCAA7A"/>' +
+      '<path d="M18 92q-20 11-13 50l23 17 23-17q7-39-13-50z" fill="' + (enemy ? '#643E30' : '#255B76') + '"/>' +
+      '<path d="M18 98q-14 9-8 40l18 13 18-13q6-31-8-40z" fill="none" stroke="#CBAD69" stroke-width="3"/><circle cx="28" cy="123" r="9" fill="#CBA75E"/><circle cx="28" cy="123" r="4" fill="#6A553A"/></g></svg>';
+  }
+  let activeAmbushCombat = null;
+  function stopAmbushCombat() { if (activeAmbushCombat) activeAmbushCombat.dispose(); }
+  function startAmbushCombat(o, callback) {
+    stopAmbushCombat();
+    const host = o.host; if (!host) return null;
+    const s = ambushNew(o), root = document.createElement('section');
+    root.className = 'ambush49 t-' + (o.terrain === 'desert' ? 'desert' : 'river');
+    root.setAttribute('aria-label', 'Silahlı mücadele'); host.appendChild(root);
+    let dead = false;
+    const hearts = (n, max) => '<span aria-label="' + n + ' / ' + max + ' can">' + '♥'.repeat(n) + '<i>' + '♡'.repeat(max - n) + '</i></span>';
+    function render() {
+      const tell = ambushTell(s);
+      root.innerHTML = '<header><span class="ac-kicker">' + (o.terrain === 'desert' ? 'Kervanın savunması' : 'Güvertede karşılaşma') + '</span><h2>Yolunu koru</h2><p>Mızrak ve kalkan · ' + s.turns + '/12 hamle</p></header>' +
+        '<div class="ac-arena a-' + s.last + '"><div class="ac-horizon"></div><div class="ac-fighter ac-you">' + ambushFigure(o.hero, false) + '<b>Sen</b>' + hearts(s.hp, s.maxHp) + '</div><div class="ac-fighter ac-enemy">' + ambushFigure('', true) + '<b>Saldırgan</b>' + hearts(s.enemy, s.maxEnemy) + '</div><div class="ac-dust"></div></div>' +
+        '<div class="ac-info" aria-live="polite"><b>' + (s.done ? s.won ? 'Yol açıldı' : 'Geri çekildin' : tell.name) + '</b><p>' + (s.done ? s.text : tell.help) + '</p></div>' +
+        '<p class="ac-response" role="status">' + (s.done ? '' : s.text) + '</p>' +
+        (s.done ? '<button type="button" class="btn gold wide" data-ac="finish">Yola devam et</button>' :
+          '<div class="ac-strength">Güç <span aria-label="' + s.stamina + ' / 3 güç">' + '●'.repeat(s.stamina) + '○'.repeat(3 - s.stamina) + '</span>' + (s.opening ? '<b>Karşı saldırı hazır</b>' : '<small>Kalkanını kaldırınca güç +1</small>') + '</div><div class="ac-actions">' +
+          '<button type="button" data-ac="strike"' + (!s.stamina ? ' disabled' : '') + '><b>1 · Vur</b><small>Mızrak · 1 güç</small></button><button type="button" data-ac="guard"><b>2 · Kalkan</b><small>Doğrultulan mızrağa karşı</small></button><button type="button" data-ac="dodge"' + (!s.stamina ? ' disabled' : '') + '><b>3 · Yana çekil</b><small>Savuruşa karşı · 1 güç</small></button></div><button type="button" class="ac-retreat" data-ac="retreat">Geri çekil · yükün tehlikeye girer</button>');
+    }
+    function dispose() {
+      if (dead) return; dead = true;
+      root.removeEventListener('click', click); window.removeEventListener('keydown', key);
+      root.remove(); if (host.classList.contains('ac49-overlay')) host.remove();
+      document.body.classList.remove('armed49');
+      if (activeAmbushCombat === ctl) activeAmbushCombat = null;
+    }
+    function act(action) {
+      if (dead) return;
+      if (action === 'finish') {
+        if (!s.done) return;
+        const result = { won:s.won, hits:s.hits, hp:s.hp, turns:s.turns };
+        dispose(); callback(result); return;
+      }
+      if (!ambushTurn(s, action)) return;
+      if (o.onChange) o.onChange({ hp:s.hp, hits:s.hits });
+      play(s.done ? s.won ? 'good' : 'bad' : s.last === 'strike' ? 'hit' : 'tick'); render();
+      const f = root.querySelector(s.done ? '[data-ac="finish"]' : '[data-ac="' + action + '"]:not(:disabled)');
+      if (f) f.focus({ preventScroll:true });
+    }
+    function click(e) { const b = e.target.closest && e.target.closest('[data-ac]'); if (b) { e.preventDefault(); act(b.dataset.ac); } }
+    function key(e) {
+      if (e.repeat || !$('#veil').hidden || !['1', '2', '3'].includes(e.key) || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+      e.preventDefault(); act(['strike', 'guard', 'dodge'][+e.key - 1]);
+    }
+    const ctl = { dispose, peek:() => s, bot() { if (s.done) act('finish'); else act(ambushTell(s).id === 'lunge' ? 'guard' : ambushTell(s).id === 'sweep' ? s.stamina ? 'dodge' : 'guard' : s.stamina ? 'strike' : 'guard'); } };
+    activeAmbushCombat = ctl; document.body.classList.add('armed49'); root.addEventListener('click', click); window.addEventListener('keydown', key);
+    if (s.hp <= 0) { s.done = true; s.text = 'Tayfan seni güvenli yere taşıyor.'; }
+    render(); const f = root.querySelector('button:not(:disabled)'); if (f) f.focus({ preventScroll:true });
+    return ctl;
+  }
+  function riverAmbush() {
+    const voyage = VG; if (!voyage) return;
+    voyage.scene = 'ambush'; Sea.stop(); $('#voy').hidden = true; $('#sea').hidden = true;
+    openSheet('<div class="sh-h"><h2 id="shTitle">Yolunu kestiler<small>Dar geçitte bir saldırgan teknesi</small></h2></div>' +
+      '<div class="ac-choice"><div>' + ambushFigure('', true) + '</div><p>Güverteye yaklaşmaya çalışıyorlar. Tayfan küreklerin başında; mızrağın ve kalkanın elinin altında.</p></div>' +
+      '<div class="row"><button type="button" class="btn gold" data-ambush-action="fight">Silahlı mücadele</button><button type="button" class="btn" data-ambush-action="run">Kürekle uzaklaş</button></div><p class="muted">Mücadelede rakibin hareketini okuyarak hamle yaparsın. Yaralanırsan canın azalır; teknenin gövdesi etkilenmez.</p>', true, 'ambush');
+    const choose = action => {
+      if (VG !== voyage || voyage.scene !== 'ambush') return;
+      voyage.scene = 'combat'; closeSheet();
+      if (action === 'run') { playScene('chase'); return; }
+      const host = document.createElement('div'); host.className = 'ac49-overlay'; $('#stage').appendChild(host);
+      Snd.mode('chase');
+      startAmbushCombat({ terrain:'river', host, hp:voyage.hh, maxHp:voyage.hhMax, hero:S.hero, seed:voyage.plan.seed + voyage.layer * 97, onChange:res => { voyage.hh = res.hp; renderPlate(); } }, res => {
+        if (VG !== voyage) return;
+        voyage.hh = res.hp; voyage.acc.fought = true; voyage.acc.caught = !res.won; voyage.acc.escaped = res.won;
+        voyage.inChase = false; voyage.scene = null;
+        const text = res.won ? 'Mızrak ve kalkanla saldırganları geri püskürttün. Yükün güvende.' : 'Geri çekildin. Saldırganlar yolculuğun sonunda yükünden pay alacak.';
+        vnote(text + (res.hits ? ' Mücadelede ' + res.hits + ' can kaybettin.' : ''), res.won ? 'good' : 'bad');
+        Snd.mode('sea'); renderPlate();
+        if (!faintCheck()) advance();
+      });
+      renderPanel();
+    };
+    document.querySelectorAll('#sheet [data-ambush-action]').forEach(b => { b.onclick = () => choose(b.dataset.ambushAction); });
+  }
+  setTimeout(() => {
+    const N = window.__nil; if (N && N.fn) Object.assign(N.fn, {
+      combatState:() => activeAmbushCombat && activeAmbushCombat.peek(),
+      combatBot:() => { if (activeAmbushCombat) activeAmbushCombat.bot(); },
+      combatAction:action => { const b = document.querySelector('.ambush49 [data-ac="' + action + '"]'); if (b && !b.disabled) b.click(); }
+    });
+  }, 0);
