@@ -96,6 +96,7 @@
   /* ---------- the road screen ---------- */
   function dzRender() {
     const v = $('#voy'); if (!VG || !v) return;
+    if (typeof DZ3 !== 'undefined') DZ3.start();
     v.classList.add('dzv');
     let root = $('#dz48');
     if (!root || VG.dzRoot !== root) {
@@ -286,7 +287,7 @@
     };
     z.timers = []; setTimeout(fin, reduce ? 300 : 1300);
   }
-  function dzStopScene() { const z = DZS; if (!z) return; z.done = true; cancelAnimationFrame(z.raf); z.timers.forEach(clearTimeout); if (z.off) z.off(); DZS = null; const box = $('#dzsc'); if (box) { box.hidden = true; box.innerHTML = ''; } }
+  function dzStopScene() { if (typeof DZ3 !== 'undefined') DZ3.stop(); const z = DZS; if (!z) return; z.done = true; cancelAnimationFrame(z.raf); z.timers.forEach(clearTimeout); if (z.off) z.off(); DZS = null; const box = $('#dzsc'); if (box) { box.hidden = true; box.innerHTML = ''; } }
   const dzLater = (fn, ms) => { const z = DZS; const id = setTimeout(() => { if (DZS === z && !z.done) fn(); }, ms); z.timers.push(id); return id; };
 
   /* 1. Kum tepeleri: the trail forks between the dune crest and the hollow; soft sand swallows hooves. Tap a lane to walk there. */
@@ -520,26 +521,40 @@
     if (!z) return;
     Snd.mode('chase'); play('chase'); buzz('caught');
     const pts = K ? dkPts(K) / (K.donkeys * DK_MAX) : 1, over = dzOver() > 0 || (K && K.slack > 0);
-    const pRun = Math.max(0.25, Math.min(0.9, 0.3 + 0.55 * pts - (over ? 0.15 : 0))), pWin = S.hero === 'ahmose' ? 0.8 : 0.6;
+    const pRun = Math.max(0.25, Math.min(0.9, 0.3 + 0.55 * pts - (over ? 0.15 : 0)));
     const toll = Math.min(S.cash, Math.round(S.cash * 0.08 + 60)), pc = n => Math.round(n * 100);
     const st = $('#dzss');
     st.innerHTML = '<div class="rdz"><div class="rcrest">' + Array.from({ length:4 }, (_, k) => '<i class="rider" style="--k:' + k + '"><svg viewBox="0 0 40 36" aria-hidden="true"><path d="M4 26q2-8 10-9h12q6 0 8-6l3 2-3 8q-2 4-8 5v8h-3v-7H14v7h-3v-8z" fill="#3A2A1E"/><path d="M15 16l2-10h5l1 10z" fill="#F7EFDF" stroke="#2B1D14" stroke-width="1.2"/><circle cx="19.5" cy="5" r="3" fill="#3A2A1E"/><path d="M23 9l9-6" stroke="#6E4A2A" stroke-width="1.6"/></svg></i>').join('') + '</div><div class="rcar">' + dzCaravan(4, true) + '</div></div>';
     const opt = (k, ic, t, sub) => '<button type="button" class="dzrc" data-raid="' + k + '">' + ico(ic, 22) + '<b>' + t + '</b><small>' + sub + '</small></button>';
     $('#dzctl').innerHTML = '<div class="dzraid">' + opt('run', 'i-donkey', 'Kaç!', 'Kurtulma şansı %' + pc(pRun) + (pts < 0.75 ? ' (eşekler yorgun)' : '') + ' · yakalanırsan yükün dörtte biri gider, −1 can') +
-      opt('pay', 'i-coin', 'Haraç öde', fmt(toll) + ' deben · kimse yaralanmaz') + opt('fight', 'i-bolt', 'Savaş', '−1 can · kazanma şansı %' + pc(pWin) + ' (+120 deben) · kaybedersen yükün dörtte biri gider') + '</div>';
+      opt('pay', 'i-coin', 'Haraç öde', fmt(toll) + ' deben · kimse yaralanmaz') + opt('fight', 'i-bolt', 'Silahını çek', 'Saldırıyı oku, savun ve karşılık ver · kazanırsan +120 deben · yenilirsen yükün dörtte biri gider') + '</div>';
     const r = dzR(29); z.wait = performance.now();
     const loseQ = () => { const v0 = S.stats.lostVal || 0, l = loseFrac(S, 0.25); VG.dzLost += (S.stats.lostVal || 0) - v0; return l.join(', ') || 'boş heybeler'; };
     const pickR = k => {
       if (z.done || z.busy) return; z.busy = true; VG.dzRaid = k; const a = VG.acc; let t, kind = 'good';
       st.querySelector('.rdz').classList.add('k-' + k);
+      if (k === 'fight') {
+        z.combat = true;
+        z.el.classList.add('dz-combat49'); st.innerHTML = '';
+        if (typeof DZ3 !== 'undefined') DZ3.stop();
+        const ctl = $('#dzctl'); if (ctl) ctl.innerHTML = '';
+        const controller = startAmbushCombat({ terrain:'desert', host:st, hp:VG.hh, maxHp:VG.hhMax, hero:S.hero, seed:VG.plan.seed + VG.layer * 97, onChange:result => { if (VG) { VG.hh = result.hp; renderPlate(); } } }, result => {
+          if (DZS !== z || z.done || !VG) return;
+          VG.hh = Math.max(0, result.hp);
+          const won = result.won, text = won ? 'Akıncıların saldırılarını savuşturdun, silahınla karşılık verdin. Kaçarken düşürdükleri 120 deben senin.' : 'Akıncılar üstün geldi. Aldıkları: ' + loseQ() + '.';
+          if (won) a.coins += 120;
+          a.caught = !won; a.escaped = won;
+          st.innerHTML = '<div class="ac-final"><b>' + (won ? 'Yol açıldı' : 'Geri çekildin') + '</b><p>' + esc(text) + '</p></div>';
+          VG.dzLines.push({ k:won ? 'good' : 'bad', t:text }); dzNote('Çöl akıncıları', text, won ? 'good' : 'bad', 'i-bolt');
+          dzHud(); renderPlate(); dzEnd({});
+        });
+        z.off = () => controller.dispose(); z.bot = () => controller.bot();
+        return;
+      }
       if (k === 'pay') { S.cash -= toll; t = fmt(toll) + ' deben haraç ödedin. Akıncılar selam verip çekildi.'; kind = 'info'; a.caught = false; a.escaped = true; play('coin'); }
       else if (k === 'run') {
         if (r() < pRun) { t = 'Eşekleri kamçıladın, kum tepelerinin arkasında akıncıları kaybettin!'; a.caught = false; a.escaped = true; play('escape'); }
         else { VG.hh = Math.max(0, VG.hh - 1); t = 'Yorgun eşekler yetişemedi: akıncılar yetişti. Boğuştun (−1 can); aldıkları: ' + loseQ() + '.'; kind = 'bad'; a.caught = true; a.escaped = false; play('caught'); }
-      } else {
-        VG.hh = Math.max(0, VG.hh - 1);
-        if (r() < pWin) { a.coins += 120; t = 'Savaştın (−1 can) ve akıncıları kovaladın! Kaçarken düşürdükleri 120 deben senin.'; a.caught = false; a.escaped = true; play('good'); }
-        else { t = 'Savaştın ama çok kalabalıktılar (−1 can). Aldıkları: ' + loseQ() + '.'; kind = 'bad'; a.caught = true; a.escaped = false; play('caught'); }
       }
       VG.dzLines.push({ k:kind === 'info' ? 'info' : kind, t }); dzNote('Çöl akıncıları', t, kind, 'i-bolt'); dzFloat(kind === 'bad' ? 'Yakalandın!' : k === 'pay' ? 'Haraç ödendi' : 'Kurtuldun!', kind === 'bad' ? 'bad' : 'good');
       dzHud(); renderPlate();
@@ -594,3 +609,4 @@
   /* debug: the bots play the desert scenes through this */
   function dzBot() { if (DZS && !DZS.done && DZS.bot) DZS.bot(performance.now()); }
   setTimeout(() => { const N = window.__nil; if (N && N.fn) Object.assign(N.fn, { desertBot:dzBot, dzRender:() => { if (VG && VG.dz) { VG.dzCarKey = ''; dzRender(); } }, dzCamp:() => { if (VG && VG.dz && !DZS) dzCampOpen(); }, dzScene:() => DZS && DZS.kind, dzPlay:t => { if (VG && VG.dz && !DZS) { VG.dzStage = 'scene'; VG.dzLines = []; dzStop({ t }); } }, dzRaid:() => { if (VG && VG.dz && !DZS) { VG.dzLines = []; dzRaid(); } } }); }, 0);
+

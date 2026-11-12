@@ -1,0 +1,25 @@
+/* Real depth and warm material lighting for the desert; SVG gameplay targets
+   stay above the shared WebGL canvas and remain usable without WebGL. */
+.dzpan{background:linear-gradient(#BAD7E4 0 38%,#E8C692 66%);border-color:#755238;box-shadow:0 4px 0 #755238,0 12px 24px #573A2720}
+.dzpan .dz3-canvas,.dzss .dz3-canvas{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;z-index:0;pointer-events:none;display:block}
+.dzpan.dz3-ready>.dzsky,.dzpan.dz3-ready>.dzlay,.dzpan.dz3-ready>.dzhz,.dzpan.dz3-ready>.dzcarw,.dzpan.dz3-ready>.dzfire{visibility:hidden}
+.dzpan.dz3-ready::after{display:none}
+.dzpan::before{content:"";position:absolute;inset:0;z-index:6;pointer-events:none;box-shadow:inset 0 0 55px #6F482B24,inset 0 1px 0 #FFFFFF88;border-radius:inherit}
+.dzss.dz3-ready>.pth,.dzss.dz3-ready>.stm,.dzss.dz3-ready>.cyn{background:transparent;z-index:1}
+.dzss.dz3-ready .pcar>.dz-car,.dzss.dz3-ready .scar>.dz-car,.dzss.dz3-ready .ccar>.dz-car{visibility:hidden}
+.dzss.dz3-ready .pth .ln{background:linear-gradient(180deg,#F8E4B76B,#EBC78A8A);border-color:#80613C80;box-shadow:0 7px 12px #62452520;transform:skewX(-8deg)}
+.dzss.dz3-ready .stm .srock{background:linear-gradient(135deg,#E3B789,#A5704D 55%,#71513D);clip-path:polygon(14% 14%,42% 0,79% 8%,100% 39%,91% 100%,0 100%,0 43%);border-radius:0;box-shadow:inset -16px -14px 0 #503B332A,0 12px 18px #3F2D2933}
+.dzss.dz3-ready .cyn .wall{background:repeating-linear-gradient(165deg,#A76B4766 0 24px,#593A3255 25px 29px);border:0;filter:drop-shadow(0 10px 9px #40251E66)}
+.dzss.dz3-ready .cyn::before{background:linear-gradient(#67442C77,#302A2CD9);border-color:#F0C49444}
+.dz-car{filter:drop-shadow(3px 6px 3px #4C332C35)}
+.dz-scene-caption{position:absolute;bottom:12px;left:14px;z-index:6;pointer-events:none;color:#FFF4DA;text-shadow:0 2px 3px #33261F;font:700 12px Nunito,sans-serif;letter-spacing:.08em}
+.dz48 .dzstop,.dz48 .dzdk,.dz48 .dzcamp{border-color:#8B6746;box-shadow:0 3px 0 #8B6746;background:linear-gradient(140deg,#FFFAEBDD,#F3E4C7)}
+.dz48 .dzo{border-color:#8B6746;box-shadow:0 3px 0 #8B6746;background:linear-gradient(115deg,#FFFCF2,#F4E6CD)}
+.dz48 .dzo .dz-ic{filter:drop-shadow(1px 3px 1px #8B674633)}
+.dzsc{background:radial-gradient(ellipse at 10% 0,#FFF3D9,#EBD4AC 80%)}
+.dzsh{padding:4px 3px}
+.dzsh p{color:#69503B;line-height:1.4}
+@media(min-width:861px){.dzpan{min-height:260px}.dz48{gap:10px}.dzss{min-height:230px}}
+@media(max-width:600px){.dzpan{min-height:190px;border-radius:14px}.dz48{gap:6px}.dzsh>div>b{font-size:16px}.dzsh p{font-size:13px}}
+@media(max-height:500px) and (orientation:landscape){.dzpan{min-height:140px}.dzss{min-height:120px}.dzsh{padding:0}.dzsh .dz-ic{width:32px;height:32px}.dzctl .dzbig{min-height:44px}}
+@media(prefers-reduced-motion:reduce){.dzpan::before{box-shadow:inset 0 1px 0 #FFFFFF88}}

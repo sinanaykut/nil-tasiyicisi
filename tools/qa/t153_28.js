@@ -6,6 +6,7 @@ const BOT = () => {
   const N = window.__nil; let lastB = 0; const keys = {};
   const key = (k, on) => { if (!!keys[k] === on) return; keys[k] = on; window.dispatchEvent(new KeyboardEvent(on ? 'keydown' : 'keyup', { key:k })); };
   setInterval(() => {
+    if (N.fn.combatState && N.fn.combatState()) { N.fn.combatBot(); return; }
     if (N.fn.desertBot) N.fn.desertBot();   /* v48: the desert road's own scenes (DOM, not Sea) */
     const st = N.Sea.peek(); if (!st || st.end || st.count > 0) { N.Sea.setPad('L', false); N.Sea.setPad('R', false); ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].forEach(k => key(k, false)); return; }
     const g = N.Sea.geo();
@@ -71,7 +72,7 @@ async function main() {
       if (st.pz) { seen.add('pz:' + st.pz); await solvePuzzle(p); await W(300); continue; }
       if (st.veil) {
         const btn = await p.evaluate(() => { const box = document.querySelector('#sheet .dlg-box'); if (box && (!box.classList.contains('done') || box.classList.contains('more'))) { box.click(); return 'dlgNext'; }
-          const order = ['[data-act="heroGo"]', '[data-act="unlockOk"]', '[data-act="carGo"]', '[data-act="qAccept"]', '[data-qriddle="0"]', '[data-act="qScene"]', '[data-act="qDuel"]', '[data-nchoice="0"]', '[data-act="event"]', '[data-choice="0"]:not(:disabled)', '[data-choice="1"]:not(:disabled)', '[data-choice]:not(:disabled)', '[data-act="land"]', '[data-act="pzStart"]', '#dlgCh [data-dlg]:last-child', '[data-close]']; for (const s of order) { const e = document.querySelector('#sheet ' + s); if (e && !e.disabled) { e.click(); return s; } } return null; });
+          const order = ['[data-ambush-action="fight"]', '[data-act="heroGo"]', '[data-act="unlockOk"]', '[data-act="carGo"]', '[data-act="qAccept"]', '[data-qriddle="0"]', '[data-act="qScene"]', '[data-act="qDuel"]', '[data-nchoice="0"]', '[data-act="event"]', '[data-choice="0"]:not(:disabled)', '[data-choice="1"]:not(:disabled)', '[data-choice]:not(:disabled)', '[data-act="land"]', '[data-act="pzStart"]', '#dlgCh [data-dlg]:last-child', '[data-close]']; for (const s of order) { const e = document.querySelector('#sheet ' + s); if (e && !e.disabled) { e.click(); return s; } } return null; });
         if (btn) seen.add(btn); await W(250); continue;
       }
       if (st.phase === 'sea') {
@@ -117,3 +118,4 @@ async function main() {
   }
 }
 main().catch(e => { console.error('FAIL:', e.stack || e.message || e); process.exitCode = 1; });
+

@@ -59,6 +59,10 @@ node tools/qa/test-haggle49.cjs
 node tools/qa/test-scale49.cjs
 node tools/qa/test-chars49.cjs
 node tools/qa/test-city49.cjs
+node tools/qa/test-combat49.cjs
+node tools/qa/test-desert49.cjs
+node tools/qa/test-sea49.cjs
 ```
 
-Gerçek cihazda ayrıca 412×915 dikey, 915×412 yatay ve masaüstü görünümünü kontrol et: miktarı yazıp doğrudan pazarlığa başla, satış yönünü değiştir, sipariş teslim et, Kalpazanlar terazisini çöz ve şehirde rehber açıkken kaydır/yakınlaştır. 3B kapalıyken yolculukların tamamlanabilmesi gerekir. Bu kaynak testleri ekran görüntüsü ve gerçek GPU performans kontrolünün yerini almaz.
+Gerçek cihazda ayrıca 412×915 dikey, 915×412 yatay ve masaüstü görünümünü kontrol et: miktarı yazıp doğrudan pazarlığa başla, satış yönünü değiştir, sipariş teslim et, Kalpazanlar terazisini çöz ve şehirde rehber açıkken kaydır/yakınlaştır. Nehir pususunda silahlı mücadele veya kaçışı, çöl akıncılarında üç seçeneği de dene. 3B kapalıyken yolculukların tamamlanabilmesi gerekir. Bu kaynak testleri ekran görüntüsü ve gerçek GPU performans kontrolünün yerini almaz.
+

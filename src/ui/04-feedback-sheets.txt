@@ -155,6 +155,7 @@
   function doLoadSlot(n) {
     const v = readSlot(n), next = v && restoreSave(v.S);
     if (!next) { play('no'); toast('Bu kayıt açılamadı. Şu anki oyunun korunuyor.'); return; }
+    stopAmbushCombat();
     departing = false; $('#port').classList.remove('depart');
     Sea.stop(); plan = null; VG = null; phase = 'port'; document.body.classList.remove('at-sea', 'on-map'); $('#sea').hidden = true; $('#voy').hidden = true; $('#port').hidden = false; Snd.mode('port');
     S = next; RS = S.rs == null ? null : S.rs; S.voyage = null; sel = null; line = pickLine(); lastScene = '';
@@ -260,4 +261,5 @@
     openSheet(s, true, 'end');
     animateCounts();
   }
+
 

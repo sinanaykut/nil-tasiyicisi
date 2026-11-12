@@ -147,9 +147,15 @@
         if (st.plan.bless === 'sobek') { cx.beginPath(); cx.ellipse(18, 0, 3, 9, 0, 0, Math.PI * 2); outline(C.gold, 1.4); }
         cx.restore();
       } else if (o.k === 'log') {
+        /* Rounded bark, a lit ridge and a darker waterline make the floating
+           trunk readable against both blue water and white rapids. */
         cx.save(); cx.translate(x, y); cx.beginPath(); cx.roundRect ? cx.roundRect(-o.len / 2, -9, o.len, 18, 9) : cx.rect(-o.len / 2, -9, o.len, 18); outline(C.log, 2);
+        cx.strokeStyle = '#CA9F6B'; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(-o.len / 2 + 9, -6); cx.quadraticCurveTo(-2, -8, o.len / 2 - 5, -6); cx.stroke();
+        cx.strokeStyle = '#694A37'; cx.lineWidth = 3; cx.beginPath(); cx.moveTo(-o.len / 2 + 8, 6); cx.quadraticCurveTo(0, 8, o.len / 2 - 4, 5); cx.stroke();
         cx.strokeStyle = C.wood2; cx.lineWidth = 1.4; cx.beginPath(); cx.moveTo(-o.len / 2 + 8, -3); cx.lineTo(o.len / 2 - 10, -3); cx.moveTo(-o.len / 2 + 14, 4); cx.lineTo(o.len / 2 - 6, 4); cx.stroke();
-        cx.beginPath(); cx.ellipse(o.len / 2 - 3, 0, 4, 8, 0, 0, Math.PI * 2); outline('#C9955A', 1.2); cx.restore();
+        cx.beginPath(); cx.ellipse(o.len / 2 - 3, 0, 4, 8, 0, 0, Math.PI * 2); outline('#D5AC76', 1.2);
+        cx.strokeStyle = '#8E603E'; cx.lineWidth = 1; cx.beginPath(); cx.ellipse(o.len / 2 - 3, 0, 2.5, 5.8, 0, 0, Math.PI * 2); cx.stroke();
+        cx.beginPath(); cx.ellipse(o.len / 2 - 3, 0, 1, 2.6, 0, 0, Math.PI * 2); cx.stroke(); cx.restore();
       } else if (o.k === 'sand') {
         cx.beginPath(); cx.ellipse(x, y, o.w / 2 + 6, o.r + 5, 0, 0, Math.PI * 2); cx.fillStyle = 'rgba(232,250,252,.35)'; cx.fill();
         cx.beginPath(); cx.ellipse(x, y, o.w / 2, o.r, 0, 0, Math.PI * 2); outline('#D8B064', 2);
@@ -206,8 +212,28 @@
         cx.strokeStyle = '#D9A43A'; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(x, y - 14); cx.lineTo(x, y + 2); cx.moveTo(x, y - 6); cx.lineTo(x - 8, y + 2); cx.moveTo(x, y - 6); cx.lineTo(x + 8, y + 2); cx.stroke();
         [[-8, 5], [0, 6], [8, 5], [-4, 11], [4, 11], [0, 0]].forEach(([dx, dy]) => { cx.beginPath(); cx.ellipse(x + dx, y + dy, 3.6, 5, 0, 0, Math.PI * 2); outline('#8A3E1E', 1.2); cx.fillStyle = 'rgba(255,220,180,.4)'; cx.beginPath(); cx.arc(x + dx - 1, y + dy - 2, 1.2, 0, Math.PI * 2); cx.fill(); });
       }
-      if (p.k === 'crate' || p.k === 'cache') { const fl = p.full || holdFull(); if (fl) cx.globalAlpha = 0.4; cx.beginPath(); cx.rect(x - 11, y - 11, 22, 20); outline(C.wood, 2); cx.strokeStyle = C.ink; cx.lineWidth = 1.4; cx.beginPath(); cx.moveTo(x - 11, y - 1); cx.lineTo(x + 11, y - 1); cx.moveTo(x, y - 11); cx.lineTo(x, y + 9); cx.stroke(); cx.globalAlpha = 1; if (fl) fullTag(x, y - 21); }
-      if (p.k === 'coin') { cx.beginPath(); cx.arc(x, y, 11, 0, Math.PI * 2); outline(C.gold, 2); cx.fillStyle = C.ink; cx.font = '800 11px Nunito, sans-serif'; cx.textAlign = 'center'; cx.fillText('D', x, y + 4); }
+      if (p.k === 'crate' || p.k === 'cache') {
+        const fl = p.full || holdFull(); cx.save(); if (fl) cx.globalAlpha = 0.4;
+        /* Three timber faces share the former 22 x 20 footprint. The top-left
+           light is the same one used by the river's faceted stone obstacles. */
+        cx.beginPath(); cx.moveTo(x - 11, y - 7); cx.lineTo(x + 4, y - 3); cx.lineTo(x + 4, y + 9); cx.lineTo(x - 11, y + 5); cx.closePath(); outline(C.wood, 1.5);
+        cx.beginPath(); cx.moveTo(x + 4, y - 3); cx.lineTo(x + 11, y - 7); cx.lineTo(x + 11, y + 5); cx.lineTo(x + 4, y + 9); cx.closePath(); outline('#765039', 1.5);
+        cx.beginPath(); cx.moveTo(x - 11, y - 7); cx.lineTo(x - 4, y - 11); cx.lineTo(x + 11, y - 7); cx.lineTo(x + 4, y - 3); cx.closePath(); outline('#D3AD73', 1.5);
+        cx.strokeStyle = '#6D4933'; cx.lineWidth = .9; cx.beginPath(); cx.moveTo(x - 9, y - 2); cx.lineTo(x + 2, y + 1); cx.moveTo(x - 9, y + 2); cx.lineTo(x + 2, y + 5); cx.moveTo(x + 6, y + 1); cx.lineTo(x + 9, y - 1); cx.stroke();
+        cx.strokeStyle = '#E7C894'; cx.lineWidth = 1.6; cx.beginPath(); cx.moveTo(x - 9, y + 3); cx.lineTo(x + 1, y - 3); cx.moveTo(x - 9, y - 7); cx.lineTo(x + 3, y - 4); cx.stroke();
+        cx.strokeStyle = '#C7A36A'; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(x - 6, y - 9); cx.lineTo(x + 7, y - 5); cx.lineTo(x + 7, y + 6); cx.stroke();
+        cx.fillStyle = '#F4DEAB'; cx.fillRect(x - 10, y - 6, 1.5, 1.5); cx.fillRect(x + 1, y + 5, 1.5, 1.5);
+        cx.restore(); if (fl) fullTag(x, y - 21);
+      }
+      if (p.k === 'coin') {
+        cx.save();
+        cx.beginPath(); cx.ellipse(x, y + 2, 10, 9, 0, 0, Math.PI * 2); outline('#93612A', 1.5);
+        cx.beginPath(); cx.ellipse(x, y - 1, 10, 9, 0, 0, Math.PI * 2); outline(C.gold, 1.5);
+        cx.strokeStyle = '#F8DE8D'; cx.lineWidth = 1.2; cx.beginPath(); cx.ellipse(x, y - 1, 7.1, 6.3, 0, 0, Math.PI * 2); cx.stroke();
+        cx.strokeStyle = '#FFF0B6'; cx.lineWidth = 1.8; cx.beginPath(); cx.ellipse(x, y - 1, 8.3, 7.4, 0, Math.PI * 1.06, Math.PI * 1.63); cx.stroke();
+        cx.fillStyle = '#7B4A22'; cx.font = '800 11px Nunito, sans-serif'; cx.textAlign = 'center'; cx.fillText('D', x + .5, y + 3);
+        cx.restore();
+      }
       if (p.k === 'lotus') { for (let k = -1; k <= 1; k++) { cx.beginPath(); cx.ellipse(x + k * 6, y - 3, 4, 10, k * 0.5, 0, Math.PI * 2); outline(k ? '#F2A7B8' : '#E86A7E', 1.4); } }
       if (p.k === 'ankh') { cx.strokeStyle = C.ink; cx.lineWidth = 5; cx.beginPath(); cx.ellipse(x, y - 7, 5, 6, 0, 0, Math.PI * 2); cx.moveTo(x, y - 1); cx.lineTo(x, y + 12); cx.moveTo(x - 8, y + 2); cx.lineTo(x + 8, y + 2); cx.stroke(); cx.strokeStyle = C.gold; cx.lineWidth = 3; cx.stroke(); }
     }
@@ -458,3 +484,4 @@
       for (let k = 0; k < n; k++) donkey(pts[k].x, pts[k].y, pts[k].ang, ph + k * 1.7, k + 1, k === 0 ? '#8C7D6E' : k % 2 ? '#A59584' : '#978877', sc);
       driver(dx, dy, ph, st.wind);
     }
+
