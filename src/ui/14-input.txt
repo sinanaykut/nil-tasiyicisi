@@ -1,5 +1,12 @@
   /* ================= input ================= */
   const confirmA = {};
+  /* Repainting amount controls removes the active button. Keep keyboard focus
+     on the replacement in the same visible market/dialogue, if still enabled. */
+  function focusAmountControl(name, value) {
+    const scope = name !== 'data-tradeq' && hgSide && hgSide.dlg && sheetName === 'say' ? $('#dlgX') : document;
+    const next = scope && scope.querySelector('[' + name + '="' + value + '"]:not(:disabled)');
+    if (next) next.focus({ preventScroll:true });
+  }
   const NAVSND = new Set(['wait', 'oiMore', 'goMennefer', 'unlockOk', 'share', 'qScene', 'qDecline', 'pzCancel', 'pzEmpty', 'new', 'daily', 'cont', 'loadMenu', 'lonca', 'lonca2', 'recsT', 'helpT', 'helpM', 'toTitle', 'musicT', 'endBack', 'recs', 'event', 'land', 'finish', 'tutDone', 'noHints', 'rapid', 'mAuto', 'mOn', 'newAsk', 'finishAsk']);
   ['pointerdown', 'pointerup', 'click', 'touchend', 'keydown'].forEach(ev => document.addEventListener(ev, () => Snd.unlock(), true));
   document.addEventListener('click', e => {
@@ -11,8 +18,9 @@
     if (t.dataset.dlg != null) { dlgPick(+t.dataset.dlg); return; }
     if (t.dataset.hgg) { if (DLG && sheetName === 'say') { hagSetupInDialog(t.dataset.hgg); return; } DLG = null; closeSheet(); msel = t.dataset.hgg; renderPanel(); hag28(t.dataset.hgg); return; }
     if (t.dataset.hag28) { hag28(msel, t.dataset.hag28); return; }
-    if (t.dataset.hgside) { if (hgSide) { hgSide.side = t.dataset.hgside; hgSide.n = hgMax(hgSide.g, hgSide.side); play('tick'); hgSetupRepaint(); } return; }
-    if (t.dataset.hgq) { if (hgSide) { const mx = hgMax(hgSide.g, hgSide.side), v = t.dataset.hgq; hgSide.n = v === 'all' ? mx : Math.max(1, Math.min(mx, Math.min(hgSide.n, mx) + +v)); play('tick'); hgSetupRepaint(); } return; }
+    if (t.dataset.hgside) { if (hgSide) { hgSide.side = t.dataset.hgside; hgSide.n = tradeAmount(hgSide.n, hgMax(hgSide.g, hgSide.side)); rememberTrade(hgSide.g, hgSide.side); play('tick'); hgSetupRepaint(); focusAmountControl('data-hgside', t.dataset.hgside); } return; }
+    if (t.dataset.hgq) { if (hgSide) { const mx = hgMax(hgSide.g, hgSide.side), v = t.dataset.hgq; hgSide.n = tradeAmount(v === 'all' ? Infinity : hgSide.n + +v, mx); qty = hgSide.n; play('tick'); hgSetupRepaint(); focusAmountControl('data-hgq', v); } return; }
+    if (t.dataset.tradeq) { if (msel) { const mx = Math.max(hgMax(msel, 'buy'), hgMax(msel, 'sell')); qty = t.dataset.tradeq === 'all' ? Infinity : tradeAmount(tradeAmount(qty, mx) + +t.dataset.tradeq, mx); play('tick'); renderPanel(); focusAmountControl('data-tradeq', t.dataset.tradeq); } return; }
     if (t.dataset.pad) return;
     if (t.dataset.audio) { Snd.unlock(); if (t.dataset.audio === 'music') Snd.setMusic(!Snd.pref.music); else { Snd.setSfx(!Snd.pref.sfx); play('click'); } paintAudio(); return; }
     if (t.dataset.hero) { heroSel = t.dataset.hero; play('tick'); showHeroPick(heroMode); return; }
@@ -22,14 +30,14 @@
     if (t.dataset.hag) { play('click'); startHaggle(t.dataset.hag); return; }
     if (t.dataset.payq) { const r = $('#payR'); if (r) { const q = t.dataset.payq; r.value = q === 'all' ? r.max : q === 'half' ? Math.round(+r.max / 2) : Math.min(+r.max, +q); play('tick'); payUpdate(); } return; }
     if (t.dataset.pz != null) { memPress(+t.dataset.pz); return; }
-    if (t.dataset.pzs != null) { if (PZ && PZ.kind === 'scale') { const k = +t.dataset.pzs; PZ.pos[k] = (PZ.pos[k] + 1) % 3; PZ.tilt = 0; play('tick'); scaleDraw(); } return; }
+    if (t.dataset.pzs != null) { scaleMove(+t.dataset.pzs); return; }
     if (t.dataset.pzpick != null) { scalePick(+t.dataset.pzpick); return; }
     if (t.dataset.pzliar != null) { liarPick(+t.dataset.pzliar); return; }
     if (t.dataset.pzduel != null) { duelPick(+t.dataset.pzduel); return; }
     if (t.dataset.pzw != null) { balPress(+t.dataset.pzw, t.dataset.pos == null ? null : +t.dataset.pos); return; }
     if (t.dataset.qriddle != null) { kediRiddle(+t.dataset.qriddle); return; }
-    if (t.dataset.buy) { trade('buy', t.dataset.buy, t); return; }
-    if (t.dataset.sell) { trade('sell', t.dataset.sell, t); return; }
+    if (t.dataset.buy) { rememberTrade(t.dataset.buy, 'buy'); trade('buy', t.dataset.buy, t); return; }
+    if (t.dataset.sell) { rememberTrade(t.dataset.sell, 'sell'); trade('sell', t.dataset.sell, t); return; }
     if (t.dataset.qty) { qty = t.dataset.qty === 'Infinity' ? Infinity : +t.dataset.qty; play('click'); renderPanel(); placeTutor(); const c = document.querySelector('.abar .chip[aria-pressed="true"]'); if (c) c.focus({ preventScroll:true }); return; }
     if (t.dataset.open) { play('click'); ({ ship:showShip, menu:showMenu, defter:showDefter, prices:showPrices, debt:showDebt, music:() => { Snd.unlock(); showMusic(); } })[t.dataset.open](); return; }
     if (t.dataset.track) { Snd.unlock(); if (!Snd.pref.music) Snd.setMusic(true); Snd.pick(t.dataset.track); paintAudio(); updateMusic(); return; }
@@ -154,7 +162,8 @@
       if (rev) { play(pr > 1500 ? 'big' : 'sell'); floatAt(t, '+' + fmt(rev) + '  (kâr ' + (pr >= 0 ? '+' : '') + fmt(pr) + ')', pr < 0); if (lvUp) { line = pickLine(); trustToast(lvUp, S.city); } save(); renderAll(); } else if (kept.length) play('no'); }
     else if (act === 'gift') { const f = giftOf(S.city), r = gift28(S); if (r) { line = f.thanks; play('good'); toast('Karşılığında: ' + r.got.join(', ') + '.'); trustToast(r.lvUp, S.city); save(); renderAll(); } }
     else if (act === 'accept') { if (acceptOrder(S)) { play('click'); toast('Sipariş deftere yazıldı.'); save(); renderAll(); } else play('no'); }
-    else if (act === 'deliver') { const o = deliverable(S)[0]; const r = o && deliver(S, o); if (r) { play('big'); floatAt(t, '+' + fmt(r.reward)); toast(MERCHANT_NAMES[r.from] + ' siparişin için teşekkür ediyor.' + (r.perk === 'itibar' ? ' Lonca\'da +2 itibar.' : r.perk ? ' ' + BLESS[r.perk].name + ' seninle.' : '')); trustToast(r.lvUp, r.from); save(); renderAll(); } }
+    else if (act === 'pzScaleHint') scaleHint();
+    else if (act === 'deliver') { const o = deliverable(S)[0]; const r = o && deliver(S, o); if (r) { play('big'); floatAt(t, '+' + fmt(r.reward)); toast(MERCHANT_NAMES[r.from] + ' siparişin için teşekkür ediyor.' + (r.perk === 'itibar' ? ' Lonca\'da +2 itibar.' : r.perk ? ' ' + BLESS[r.perk].name + ' seninle.' : '')); trustToast(r.lvUp, r.from); save(); renderAll(); refreshOrderSheet(); } else refreshOrderSheet(); }
     else if (act === 'pay') { const n = t.dataset.n === 'all' ? S.debt : 500; const p = payDebt(S, n); if (p) { play('sell'); floatAt(t, '−' + fmt(p), true); save(); renderAll(); if (!S.debt) toast('Hapu\'ya borcun kalmadı!'); if (sheetName === 'debt') showDebt(); } else play('no'); }
     else if (act === 'borrow') { const p = borrow(S, 500); if (p) { play('buy'); floatAt(t, '+' + fmt(p)); save(); renderAll(); if (sheetName === 'debt') showDebt(); } else play('no'); }
     else if (act === 'newAsk' || act === 'finishAsk') {
@@ -162,6 +171,11 @@
       confirmA[act] = true; t.textContent = 'Emin misin? Tekrar bas'; t.classList.add('red');
       setTimeout(() => { confirmA[act] = false; }, 4000);
     }
+  });
+  document.addEventListener('change', e => {
+    const t = e.target; if (!t || !t.hasAttribute) return;
+    if (t.hasAttribute('data-hgqty') && hgSide) { hgSide.n = tradeAmount(t.value === '' ? hgSide.n : t.value, hgMax(hgSide.g, hgSide.side)); qty = hgSide.n; paintTradeAmount(t, hgSide.g, hgSide.side, hgSide.n, hgMax(hgSide.g, hgSide.side), 'hg'); }
+    else if (t.hasAttribute('data-tradeqty') && msel) { const mx = Math.max(hgMax(msel, 'buy'), hgMax(msel, 'sell')); qty = tradeAmount(t.value === '' ? qty : t.value, mx); paintTradeAmount(t, msel, null, qty, mx, 'trade'); }
   });
   document.addEventListener('input', e => { if (e.target && e.target.id === 'payR') payUpdate(); });
   function resumeVoyage() {

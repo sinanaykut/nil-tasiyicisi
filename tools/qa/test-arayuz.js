@@ -91,7 +91,7 @@ async function newGame(p, meta) {
     ok(st.g === 'buy' && !!st.t, 'guide moves to buying, points at a tile (' + st.t + ')');
     const gid = st.t;
     await p.click('.tile[data-tile="' + gid + '"]'); await W(250);
-    await p.click('.abar .chip[data-qty="Infinity"]'); await W(250);
+    await p.click('.abar .chip[data-tradeq="all"]'); await W(250);
     await p.click('.abar [data-buy="' + gid + '"]'); await W(400);
     st = await p.evaluate(g => ({ n:window.__nil.S.inv[g].n, g:window.__nil.meta.guide.step }), gid);
     ok(st.n > 0 && st.g === 'ship', 'bought ' + st.n + ' ' + gid + ' through the action bar; guide moves to the ship');
@@ -161,11 +161,11 @@ async function newGame(p, meta) {
     if (tileSel !== 'bugday') await q.click('.tile[data-tile="bugday"]');
     const inv0 = await q.evaluate(() => ({ n:window.__nil.S.inv.bugday.n, cash:window.__nil.S.cash }));
     await q.click('.abar [data-act="hag28"]'); await W(400);
-    st = await q.evaluate(() => ({ n:document.querySelector('.abar .qstep b') && +document.querySelector('.abar .qstep b').textContent, hint:document.querySelector('.abar .hgh') && document.querySelector('.abar .hgh').textContent }));
+    st = await q.evaluate(() => ({ n:document.querySelector('.abar .tradeqty') && +document.querySelector('.abar .tradeqty').value, hint:document.querySelector('.abar .hgh') && document.querySelector('.abar .hgh').textContent }));
     ok(st.n > 0 && !!st.hint, 'haggle setup shows the amount (' + st.n + ') and one plain hint: ' + st.hint);
     await q.screenshot({ path:PRE + '-' + vp.n + '-hgsetup.png' });
     await q.click('.abar [data-hgq="-1"]'); await W(150);
-    ok(await q.evaluate(n => +document.querySelector('.abar .qstep b').textContent === n - 1, st.n), 'the amount can be changed');
+    ok(await q.evaluate(n => +document.querySelector('.abar .tradeqty').value === n - 1, st.n), 'the amount can be changed');
     if (await q.evaluate(() => typeof window.__nil.fn.haggleAuto === 'function')) {
       /* leaving before any offer does not use up the good's haggle */
       await q.click('.abar [data-act="hgStart"]'); await W(500);

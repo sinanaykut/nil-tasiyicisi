@@ -49,6 +49,54 @@
     dlgSay([f.thanks, 'Karşılığında: ' + r.got.join(', ') + '.'], { mood:'happy', lv:3, html:giftCard(i), choices:merchChoices(), sub:(MERCHANTS[i].title || CITIES[i].name) + ' · ' + hearts(trustLv(S)) + ' ' + TRUST[trustLv(S)].name });
     trustToast(r.lvUp, i);
   }
+  /* Keep the player's trade choice while opening or adjusting a haggle. */
+  let tradeIntent = null;
+  const tradeIntentKey = gid => S.day + ':' + S.city + ':' + gid;
+  function rememberTrade(gid, side) { tradeIntent = { state:S, key:tradeIntentKey(gid), side }; }
+  function hgDefaultSide(gid) {
+    return tradeIntent && tradeIntent.state === S && tradeIntent.key === tradeIntentKey(gid) ? tradeIntent.side : S.inv[gid].n > 0 ? 'sell' : 'buy';
+  }
+  function tradeAmount(value, max) {
+    max = Math.max(0, Math.floor(max));
+    if (!max) return 0;
+    if (value === Infinity || value === 'all') return max;
+    const n = Number(value);
+    return Math.max(1, Math.min(max, Number.isFinite(n) ? Math.floor(n) : 1));
+  }
+  function tradeQtyControls(n, max, prefix, all) {
+    return '<span class="qstep" role="group" aria-label="Miktar"><button type="button" class="chip" data-' + prefix + 'q="-1" aria-label="Miktarı azalt"' + (n > 1 ? '' : ' disabled') + '>−</button><input class="tradeqty" type="number" inputmode="numeric" min="' + (max ? 1 : 0) + '" max="' + max + '" step="1" value="' + n + '" data-' + prefix + 'qty aria-label="Miktar"' + (max ? '' : ' disabled') + '><button type="button" class="chip" data-' + prefix + 'q="1" aria-label="Miktarı artır"' + (n < max ? '' : ' disabled') + '>+</button><button type="button" class="chip" data-' + prefix + 'q="all" aria-pressed="' + !!all + '"' + (max ? '' : ' disabled') + '>Hepsi</button></span>';
+  }
+  function marketQtyControls(gid) {
+    const max = Math.max(hgMax(gid, 'buy'), hgMax(gid, 'sell'));
+    return tradeQtyControls(tradeAmount(qty, max), max, 'trade', qty === Infinity);
+  }
+  /* Update the amount in place: rebuilding on blur would remove the button
+     the player is clicking (Start/Buy/Sell) before its click can fire. */
+  function paintTradeAmount(input, gid, side, n, max, prefix) {
+    input.value = n;
+    const group = input.closest('.qstep');
+    if (group) {
+      const less = group.querySelector('[data-' + prefix + 'q="-1"]'), more = group.querySelector('[data-' + prefix + 'q="1"]'), all = group.querySelector('[data-' + prefix + 'q="all"]');
+      if (less) less.disabled = n <= 1;
+      if (more) more.disabled = n >= max;
+      if (all) all.setAttribute('aria-pressed', String(n === max));
+    }
+    if (side) {
+      const q = side === 'buy' ? quoteBuy(S, gid, n) : quoteSell(S, gid, n), summary = document.querySelector('[data-act="hgStart"] small');
+      if (summary) summary.textContent = n + ' ' + gName(gid) + ' · olağan ' + fmt(side === 'buy' ? q.cost : q.rev);
+    } else ['buy', 'sell'].forEach(k => {
+      const q = k === 'buy' ? quoteBuy(S, gid, n) : quoteSell(S, gid, n), b = document.querySelector('[data-' + k + '="' + gid + '"]');
+      if (!b) return;
+      b.disabled = !q.n;
+      const title = b.querySelector('b'), sub = b.querySelector('small');
+      if (title) title.textContent = (k === 'buy' ? 'Al' : 'Sat') + (q.n ? ' ' + q.n : '');
+      if (sub) sub.textContent = q.n ? (k === 'buy' ? '−' + fmt(q.cost) : '+' + fmt(q.rev)) : q.reason === 'full' ? 'depo dolu' : q.reason === 'cap' ? 'ambar dolu' : q.reason === 'stock' ? 'tezgâh boş' : k === 'buy' ? 'para yok' : 'elinde yok';
+    });
+  }
+  function refreshOrderSheet() {
+    if (sheetName === 'board') showBoard();
+    else if (sheetName === 'say' && DLG && DLG.who === S.city) showMerchant();
+  }
   /* pick a good to haggle over, inside the dialogue: his stall with today's price signal on every good
      (v48: the same tags as the market tiles: Ucuz green ↓, Pahalı red ↑, and the best price seen in another town) */
   function hgPickTile(g) {
@@ -68,22 +116,21 @@
   function hagSetupInDialog(gid, side) {
     const g = gById(gid); if (!g || !DLG || sheetName !== 'say') return;
     if (!canHaggle28(S, gid)) { play('no'); return; }
-    side = side || (hgMax(gid, 'buy') ? 'buy' : 'sell');
+    side = side || hgDefaultSide(gid);
     if (!hgMax(gid, side)) side = side === 'buy' ? 'sell' : 'buy';
     if (!hgMax(gid, side)) { play('no'); toast(S.inv[gid].n ? 'Tüccarın deposunda yer yok: bu malı şimdi almaz.' : 'Ne paran ne ambarın buna yetiyor.'); return; }
-    hgSide = { g:gid, side, n:hgMax(gid, side), dlg:true }; play('click');
-    const both = hgMax(gid, 'buy') && S.inv[gid].n && hgMax(gid, 'sell');
-    dlgSay([g.short + ' mi? ' + (both ? 'Alacak mısın, satacak mısın? Bir de kaç tane?' : side === 'buy' ? 'Kaç tane alacaksın?' : 'Kaç tane satacaksın?')], { html:hgSetupHtml(), choices:[] });
+    hgSide = { g:gid, side, n:tradeAmount(qty, hgMax(gid, side)), dlg:true }; rememberTrade(gid, side); play('click');
+    dlgSay([g.short + ': ' + hgSide.n + ' tane ' + (side === 'buy' ? 'almak' : 'satmak') + ' için konuşalım. İstersen miktarı değiştirebilirsin.'], { html:hgSetupHtml(), choices:[] });
   }
   function hgSetupHtml() {
-    const H = hgSide, g = gById(H.g), mx = hgMax(g.id, H.side), n = Math.max(1, Math.min(H.n, mx)), h = hgHint(g.id, H.side), sg = priceSig(g);
+    const H = hgSide, g = gById(H.g), mx = hgMax(g.id, H.side), n = H.n = tradeAmount(H.n, mx), h = hgHint(g.id, H.side), sg = priceSig(g);
     const both = hgMax(g.id, 'buy') && S.inv[g.id].n && hgMax(g.id, 'sell');
     const q = H.side === 'buy' ? quoteBuy(S, g.id, n) : quoteSell(S, g.id, n), tot = H.side === 'buy' ? q.cost : q.rev;
     return '<div class="hgset"><div class="hgsg">' + gIco(g.id, 34) + '<span><b>' + esc(g.name) + ' <em class="hgw ' + sg.tg + '">' + (sg.arrow ? sg.arrow + ' ' : '') + sg.word + '</em></b><small class="hgh ' + h[0] + '">' + esc(h[1]) + '</small></span>' +
       '<button type="button" class="btn sm hgsb" data-act="hgPickBack">' + ico('i-stall', 16) + 'Başka mal</button></div>' +
       '<div class="hgsr">' + (both ? '<span class="hgss" role="group" aria-label="Alış ya da satış"><button type="button" class="btn sm' + (H.side === 'buy' ? ' on' : '') + '" data-hgside="buy" aria-pressed="' + (H.side === 'buy') + '">Alıyorum</button><button type="button" class="btn sm' + (H.side === 'sell' ? ' on' : '') + '" data-hgside="sell" aria-pressed="' + (H.side === 'sell') + '">Satıyorum</button></span>' : '<span class="hgsl">' + (H.side === 'buy' ? 'Alıyorsun' : 'Satıyorsun') + '</span>') +
-      '<span class="qstep" role="group" aria-label="Miktar"><button type="button" class="chip" data-hgq="-1" aria-label="Azalt"' + (n > 1 ? '' : ' disabled') + '>−</button><b>' + n + '</b><button type="button" class="chip" data-hgq="1" aria-label="Artır"' + (n < mx ? '' : ' disabled') + '>+</button><button type="button" class="chip" data-hgq="all" aria-pressed="' + (n === mx) + '">Hepsi</button></span></div>' +
-      '<button type="button" class="btn go1 hgo" data-act="hgStart" data-first><b>Pazarlığa başla</b><small>' + n + ' ' + esc(g.short.toLowerCase()) + ' · olağan ' + fmt(tot) + '</small></button></div>';
+      tradeQtyControls(n, mx, 'hg', n === mx) + '</div>' +
+      '<button type="button" class="btn go1 hgo" data-act="hgStart" data-first' + (mx ? '' : ' disabled') + '><b>Pazarlığa başla</b><small>' + n + ' ' + esc(g.short.toLowerCase()) + ' · olağan ' + fmt(tot) + '</small></button></div>';
   }
   /* side or amount changed: repaint wherever the setup lives (the conversation or the market bar) */
   function hgSetupRepaint() {
@@ -110,10 +157,10 @@
   }
   /* the action bar while preparing a haggle: which side, how many, and a hint */
   function hgBar(g) {
-    const H = hgSide, mx = hgMax(g.id, H.side), n = Math.max(1, Math.min(H.n, mx)), qb = hgMax(g.id, 'buy'), held = S.inv[g.id].n, h = hgHint(g.id, H.side);
+    const H = hgSide, mx = hgMax(g.id, H.side), n = H.n = tradeAmount(H.n, mx), qb = hgMax(g.id, 'buy'), held = S.inv[g.id].n, h = hgHint(g.id, H.side);
     const q = H.side === 'buy' ? quoteBuy(S, g.id, n) : quoteSell(S, g.id, n), tot = H.side === 'buy' ? q.cost : q.rev;
     return '<div class="ab1 hgs"><span class="abg">' + gIco(g.id, 30) + '<span><b>Pazarlık · ' + esc(g.short) + '</b><small class="hgh ' + h[0] + '">' + esc(h[1]) + '</small></span></span>' +
-      '<span class="qstep" role="group" aria-label="Miktar"><button type="button" class="chip" data-hgq="-1" aria-label="Azalt"' + (n > 1 ? '' : ' disabled') + '>−</button><b>' + n + '</b><button type="button" class="chip" data-hgq="1" aria-label="Artır"' + (n < mx ? '' : ' disabled') + '>+</button><button type="button" class="chip" data-hgq="all" aria-pressed="' + (n === mx) + '">Hepsi</button></span>' +
+      tradeQtyControls(n, mx, 'hg', n === mx) +
       '<button type="button" class="x sm abx" data-act="hgBack" aria-label="Pazarlıktan vazgeç">' + ico('i-close', 16) + '</button></div>' +
       '<div class="ab2 hg">' + (qb && held ? '<button type="button" class="btn sm' + (H.side === 'buy' ? ' on' : '') + '" data-hgside="buy" aria-pressed="' + (H.side === 'buy') + '">Alırken</button><button type="button" class="btn sm' + (H.side === 'sell' ? ' on' : '') + '" data-hgside="sell" aria-pressed="' + (H.side === 'sell') + '">Satarken</button>' : '') +
       '<button type="button" class="btn go1 hgo" data-act="hgStart"' + (mx ? '' : ' disabled') + '><b>Pazarlığa başla</b><small>' + n + ' ' + esc(g.short.toLowerCase()) + ' · olağan ' + fmt(tot) + '</small></button></div>';
@@ -122,15 +169,15 @@
     const g = gById(gid); if (!g || phase !== 'port' || S.over) return;
     if (typeof haggleDeal !== 'function') { showHaggle(); return; }
     if (!canHaggle28(S, gid)) { toast(hgMad(S) ? MERCHANT_NAMES[S.city] + ' bugün küs. Yarın gel.' : 'Bu mal için bugün pazarlık ettin.'); play('no'); return; }
-    const qb = hgMax(gid, 'buy'), held = S.inv[gid].n;
-    side = side || (hgSide && hgSide.g === gid ? hgSide.side : qb ? 'buy' : 'sell');
+    side = side || (hgSide && hgSide.g === gid ? hgSide.side : hgDefaultSide(gid));
     if (!hgMax(gid, side)) side = side === 'buy' ? 'sell' : 'buy';
     if (!hgMax(gid, side)) { play('no'); return; }
-    msel = gid; hgSide = { g:gid, side, n:hgMax(gid, side) }; play('click'); renderPanel();
+    const selected = hgSide && hgSide.g === gid ? hgSide.n : qty;
+    msel = gid; hgSide = { g:gid, side, n:tradeAmount(selected, hgMax(gid, side)) }; rememberTrade(gid, side); play('click'); renderPanel();
   }
   function hgStart() {
     const H = hgSide; if (!H || !canHaggle28(S, H.g)) return;
-    const n = Math.max(1, Math.min(H.n, hgMax(H.g, H.side))); if (!hgMax(H.g, H.side)) { play('no'); return; }
+    const n = tradeAmount(H.n, hgMax(H.g, H.side)); qty = n; rememberTrade(H.g, H.side); if (!hgMax(H.g, H.side)) { play('no'); return; }
     hgSide = false;
     if (H.dlg) closeSheet();
     guideOnce('haggle', PANEB.haggle, () => hagGo(H.g, H.side, n, H.dlg), 'sly');

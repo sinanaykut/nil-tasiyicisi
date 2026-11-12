@@ -1,0 +1,40 @@
+/* v49: the inspector's lapis desk. Everything stays in the sheet's own scroll area. */
+.scale49{--scale-blue:#29528F;--scale-line:rgba(98,66,36,.22);border:1px solid var(--scale-line);border-radius:18px;background:linear-gradient(155deg,#FFF9EC,#F0E0BF);padding:14px;box-shadow:inset 0 1px #fff9,0 5px 18px #55351C0B}
+.scale49-top{display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid var(--scale-line);padding-bottom:10px}
+.scale49-top>span{font-size:10px;font-weight:900;letter-spacing:.12em;color:#796447}
+.scale49-top>b{font-size:12px;white-space:nowrap;background:#E5C883;color:#4B381D;border-radius:20px;padding:5px 10px}
+.scale49 .balwrap{min-width:0;margin:4px 0 0;background:radial-gradient(ellipse at 50% 40%,#FFFDF5 0,transparent 68%)}
+.scale49 .balwrap svg{max-width:340px;max-height:178px}
+.scale49-pans{display:grid;grid-template-columns:1fr 1fr;gap:18px;text-align:center;margin:-2px 0 10px}
+.scale49-pans>span{font-size:11px;color:#776449}
+.scale49-pans b{display:block;min-height:20px;font-size:14px;color:var(--scale-blue);letter-spacing:.04em}
+.scale49-instruction{font-size:12px;line-height:1.5;color:#6C583E;margin:0 0 8px}
+.scale49 .stones{grid-template-columns:repeat(8,minmax(0,1fr));gap:6px}
+.scale49 .stones .stone{border:1px solid #BDAB8E;border-radius:10px;background:#FFF9EA;min-height:48px;padding:4px 1px;box-shadow:0 2px 0 #BBA88B;transition:background .15s,border-color .15s,transform .15s}
+.scale49 .stones .stone b{font-size:17px;line-height:1.15}
+.scale49 .stones .stone small{font-size:10px;line-height:1.4}
+.scale49 .stones .stone.p1{background:#355E93;border-color:#234573;color:#fff;box-shadow:0 2px 0 #1D385A}
+.scale49 .stones .stone.p2{background:#866040;border-color:#66462B;color:#fff;box-shadow:0 2px 0 #57391F}
+.scale49 .stones .stone.p2 small{color:#F7E5CA}
+.scale49 .stones .stone:active{transform:translateY(2px);box-shadow:none}
+.scale49 .stones .stone.cleared{border-style:dashed}
+.scale49-actions{margin:12px 0 10px;gap:6px;flex-wrap:nowrap}
+.scale49-actions>.btn{min-height:44px;flex:1;padding:8px 6px;font-size:12px}
+.scale49-notes{padding:11px 12px;border-left:3px solid #3B6A8F;background:#DCE5E9;border-radius:0 9px 9px 0;font-size:12px;line-height:1.5;color:#34516A}
+.scale49-notes>b,.scale49-notes>span{display:block}
+.scale49-notes>b{font-size:13px;margin-bottom:2px}
+.scale49-hint{font-size:12px;line-height:1.6;color:#655438;background:#F8EBC8;border:1px solid #D9C99F;border-radius:9px;padding:11px 12px;margin-top:8px}
+.scale49-history{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px}
+.scale49-history>li{display:grid;grid-template-columns:64px 1fr;gap:2px 7px;padding:8px 10px;background:#FFFBF2;border:1px solid var(--scale-line);border-radius:9px;font-size:12px}
+.scale49-history>li>b{color:#8F6B3E;font-size:11px;grid-row:span 2;align-self:center}
+.scale49-history span{color:#344F70;font-weight:800}.scale49-history em{font-style:normal;font-weight:400;color:#8B7961;padding:0 5px}
+.scale49-history strong{font-size:11px;color:#655438;font-weight:600}
+.scale49-answer{border-top:1px solid var(--scale-line);margin-top:13px;padding-top:11px}
+.scale49-answer>h3{margin:0;font:700 15px Nunito,sans-serif;color:#473821}.scale49-answer>p{margin:3px 0 9px;font-size:11px;color:#78654A;line-height:1.4}
+.scale49 .pick8{gap:6px}.scale49 .pick8>.btn{min-height:44px;padding:5px 1px;background:#F8F0DC;border:1px solid #BAA17B;color:#344F70;font-size:15px}
+.scale49 .pick8>.btn.cleared{background:#ECE8DE;color:#8B8272;border-color:#D1C8B7;font-size:12px;box-shadow:none}
+.scale49 .pick8 small{display:block;font-size:8px;font-weight:600;line-height:1.1}
+.scale49 button:focus-visible{outline:3px solid #3C78AA;outline-offset:2px}
+@media(max-width:600px){.scale49{padding:10px;border-radius:13px}.scale49 .stones{grid-template-columns:repeat(4,minmax(0,1fr))}.scale49 .balwrap svg{max-height:155px}.scale49 .pick8{grid-template-columns:repeat(4,minmax(0,1fr))}.scale49-top>span{font-size:9px;letter-spacing:.07em}}
+@media(max-height:500px) and (min-width:600px){.scale49 .balwrap svg{max-height:130px}.scale49 .stones .stone{min-height:42px}.scale49-pans{margin-bottom:6px}}
+@media(prefers-reduced-motion:reduce){.scale49 .stones .stone{transition:none}}

@@ -59,7 +59,7 @@
     const ends = [[C0 - L * ca, Y0 - L * sa], [C0 + L * ca, Y0 + L * sa]];
     const item = (it, x, y) => {
       if (it.k === 'g') return '<g transform="translate(' + x + ' ' + y + ')">' + pth('M-24 0q-6 -22 6 -34h36q12 12 6 34z', '#C98E62', ink(2)) + pth('M-14 -34q14 -10 28 0', 'none', ink(2)) + pth('M-20 -14h40', 'none', 'stroke="#8E5A33" stroke-width="2"') + '<text x="0" y="-12" text-anchor="middle" font-family="Nunito,sans-serif" font-weight="800" font-size="13" fill="#2B1D14">' + it.v + '</text></g>';
-      if (it.k === 's') return '<g transform="translate(' + x + ' ' + y + ')"><ellipse cx="0" cy="-9" rx="11" ry="9" fill="#2F5FB3" stroke="' + INK + '" stroke-width="1.6"/><ellipse cx="-3" cy="-12" rx="4" ry="2.5" fill="#8DB3EE" opacity=".8"/><text x="0" y="-5" text-anchor="middle" font-family="Nunito,sans-serif" font-weight="800" font-size="10" fill="#fff">' + it.n + '</text></g>';
+      if (it.k === 's') return '<g transform="translate(' + x + ' ' + y + ')"><path d="M-11-8-6-18 5-20 12-10 7-1-6 0Z" fill="#29528F" stroke="' + INK + '" stroke-width="1.4"/><path d="M-6-18 1-10 12-10 5-20Z" fill="#7499C5"/><path d="M1-10 7-1 12-10Z" fill="#1D3D70"/><text x="0" y="-5" text-anchor="middle" font-family="Nunito,sans-serif" font-weight="800" font-size="10" fill="#fff">' + it.n + '</text></g>';
       const w = { 1:18, 3:24, 9:30, 27:38 }[it.v], h = { 1:13, 3:17, 9:21, 27:26 }[it.v];
       return '<g transform="translate(' + x + ' ' + y + ')">' + pth('M' + (-w / 2) + ' 0L' + (-w / 2 + 4) + ' ' + (-h) + 'H' + (w / 2 - 4) + 'L' + (w / 2) + ' 0Z', '#B9853F', ink(1.6)) + '<rect x="' + (-w / 4) + '" y="' + (-h - 4) + '" width="' + (w / 2) + '" height="5" rx="2" fill="#9C6A2E" stroke="' + INK + '" stroke-width="1.2"/><text x="0" y="' + (-h / 2 + 4) + '" text-anchor="middle" font-family="Nunito,sans-serif" font-weight="800" font-size="' + (it.v > 9 ? 12 : 11) + '" fill="#2B1D14">' + it.v + '</text></g>';
     };
@@ -74,7 +74,7 @@
       return s;
     };
     let s = '<svg viewBox="0 0 400 210" class="balsvg" role="img" aria-label="Terazi"><defs>' + grad('bzP', [[0, '#F2C65A'], [1, '#A8742A']], true) + grad('bzB', [[0, '#E9C46A'], [1, '#9C6A2E']], true) + '</defs>';
-    s += '<ellipse cx="200" cy="200" rx="70" ry="7" fill="#2B1D14" opacity=".15"/>' + pth('M168 200h64l-8 -14h-48z', '#8E5A33', ink(2)) + '<rect x="194" y="52" width="12" height="136" fill="url(#bzB)" stroke="' + INK + '" stroke-width="2"/>';
+    s += '<circle cx="200" cy="94" r="82" fill="#D9A43A" opacity=".08"/><path d="M36 190H364" stroke="#9D7750" stroke-width="1" opacity=".2"/>' + '<ellipse cx="200" cy="200" rx="70" ry="7" fill="#2B1D14" opacity=".15"/>' + pth('M168 200h64l-8 -14h-48z', '#8E5A33', ink(2)) + '<rect x="194" y="52" width="12" height="136" fill="url(#bzB)" stroke="' + INK + '" stroke-width="2"/>';
     s += pth('M' + ends[0][0] + ' ' + ends[0][1] + 'L' + ends[1][0] + ' ' + ends[1][1], 'none', 'stroke="' + INK + '" stroke-width="9" stroke-linecap="round"') + pth('M' + ends[0][0] + ' ' + ends[0][1] + 'L' + ends[1][0] + ' ' + ends[1][1], 'none', 'stroke="#D9A43A" stroke-width="5" stroke-linecap="round"');
     s += pan(ends[0], left) + pan(ends[1], right);
     s += '<circle cx="200" cy="46" r="8" fill="#F2C65A" stroke="' + INK + '" stroke-width="2"/>' + pth('M200 38V20M193 26h14', 'none', 'stroke="' + INK + '" stroke-width="3" stroke-linecap="round"') + '<ellipse cx="200" cy="15" rx="5" ry="6" fill="none" stroke="' + INK + '" stroke-width="3"/>';
@@ -89,35 +89,64 @@
     el._raf = requestAnimationFrame(stepA);
   }
 
-  /* --- balance scale: one stone in eight is a lighter fake; two weighings to find it --- */
+  /* --- Eight stones, one lighter fake: 3 vs 3 then 1 vs 1 always fits two weighings. --- */
+  function scaleReading(left, right, fake) {
+    const wl = left.length - (left.includes(fake) ? 0.3 : 0), wr = right.length - (right.includes(fake) ? 0.3 : 0);
+    return wl > wr ? -1 : wl < wr ? 1 : 0;
+  }
+  function scaleCandidates() {
+    if (!PZ || PZ.kind !== 'scale') return [];
+    return Array.from({ length:8 }, (_, k) => k).filter(k => PZ.weighs.every(w => scaleReading(w.left, w.right, k) === w.tilt));
+  }
   function pzScale(o) {
     pzClear();
-    PZ = { kind:'scale', tok:Math.random(), fake:Math.floor(Math.random() * 8), pos:Array(8).fill(0), left:2, log:[], tilt:0, cb:o.cb, timers:[] };
+    PZ = { kind:'scale', tok:Math.random(), fake:Math.floor(Math.random() * 8), pos:Array(8).fill(0), left:2, log:[], weighs:[], tilt:0, hint:false, cb:o.cb, timers:[] };
     let s = '<div class="sh-h"><h2 id="shTitle">' + esc(o.title) + '<small>' + esc(o.sub) + '</small></h2></div><p class="ntext">' + esc(o.text) + '</p>';
-    s += '<div class="balwrap" id="pzScale"></div><div class="stones" id="pzStones"></div>';
-    s += '<div class="row"><button class="btn gold" type="button" data-act="pzWeigh" data-first>Tart</button><button class="btn" type="button" data-act="pzEmpty">Kefeleri boşalt</button></div>';
-    s += '<p class="pzst" id="pzSt"></p><h3 class="sh-sec">Sahte hangisi?</h3><div class="pick8">' + Array.from({ length:8 }, (_, k) => '<button type="button" class="btn sm" data-pzpick="' + k + '">' + (k + 1) + '</button>').join('') + '</div>';
-    openSheet(s, true, 'pz');
-    scaleDraw();
+    s += '<section class="scale49" aria-label="Sahte lapis incelemesi"><div class="scale49-top"><span>SEKİZ TAŞ · BİR SAHTE</span><b id="pzScaleCount">2 tartı hakkı</b></div>';
+    s += '<div class="balwrap" id="pzScale"></div><div class="scale49-pans" id="pzPanLabels"></div><p class="scale49-instruction">Taşa dokun: tepsi → sol kefe → sağ kefe. Her kefeye aynı sayıda taş koy.</p><div class="stones" id="pzStones"></div>';
+    s += '<div class="row scale49-actions"><button class="btn gold" type="button" data-act="pzWeigh" data-first>Tart</button><button class="btn" type="button" data-act="pzEmpty">Boşalt</button><button class="btn" type="button" data-act="pzScaleHint">İpucu</button></div>';
+    s += '<div class="scale49-notes" id="pzSt" role="status" aria-live="polite"></div><div class="scale49-hint" id="pzScaleHint" hidden></div><div id="pzScaleHistory"></div>';
+    s += '<div class="scale49-answer"><h3>Sahte taşı seç</h3><p>Seçimin son kararın olacak. Sahte taş diğerlerinden daha hafif.</p><div class="pick8" id="pzScalePicks"></div></div></section>';
+    openSheet(s, true, 'pz'); scaleDraw();
+  }
+  function scaleHint() {
+    if (!PZ || PZ.kind !== 'scale') return;
+    PZ.hint = !PZ.hint; scaleDraw();
+  }
+  function scaleMove(k) {
+    if (!PZ || PZ.kind !== 'scale' || !Number.isInteger(k) || k < 0 || k > 7 || PZ.left <= 0) return;
+    PZ.pos[k] = (PZ.pos[k] + 1) % 3; PZ.tilt = 0; play('tick'); scaleDraw();
+    const button = document.querySelector('[data-pzs="' + k + '"]'); if (button) button.focus({ preventScroll:true });
   }
   function scaleDraw() {
     if (!PZ || PZ.kind !== 'scale') return;
     const items = n => PZ.pos.map((p, k) => p === n ? { k:'s', n:k + 1 } : null).filter(Boolean);
-    tiltTo($('#pzScale'), items(1), items(2), PZ.tilt);
-    const st = $('#pzStones'); if (st) st.innerHTML = PZ.pos.map((p, k) => '<button type="button" class="stone p' + p + '" data-pzs="' + k + '" aria-label="' + (k + 1) + '. taş: ' + ['tepside', 'sol kefede', 'sağ kefede'][p] + '"><b>' + (k + 1) + '</b><small>' + ['tepsi', 'sol', 'sağ'][p] + '</small></button>').join('');
-    const t = $('#pzSt'); if (t) t.innerHTML = 'Taşa dokun: tepsi → sol kefe → sağ kefe. Kalan tartı: <b>' + PZ.left + '</b>' + (PZ.log.length ? '<br>' + PZ.log.map(esc).join('<br>') : '');
-    const w = document.querySelector('[data-act="pzWeigh"]'); if (w) w.disabled = PZ.left <= 0;
+    const left = items(1), right = items(2), candidates = scaleCandidates(), last = PZ.weighs[PZ.weighs.length - 1];
+    tiltTo($('#pzScale'), left, right, PZ.tilt);
+    const count = $('#pzScaleCount'); if (count) count.textContent = PZ.left + ' tartı hakkı';
+    const labels = $('#pzPanLabels'); if (labels) labels.innerHTML = '<span>Sol kefe <b>' + (left.map(it => it.n).join(' · ') || 'boş') + '</b></span><span>Sağ kefe <b>' + (right.map(it => it.n).join(' · ') || 'boş') + '</b></span>';
+    const st = $('#pzStones'); if (st) st.innerHTML = PZ.pos.map((p, k) => '<button type="button" class="stone p' + p + (candidates.includes(k) ? '' : ' cleared') + '" data-pzs="' + k + '" aria-label="' + (k + 1) + '. taş: ' + ['tepside', 'sol kefede', 'sağ kefede'][p] + (candidates.includes(k) ? '' : ', gerçek olduğu biliniyor') + '"' + (PZ.left <= 0 ? ' disabled' : '') + '><b>' + (k + 1) + '</b><small>' + ['tepsi', 'sol', 'sağ'][p] + '</small></button>').join('');
+    const t = $('#pzSt');
+    if (t) t.innerHTML = '<b>' + (candidates.length === 1 ? 'İzler tek taşı gösteriyor: ' + (candidates[0] + 1) : 'Şüpheli taşlar: ' + candidates.map(k => k + 1).join(' · ')) + '</b><span>' + (!PZ.left ? 'Tartılar bitti. Notlarına bakıp kararını ver.' : !left.length && !right.length ? 'Taşlar tepside. Tartmak için iki kefeye de taş koy.' : left.length !== right.length ? 'Taş sayıları farklı. Hakkını harcamadan kefeleri eşitle.' : 'Kefeler hazır. Tartınca hafif olan taraf yukarı kalkar.') + '</span>';
+    const history = $('#pzScaleHistory'); if (history) history.innerHTML = PZ.weighs.length ? '<ol class="scale49-history">' + PZ.weighs.map((w, i) => '<li><b>' + (i + 1) + '. tartı</b><span>' + w.left.map(k => k + 1).join(' · ') + ' <em>ile</em> ' + w.right.map(k => k + 1).join(' · ') + '</span><strong>' + (w.tilt === 0 ? 'Dengede: dışarıdaki taşları incele' : w.tilt < 0 ? 'Sağ kefe hafif: şüpheli sağda' : 'Sol kefe hafif: şüpheli solda') + '</strong></li>').join('') + '</ol>' : '';
+    const hint = $('#pzScaleHint'); if (hint) {
+      hint.hidden = !PZ.hint;
+      hint.textContent = !PZ.left && candidates.length > 1 ? 'Bu karşılaştırmalar tek bir taşı ayırmaya yetmedi. Geçmişteki hafif kefeleri incele; kalan şüphelilerden birini seçmelisin.' : last && candidates.length > 3 ? 'Bu tartıdan sonra üçten fazla şüpheli kaldı. Bir hakkın var; hepsini kesin ayırmak artık mümkün olmayabilir. Sonraki denemende ilk tartıda üç taşı üç taşla karşılaştır.' : !last ? 'İlk tartıda üç taşı sola, başka üç taşı sağa koy. Denge varsa sahte, tepsideki iki taştan biridir. Denge yoksa hafif kefedeki üç taştan biridir.' : candidates.length > 1 ? 'Şüpheli taşlardan birini sola, diğerini sağa koy. Kefeler dengede kalırsa, tartmadığın şüpheli taştır. Denge yoksa yukarıda kalan hafif taşı seç.' : 'İki tartının sonuçları birbiriyle tutarlı. Geriye kalan tek şüpheliyi seçebilirsin.';
+    }
+    const picks = $('#pzScalePicks'); if (picks) picks.innerHTML = Array.from({ length:8 }, (_, k) => '<button type="button" class="btn sm' + (candidates.includes(k) ? '' : ' cleared') + '" data-pzpick="' + k + '" aria-label="' + (k + 1) + '. taşın sahte olduğunu söyle">' + (k + 1) + (candidates.includes(k) ? '' : '<small>gerçek</small>') + '</button>').join('');
+    const w = document.querySelector('[data-act="pzWeigh"]'); if (w) w.disabled = PZ.left <= 0 || !left.length || left.length !== right.length;
   }
   function scaleWeigh() {
     if (!PZ || PZ.kind !== 'scale' || PZ.left <= 0) return;
-    const L = PZ.pos.map((p, k) => p === 1 ? k : -1).filter(k => k >= 0), Rr = PZ.pos.map((p, k) => p === 2 ? k : -1).filter(k => k >= 0);
-    if (!L.length || !Rr.length) { toast('İki kefeye de taş koy.'); play('no'); return; }
-    const wl = L.length - (L.includes(PZ.fake) ? 0.3 : 0), wr = Rr.length - (Rr.includes(PZ.fake) ? 0.3 : 0);
-    PZ.tilt = wl > wr ? -1 : wl < wr ? 1 : 0; PZ.left--;
-    PZ.log.push((2 - PZ.left) + '. tartı: ' + L.map(k => k + 1).join(',') + ' | ' + Rr.map(k => k + 1).join(',') + ' → ' + (PZ.tilt === 0 ? 'dengede' : PZ.tilt < 0 ? 'sol ağır basıyor' : 'sağ ağır basıyor'));
+    const left = PZ.pos.map((p, k) => p === 1 ? k : -1).filter(k => k >= 0), right = PZ.pos.map((p, k) => p === 2 ? k : -1).filter(k => k >= 0);
+    if (!left.length || !right.length || left.length !== right.length) { toast('Adil bir tartı için kefelere eşit sayıda taş koy.'); play('no'); return; }
+    if (PZ.weighs.some(w => (w.left.join() === left.join() && w.right.join() === right.join()) || (w.left.join() === right.join() && w.right.join() === left.join()))) { toast('Bu taşları zaten tarttın. Başka bir karşılaştırma dene.'); play('no'); return; }
+    PZ.tilt = scaleReading(left, right, PZ.fake); PZ.left--;
+    PZ.weighs.push({ left, right, tilt:PZ.tilt });
+    PZ.log.push((2 - PZ.left) + '. tartı: ' + left.map(k => k + 1).join(',') + ' | ' + right.map(k => k + 1).join(',') + ' → ' + (PZ.tilt === 0 ? 'dengede' : PZ.tilt < 0 ? 'sol ağır basıyor' : 'sağ ağır basıyor'));
     play('weigh'); scaleDraw();
   }
-  function scalePick(k) { if (!PZ || PZ.kind !== 'scale') return; const ok = k === PZ.fake, cb = PZ.cb; toast(ok ? (k + 1) + '. taş boyalı kireç taşı çıktı!' : 'Yanlış: sahte olan ' + (PZ.fake + 1) + '. taştı.'); pzClear(); play(ok ? 'good' : 'bad'); cb(ok); }
+  function scalePick(k) { if (!PZ || PZ.kind !== 'scale' || !Number.isInteger(k) || k < 0 || k > 7) return; const ok = k === PZ.fake, cb = PZ.cb; toast(ok ? (k + 1) + '. taş boyalı kireç taşı çıktı!' : 'Yanlış: sahte olan ' + (PZ.fake + 1) + '. taştı.'); pzClear(); play(ok ? 'good' : 'bad'); cb(ok); }
 
   /* --- interrogation: exactly one of three lies, and the liar is the forger --- */
   function liarPuzzle() {

@@ -1275,7 +1275,7 @@ void main() {
         gBox = [a, bb, c, d];
       }
       const pageScrolls = () => { try { const d = document.scrollingElement || document.documentElement; return d.scrollHeight > innerHeight + 4; } catch (e) { return false; } };
-      const zp = X.zoomPan(el, { max:3, onChange() { dirty = true; }, bound:townBound, room:townRoom, ta:() => townRoom() && !pageScrolls() ? 'none' : 'pan-y' });
+      const zp = X.zoomPan(el, { max:3, enabled:() => $('#veil').hidden, onChange() { dirty = true; }, bound:townBound, room:townRoom, ta:() => townRoom() && !pageScrolls() ? 'none' : 'pan-y' });
       function scr(x, y, z) { _v.set(x, y, z).project(cam); return [(_v.x + 1) / 2 * W, (1 - _v.y) / 2 * H]; }
       const ovl = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
       function layout() {
@@ -1347,6 +1347,7 @@ void main() {
         dirty = true;
       }
       try { ro = new ResizeObserver(() => { need = true; }); ro.observe(el); } catch (e) { ro = null; }
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (!killed) need = true; });
       try { io = new IntersectionObserver(es => { inView = es[es.length - 1].isIntersecting; }); io.observe(el); } catch (e) { io = null; }
       /* per frame: walkers (instanced), boats bob, smoke and lamps (points); no allocations */
       function step(t, dt) {

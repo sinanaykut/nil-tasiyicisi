@@ -55,7 +55,7 @@
     if (dl && it.n && room < it.n) notes.unshift(room ? 'Tüccarın deposunda ' + room + ' ' + g.short.toLowerCase() + ' yeri kaldı' : 'Tüccarın deposu dolu: bu malı almaz');
     const info = [dl ? '<em class="tw ' + tg + '">' + TAGW[tg] + '</em>' : '', it.n ? 'Elinde ' + it.n + ' · ort. ' + fmt(avg) : 'Elinde yok', b ? cIco(b.i, 12) + fmt(b.p) + '↗' : ''].filter(Boolean).map(x => '<span class="abi">' + x + '</span>').join('\u00a0· ') + (notes.length ? '<span class="abw">⚠ ' + esc(notes[0]) + '</span>' : '');
     let s = '<div class="ab1"><span class="abg">' + gIco(g.id, 30) + '<span><b>' + esc(g.short) + '</b><small>' + info + '</small></span></span>' +
-      (dl ? '<span class="chips" role="group" aria-label="Miktar">' + [[1, '1'], [10, '10'], [Infinity, 'Hepsi']].map(([q, l]) => '<button type="button" class="chip" data-qty="' + q + '" aria-pressed="' + (qty === q) + '">' + l + '</button>').join('') + '</span>' : '') +
+      (dl ? marketQtyControls(g.id) : '') +
       '<button type="button" class="x sm abx" data-act="unpick" aria-label="Seçimi kapat">' + ico('i-close', 16) + '</button></div>';
     if (!dl) return s + '<div class="ab2"><span class="abno">Burada alınıp satılmaz' + (b ? ' · en iyi ' + esc(CITIES[b.i].name) + ' ' + fmt(b.p) : '') + '</span></div>';
     const qb = g.craft ? { n:0, cost:0 } : quoteBuy(S, g.id, qty), qs = quoteSell(S, g.id, qty);
@@ -260,7 +260,12 @@
     if (box.dataset.k !== st.text || !box.firstChild) { box.dataset.k = st.text; box.innerHTML = tutInner('Paneb', st.text); }
     tutBind(box, () => tutDo(st));
     box.hidden = false;
-    const r = tutAvoid(st.el);
+    positionTutorBox(st.el);
+  }
+  /* Keep the explanation anchored while a town camera or its labels settle. */
+  function positionTutorBox(el) {
+    const box = $('#tut'); if (!box || box.hidden || !el || !el.isConnected) return;
+    const r = tutAvoid(el);
     /* phones: the guide docks as a slim strip at the top or bottom edge, on the side away from what you must tap
        (v47: away from the 3D thing itself too, not only its label; if both edges would cover it, the strip lets taps through) */
     box.classList.toggle('dock', isPhone());
@@ -341,7 +346,8 @@
       else {
         /* above the target, pointing down; below it (pointing up) when there is no room above or the guide's bubble/strip sits there */
         /* a big target (a whole 2D building) may take the arrow inside it, pointing at its middle */
-        const t = $('#tut'), q = t && !t.hidden ? t.getBoundingClientRect() : null, cx = r.left + r.width / 2;
+        const t = $('#tut'); if (t && !t.hidden && veil.hidden) positionTutorBox(el);
+        const q = t && !t.hidden ? t.getBoundingClientRect() : null, cx = r.left + r.width / 2;
         const free = (y0, y1) => y0 >= 4 && y1 <= vh - 4 && !(q && q.bottom > y0 && q.top < y1 && q.right > cx - 17 && q.left < cx + 17);
         let up = 0, ty = r.top;
         if (free(r.top - 50, r.top)) ty = r.top;
