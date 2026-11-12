@@ -47,7 +47,7 @@ pre = '''(function () {
   const $ = s => document.querySelector(s);
   const KEY = 'nil-kervanci-v10', RECK = 'nil-kervanci-v9-rec', SLOTK = 'nil-kervanci-v10-slot', METAK = 'nil-kervanci-meta10', MUS = 'nil-kervanci-music', SFX = 'nil-kervanci-sfx';
   const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
-  const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } };
   const jget = (k, d) => { try { const v = JSON.parse(lsGet(k)); return v == null ? d : v; } catch (e) { return d; } };
 '''
 core = r('core.txt').replace('/*CORE*/', '').replace('/*ENDCORE*/', '')

@@ -3,8 +3,9 @@
 const { chromium } = require('playwright');
 const path = require('path');
 const W = ms => new Promise(r => setTimeout(r, ms));
-const HTML = process.argv[2], PRE = process.argv[3] || 'ta', D3 = process.env.D3 === '1';
-const ROOT = '/tmp/claude-0/-home-claude/50408ee7-81cd-5d20-8660-e495325793de/scratchpad';
+const ROOT = path.resolve(__dirname, '../..');
+const HTML = path.resolve(process.argv[2] || process.env.HTML || path.join(ROOT, 'dist/preview.html')), PRE = process.argv[3] || 'ta', D3 = process.env.D3 === '1';
+const THREE = path.join(ROOT, 'site/three.min.js');
 const SKIP = JSON.stringify({ rep:4, lv:{}, ach:{}, runs:3, noHints:true, tutDone:true, seenFeat:['haggle','crisis','sethi','quest','contra','desert','atolye','tekne'] });
 let fails = 0;
 const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + m); if (!c) fails++; };
@@ -60,7 +61,7 @@ async function newGame(p, meta) {
     const ctx = await b.newContext(vp.o), p = await ctx.newPage(); const errs = [];
     p.on('pageerror', e => errs.push(e.message)); p.on('console', m => { if (m.type() === 'error' && !/fonts\.g|ERR_|net::/.test(m.text())) errs.push('console: ' + m.text()); });
     await ctx.route('https://fonts.googleapis.com/**', r => r.abort()); await ctx.route('https://fonts.gstatic.com/**', r => r.abort());
-    await ctx.route('https://cdnjs.cloudflare.com/**', r => r.fulfill({ path:ROOT + '/vendor/node_modules/three/build/three.min.js', contentType:'application/javascript' }));
+    await ctx.route('https://cdnjs.cloudflare.com/**', r => r.fulfill({ path:THREE, contentType:'application/javascript' }));
     /* ---- 0. closing the hero pick before any game goes back to the title ---- */
     {
       const c0 = await b.newContext(vp.o); await c0.route('https://fonts.googleapis.com/**', r => r.abort()); const p0 = await c0.newPage();
@@ -131,7 +132,7 @@ async function newGame(p, meta) {
     await ctx.close();
 
     /* ---- 2. a seasoned player: market, haggle fallback, gift, travel, desert, repair, places ---- */
-    const ctx2 = await b.newContext(vp.o); await ctx2.route('https://fonts.googleapis.com/**', r => r.abort()); await ctx2.route('https://cdnjs.cloudflare.com/**', r => r.fulfill({ path:ROOT + '/vendor/node_modules/three/build/three.min.js', contentType:'application/javascript' })); await ctx2.route('https://fonts.gstatic.com/**', r => r.abort()); const q = await ctx2.newPage();
+    const ctx2 = await b.newContext(vp.o); await ctx2.route('https://fonts.googleapis.com/**', r => r.abort()); await ctx2.route('https://cdnjs.cloudflare.com/**', r => r.fulfill({ path:THREE, contentType:'application/javascript' })); await ctx2.route('https://fonts.gstatic.com/**', r => r.abort()); const q = await ctx2.newPage();
     q.on('pageerror', e => errs.push(e.message)); q.on('console', m => { if (m.type() === 'error' && !/fonts\.g|ERR_|net::/.test(m.text())) errs.push('console: ' + m.text()); });
     await newGame(q, SKIP); await settle(q);
     await W(400); await q.screenshot({ path:PRE + '-' + vp.n + '-c1.png' });

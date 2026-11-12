@@ -1,11 +1,14 @@
 const { chromium } = require('playwright'); const fs = require('fs');
+const path = require('path');
 const W = ms => new Promise(r => setTimeout(r, ms));
-const ROOT = '/tmp/claude-0/-home-claude/50408ee7-81cd-5d20-8660-e495325793de/scratchpad';
-const HTML = process.env.HTML || (ROOT + '/audit31/preview31.html'), OUT = process.env.OUT || (ROOT + '/audit31/qa/');
-const THREE = ROOT + '/vendor/node_modules/three/build/three.min.js';
+const ROOT = path.resolve(__dirname, '../..');
+const HTML = path.resolve(process.env.HTML || path.join(ROOT, 'dist/preview.html'));
+const OUT = path.resolve(process.env.OUT || path.join(ROOT, 'dist/qa')) + path.sep;
+const THREE = path.join(ROOT, 'site/three.min.js');
 const VPS = { d:{ viewport:{ width:1280, height:720 } }, m:{ viewport:{ width:412, height:915 }, isMobile:true, hasTouch:true }, l:{ viewport:{ width:915, height:412 }, isMobile:true, hasTouch:true } };
 const SKIP = { rep:4, lv:{}, ach:{}, runs:3, noHints:true, tutDone:true, seenFeat:['haggle','crisis','sethi','quest','contra','desert','atolye','tekne'] };
 async function open(vpn, { d3 = true, meta = SKIP, tag = '' } = {}) {
+  fs.mkdirSync(OUT, { recursive:true });
   const b = await chromium.launch({ args:['--use-gl=swiftshader', '--enable-webgl', '--ignore-gpu-blocklist'] });
   const ctx = await b.newContext(VPS[vpn]); const p = await ctx.newPage(); const errs = [];
   p.on('pageerror', e => errs.push('PAGEERR ' + e.message + ' @' + (e.stack || '').split('\n')[1]));
