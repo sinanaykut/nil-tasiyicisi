@@ -119,6 +119,7 @@
       if (l && (l === 'room') !== (out.tell === st.M.room)) l = null;
       out.learn = l;
     }
+    if (out) st.log.push({ act, asked:act === 'offer' ? HG_OFF[k] : null, price:st.cur, ev:out.ev });
     return out;
   }
   function hgStep0(st, act, k) {
@@ -362,7 +363,7 @@
         (ks.length || known.praise != null ? ks.map(t => '<span>' + hgGlyph(t) + '<em class="' + known[t] + '">' + (known[t] === 'room' ? 'verir' : 'sınır') + '</em></span>').join('') + (known.praise != null ? '<span class="pr">Övgü: <em class="' + (known.praise > 0 ? 'room' : known.praise < 0 ? 'limit' : '') + '">' + (known.praise > 0 ? 'sever' : known.praise < 0 ? 'sevmez' : 'fark etmez') + '</em></span>' : '') : '<small>Defterin boş: yüzünü izle, öğrendikçe yazılır.</small>');
     }
     const bub = $('#hgBub'); if (bub) { bub.innerHTML = '<b>' + esc(nm) + '</b>' + hgLine(st, ev); bub.classList.remove('pop'); void bub.offsetWidth; bub.classList.add('pop'); }
-    const rd = $('#hgRd'); if (rd) rd.innerHTML = Array.from({ length:st.max }, (_, k) => '<i class="' + (k < st.round ? 'on' : '') + '"></i>').join('');
+    const rd = $('#hgRd'); if (rd) { rd.setAttribute('aria-label', st.round + '/' + st.max + ' teklif kullanıldı'); rd.title = st.round + '/' + st.max + ' teklif kullanıldı'; rd.innerHTML = Array.from({ length:st.max }, (_, k) => '<i class="' + (k < st.round ? 'on' : '') + '"></i>').join(''); }
     const dl = $('#hgDeal');
     if (dl) {
       const u = hgPrice(st, st.cur), list = st.o.unit, tot = u * q, diff = Math.abs(list - u) * q;
@@ -373,6 +374,8 @@
         const r = st.res, ok = r.done;
         h += '<div class="hgstamp ' + (r.angry ? 'bad' : ok ? 'ok' : 'no') + '">' + (r.angry ? 'Kovuldun!' : ok ? 'Anlaştık' + (st.cur > 0 ? ' ' + hgPct(st, st.cur) : '') : 'Anlaşma yok') + '</div>';
       }
+      h += '<div class="hgstatus" role="status"><span>' + (st.fin ? (st.res.done ? 'Tamam ile alışverişi bitir.' : 'Bu pazarlıkta alışveriş yapılmadı.') : st.final ? 'Son fiyat: kabul et ya da vazgeç.' : 'Kalan teklif: ' + Math.max(0, st.max - st.round) + ' · ' + (st.pat <= 1 ? 'Sabrı tükeniyor.' : 'Yüzünü izle, sonra teklif ver.')) + '</span></div>';
+      if (st.log.length) h += '<ol class="hghistory" aria-label="Son pazarlık adımları">' + st.log.slice(-3).map(x => '<li><span>' + (x.act === 'offer' ? 'İstedin: ' + hgPct(st, x.asked) : ({ walk:'Gidiyormuş gibi yaptın', praise:'Övgü', accept:'Kabul ettin', leave:'Vazgeçtin', guess:'Yüzünü okudun', flashGone:'Son fırsat geçti' }[x.act] || 'Karşılık')) + '</span><b>' + (x.ev === 'angry' ? 'Anlaşma bozuldu' : x.ev === 'leave' || x.ev === 'bye' ? 'Alışveriş yok' : hgUnitTxt(hgPrice(st, x.price)) + ' / tane') + '</b></li>').join('') + '</ol>';
       dl.innerHTML = h;
     }
     const bt = $('#hgBtns');
@@ -383,7 +386,7 @@
         const canOff = st.round < st.max && !st.final;
         /* v48: the face quiz: an extra row; ignoring it is fine (any other move closes it) */
         if (st.quiz) h += '<div class="hgquiz"><span>' + hgGlyph(st.tell) + '<b>Yüzünü oku:</b></span><button class="btn hgq0" type="button" data-hg="guess" data-k="0">Daha ' + (st.buy ? 'iner' : 'çıkar') + '</button><button class="btn hgq1" type="button" data-hg="guess" data-k="1">Sınırda</button></div>';
-        h += '<div class="hgoff">' + HG_OFF.map((a, k) => '<button class="btn hgo o' + k + '" type="button" data-hg="offer" data-k="' + k + '"' + (!canOff || a <= st.cur + 1e-9 ? ' disabled' : '') + '><b>' + hgPct(st, a) + '</b><small>' + hgUnitTxt(hgPrice(st, a)) + '</small></button>').join('') + '</div>';
+        h += '<div class="hgoff">' + HG_OFF.map((a, k) => '<button class="btn hgo o' + k + '" type="button" data-hg="offer" data-k="' + k + '"' + (!canOff || a <= st.cur + 1e-9 ? ' disabled' : '') + ' title="' + (st.buy ? 'Bu kadar indirim iste' : 'Satış fiyatını bu kadar artır') + '"><b>' + hgPct(st, a) + '</b><small>' + hgUnitTxt(hgPrice(st, a)) + ' / tane</small></button>').join('') + '</div>';
         h += '<div class="hgact"><button class="btn hga" type="button" data-hg="praise"' + (st.praised ? ' disabled' : '') + '>' + ico('i-whisper', 18) + 'Övgü</button>';
         h += '<button class="btn hga" type="button" data-hg="walk"' + (st.walked || !canOff ? ' disabled' : '') + '>' + hgWalkIco() + 'Gidiyormuş gibi yap</button>';
         h += st.flash ? '<button class="btn go1 hgk flash" type="button" data-hg="accept" data-first>Hemen kabul!<small>' + hgUnitTxt(hgPrice(st, st.flash)) + '</small><i class="hgclk" aria-hidden="true"></i></button></div>'

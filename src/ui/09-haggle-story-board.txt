@@ -259,7 +259,7 @@
   /* ---- the forgers (an investigation: Blade Runner, Mindhunter, True Detective) ---- */
   function lapisScale() {
     const q = Q();
-    pzScale({ title:'Müfettiş Nakht', sub:'Vaset · vezirin mahzeni', text:'Nakht masaya sekiz lapis dizdi: "Biri sahte; boyalı kireç taşı, gerçeğinden biraz hafif. Terazim ancak iki tartıya dayanır." Sahteyi bul.',
+    pzScale({ title:'Müfettiş Nakht', sub:'Vaset · vezirin mahzeni', text:'Nakht masaya sekiz lapis dizdi: "Biri sahte; boyalı kireç taşı, gerçeğinden biraz hafif. İki tartı hakkın var. İki kefeye aynı sayıda taş koy; sahte taşın olduğu kefe hafif kalır." Sahteyi bul.',
       cb(ok) {
         q.step = 2; q.f.sharp = ok;
         qLog(ok ? 'Sahte taşı buldun. Tozunda Abu ocaklarının kırmızı kumu var.' : 'Yanlış taşı seçtin ama Nakht tozdan bir iz buldu: Abu ocakları.');

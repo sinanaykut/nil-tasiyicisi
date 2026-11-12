@@ -209,3 +209,11 @@
   .hgquiz .btn{min-height:42px;font-size:14px;padding:3px 5px}
 }
 @media (prefers-reduced-motion: reduce){ .hgk.flash,.hgquiz{animation:none} .hgk.flash .hgclk{animation-duration:6s} }
+
+
+/* The same bounded amount control in the market and haggle preparation. */
+.qstep{flex-wrap:wrap;gap:4px;max-width:100%}
+.qstep .tradeqty{width:64px;min-width:48px;min-height:40px;padding:5px 3px;border:1px solid var(--ink2);border-radius:7px;background:var(--paper,#FBF3DF);color:var(--ink);font:800 16px Nunito,sans-serif;text-align:center;box-sizing:border-box}
+.qstep .tradeqty:focus{outline:2px solid var(--lapis,#1F5FA8);outline-offset:2px}
+.hgstatus{display:flex;flex-wrap:wrap;gap:5px 12px;margin:6px 0;font:700 12px Nunito,sans-serif;color:var(--ink2)}
+.hghistory{padding:5px 8px;margin:5px 0 0;list-style:none;border-top:1px solid #B69A6C66;background:#FFF8E666;border-radius:7px;font:600 11px/1.4 Nunito,sans-serif}.hghistory li{display:flex;justify-content:space-between;gap:8px;padding:2px 0}.hghistory b{white-space:nowrap}

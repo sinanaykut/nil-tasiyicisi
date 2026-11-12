@@ -50,3 +50,15 @@ node tools/qa/t153_28.js 1 "$PWD/dist/preview.html"
 Arayüz testi `ALL OK` yazmalı. 30 günlük bot, sonuç ekranına ulaşmalı ve `errs: none` yazmalı; eksik sonuç, adım sınırı veya sayfa hatası başarısız çıkış kodu üretir.
 
 `test-arayuz.js` varsayılan olarak `dist/preview.html` açar; ilk argüman veya `HTML` ortam değişkeni başka bir dosya seçer. `lib.js` de `HTML` değişkenini kullanır; ekran görüntüleri varsayılan olarak `dist/qa/` içine yazılır, `OUT` ile değiştirilebilir. 3B testleri depodaki `site/three.min.js` dosyasını kullanır.
+
+Oynanış ve çizim regresyonları da tarayıcı gerektirmez:
+
+```sh
+node tools/qa/test-trade-ux.js
+node tools/qa/test-haggle49.cjs
+node tools/qa/test-scale49.cjs
+node tools/qa/test-chars49.cjs
+node tools/qa/test-city49.cjs
+```
+
+Gerçek cihazda ayrıca 412×915 dikey, 915×412 yatay ve masaüstü görünümünü kontrol et: miktarı yazıp doğrudan pazarlığa başla, satış yönünü değiştir, sipariş teslim et, Kalpazanlar terazisini çöz ve şehirde rehber açıkken kaydır/yakınlaştır. 3B kapalıyken yolculukların tamamlanabilmesi gerekir. Bu kaynak testleri ekran görüntüsü ve gerçek GPU performans kontrolünün yerini almaz.
