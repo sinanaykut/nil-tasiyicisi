@@ -1,10 +1,82 @@
   /* ================= state, storage ================= */
   let S = null, sel = null, rapid = false, hagRaf = 0, hagT0 = 0, qty = 1, phase = 'port', plan = null, line = '', sheetLock = false, lastScene = '', toastT = null, opener = null, sheetName = '';
   const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const save = () => { if (!S) return; S.rs = RS; lsSet(KEY, JSON.stringify(S)); };
-  const valid = p => p && p.v >= 10 && p.v <= 12 && Array.isArray(p.prices) && p.prices.length >= 5 && p.inv && p.up && p.trust;
+  let saveWarned = false, recoveryRaw = null, recoveryKey = '';
+  function writeSave(key, value, quiet) {
+    let ok = false;
+    try {
+      /* Keep an unreadable autosave intact before starting another one. If the
+         recovery copy cannot be written, do not replace the original either. */
+      if (key === KEY && recoveryRaw != null) {
+        if (!lsSet(recoveryKey, recoveryRaw)) throw new Error('recovery');
+        recoveryRaw = null;
+      }
+      ok = lsSet(key, JSON.stringify(value));
+    } catch (e) {}
+    if (ok) saveWarned = false;
+    else if (!quiet && !saveWarned) {
+      saveWarned = true;
+      /* The next action may show its own toast synchronously. */
+      setTimeout(() => toast('Oyun kaydedilemedi. Bu sekmeyi kapatırsan son ilerlemen kaybolabilir.'), 0);
+    }
+    return ok;
+  }
+  const save = () => { if (!S) return false; S.rs = RS; return writeSave(KEY, S); };
+  const saveObject = v => !!v && typeof v === 'object' && !Array.isArray(v);
+  const saveNumber = v => typeof v === 'number' && Number.isFinite(v);
+  const saveLog = a => Array.isArray(a) && a.every(x => saveObject(x) && saveNumber(x.d) && typeof x.t === 'string');
+  const saveOrder = o => saveObject(o) && Number.isInteger(o.from) && !!CITIES[o.from] && Number.isInteger(o.to) && !!CITIES[o.to] &&
+    GOODS.some(g => g.id === o.g) && Number.isInteger(o.q) && o.q > 0 && saveNumber(o.reward) && saveNumber(o.due);
+  function valid(p) {
+    if (!saveObject(p) || !Number.isInteger(p.v) || p.v < 10 || p.v > 12 ||
+        !Number.isInteger(p.city) || !CITIES[p.city] || !Number.isInteger(p.day) || p.day < 1 ||
+        !Number.isInteger(p.days) || p.days < p.day || !saveNumber(p.cash) || !saveNumber(p.debt) ||
+        !saveNumber(p.rate) || !saveObject(p.inv) || !saveObject(p.up) || !saveObject(p.perk) ||
+        !saveObject(p.stats) || !saveObject(p.seen) || !saveObject(p.offers) || !saveObject(p.rival) ||
+        !saveNumber(p.rival.cash) || !Number.isInteger(p.rival.city) || !CITIES[p.rival.city] ||
+        !Array.isArray(p.trust) || !p.trust.every(saveNumber) ||
+        !Array.isArray(p.prices) || p.prices.length < 5 ||
+        !p.prices.every(row => saveObject(row) && Object.values(row).every(v => saveNumber(v) && v > 0)) ||
+        !Array.isArray(p.orders) || !Array.isArray(p.log) || !Array.isArray(p.visited)) return false;
+    if (!Object.values(p.inv).every(it => saveObject(it) && Number.isInteger(it.n) && it.n >= 0 && saveNumber(it.cost) && it.cost >= 0) ||
+        !['govde', 'yelken', 'kurek', 'ambar'].every(k => Number.isInteger(p.up[k]) && p.up[k] >= 0) ||
+        (p.trend != null && (!saveObject(p.trend) || !Object.values(p.trend).every(saveNumber))) ||
+        (p.gifted != null && (!Array.isArray(p.gifted) || !p.gifted.every(v => typeof v === 'boolean'))) ||
+        !Object.values(p.seen).every(sn => saveObject(sn) && saveNumber(sn.d) && saveObject(sn.p) && Object.values(sn.p).every(saveNumber))) return false;
+    if (!p.orders.every(saveOrder) || !Object.values(p.offers).every(o => o == null || saveOrder(o)) || !saveLog(p.log) ||
+        (p.quest != null && (!saveObject(p.quest) || !['kedi', 'ba', 'lapis'].includes(p.quest.id) ||
+          !saveObject(p.quest.f) || !saveLog(p.quest.log) || !Number.isInteger(p.quest.step))) ||
+        (p.over && (!saveObject(p.result) || !saveObject(p.result.stats) || !saveNumber(p.result.score) || !Array.isArray(p.result.ach)))) return false;
+    if (p.voyage != null && (!saveObject(p.voyage) || !CITIES[p.voyage.from] || !CITIES[p.voyage.dest] ||
+        !Number.isInteger(p.voyage.from) || !Number.isInteger(p.voyage.dest) ||
+        !saveNumber(p.voyage.days) || p.voyage.days < 1 || !saveNumber(p.voyage.seed))) return false;
+    if (['mods', 'crises', 'work'].some(k => p[k] != null && (!Array.isArray(p[k]) || !p[k].every(saveObject))) ||
+        ['dev', 'temple', 'tavern', 'feat', 'hg28'].some(k => p[k] != null && !saveObject(p[k])) ||
+        ['stock', 'stockBase'].some(k => p[k] != null && (!Array.isArray(p[k]) || !p[k].every(row => saveObject(row) && Object.values(row).every(v => saveNumber(v) && v >= 0))))) return false;
+    return true;
+  }
+  function restoreSave(p) {
+    if (!valid(p)) return null;
+    const rs = RS;
+    try {
+      const next = migrate(JSON.parse(JSON.stringify(p)));
+      /* Older saves may need new goods/cities; after migration every live
+         market and stock row must be complete before rendering or trading. */
+      const complete = (rows, positive) => Array.isArray(rows) && rows.length >= CITIES.length && rows.every(row =>
+        saveObject(row) && GOODS.every(g => saveNumber(row[g.id]) && (positive ? row[g.id] > 0 : row[g.id] >= 0)));
+      return valid(next) && complete(next.prices, true) && complete(next.stock, false) && complete(next.stockBase, false) ? next : null;
+    }
+    catch (e) { return null; }
+    finally { RS = rs; }
+  }
   const recs = () => { const r = jget(RECK, []); return Array.isArray(r) ? r : []; };
   const meta = Object.assign({ rep:0, lv:{}, ach:{}, runs:0 }, jget(METAK, {}));
+  if (!saveObject(meta.lv)) meta.lv = {};
+  if (!saveObject(meta.ach)) meta.ach = {};
+  if (meta.guide != null && !saveObject(meta.guide)) meta.guide = {};
+  if (meta.tells != null && !saveObject(meta.tells)) meta.tells = {};
+  if (!saveNumber(meta.rep) || meta.rep < 0) meta.rep = 0;
+  if (!Number.isInteger(meta.runs) || meta.runs < 0) meta.runs = 0;
   const saveMeta = () => lsSet(METAK, JSON.stringify(meta));
   function addRec(res) {
     const r = recs(), d = new Date();

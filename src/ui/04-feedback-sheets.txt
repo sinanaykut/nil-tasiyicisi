@@ -148,14 +148,16 @@
   }
   function doSaveSlot(n) {
     const d = new Date(), at = d.toLocaleDateString('tr-TR') + ' ' + d.toLocaleTimeString('tr-TR', { hour:'2-digit', minute:'2-digit' });
-    S.rs = RS; lsSet(slotKey(n), JSON.stringify({ S, at }));
+    S.rs = RS;
+    if (!writeSave(slotKey(n), { S, at }, true)) { play('no'); toast('Kaydedilemedi. Önceki yuva kaydın korunuyor. Bu sekmeyi kapatma.'); return; }
     play('build'); toast(n + '. yuvaya kaydedildi.'); showMenu();
   }
   function doLoadSlot(n) {
-    const v = readSlot(n); if (!v) { play('no'); return; }
+    const v = readSlot(n), next = v && restoreSave(v.S);
+    if (!next) { play('no'); toast('Bu kayıt açılamadı. Şu anki oyunun korunuyor.'); return; }
     departing = false; $('#port').classList.remove('depart');
     Sea.stop(); plan = null; VG = null; phase = 'port'; document.body.classList.remove('at-sea', 'on-map'); $('#sea').hidden = true; $('#voy').hidden = true; $('#port').hidden = false; Snd.mode('port');
-    S = migrate(v.S); RS = S.rs == null ? null : S.rs; S.voyage = null; sel = null; line = pickLine(); lastScene = '';
+    S = next; RS = S.rs == null ? null : S.rs; S.voyage = null; sel = null; line = pickLine(); lastScene = '';
     save(); closeSheet(); renderAll(); play('arrive'); toast(n + '. yuvadaki sefer yüklendi.');
     if (S.over) showEnd();
   }
@@ -170,7 +172,7 @@
     });
     s += '</div><h3 class="sh-sec">Başarımlar</h3><div class="achs">';
     ACH.forEach(a => { const ok = !!meta.ach[a.id]; s += '<div class="ach' + (ok ? ' ok' : '') + '"><span class="am">' + (ok ? '★' : '☆') + '</span><div><b>' + esc(a.name) + '</b><small>' + esc(a.desc) + ' · +' + a.rep + ' itibar</small></div></div>'; });
-    s += '</div><p class="muted" style="margin:0">Her serbest sefer sonunda net servetinin her 600 debeni için 1 itibar (en az 1), Sethi\'yi geçersen 2 itibar daha kazanırsın. Yeni avantajlar bir sonraki serbest seferinde geçerli olur.</p>';
+    s += '</div><p class="muted" style="margin:0">Her serbest sefer sonunda net servetinin her ' + REP_STEP + ' debeni için 1 itibar (en az 1), Sethi\'yi geçersen 2 itibar daha kazanırsın. Yeni avantajlar bir sonraki serbest seferinde geçerli olur.</p>';
     openSheet(s, !!back, 'lonca', true);
   }
   /* ---------- journal ---------- */

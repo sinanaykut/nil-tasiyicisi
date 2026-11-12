@@ -1,6 +1,6 @@
 // v28 (arayüz): the old v19 full-run bot, driven through the __nil.fn hooks of the new hub screen
 // v19 full runs: a bot trades, sails real voyages (scenes played by an in-page bot), follows the story and finishes
-const { chromium } = require('playwright');
+const { assertRunComplete } = require('./run-status.js');
 const W = ms => new Promise(r => setTimeout(r, ms));
 const BOT = () => {
   const N = window.__nil; let lastB = 0; const keys = {};
@@ -48,20 +48,26 @@ async function solvePuzzle(p) {
     return P.kind;
   });
 }
-(async () => {
-  const b = await chromium.launch(); const HTML = process.argv[3];
+async function main() {
+  const HTML = process.argv[3];
+  if (!HTML) throw new Error('Kullanım: node t153_28.js 1 <tam preview.html yolu>');
+  const { chromium } = require('playwright');
+  const b = await chromium.launch();
+  try {
   for (const runs of (process.argv[2] || '1').split(',').map(Number)) {
     const p = await b.newPage({ viewport:{ width:1366, height:768 } }); const errs = []; p.on('pageerror', e => errs.push(e.message));
+    try {
     await p.addInitScript(r => { try { localStorage.setItem('nil-kervanci-meta10', JSON.stringify({ rep:4, lv:{}, ach:{}, runs:r, noHints:true, tutDone:true })); } catch (e) {} }, runs);
     await p.route('https://fonts.googleapis.com/**', r => r.abort());
     await p.goto('file://' + HTML + '?debug'); await W(300);
     await p.evaluate(() => document.querySelector('[data-act="new"]').click()); await W(300);
     await p.evaluate(BOT);
-    const seen = new Set(); let guard = 0, voyages = 0;
+    const seen = new Set(); let guard = 0, voyages = 0, completed = false, lastState = null;
     while (guard++ < 1600) {
       const st = await p.evaluate(() => { const N = window.__nil, S = N.S; return { over:S.over, veil:!document.querySelector('#veil').hidden, sheet:document.querySelector('#sheet').innerText.slice(0, 50).replace(/\n/g, ' '), pz:N.PZ && N.PZ.kind, map:!document.querySelector('#voy').hidden, scene:N.Sea.active(), phase:document.body.classList.contains('at-sea') ? 'sea' : 'port', day:S.day, city:S.city, q:S.quest && (S.quest.id + ':' + S.quest.st + ':' + S.quest.step) }; });
+      lastState = st;
       if (process.env.V) console.log(guard, JSON.stringify(st));
-      if (st.over && st.veil && /Sefer bitti/.test(st.sheet)) break;
+      if (st.over && st.veil && /Sefer bitti/.test(st.sheet)) { completed = true; break; }
       if (st.pz) { seen.add('pz:' + st.pz); await solvePuzzle(p); await W(300); continue; }
       if (st.veil) {
         const btn = await p.evaluate(() => { const box = document.querySelector('#sheet .dlg-box'); if (box && (!box.classList.contains('done') || box.classList.contains('more'))) { box.click(); return 'dlgNext'; }
@@ -98,10 +104,16 @@ async function solvePuzzle(p) {
       if (act.startsWith('go')) voyages++;
       await W(400);
     }
-    const res = await p.evaluate(() => { const S = window.__nil.S; return { score:S.result && S.result.score, ach:S.result && S.result.ach, quest:S.quest && { id:S.quest.id, st:S.quest.st, step:S.quest.step, log:S.quest.log.map(l => l.d + ':' + l.t.slice(0, 50)) } }; });
+    const res = await p.evaluate(() => { const S = window.__nil.S; return { over:S.over, score:S.result && S.result.score, ach:S.result && S.result.ach, quest:S.quest && { id:S.quest.id, st:S.quest.st, step:S.quest.step, log:S.quest.log.map(l => l.d + ':' + l.t.slice(0, 50)) } }; });
     console.log('runs=' + runs, 'voyages', voyages, JSON.stringify(res), '\n  seen:', [...seen].join(' '), '\n  errs:', errs.join(' | ') || 'none');
     await p.screenshot({ path:'run28-' + runs + '.png' });
-    await p.close();
+    assertRunComplete({ completed, over:res.over, score:res.score, errs, guard:Math.min(guard, 1600), lastState });
+    } finally {
+      await p.close();
+    }
   }
-  await b.close();
-})();
+  } finally {
+    await b.close();
+  }
+}
+main().catch(e => { console.error('FAIL:', e.stack || e.message || e); process.exitCode = 1; });

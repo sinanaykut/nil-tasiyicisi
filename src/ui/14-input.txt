@@ -165,7 +165,11 @@
   });
   document.addEventListener('input', e => { if (e.target && e.target.id === 'payR') payUpdate(); });
   function resumeVoyage() {
-    if (S.voyageSnap && S.voyageSnap.v) { const v = S.voyage; S = migrate(S.voyageSnap); RS = S.rs == null ? null : S.rs; S.voyage = v; S.voyageSnap = null; }
+    if (S.voyageSnap) {
+      const next = restoreSave(S.voyageSnap);
+      if (!next) { toast('Yolculuk kaydı açılamadı. Şu anki oyunun korunuyor.'); return; }
+      const v = S.voyage; S = next; RS = S.rs == null ? null : S.rs; S.voyage = v; S.voyageSnap = null;
+    }
     plan = S.voyage; closeSheet(); enterSea(); toast('Yarım kalan yolculuk baştan başlıyor.');
   }
   document.addEventListener('keydown', e => {
