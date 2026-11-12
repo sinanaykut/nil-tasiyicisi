@@ -66,3 +66,8 @@ node tools/qa/test-sea49.cjs
 
 Gerçek cihazda ayrıca 412×915 dikey, 915×412 yatay ve masaüstü görünümünü kontrol et: miktarı yazıp doğrudan pazarlığa başla, satış yönünü değiştir, sipariş teslim et, Kalpazanlar terazisini çöz ve şehirde rehber açıkken kaydır/yakınlaştır. Nehir pususunda silahlı mücadele veya kaçışı, çöl akıncılarında üç seçeneği de dene. 3B kapalıyken yolculukların tamamlanabilmesi gerekir. Bu kaynak testleri ekran görüntüsü ve gerçek GPU performans kontrolünün yerini almaz.
 
+## GitHub Pages
+
+`.github/workflows/pages.yml` derler ve `main` dalına her güncelleme geldiğinde `dist/site/` klasörünü GitHub Pages'e yayımlar. İlk kullanımda depoda **Settings → Pages → Build and deployment → Source: GitHub Actions** seç. Sonra **Actions** sekmesindeki “Yayımla – GitHub Pages” çalışmasını ve `github-pages` ortamındaki site bağlantısını kontrol et. İş akışı Actions sekmesinden elle de başlatılabilir.
+
+> Depo private olduğundan Pages kullanımı hesap planına bağlıdır; GitHub Pro gerekir. Kişisel hesaplarda private Pages sitesi sunulmadığı için yayınlanan site herkese açık olabilir. Gizli erişimli Pages yalnızca Enterprise Cloud organizasyonlarında desteklenir.
