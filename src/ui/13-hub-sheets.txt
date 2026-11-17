@@ -256,6 +256,7 @@
      dialogue choices) and "Kısa oyunlar" (quick bets, quick45.txt, a few a day; tiles under the choices) */
   function showTavern(game) {
     if (phase !== 'port') return;
+    if (typeof Snd !== 'undefined' && Snd.spot) Snd.spot('port2');
     const ci = S.city, who = 'tv' + ci, stakes = [100, 300, 600].filter(x => x <= S.cash);
     const qh = typeof quickMenuHtml === 'function' ? quickMenuHtml(ci) : '';
     if (!canTavern(S)) {
@@ -274,6 +275,7 @@
   }
   function tavernPlay(stake, game) {
     const ci = S.city; if (!canTavern(S) || S.cash < stake) return;
+    if (typeof Snd !== 'undefined' && Snd.spot) Snd.spot('port2');
     game = game || 'senet';
     S.tavern[ci] = S.day; S.cash -= stake; save(); renderHud();
     /* the first game of each kind is coached, whoever plays it */

@@ -165,10 +165,13 @@ body[data-scene="sethi"] .pads .pb.hitM{animation:padHitM .35s ease-out}
 .a42-sum .a47-life .hh svg.lost{color:#B8A98A;opacity:.5}
 .a42-sum .a47-life .plk em{display:none}
 .plk.big em{display:none}
-.voy{background:radial-gradient(ellipse at 50% 45%,#FBF2DA 0%,#EFD8A4 70%,#DEC084 100%)}
+.voy{background:radial-gradient(ellipse at 50% 45%,#FBF2DA 0%,#EFD8A4 70%,#DEC084 100%);box-shadow:inset 0 0 28px rgba(58,38,24,.14)}
 .vmap{overflow:hidden}
-.vlines path.vvly{stroke:#B5CF7E;stroke-width:96;opacity:.38;stroke-linecap:round}
-.vlines path.vbank{stroke:#D8B46E;stroke-width:60;opacity:.5;stroke-linecap:round}
-.vlines path.vriv{stroke:#5FA8C8;stroke-width:38;opacity:.45;stroke-linecap:round}
-.vlines path.vflow{stroke:#E8FAFC;stroke-width:2;stroke-dasharray:6 16;opacity:.7}
-.vlines path.vflow.dz{stroke:#B8924E;opacity:.45}
+.vlines .vmframe{fill:none;stroke:#6E5032;stroke-width:1.4;opacity:.28}
+.vlines .vmframe.in{stroke-width:0.9;stroke-dasharray:8 4;opacity:.22}
+.vlines path.done.ru{stroke:#3A2618;stroke-width:6;opacity:.85}
+.vlines path.done{stroke:#E2AE3C;stroke-width:2.8}
+.vlines path.open.ru{stroke:rgba(251,243,223,.8);stroke-width:4.5}
+.vlines path.open{stroke:#1F5FA8;stroke-width:2.2;stroke-dasharray:6 5;opacity:.92}
+.vlines path.faint.ru{stroke:rgba(251,243,223,.35);stroke-width:3}
+.vlines path.faint{stroke:#7A6044;stroke-width:1.4;stroke-dasharray:2 4;opacity:.48}

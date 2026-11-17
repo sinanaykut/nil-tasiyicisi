@@ -197,6 +197,7 @@
   }
   function renderStage() {
     const c = CITIES[S.city], si = seasonIdx(S);
+    if (typeof Snd !== 'undefined' && Snd.city) Snd.city(S.city);
     $('#cName').textContent = c.name; $('#cSub').textContent = c.sub; const cd = $('#cDay'); if (cd) cd.textContent = S.day + '. gün · ' + SEASONS[si].name;
     const crates = crateList();
     const stg = $('#stage'), nar = !!stg && stg.clientWidth / Math.max(1, stg.clientHeight) < 1.5, ts = typeof townScene === 'function';

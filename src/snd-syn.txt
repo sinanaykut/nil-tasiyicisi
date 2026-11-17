@@ -373,62 +373,80 @@
       B.wind(B.T(19, 0), 'g4:1.5 f#4:.5 eb4:1 d4:1', 0.58);
       B.wind(B.T(21, 0), 'f#4:1 g4:1 a4:2 | bb4:.5 a4:.5 g4:1 a4:2', 0.42);
     }
-    /* port 1: "Mennefer Limanı" — C Rast (C D E½♭ F G A B½♭), warm and lively; maqsum, oud calls and the ney answers */
+    /* port 1: "Mennefer Limanı" — C Rast (C D E½♭ F G A B½♭), four contrasting sections:
+       0–7 oud taqsim & ney over bendir/harp; 8–15 maqsum groove with kanun; 16–23 calm ney bridge over modulating chords; 24–31 full return */
     function composePort(B) {
-      const R = [48, 48, 48, 43, 48, 43, 48, 43, 48, 48, 48, 43, 48, 43, 48, 43, 48, 48, 43, 43, 41, 43, 43, 43, 41, 43, 48, 43, 48, 48, 48, 43];
+      const R = [48, 48, 48, 43, 41, 41, 43, 43,  48, 41, 43, 46, 45, 43, 48, 43,  41, 41, 50, 50, 51, 51, 43, 43,  48, 41, 43, 48, 41, 43, 48, 43];
+      const BR_CH = { 41:[53, 57, 60, 65], 50:[50, 53, 57, 62], 51:[51, 55, 58, 63], 43:[55, 59, 62, 67] };
       const MAQ = 'D.k.T.k.D.k.T.k.', MAQ2 = 'D.k.T.k.D.T.T.TT';
       for (let k = 0; k < 32; k++) {
-        const rt = R[k], t0 = B.T(k, 0);
-        if (k % 2 === 0 || rt !== R[k - 1]) B.pad(fifth(rt), t0, B.BAR * (R[k + 1] === rt && k % 2 === 0 ? 2 : 1) - 0.15, 0.04, { timbre:'str', cut:1700, att:0.6, rel:1.2, wide:1 });
-        if (k >= 2) { B.bass(t0, rt - 12, 0.8, { off:B.BEAT * 1.3 }); B.bass(B.T(k, 1.5), rt - 12, 0.45, { off:B.BEAT * 0.4 }); B.bass(B.T(k, 2), rt - 5, 0.65, { off:B.BEAT * 1 }); B.bass(B.T(k, 3.5), rt - 12 + (k % 2 ? 12 : 0), 0.4, { off:B.BEAT * 0.4 }); }
-        if (k >= 1) B.rhythm(k === 1 || k % 8 === 7 ? MAQ2 : MAQ, k, k === 1 ? 0.55 : 0.68, { swing:0.08 });
-        if (k >= 10) B.rhythm(k >= 18 && k < 26 ? 'R.r.R.r.R.r.R.r.' : 'r.r.R.r.r.r.R.r.', k, 0.3, { swing:0.08 });
-        if (k >= 18 && k < 26) B.rhythm('....C.......C...', k, 0.32);
-        /* kanun chord taps on the off-beats in the A' and B sections */
-        if (k >= 10 && k < 18 && k % 2 === 0) [0.5, 1.5, 2.5, 3.5].forEach(b => B.kanun(B.T(k, b), rt + 12 + (b === 2.5 ? 7 : 0), 0.3, { off:0.12 }));
+        const rt = R[k], t0 = B.T(k, 0), intro = k < 8, grv = (k >= 8 && k < 16) || k >= 24, br = k >= 16 && k < 24;
+        if (k % 2 === 0 || rt !== R[k - 1]) B.pad(fifth(rt), t0, B.BAR * (R[k + 1] === rt && k % 2 === 0 ? 2 : 1) - 0.15, br ? 0.048 : 0.038, { timbre:br ? 'choir' : 'str', vowel:'o', cut:br ? 1400 : 1700, att:br ? 1.2 : 0.6, rel:1.3, wide:1 });
+        if (intro) {
+          if (k >= 2) { B.bass(t0, rt - 12, 0.7, { off:B.BEAT * 2 }); B.bass(B.T(k, 2), rt - 5, 0.5, { off:B.BEAT * 1.4 }); }
+          if (k >= 2 && k < 7) B.rhythm('B.......b...F...', k, 0.52, { swing:0.08 });
+          if (k % 2 === 0) [rt + 12, rt + 19, rt + 24].forEach((m, j) => B.harp(B.T(k, j * 0.75), m, 0.34, { ring:1.1 }));
+        } else if (grv) {
+          B.bass(t0, rt - 12, 0.8, { off:B.BEAT * 1.3 }); B.bass(B.T(k, 1.5), rt - 12, 0.45, { off:B.BEAT * 0.4 }); B.bass(B.T(k, 2), rt - 5, 0.65, { off:B.BEAT * 1 }); B.bass(B.T(k, 3.5), rt - 12 + (k % 2 ? 12 : 0), 0.4, { off:B.BEAT * 0.4 });
+          B.rhythm(k % 8 === 7 ? MAQ2 : MAQ, k, 0.68, { swing:0.08 });
+          B.rhythm(k >= 24 ? 'R.r.R.r.R.r.R.r.' : 'r.r.R.r.r.r.R.r.', k, 0.3, { swing:0.08 });
+          if (k >= 24) B.rhythm('....C.......C...', k, 0.32);
+          if (k < 16 && k % 2 === 0) [0.5, 1.5, 2.5, 3.5].forEach(b => B.kanun(B.T(k, b), rt + 12 + (b === 2.5 ? 7 : 0), 0.3, { off:0.12 }));
+        } else if (br) {
+          const ch = BR_CH[rt] || fifth(rt);
+          ch.concat([ch[2], ch[1]]).forEach((m, j) => B.harp(B.T(k, j * 0.66), m, j === 0 ? 0.4 : 0.28, { ring:1.25 }));
+          B.bass(t0, rt - 12, 0.62, { off:B.BAR * 0.85 });
+          if (k < 23) B.rhythm('B.......b...f...', k, 0.44);
+        }
       }
-      /* intro: a short oud taqsim and a pickup */
-      B.line('oud', 'c4:1 g3:.5 c4:.5 d4:1 e~4:1 | f4:.5 e~4:.5 d4:1 c4:2', 0, 0, 0.62, { trem:2 });
+      B.roll('F', B.T(7, 2), B.BEAT * 2, 6, 0.16, 0.55);
+      B.drum('Z', B.T(8, 0), 0.42); B.drum('Z', B.T(16, 0), 0.36); B.drum('Z', B.T(24, 0), 0.45);
+      B.roll('T', B.T(23, 2), B.BEAT * 2, 8, 0.22, 0.72);
+      /* 0–7: oud taqsim & ney answer */
+      B.line('oud', 'c4:1 g3:.5 c4:.5 d4:1 e~4:1 | f4:.5 e~4:.5 d4:1 c4:2', 0, 0, 0.65, { trem:2 });
       const callA = 'c4:.5 d4:.5 e~4:.5 f4:.5 g4:1 f4:.5 e~4:.5 | d4:.5 e~4:.5 f4:.5 e~4:.5 d4:1 c4:1';
       const respA = 'g5:1.5 a5:.5 b~5:.5 a5:.5 g5:1 | f5:.5 g5:.5 a5:.5 g5:.5 f5:.5 e~5:.5 d5:1';
       const callB = 'c4:.5 d4:.5 e~4:.5 f4:.5 g4:.5 a4:.5 b~4:.5 c5:.5 | b~4:.5 a4:.5 g4:.5 f4:.5 e~4:1 d4:1';
       const respB = 'e~5:.5 f5:.5 g5:1 f5:.5 e~5:.5 d5:1 | e~5:1 d5:.5 e~5:.5 c5:2';
-      B.line('oud', callA, 2, 0, 0.7); B.wind(B.T(4, 0), respA, 0.52); B.line('oud', callB, 6, 0, 0.7); B.wind(B.T(8, 0), respB, 0.52);
-      /* A': kanun and oud together an octave up, the ney holds a counter-line */
-      B.line('kanun', callA, 10, 0, 0.6, { tr:12 }); B.line('oud', callA, 10, 0, 0.55);
-      B.line('kanun', respA, 12, 0, 0.55, { tr:-12 }); B.line('oud', respA, 12, 0, 0.5, { tr:-12 });
-      B.line('kanun', callB, 14, 0, 0.6, { tr:12 }); B.line('oud', callB, 14, 0, 0.55);
-      B.line('kanun', respB, 16, 0, 0.55, { tr:-12, trem:2 }); B.line('oud', respB, 16, 0, 0.5, { tr:-12, trem:2 });
-      B.wind(B.T(10, 0), 'g5:4 | f5:2 e~5:2 | d5:4 | e~5:2 g5:2 | g5:4 | a5:2 b~5:1 a5:1 | g5:2 f5:2 | e~5:2 c5:2', 0.3);
-      /* B: over G, one-bar questions from the oud, answers from the ney */
-      B.line('oud', 'g4:.5 a4:.5 b~4:.5 c5:.5 d5:1 c5:1', 18, 0, 0.7); B.wind(B.T(19, 0), 'd5:.5 e~5:.5 d5:.5 c5:.5 b~4:2', 0.55);
-      B.line('oud', 'a4:.5 b~4:.5 c5:.5 d5:.5 c5:.5 b~4:.5 a4:1', 20, 0, 0.7); B.wind(B.T(21, 0), 'b~4:.5 c5:.5 a4:.5 b~4:.5 g4:2', 0.55);
-      B.line('oud', 'g4:.5 g4:.5 a4:.5 b~4:.5 c5:.5 d5:.5 e~5:.5 f5:.5', 22, 0, 0.7); B.wind(B.T(23, 0), 'g5:2 f5:.5 e~5:.5 d5:1', 0.58);
-      B.line('oud', 'e~5:.5 d5:.5 c5:.5 b~4:.5 a4:.5 b~4:.5 c5:1 | a4:.5 g4:.5 f4:.5 e~4:.5 d4:1 g4:1', 24, 0, 0.66); B.wind(B.T(24, 0), 'e~5:.5 d5:.5 c5:.5 b~4:.5 a4:.5 b~4:.5 c5:1 | a4:.5 g4:.5 f4:.5 e~4:.5 d4:1 g4:1', 0.45, { tr:0 });
-      /* A'': all together, then the turnaround run */
-      B.line('oud', callA, 26, 0, 0.7); B.wind(B.T(26, 0), callA, 0.42, { tr:12 }); B.line('kanun', respB, 28, 0, 0.55, { tr:-12 }); B.wind(B.T(28, 0), respB, 0.52);
-      B.line('oud', 'c4:.25 d4:.25 e~4:.25 f4:.25 g4:.25 a4:.25 b~4:.25 c5:.25 d5:.5 c5:.5 b~4:.5 a4:.5 | g4:1 f4:.5 e~4:.5 d4:1', 30, 0, 0.66);
+      B.line('oud', callA, 2, 0, 0.7); B.wind(B.T(4, 0), respA, 0.52); B.line('oud', callB, 6, 0, 0.68);
+      /* 8–15: upbeat maqsum: kanun & oud drive over the groove, ney holds upper harmony */
+      B.line('kanun', callA, 8, 0, 0.6, { tr:12 }); B.line('oud', callA, 8, 0, 0.55);
+      B.line('kanun', respA, 10, 0, 0.55, { tr:-12 }); B.line('oud', respA, 10, 0, 0.5, { tr:-12 });
+      B.line('kanun', callB, 12, 0, 0.6, { tr:12 }); B.line('oud', callB, 12, 0, 0.55);
+      B.line('kanun', respB, 14, 0, 0.55, { tr:-12, trem:2 }); B.line('oud', respB, 14, 0, 0.5, { tr:-12, trem:2 });
+      B.wind(B.T(8, 0), 'g5:4 | f5:2 e~5:2 | d5:4 | e~5:2 g5:2 | a5:2 b~5:1 a5:1 | g5:2 f5:2 | e~5:2 d5:2 | e~5:2 c5:2', 0.3);
+      /* 16–23: calm modulating bridge: solo breathy ney over harp swells (F -> Dm -> Eb -> G) */
+      B.wind(B.T(16, 0), 'a4:1.5 bb4:.5 c5:1 a4:1 | c5:2 f4:2 | f4:1 g4:1 a4:1.5 g4:.5 | f4:2 d4:2 | eb4:1 g4:1 bb4:1.5 a4:.5 | g4:2 eb4:2 | f4:1 g4:1 a4:1 b4:1 | d5:1.5 c5:.5 b4:1 g4:1', 0.56, { vib:1.35 });
+      /* 24–31: full return & turnaround */
+      B.line('oud', callA, 24, 0, 0.7); B.wind(B.T(24, 0), callA, 0.44, { tr:12 });
+      B.line('kanun', respA, 26, 0, 0.58, { tr:-12 }); B.wind(B.T(26, 0), respB, 0.52);
+      B.line('oud', callB, 28, 0, 0.68); B.line('kanun', respB, 28, 0, 0.55, { trem:2 });
+      B.line('oud', 'c4:.25 d4:.25 e~4:.25 f4:.25 g4:.25 a4:.25 b~4:.25 c5:.25 d5:.5 c5:.5 b~4:.5 a4:.5 | g4:1 f4:.5 e~4:.5 d4:1', 30, 0, 0.68);
       B.roll('T', B.T(31, 3), B.BEAT, 4, 0.4, 0.7);
-      B.drum('Z', B.T(10, 0), 0.4); B.drum('Z', B.T(18, 0), 0.4); B.drum('Z', B.T(26, 0), 0.4);
     }
-    /* port 2: "Çarşı Davulları" — G Hicaz (G Ab B C D Eb F), a busy, playful bazaar: saidi rhythm, reed vs oud, claps, finger cymbals */
+    /* port 2: "Çarşı Davulları" — G Hicaz (G Ab B C D Eb F) moving G -> Cm -> Bb -> Ab -> G, with a quiet kanun-reed dialogue in bars 12–19 */
     function composeBazaar(B) {
-      const R = [43, 43, 43, 43, 43, 43, 43, 43, 48, 43, 44, 43, 43, 43, 43, 43, 48, 48, 48, 48, 44, 44, 43, 43, 43, 43, 43, 43, 48, 43, 44, 43];
-      const RIFF = { 43:'g3:.5 ab3 b3 ab3 g3 d4 c4 b3', 44:'ab3:.5 c4 eb4 c4 ab3 eb4 d4 c4', 48:'c4:.5 d4 eb4 d4 c4 g4 f4 eb4' };
+      const R = [43, 43, 48, 43, 46, 44, 43, 43,  48, 46, 44, 43,  44, 48, 46, 43,  44, 46, 48, 43,  48, 48, 44, 43,  43, 48, 46, 44,  43, 48, 44, 43];
+      const RIFF = { 43:'g3:.5 ab3 b3 ab3 g3 d4 c4 b3', 44:'ab3:.5 c4 eb4 c4 ab3 eb4 d4 c4', 46:'bb3:.5 c4 d4 c4 bb3 f4 eb4 d4', 48:'c4:.5 d4 eb4 d4 c4 g4 f4 eb4' };
       const SAIDI = 'D.T...D.D...T.k.', SAIDI2 = 'D.T.k.D.D.k.T.TT';
       for (let k = 0; k < 32; k++) {
-        const rt = R[k], t0 = B.T(k, 0), stop = k === 15;
-        if (k % 2 === 0 || rt !== R[k - 1]) B.pad(fifth(rt), t0, B.BAR * (R[k + 1] === rt && k % 2 === 0 ? 2 : 1) - 0.15, 0.03, { timbre:'reed', cut:1500, att:0.4, rel:0.9 });
-        if (k >= 2 && !stop) { B.bass(t0, rt - 12, 0.85, { off:B.BEAT * 0.8 }); B.bass(B.T(k, 1.5), rt - 12, 0.5, { off:B.BEAT * 0.4 }); B.bass(B.T(k, 2), rt - 12, 0.7, { off:B.BEAT * 0.8 }); B.bass(B.T(k, 3), rt - 5, 0.55, { off:B.BEAT * 0.8 }); }
+        const rt = R[k], t0 = B.T(k, 0), mid = k >= 12 && k < 19, stop = k === 19;
+        if (k % 2 === 0 || rt !== R[k - 1]) B.pad(fifth(rt), t0, B.BAR * (R[k + 1] === rt && k % 2 === 0 ? 2 : 1) - 0.15, 0.032, { timbre:mid ? 'str' : 'reed', cut:1500, att:0.4, rel:0.9 });
+        if (k >= 2 && !stop) { B.bass(t0, rt - 12, mid ? 0.65 : 0.85, { off:B.BEAT * 0.8 }); if (!mid) { B.bass(B.T(k, 1.5), rt - 12, 0.5, { off:B.BEAT * 0.4 }); B.bass(B.T(k, 2), rt - 12, 0.7, { off:B.BEAT * 0.8 }); B.bass(B.T(k, 3), rt - 5, 0.55, { off:B.BEAT * 0.8 }); } else B.bass(B.T(k, 2), rt - 5, 0.5, { off:B.BEAT * 1 }); }
         if (stop) { [0, 0.5, 1.5].forEach(b => { B.bass(B.T(k, b), rt - 12, 0.85, { off:0.15 }); B.drum('D', B.T(k, b), 0.8); B.drum('C', B.T(k, b), 0.5); B.oud(B.T(k, b), rt + 12, 0.7, { off:0.12 }); }); B.roll('T', B.T(k, 2), B.BEAT * 2, 8, 0.25, 0.8); continue; }
+        if (mid) {
+          B.rhythm('B...f...b...f...', k, 0.48, { swing:0.06 });
+          B.rhythm('..C...c...C...c.', k, 0.36);
+          if (k < 16) B.rhythm('r.r.R.r.r.r.R.r.', k, 0.26, { swing:0.06 });
+          else [0.5, 2.5].forEach(b => fifth(rt + 12).forEach(m => B.kanun(B.T(k, b), m, 0.28, { off:0.12 })));
+          continue;
+        }
         B.rhythm(k % 4 === 3 ? SAIDI2 : SAIDI, k, 0.72, { swing:0.06 });
         if (k >= 4) B.rhythm('r.r.R.r.r.r.R.r.', k, 0.32, { swing:0.06 });
         if (k >= 8) B.rhythm('....C.......C..c', k, 0.36);
-        if (k >= 12 && k < 15 || k >= 24) B.rhythm('..Z...Z...Z...Z.', k, 0.15);
-        /* the riff steps back while the oud answers the reed */
-        const ans = [6, 7, 10, 11, 18, 19, 26, 27, 30, 31].includes(k);
-        if (k >= 2 && (k < 12 || k >= 16)) B.line(ans ? 'kanun' : 'oud', RIFF[rt], k, 0, k < 4 ? 0.55 : ans ? 0.3 : 0.4, { stac:true, pan:-0.3, tr:ans ? 12 : 0 });
-        if (k >= 12 && k < 15) B.line('oud', RIFF[rt].split(' ').map((n, j) => n.replace(/\d/, d => +d + (j % 4 === 1 ? 1 : 0))).join(' '), k, 0, 0.5, { stac:true });
+        if (k >= 24) B.rhythm('..Z...Z...Z...Z.', k, 0.15);
+        const ans = [6, 7, 10, 11, 22, 23, 26, 27, 30, 31].includes(k);
+        if (k >= 2) B.line(ans ? 'kanun' : 'oud', RIFF[rt], k, 0, k < 4 ? 0.55 : ans ? 0.3 : 0.4, { stac:true, pan:-0.3, tr:ans ? 12 : 0 });
       }
       const A1 = 'd5:.5 eb5:.25 d5:.25 c5:.5 b4:.5 c5:1 -:.5 b4:.25 c5:.25 | d5:.5 c5:.5 b4:.5 ab4:.5 g4:1.5 -:.5';
       const O1 = 'g4:.5 ab4:.5 b4:.5 c5:.5 d5:.5 c5:.5 b4:1 | c5:.5 b4:.5 ab4:.5 b4:.5 g4:1 -:1';
@@ -436,16 +454,19 @@
       const O2 = 'c5:.5 b4:.5 ab4:.5 g4:.5 ab4:.5 b4:.5 c5:1 | b4:.5 ab4:.5 g4:2 -:1';
       B.wind(B.T(4, 0), A1, 0.5, { timbre:'reed', sep:0.02 }); B.line('oud', O1, 6, 0, 0.72, { pan:0.15 });
       B.wind(B.T(8, 0), A2, 0.5, { timbre:'reed', sep:0.02 }); B.line('oud', O2, 10, 0, 0.72, { pan:0.15 });
-      B.wind(B.T(14, 0), 'd5:.25 eb5:.25 d5:.5 -:1 d5:.25 eb5:.25 d5:.5 -:1', 0.5, { timbre:'reed', sep:0.03 });
+      /* 12–18: mid-section relief — kanun & reed call-and-answer without constant riffing */
+      B.line('kanun', 'eb5:.5 d5:.5 c5:.5 b4:.5 c5:1 ab4:1', 12, 0, 0.58, { trem:2 });
+      B.wind(B.T(13, 0), 'ab4:.5 b4:.5 c5:.5 d5:.5 eb5:1.5 c5:.5', 0.48, { timbre:'reed', sep:0.02 });
+      B.line('kanun', 'f5:.5 eb5:.5 d5:.5 c5:.5 bb4:1 d5:1', 14, 0, 0.58, { trem:2 });
+      B.wind(B.T(15, 0), 'd5:.5 c5:.5 b4:.5 ab4:.5 g4:2', 0.48, { timbre:'reed', sep:0.02 });
       B.wind(B.T(16, 0), 'c5:1 eb5:.5 d5:.5 c5:.5 b4:.5 c5:1 | eb5:.5 f5:.5 g5:1 f5:.5 eb5:.5 d5:1', 0.5, { timbre:'reed', sep:0.02 });
-      B.line('oud', 'c5:.5 d5:.5 eb5:.5 d5:.5 c5:.5 b4:.5 c5:1 | ab4:.5 b4:.5 c5:.5 b4:.5 ab4:.5 g4:.5 ab4:1', 18, 0, 0.72, { pan:0.15 });
+      B.line('oud', 'eb5:.5 d5:.5 c5:.5 b4:.5 c5:.5 b4:.5 ab4:1', 18, 0, 0.68, { pan:0.15 });
       B.wind(B.T(20, 0), 'ab5:1 g5:.5 f5:.5 eb5:.5 f5:.5 g5:1 | f5:.5 eb5:.5 d5:.5 c5:.5 d5:2', 0.52, { timbre:'reed', sep:0.02 });
       B.wind(B.T(22, 0), 'eb5:.5 d5:.5 c5:.5 b4:.5 c5:.5 b4:.5 ab4:.5 b4:.5 | g4:1 b4:.5 d5:.5 g5:1 -:1', 0.5, { timbre:'reed', sep:0.02 });
       B.line('kanun', 'eb5:.5 d5:.5 c5:.5 b4:.5 c5:.5 b4:.5 ab4:.5 b4:.5 | g4:1 b4:.5 d5:.5 g5:1', 22, 0, 0.5);
-      /* A' with the reed and kanun in heterophony, and the oud answering */
       B.wind(B.T(24, 0), A1, 0.5, { timbre:'reed', sep:0.02 }); B.line('kanun', A1, 24, 0, 0.42); B.line('oud', O1, 26, 0, 0.72, { pan:0.15 });
       B.wind(B.T(28, 0), A2, 0.5, { timbre:'reed', sep:0.02 }); B.line('kanun', A2, 28, 0, 0.42); B.line('oud', O2, 30, 0, 0.72, { pan:0.15 });
-      B.roll('T', B.T(31, 2), B.BEAT * 2, 8, 0.25, 0.7); B.drum('Z', B.T(4, 0), 0.4); B.drum('Z', B.T(16, 0), 0.45); B.drum('Z', B.T(24, 0), 0.45);
+      B.roll('T', B.T(31, 2), B.BEAT * 2, 8, 0.25, 0.7); B.drum('Z', B.T(4, 0), 0.4); B.drum('Z', B.T(20, 0), 0.45); B.drum('Z', B.T(24, 0), 0.45);
       B.rhythm('D.T...D.D.k.T.k.', 0, 0.6); B.rhythm('D.T.k.D.D.k.TTTT', 1, 0.66);
     }
     /* port 3: "Tapınak Gölgesi" — D Beyati (D E½♭ F G A Bb C), still and mysterious: drone, ney taqsim, sparse harp, bowl, sistrum, heartbeat */
@@ -464,30 +485,85 @@
       B.wind(B.T(17, 2), 'a4:2 | g4:1 f4:1 e~4:2', 0.32, { vib:1.3 });
       [0, 4, 8, 12, 16].forEach(k => B.bass(B.T(k, 0), 38, 0.5, { off:B.BAR * 2 }));
     }
-    /* sail: "Yelkenler Açık" — D Kürdi (D Eb F G A Bb C) in a 12/8 sway: harp waves, ney melody, oud answers, frame drum and riq */
+    /* sail: "Yelkenler Açık" — D Kürdi (D Eb F G A Bb C) in a 12/8 sway:
+       0–11 rolling harp & ney; 12–19 thinner oud+bass duo; 20–23 calm river-breeze interlude; 24–31 full sail return */
     const SAIL_R = [50, 50, 46, 46, 48, 48, 50, 50, 43, 43, 51, 51, 48, 48, 50, 50];
     const KURD3 = { 50:3, 46:4, 48:3, 43:3, 51:4 };
     function composeSail(B) {
       for (let k = 0; k < 32; k++) {
-        const rt = SAIL_R[k % 16], t0 = B.T(k, 0), th = KURD3[rt];
-        if (k % 2 === 0) B.pad(fifth(rt - 12), t0, B.BAR * 2 - 0.15, 0.042, { timbre:'str', cut:1600, att:1, rel:1.5, wide:1 });
-        const ch = [rt - 12, rt - 5, rt, rt + th, rt + 7, rt + 12], pat = [0, 1, 2, 3, 4, 5, 4, 3, 2, 3, 2, 1], hi = (k >= 20 && k < 28) ? 12 : 0, quiet = k >= 28;
-        pat.forEach((j, s) => B.harp(B.T(k, s / 3), ch[j] + hi, (s % 3 === 0 ? 0.42 : 0.28) * (quiet ? 0.9 : 1), { ring:0.8 }));
-        if (k >= 2) { B.bass(t0, rt - 12, 0.7, { off:B.BEAT * 1.6 }); B.bass(B.T(k, 2), rt - 12 + (k % 2 ? 7 : 0), 0.5, { off:B.BEAT * 1.3 }); B.bass(B.T(k, 3 + 2 / 3), rt - 12, 0.32, { off:B.BEAT * 0.3 }); }
-        if (k >= 4 && !quiet) { B.rhythm('B..F..b..F.f', k, 0.55); B.rhythm('r.rR.rr.rR.r', k, 0.22); }
+        const rt = SAIL_R[k % 16], t0 = B.T(k, 0), th = KURD3[rt], calmB = k >= 20 && k < 24, midD = k >= 12 && k < 20, quiet = k >= 28;
+        if (k % 2 === 0) B.pad(fifth(rt - 12), t0, B.BAR * 2 - 0.15, calmB ? 0.05 : 0.04, { timbre:calmB ? 'choir' : 'str', vowel:'u', cut:calmB ? 1300 : 1600, att:1, rel:1.5, wide:1 });
+        const ch = [rt - 12, rt - 5, rt, rt + th, rt + 7, rt + 12], pat = [0, 1, 2, 3, 4, 5, 4, 3, 2, 3, 2, 1], hi = (k >= 24 && k < 28) ? 12 : 0;
+        if (calmB) {
+          /* quiet breeze: sparse kanun droplets and gentle singing bowl */
+          [ch[3] + 12, ch[4] + 12, ch[5] + 12].forEach((m, s) => B.kanun(B.T(k, s * 1.33), m, 0.28, { off:0.45 }));
+          if (k === 20) B.drum('G', t0, 0.36);
+        } else if (midD) {
+          /* 12–19: harp thins to warm open chords on beats 0 and 2 so oud & bass shine */
+          [0, 2].forEach(b => ch.slice(0, 4).forEach((m, s) => B.harp(B.T(k, b + s * 0.14), m + 12, 0.3, { ring:1.1 })));
+        } else {
+          pat.forEach((j, s) => B.harp(B.T(k, s / 3), ch[j] + hi, (s % 3 === 0 ? 0.42 : 0.28) * (quiet ? 0.85 : 1), { ring:0.8 }));
+        }
+        if (k >= 2 && !calmB) { B.bass(t0, rt - 12, 0.72, { off:B.BEAT * 1.6 }); B.bass(B.T(k, 2), rt - 12 + (k % 2 ? 7 : 0), 0.52, { off:B.BEAT * 1.3 }); B.bass(B.T(k, 3 + 2 / 3), rt - 12, 0.32, { off:B.BEAT * 0.3 }); }
+        if (k >= 4 && !quiet && !calmB) { B.rhythm(midD ? 'B.....F..b..' : 'B..F..b..F.f', k, midD ? 0.46 : 0.55); B.rhythm('r.rR.rr.rR.r', k, midD ? 0.16 : 0.22); }
         if (quiet && k < 31) B.rhythm('B.....b.....', k, 0.42);
       }
-      B.roll('F', B.T(31, 2), B.BEAT * 2, 6, 0.15, 0.5); B.roll('F', B.T(3, 2), B.BEAT * 2, 6, 0.15, 0.5);
+      B.roll('F', B.T(31, 2), B.BEAT * 2, 6, 0.15, 0.5); B.roll('F', B.T(3, 2), B.BEAT * 2, 6, 0.15, 0.5); B.roll('F', B.T(23, 2), B.BEAT * 2, 6, 0.12, 0.48);
       const A = 'd5:1 a4:1 d5:1 eb5:1 | f5:2 eb5:1 d5:1 | c5:1.67 bb4:.33 c5:1 d5:1 | a4:4 | bb4:1 c5:1 d5:1 f5:1 | g5:2 f5:1 eb5:1 | d5:1 c5:1 bb4:1.67 c5:.33 | d5:4';
       B.wind(B.T(4, 0), A, 0.52);
-      B.line('oud', 'g4:.67 a4:.33 bb4:1 c5:1 d5:1 | eb5:1 d5:1 c5:2', 12, 0, 0.7, { trem:2, tremDiv:3 });
-      B.wind(B.T(14, 0), 'eb5:1 f5:1 g5:1 f5:1 | eb5:1 d5:1 c5:2', 0.52);
-      B.line('oud', 'bb4:1 c5:1 d5:1 bb4:1 | c5:1 a4:1 bb4:2', 16, 0, 0.7, { trem:2, tremDiv:3 });
+      B.line('oud', 'g4:.67 a4:.33 bb4:1 c5:1 d5:1 | eb5:1 d5:1 c5:2', 12, 0, 0.72, { trem:2, tremDiv:3 });
+      B.wind(B.T(14, 0), 'eb5:1 f5:1 g5:1 f5:1 | eb5:1 d5:1 c5:2', 0.54);
+      B.line('oud', 'bb4:1 c5:1 d5:1 bb4:1 | c5:1 a4:1 bb4:2', 16, 0, 0.72, { trem:2, tremDiv:3 });
       B.wind(B.T(18, 0), 'a4:1 bb4:1 c5:1 d5:1 | d5:4', 0.52);
-      B.wind(B.T(20, 0), 'd5:1 a4:1 d5:1 eb5:.67 f5:.33 | f5:2 g5:.67 f5:.33 eb5:.67 d5:.33 | c5:1.67 bb4:.33 c5:1 d5:1 | a4:4 | bb4:1 c5:1 d5:1 f5:1 | g5:2 a5:.67 g5:.33 f5:.67 eb5:.33 | d5:1 c5:1 bb4:1.67 c5:.33 | d5:4', 0.5);
-      B.line('oud', A, 20, 0, 0.42, { tr:-12, trem:2, tremDiv:3 });
-      B.wind(B.T(29, 0), 'a4:2 bb4:2 | a4:4', 0.36);
-      B.drum('Z', B.T(4, 0), 0.32); B.drum('Z', B.T(12, 0), 0.32); B.drum('Z', B.T(20, 0), 0.32);
+      B.wind(B.T(20, 0), 'd5:2 a4:2 | bb4:2 c5:2 | d5:1.67 c5:.33 bb4:1 a4:1 | g4:2 a4:2', 0.48, { vib:1.4 });
+      B.wind(B.T(24, 0), 'd5:1 a4:1 d5:1 eb5:.67 f5:.33 | f5:2 g5:.67 f5:.33 eb5:.67 d5:.33 | c5:1.67 bb4:.33 c5:1 d5:1 | a4:4 | bb4:1 c5:1 d5:1 f5:1 | g5:2 a5:.67 g5:.33 f5:.67 eb5:.33', 0.5);
+      B.line('oud', A, 24, 0, 0.44, { tr:-12, trem:2, tremDiv:3 });
+      B.wind(B.T(30, 0), 'a4:2 bb4:2 | a4:4', 0.36);
+      B.drum('Z', B.T(4, 0), 0.32); B.drum('Z', B.T(12, 0), 0.3); B.drum('Z', B.T(24, 0), 0.34);
+    }
+    /* port 4: "Vaha Kervanı" — E Hicaz (E F G# A B C D), 92 bpm, 24 bars: caravan tabl & oud gait, ney/kanun desert oasis dialogue */
+    function composeOasis(B) {
+      const R = [52, 52, 53, 53, 50, 50, 52, 52,  57, 57, 53, 53, 50, 53, 52, 52,  48, 53, 50, 52, 52, 53, 50, 52];
+      const OASIS3 = { 52:4, 53:4, 50:3, 57:3, 48:4 };
+      const WALK = 'L..k.T..D..k.T..', WALK2 = 'L..k.T..D.k.T.tk';
+      for (let k = 0; k < 24; k++) {
+        const rt = R[k], t0 = B.T(k, 0), th = OASIS3[rt] || 4, br = k >= 16 && k < 20, endCalm = k === 23;
+        if (k % 2 === 0 || rt !== R[k - 1]) B.pad(fifth(rt - 12), t0, B.BAR * (R[k + 1] === rt && k % 2 === 0 ? 2 : 1) - 0.15, 0.04, { timbre:k >= 8 && k < 16 ? 'choir' : 'str', vowel:'o', cut:1600, att:0.8, rel:1.3, wide:1 });
+        if (k >= 1 && !endCalm) {
+          B.bass(t0, rt - 12, 0.74, { off:B.BEAT * (br ? 1.8 : 1.3) });
+          if (!br) { B.bass(B.T(k, 1.5), rt - 12, 0.44, { off:B.BEAT * 0.45 }); B.bass(B.T(k, 2), rt - 5, 0.62, { off:B.BEAT * 1 }); }
+          else B.bass(B.T(k, 2), rt - 5, 0.48, { off:B.BEAT * 1.3 });
+        }
+        if (k >= 1 && !br && !endCalm) {
+          B.rhythm(k % 4 === 3 ? WALK2 : WALK, k, 0.66, { swing:0.06 });
+          B.rhythm('B.......b.......', k, 0.55);
+          if (k >= 8) B.rhythm('r.r.R.r.r.r.R.r.', k, 0.28, { swing:0.06 });
+        } else if (br && k < 19) {
+          B.rhythm('B...f...b.......', k, 0.45);
+          B.rhythm('..r...r...r...r.', k, 0.22);
+        } else if (k === 19) {
+          B.rhythm('D.k.T.tk........', k, 0.62); B.roll('T', B.T(19, 2), B.BEAT * 2, 8, 0.22, 0.7);
+        } else if (endCalm) {
+          B.rhythm('B.......b.......', k, 0.4);
+        }
+        if (k % 4 === 2 && !endCalm) [rt + 12, rt + 12 + th, rt + 19, rt + 24].forEach((m, j) => B.harp(B.T(k, j * 0.5 + 2), m, 0.32, { ring:1.1 }));
+      }
+      B.drum('B', B.T(0, 0), 0.7); B.drum('Z', B.T(0, 0), 0.36); B.drum('Z', B.T(8, 0), 0.38); B.drum('Z', B.T(16, 0), 0.34); B.drum('Z', B.T(20, 0), 0.42);
+      /* 0–7: desert oud motif in E Hicaz, sparse kanun echoes */
+      B.line('oud', 'e4:1 f4:.5 g#4:.5 a4:1 g#4:.5 f4:.5 | e4:1.5 d4:.5 e4:2', 0, 0, 0.68, { trem:2 });
+      B.line('oud', 'f4:1 g#4:1 a4:1.5 g#4:.5 | f4:1 e4:1 d4:1 c4:1 | b3:.5 c4:.5 d4:1 e4:1 g#4:1 | f4:.5 e4:.5 d4:1 e4:2', 2, 0, 0.7);
+      B.line('kanun', 'e5:.5 f5:.5 g#5:.5 a5:.5 b5:1 g#5:1 | a5:.5 g#5:.5 f5:.5 e5:.5 d5:2', 6, 0, 0.52);
+      /* 8–15: oasis ney & kanun tremolos */
+      B.wind(B.T(8, 0), 'a4:1.5 b4:.5 c5:1 a4:1 | b4:.5 a4:.5 g#4:1 a4:2 | f4:1 g#4:1 a4:1.5 g#4:.5 | f4:1 e4:1 d4:2', 0.54, { vib:1.25 });
+      B.line('kanun', 'd5:.5 e5:.5 f5:.5 g#5:.5 a5:1 f5:1 | e5:.5 d5:.5 c5:.5 d5:.5 e5:2', 12, 0, 0.56, { trem:2 });
+      B.wind(B.T(14, 0), 'g#4:1 f4:1 e4:1 f4:.5 d4:.5 | e4:4', 0.52, { vib:1.25 });
+      /* 16–19: caravan bridge dialogue */
+      B.line('oud', 'c4:.5 d4:.5 e4:.5 g4:.5 c5:1 b4:1', 16, 0, 0.65);
+      B.line('kanun', 'a4:.5 b4:.5 c5:.5 d5:.5 c5:1 a4:1', 17, 0, 0.55);
+      B.wind(B.T(18, 0), 'f4:1 g#4:1 a4:1 g#4:.5 f4:.5 | e4:2 -:2', 0.52);
+      /* 20–23: full return & gentle close */
+      B.line('oud', 'e4:1 f4:.5 g#4:.5 a4:1 b4:1 | c5:1 b4:.5 a4:.5 g#4:1 f4:1 | d4:1 f4:1 g#4:1 f4:.5 d4:.5 | e4:4', 20, 0, 0.72, { trem:2 });
+      B.wind(B.T(20, 0), 'e5:2 d5:1 c5:1 | b4:2 a4:1 g#4:1 | f4:1.5 e4:.5 d4:1 c4:1 | e4:4', 0.45, { vib:1.2 });
     }
     /* ---- v47: scene music. Each one is a piece of its own (the old chase layer over the sail tune is gone). ---- */
     /* race: "Sethi ile Yarış" — D Hicaz (D Eb F# G A Bb C), 100 bpm: one beat is exactly the race drum's 0.6 s and bar 0
@@ -605,6 +681,7 @@
       port1: { bpm:100, bars:32, make:composePort,   seed:47, ir:{ len:1.6, t60:1.3, hi:5200, lo:1100, pre:.012, er:10 }, wet:.26, mix:{ oud:{ g:1.79 }, wind:{ g:0.53 }, drum:{ g:1 }, bass:{ g:0.98 }, harp:{ g:1 }, pad:{ g:0.89 }, metal:{ g:2.87 } }, trim:-0.6 },
       port2: { bpm:116, bars:32, make:composeBazaar, seed:53, ir:{ len:1.4, t60:1.1, hi:5600, lo:1200, pre:.01, er:12, erg:1.2 }, wet:.24, mix:{ wind:{ g:0.63 }, oud:{ g:1.93 }, drum:{ g:1 }, bass:{ g:1.07 }, harp:{ g:1.82 }, pad:{ g:1.05 }, metal:{ g:2.54 } }, trim:-2.4 },
       port3: { bpm:66,  bars:20, make:composeTemple, seed:61, ir:{ len:3.8, t60:3.6, hi:4200, lo:700, pre:.035, er:6, erg:.8 }, wet:.42, mix:{ wind:{ g:0.41 }, pad:{ g:0.78 }, harp:{ g:0.84 }, drum:{ g:1 }, metal:{ g:2.85 }, bass:{ g:1.46 } }, trim:3.2 },
+      port4: { bpm:92,  bars:24, make:composeOasis,  seed:107, ir:{ len:2.0, t60:1.7, hi:4800, lo:950, pre:.02, er:8 }, wet:.28, mix:{ oud:{ g:1.75 }, wind:{ g:0.55 }, harp:{ g:1.15 }, drum:{ g:1 }, bass:{ g:1.1 }, pad:{ g:0.95 }, metal:{ g:2.5 } }, trim:-1.0 },
       sail:  { bpm:104, bars:32, make:composeSail,   seed:71, ir:{ len:2.0, t60:1.8, hi:5000, lo:1000, pre:.02, er:5 }, wet:.3, mix:{ wind:{ g:0.46 }, harp:{ g:0.77 }, oud:{ g:1.58 }, drum:{ g:1 }, bass:{ g:0.92 }, pad:{ g:1.0 }, metal:{ g:3.09 } }, trim:0.55 },
       chase: { bpm:132, bars:28, make:composeChase,  seed:79, ir:{ len:1.4, t60:1.1, hi:4600, lo:900, pre:.012, er:8 }, wet:.22, mix:{ drum:{ g:1 }, oud:{ g:1.19 }, bass:{ g:0.97 }, wind:{ g:0.37 }, harp:{ g:1.47 }, pad:{ g:1.57 }, metal:{ g:6 } }, trim:-1.2 },
       race:  { bpm:100, bars:20, make:composeRace,   seed:83, ir:{ len:1.3, t60:1.0, hi:5200, lo:1100, pre:.01, er:10 }, wet:.2, mix:{ drum:{ g:1 }, oud:{ g:1.52 }, bass:{ g:0.74 }, wind:{ g:0.52 }, harp:{ g:1.41 }, pad:{ g:0.93 }, metal:{ g:2.82 } }, trim:-1.5 },
