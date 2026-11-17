@@ -40,19 +40,38 @@
     return true;
   }
   function ambushFigure(who, enemy) {
-    const cloth = enemy ? '#9B4D37' : who === 'neferet' ? '#2B777C' : who === 'sitre' ? '#426895' : '#E7DBC0';
-    const skin = enemy ? '#A56D47' : '#B98056';
-    return '<svg viewBox="0 0 170 230" aria-hidden="true"><ellipse cx="84" cy="216" rx="50" ry="9" fill="#221C1D" opacity=".2"/>' +
-      '<g stroke="#46342C" stroke-width="2" stroke-linejoin="round"><path d="M66 147l-8 60h15l14-49 7 49h16l-8-64" fill="' + skin + '"/>' +
-      '<path d="M56 206h18v9H48q0-7 8-9zm37 0h18l9 9H93z" fill="#5F422C"/><path d="M61 80q24-12 44 0l14 75q-33 15-68 0z" fill="' + cloth + '"/>' +
-      '<path d="M64 86l17 65m20-65-9 65" fill="none" stroke="#FFF3D5" opacity=".55"/><path d="M59 126h52v9H57z" fill="#AD813D"/>' +
+    const cloth = enemy ? '#9B4D37' : who === 'neferet' ? '#2B777C' : who === 'sitre' ? '#426895' : who === 'ahmose' ? '#B95432' : '#E7DBC0';
+    const trim = enemy ? '#D9A43A' : who === 'neferet' ? '#D9A43A' : who === 'sitre' ? '#F2C65A' : '#1F5FA8';
+    const skin = enemy ? '#A86E47' : '#C48A5E', shade = enemy ? '#875434' : '#A66D45';
+    return '<svg viewBox="0 0 170 230" aria-hidden="true"><ellipse cx="84" cy="216" rx="52" ry="9" fill="#221C1D" opacity=".22"/>' +
+      '<g stroke="#46342C" stroke-width="2" stroke-linejoin="round">' +
+      /* legs & sandals */
+      '<path d="M66 147l-8 60h15l14-49 7 49h16l-8-64" fill="' + skin + '"/>' +
+      '<path d="M72 156l-5 44h6l6-40m14 0 4 44h6l-4-44" fill="' + shade + '" stroke="none" opacity=".45"/>' +
+      '<path d="M56 206h18v9H48q0-7 8-9zm37 0h18l9 9H93z" fill="#5F422C"/><path d="M61 206v5M98 206v5" stroke="#D9A43A" stroke-width="1.6"/>' +
+      /* pleated schenti kilt & torso tunic */
+      '<path d="M61 80q24-12 44 0l14 75q-33 15-68 0z" fill="' + cloth + '"/>' +
+      '<path d="M72 128l-6 28m16-28-2 29m14-29 4 28m11-28 7 25" fill="none" stroke="#FFF3D5" opacity=".4" stroke-width="1.4"/>' +
+      '<path d="M64 86l17 40m20-40-9 40" fill="none" stroke="#FFF3D5" opacity=".5"/>' +
+      /* usekh broad collar & belt sash */
+      '<path d="M66 76q18 22 36 0l-6 14q-12 12-24 0z" fill="#D9A43A"/><path d="M70 80q14 14 28 0" fill="none" stroke="' + trim + '" stroke-width="3.2"/>' +
+      '<path d="M59 125h52v10H57z" fill="#AD813D"/><rect x="78" y="124" width="12" height="12" rx="2" fill="#D9A43A"/><path d="M81 136l-3 21h12l-3-21z" fill="' + trim + '"/>' +
+      /* arms */
       '<path d="M65 82 43 112 26 97l-8 9 26 28 30-29m29-23 17 24 11-30 10 4-8 51q-4 9-13 0l-20-24" fill="' + skin + '"/>' +
+      '<path d="M52 104l10-12m44 4 12 16" fill="none" stroke="' + shade + '" stroke-width="2.5" opacity=".55" stroke-linecap="round"/>' +
+      /* neck, head & headdress */
       '<path d="M71 63v19q13 9 24 0V61" fill="' + skin + '"/><path d="M62 32q22-22 44 0l-2 30q-19 24-38 0z" fill="' + skin + '"/>' +
-      '<path d="M59 36q-1-25 25-25t27 25l-8 12-5-23H70l-5 23z" fill="' + (enemy ? '#E2C89E' : '#293039') + '"/><path d="M66 36h38" stroke="#D9AF5D" stroke-width="5"/>' +
-      '<path d="M71 47h8m12 0h8M80 65h11" fill="none" stroke-linecap="round"/>' +
-      '<path d="M135 100V12" stroke="#67492E" stroke-width="5"/><path d="M135 2l-7 21 7-5 7 5z" fill="#BCAA7A"/>' +
-      '<path d="M18 92q-20 11-13 50l23 17 23-17q7-39-13-50z" fill="' + (enemy ? '#643E30' : '#255B76') + '"/>' +
-      '<path d="M18 98q-14 9-8 40l18 13 18-13q6-31-8-40z" fill="none" stroke="#CBAD69" stroke-width="3"/><circle cx="28" cy="123" r="9" fill="#CBA75E"/><circle cx="28" cy="123" r="4" fill="#6A553A"/></g></svg>';
+      (enemy ? '<path d="M56 34q0-24 28-25t29 25l6 24-12 4-7-36H68l-6 32-10-4z" fill="#E2C89E"/><path d="M64 36h40" stroke="#9B4D37" stroke-width="5"/><path d="M66 36h36" stroke="#D9A43A" stroke-width="2" stroke-dasharray="4 4"/>'
+        : '<path d="M57 36q-1-25 27-26t28 26l-8 14-5-24H69l-5 24z" fill="#293039"/><path d="M63 22h42M61 29h46" stroke="#4D5F75" stroke-width="2" opacity=".75"/><path d="M65 36h38" stroke="#D9AF5D" stroke-width="5"/><circle cx="84" cy="36" r="3" fill="#B7412E" stroke="#D9AF5D" stroke-width="1.2"/>') +
+      /* face: brow, outlined eye, nose & mouth */
+      '<path d="M69 44q6-3 11 0M88 44q5-3 11 0" fill="none" stroke="#2B1D14" stroke-width="2.1" stroke-linecap="round"/>' +
+      '<ellipse cx="75" cy="49" rx="4" ry="2.2" fill="#FFFDF6" stroke="#2B1D14" stroke-width="1.3"/><circle cx="76" cy="49" r="1.5" fill="#2B1D14"/>' +
+      '<ellipse cx="93" cy="49" rx="4" ry="2.2" fill="#FFFDF6" stroke="#2B1D14" stroke-width="1.3"/><circle cx="94" cy="49" r="1.5" fill="#2B1D14"/>' +
+      '<path d="M84 49v8l2 2M79 65q5 3 11 0" fill="none" stroke="#46342C" stroke-width="1.7" stroke-linecap="round"/>' +
+      /* spear & decorated shield */
+      '<g class="ac-spear"><path d="M135 104V12" stroke="#67492E" stroke-width="5" stroke-linecap="round"/><path d="M132 24h6M132 94h6" stroke="#D9A43A" stroke-width="2.2"/><path d="M135 2l-7 21 7-5 7 5z" fill="#BCAA7A"/><path d="M135 5v12" stroke="#FFF4D6" stroke-width="1.2"/></g>' +
+      '<g class="ac-shield"><path d="M18 92q-20 11-13 50l23 17 23-17q7-39-13-50z" fill="' + (enemy ? '#643E30' : '#255B76') + '"/>' +
+      '<path d="M18 98q-14 9-8 40l18 13 18-13q6-31-8-40z" fill="none" stroke="#CBAD69" stroke-width="3"/><path d="M12 123h32" stroke="#CBAD69" stroke-width="1.8" opacity=".6"/><circle cx="28" cy="123" r="9" fill="#CBA75E"/><circle cx="28" cy="123" r="4" fill="' + (enemy ? '#9B4D37' : '#D9A43A') + '"/></g></g></svg>';
   }
   let activeAmbushCombat = null;
   function stopAmbushCombat() { if (activeAmbushCombat) activeAmbushCombat.dispose(); }
@@ -66,13 +85,14 @@
     const hearts = (n, max) => '<span aria-label="' + n + ' / ' + max + ' can">' + '♥'.repeat(n) + '<i>' + '♡'.repeat(max - n) + '</i></span>';
     function render() {
       const tell = ambushTell(s);
+      const rec = s.done ? '' : tell.id === 'lunge' ? 'guard' : tell.id === 'sweep' ? (s.stamina ? 'dodge' : 'guard') : (s.stamina ? 'strike' : 'guard');
       root.innerHTML = '<header><span class="ac-kicker">' + (o.terrain === 'desert' ? 'Kervanın savunması' : 'Güvertede karşılaşma') + '</span><h2>Yolunu koru</h2><p>Mızrak ve kalkan · ' + s.turns + '/12 hamle</p></header>' +
-        '<div class="ac-arena a-' + s.last + '"><div class="ac-horizon"></div><div class="ac-fighter ac-you">' + ambushFigure(o.hero, false) + '<b>Sen</b>' + hearts(s.hp, s.maxHp) + '</div><div class="ac-fighter ac-enemy">' + ambushFigure('', true) + '<b>Saldırgan</b>' + hearts(s.enemy, s.maxEnemy) + '</div><div class="ac-dust"></div></div>' +
+        '<div class="ac-arena a-' + s.last + (s.done ? '' : ' tell-' + tell.id + (s.opening ? ' has-open' : '')) + '"><div class="ac-horizon"></div><div class="ac-fighter ac-you">' + ambushFigure(o.hero, false) + '<b>Sen</b>' + hearts(s.hp, s.maxHp) + '</div><div class="ac-fighter ac-enemy">' + ambushFigure('', true) + '<b>Saldırgan</b>' + hearts(s.enemy, s.maxEnemy) + '</div><div class="ac-dust"></div></div>' +
         '<div class="ac-info" aria-live="polite"><b>' + (s.done ? s.won ? 'Yol açıldı' : 'Geri çekildin' : tell.name) + '</b><p>' + (s.done ? s.text : tell.help) + '</p></div>' +
         '<p class="ac-response" role="status">' + (s.done ? '' : s.text) + '</p>' +
         (s.done ? '<button type="button" class="btn gold wide" data-ac="finish">Yola devam et</button>' :
           '<div class="ac-strength">Güç <span aria-label="' + s.stamina + ' / 3 güç">' + '●'.repeat(s.stamina) + '○'.repeat(3 - s.stamina) + '</span>' + (s.opening ? '<b>Karşı saldırı hazır</b>' : '<small>Kalkanını kaldırınca güç +1</small>') + '</div><div class="ac-actions">' +
-          '<button type="button" data-ac="strike"' + (!s.stamina ? ' disabled' : '') + '><b>1 · Vur</b><small>Mızrak · 1 güç</small></button><button type="button" data-ac="guard"><b>2 · Kalkan</b><small>Doğrultulan mızrağa karşı</small></button><button type="button" data-ac="dodge"' + (!s.stamina ? ' disabled' : '') + '><b>3 · Yana çekil</b><small>Savuruşa karşı · 1 güç</small></button></div><button type="button" class="ac-retreat" data-ac="retreat">Geri çekil · yükün tehlikeye girer</button>');
+          '<button type="button"' + (rec === 'strike' ? ' class="rec"' : '') + ' data-ac="strike"' + (!s.stamina ? ' disabled' : '') + '><b>1 · Vur</b><small>Mızrak · 1 güç</small></button><button type="button"' + (rec === 'guard' ? ' class="rec"' : '') + ' data-ac="guard"><b>2 · Kalkan</b><small>Doğrultulan mızrağa karşı</small></button><button type="button"' + (rec === 'dodge' ? ' class="rec"' : '') + ' data-ac="dodge"' + (!s.stamina ? ' disabled' : '') + '><b>3 · Yana çekil</b><small>Savuruşa karşı · 1 güç</small></button></div><button type="button" class="ac-retreat" data-ac="retreat">Geri çekil · yükün tehlikeye girer</button>');
     }
     function dispose() {
       if (dead) return; dead = true;

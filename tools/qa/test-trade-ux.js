@@ -90,5 +90,60 @@ ctx.sheetName = 'board';
 click({ act:'deliver' });
 assert.equal(paid,1); assert.equal(calls.at(-1),'board','delivery refreshes the open board');
 click({ act:'deliver' }); assert.equal(paid,1,'stale delivery cannot pay twice');
+
+// Accepting an order from the open board refreshes Sipariş panosu immediately
+ctx.acceptOrder = () => true;
+ctx.sheetName = 'board';
+const beforeAcceptCalls = calls.length;
+click({ act:'accept' });
+assert.equal(calls.length, beforeAcceptCalls + 1, 'accept refreshes the open order sheet');
+assert.equal(calls.at(-1), 'board');
+
+// Multi-order delivery: specific index via data-ord and batch via data-all="1"
+const ordA = { from:0, reward:120 }, ordB = { from:1, reward:240 };
+ctx.S.orders = [ordA, ordB];
+const delivered = [];
+ctx.deliverable = () => ctx.S.orders.slice();
+ctx.deliver = (st, o) => {
+  const idx = st.orders.indexOf(o);
+  if (idx < 0) return null;
+  st.orders.splice(idx, 1);
+  delivered.push(o);
+  return { from:o.from, reward:o.reward };
+};
+click({ act:'deliver', ord:'1' });
+assert.deepEqual(delivered, [ordB], 'data-ord="1" delivers only the targeted second order');
+assert.deepEqual(ctx.S.orders, [ordA]);
+ctx.S.orders = [ordA, ordB];
+delivered.length = 0;
+click({ act:'deliver', all:'1' });
+assert.deepEqual(delivered, [ordA, ordB], 'data-all="1" delivers all deliverable orders at once');
+assert.equal(ctx.S.orders.length, 0);
+
+// Live input event updates quantity preview without replacing input value
+function inputEv(attr, value) {
+  listeners.input.at(-1)({ target:{ value, hasAttribute:s => s === attr, closest:() => null } });
+}
+ctx.hgSide = false; ctx.msel = 'bugday'; ctx.qty = 1;
+inputEv('data-tradeqty', '6');
+assert.equal(ctx.qty, 6, 'live input updates market quantity immediately');
+ctx.hgSide = { g:'bugday', side:'buy', n:1 };
+inputEv('data-hgqty', '8');
+assert.equal(ctx.hgSide.n, 8, 'live input updates haggle quantity immediately');
+assert.equal(ctx.qty, 8);
+
+// Selecting a good row from the price sheet closes the sheet, opens the market, and picks that good
+ctx.closeSheet = () => { calls.push('close'); };
+ctx.market = on => { calls.push('market:' + on); };
+ctx.pickGood = gid => { calls.push('pick:' + gid); };
+const beforePgg = calls.length;
+click({ pgg:'sarap' });
+assert.deepEqual(calls.slice(beforePgg), ['close', 'market:true', 'pick:sarap'], 'clicking a price-table good opens market with that good selected');
+ctx.msel = 'sarap';
+const beforePggSame = calls.length;
+click({ pgg:'sarap' });
+assert.deepEqual(calls.slice(beforePggSame), ['close', 'market:true', 'panel'], 'clicking already-selected price-table good keeps it selected without toggling off');
+assert.equal(ctx.msel, 'sarap');
+
 assert.match(ev("tradeQtyControls(0,0,'hg',false)"), /max="0"/);
 console.log('ALL OK: trade quantity, side intent and order-sheet refresh');

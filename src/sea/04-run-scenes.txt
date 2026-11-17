@@ -199,7 +199,7 @@
         cx.strokeText(t, W / 2, H * 0.42); cx.fillText(t, W / 2, H * 0.42);
         if (st.race) { cx.font = '800 24px Cinzel, Georgia, serif'; cx.lineWidth = 5; cx.fillStyle = C.white; cx.strokeText(st.cfg.title, W / 2, H * 0.42 - 62); cx.fillText(st.cfg.title, W / 2, H * 0.42 - 62); cx.fillStyle = C.gold; }
         cx.font = '700 14px Nunito, sans-serif'; cx.lineWidth = 4; cx.fillStyle = C.white;
-        const hint = (st.cfg ? st.cfg.hint : SCN[st.kind].hint)[coarse ? 1 : 0];
+        const hint = ((st.cfg ? st.cfg.hint : SCN[st.kind] && SCN[st.kind].hint) || ['', ''])[coarse ? 1 : 0];
         cx.strokeText(hint, W / 2, H * 0.42 + 34); cx.fillText(hint, W / 2, H * 0.42 + 34);
         cx.restore();
       }
@@ -239,7 +239,7 @@
       }
       if (view && view.hide) try { view.hide(); } catch (e) {}
       st.v3 = false;
-      if (!st.cfg) { cx.save(); if (st.shake > 0) cx.translate(rnd(-6, 6) * st.shake * 2, rnd(-6, 6) * st.shake * 2); SC[st.kind].draw(st); cx.restore(); drawHud(); return; }
+      if (!st.cfg) { cx.save(); if (st.shake > 0) cx.translate(rnd(-6, 6) * st.shake * 2, rnd(-6, 6) * st.shake * 2); if (SC[st.kind] && SC[st.kind].draw) SC[st.kind].draw(st); cx.restore(); drawHud(); return; }
       cx.save();
       if (st.shake > 0) cx.translate(rnd(-6, 6) * st.shake * 2, rnd(-6, 6) * st.shake * 2);
       const dz = st.desert, dc = CITIES[st.plan.dest];
@@ -447,6 +447,6 @@
       /* 120 Hz phones: draw at most ~60 times a second */
       if (now - last < 15) { raf = requestAnimationFrame(loop); return; }
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
-      if (!paused) { if (st.hurtT > 0) st.hurtT -= dt; if (st.hullT > 0) st.hullT -= dt; if (!st.end) { if (st.cfg) step(dt); else { if (st.count > 0) st.count -= dt; else SC[st.kind].step(st, dt); } } if (!RT.nodraw) draw(); }
+      if (!paused) { if (st.hurtT > 0) st.hurtT -= dt; if (st.hullT > 0) st.hullT -= dt; if (!st.end) { if (st.cfg) step(dt); else { if (st.count > 0) st.count -= dt; else if (SC[st.kind] && SC[st.kind].step) SC[st.kind].step(st, dt); } } if (!RT.nodraw) draw(); }
       raf = requestAnimationFrame(loop);
     }

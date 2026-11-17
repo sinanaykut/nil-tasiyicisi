@@ -4,7 +4,7 @@
     if (phase !== 'port' || !S || !CITIES[i] || i === S.city) return;
     const ok = canGo(S, i);
     if (sheetName !== 'travel') { sel = i; play('click'); showTravel(i); return; }
-    sel = i; play(ok ? 'click' : 'tick'); buzz('pick');
+    sel = i; smartCarN(sel); play(ok ? 'click' : 'tick'); buzz('pick');
     if (ok && guide().step === 'city') guideTo('sail');
     travelUpdate();
     const b = document.querySelector('#sheet [data-act="go"]'); if (ok && b && !reduce) b.focus({ preventScroll:true });

@@ -15,6 +15,7 @@
     const t = e.target.closest && e.target.closest('button');
     if (!t) { if (e.target.id === 'veil' && !sheetLock) closeSheet(); return; }
     if (t.dataset.tile) { pickGood(t.dataset.tile); return; }
+    if (t.dataset.pgg) { play('click'); closeSheet(); if (phase === 'port' && !S.over) { market(true); if (msel !== t.dataset.pgg) pickGood(t.dataset.pgg); else { hgSide = false; renderPanel(); placeTutor(); } } return; }
     if (t.dataset.dlg != null) { dlgPick(+t.dataset.dlg); return; }
     if (t.dataset.hgg) { if (DLG && sheetName === 'say') { hagSetupInDialog(t.dataset.hgg); return; } DLG = null; closeSheet(); msel = t.dataset.hgg; renderPanel(); hag28(t.dataset.hgg); return; }
     if (t.dataset.hag28) { hag28(msel, t.dataset.hag28); return; }
@@ -161,9 +162,23 @@
       if (kept.length) toast('Tüccarın deposu dolu: ' + kept.join(', ') + ' ambarında kaldı.');
       if (rev) { play(pr > 1500 ? 'big' : 'sell'); floatAt(t, '+' + fmt(rev) + '  (kâr ' + (pr >= 0 ? '+' : '') + fmt(pr) + ')', pr < 0); if (lvUp) { line = pickLine(); trustToast(lvUp, S.city); } save(); renderAll(); } else if (kept.length) play('no'); }
     else if (act === 'gift') { const f = giftOf(S.city), r = gift28(S); if (r) { line = f.thanks; play('good'); toast('Karşılığında: ' + r.got.join(', ') + '.'); trustToast(r.lvUp, S.city); save(); renderAll(); } }
-    else if (act === 'accept') { if (acceptOrder(S)) { play('click'); toast('Sipariş deftere yazıldı.'); save(); renderAll(); } else play('no'); }
+    else if (act === 'accept') { if (acceptOrder(S)) { play('click'); toast('Sipariş deftere yazıldı.'); save(); renderAll(); refreshOrderSheet(); } else play('no'); }
     else if (act === 'pzScaleHint') scaleHint();
-    else if (act === 'deliver') { const o = deliverable(S)[0]; const r = o && deliver(S, o); if (r) { play('big'); floatAt(t, '+' + fmt(r.reward)); toast(MERCHANT_NAMES[r.from] + ' siparişin için teşekkür ediyor.' + (r.perk === 'itibar' ? ' Lonca\'da +2 itibar.' : r.perk ? ' ' + BLESS[r.perk].name + ' seninle.' : '')); trustToast(r.lvUp, r.from); save(); renderAll(); refreshOrderSheet(); } else refreshOrderSheet(); }
+    else if (act === 'deliver') {
+      const dl = deliverable(S);
+      const list = t.dataset && t.dataset.all === '1' && dl.length > 1 ? dl.slice() : t.dataset && t.dataset.ord != null && Array.isArray(S.orders) && S.orders[+t.dataset.ord] ? [S.orders[+t.dataset.ord]] : t.dataset && t.dataset.gid ? [dl.find(o => o.g === t.dataset.gid) || dl[0]].filter(Boolean) : dl.slice(0, 1);
+      let tot = 0, lvUp = 0, lastFrom = null, perks = [];
+      list.forEach(o => {
+        const r = o && deliver(S, o);
+        if (r) { tot += r.reward; if (r.lvUp) lvUp = r.lvUp; lastFrom = r.from; if (r.perk) perks.push(r.perk === 'itibar' ? 'Lonca\'da +2 itibar.' : BLESS[r.perk] ? BLESS[r.perk].name + ' seninle.' : ''); }
+      });
+      if (tot > 0) {
+        play('big'); floatAt(t, '+' + fmt(tot));
+        toast((list.length > 1 ? list.length + ' sipariş teslim edildi: +' + fmt(tot) + ' deben.' : MERCHANT_NAMES[lastFrom] + ' siparişin için teşekkür ediyor.') + (perks.length ? ' ' + perks.join(' ') : ''));
+        if (lvUp) trustToast(lvUp, lastFrom);
+        save(); renderAll(); refreshOrderSheet();
+      } else refreshOrderSheet();
+    }
     else if (act === 'pay') { const n = t.dataset.n === 'all' ? S.debt : 500; const p = payDebt(S, n); if (p) { play('sell'); floatAt(t, '−' + fmt(p), true); save(); renderAll(); if (!S.debt) toast('Hapu\'ya borcun kalmadı!'); if (sheetName === 'debt') showDebt(); } else play('no'); }
     else if (act === 'borrow') { const p = borrow(S, 500); if (p) { play('buy'); floatAt(t, '+' + fmt(p)); save(); renderAll(); if (sheetName === 'debt') showDebt(); } else play('no'); }
     else if (act === 'newAsk' || act === 'finishAsk') {
@@ -177,7 +192,13 @@
     if (t.hasAttribute('data-hgqty') && hgSide) { hgSide.n = tradeAmount(t.value === '' ? hgSide.n : t.value, hgMax(hgSide.g, hgSide.side)); qty = hgSide.n; paintTradeAmount(t, hgSide.g, hgSide.side, hgSide.n, hgMax(hgSide.g, hgSide.side), 'hg'); }
     else if (t.hasAttribute('data-tradeqty') && msel) { const mx = Math.max(hgMax(msel, 'buy'), hgMax(msel, 'sell')); qty = tradeAmount(t.value === '' ? qty : t.value, mx); paintTradeAmount(t, msel, null, qty, mx, 'trade'); }
   });
-  document.addEventListener('input', e => { if (e.target && e.target.id === 'payR') payUpdate(); });
+  document.addEventListener('input', e => {
+    const t = e.target; if (!t) return;
+    if (t.id === 'payR') { payUpdate(); return; }
+    if (!t.hasAttribute || t.value === '' || !Number.isFinite(+t.value)) return;
+    if (t.hasAttribute('data-hgqty') && hgSide) { const mx = hgMax(hgSide.g, hgSide.side); hgSide.n = tradeAmount(t.value, mx); qty = hgSide.n; paintTradeAmount({ value:t.value, closest:s => t.closest ? t.closest(s) : null }, hgSide.g, hgSide.side, hgSide.n, mx, 'hg'); }
+    else if (t.hasAttribute('data-tradeqty') && msel) { const mx = Math.max(hgMax(msel, 'buy'), hgMax(msel, 'sell')); qty = tradeAmount(t.value, mx); paintTradeAmount({ value:t.value, closest:s => t.closest ? t.closest(s) : null }, msel, null, qty, mx, 'trade'); }
+  });
   function resumeVoyage() {
     if (S.voyageSnap) {
       const next = restoreSave(S.voyageSnap);

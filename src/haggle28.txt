@@ -369,7 +369,9 @@
       const u = hgPrice(st, st.cur), list = st.o.unit, tot = u * q, diff = Math.abs(list - u) * q;
       const nod = st.fin && !st.res.done;
       let h = '<div class="hgnow"><small>' + (st.buy ? 'Onun fiyatı' : 'Sana verdiği') + '</small><b>' + hgUnitTxt(nod ? list : u) + '</b><span>deben / tane</span></div>';
-      if (nod) h += '<div class="hgtot"><span class="list">alışveriş olmadı</span></div>'; else h += '<div class="hgtot"><span>' + (st.cur > 0 ? '<s>' + hgUnitTxt(list) + '</s> ' : '') + '× ' + fmt(q) + ' = <b>' + fmt(tot) + '</b></span>' + (st.cur > 0 ? '<span class="gain">' + hgPct(st, st.cur) + ' · ' + (st.buy ? fmt(diff) + ' ucuz' : fmt(diff) + ' fazla') + '</span>' : '<span class="list">liste fiyatı</span>') + '</div>';
+      const net = !st.buy && st.o.cost > 0 ? Math.round((u - st.o.cost) * q) : null;
+      if (nod) h += '<div class="hgtot"><span class="list">alışveriş olmadı</span></div>';
+      else h += '<div class="hgtot"><span>' + (st.cur > 0 ? '<s>' + hgUnitTxt(list) + '</s> ' : '') + '× ' + fmt(q) + ' = <b>' + fmt(tot) + '</b></span>' + (st.cur > 0 ? '<span class="gain">' + hgPct(st, st.cur) + ' · ' + (st.buy ? fmt(diff) + ' ucuz' : fmt(diff) + ' fazla') + '</span>' : '<span class="list">liste fiyatı</span>') + (net != null ? '<span class="hgcost ' + (net > 0 ? 'pos' : net < 0 ? 'neg' : '') + '">maliyetin ' + hgUnitTxt(st.o.cost) + ' · net ' + (net > 0 ? '+' + fmt(net) : net < 0 ? '−' + fmt(Math.abs(net)) : '=') + '</span>' : '') + '</div>';
       if (st.fin) {
         const r = st.res, ok = r.done;
         h += '<div class="hgstamp ' + (r.angry ? 'bad' : ok ? 'ok' : 'no') + '">' + (r.angry ? 'Kovuldun!' : ok ? 'Anlaştık' + (st.cur > 0 ? ' ' + hgPct(st, st.cur) : '') : 'Anlaşma yok') + '</div>';
