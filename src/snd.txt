@@ -38,7 +38,7 @@
     let ac = null, out, mGain, sBus, mode = 'port', started = false;
     const bufs = {}, srcs = {}, gains = {};
     const pref = { music: lsGet(MUS) !== '0', sfx: lsGet(SFX) !== '0' };
-    const SR = 32000, MUSIC_VER = 'm47', MAXBUF = 4, MAXMB = 58, SEGMIN = 2;
+    const SR = 32000, MUSIC_VER = 'm48', MAXBUF = 4, MAXMB = 58, SEGMIN = 2;
     const midi = n => 440 * Math.pow(2, (n - 69) / 12);
     /* a short warm room for the effects */
     function impulse(c, sec, decay) {
@@ -46,12 +46,13 @@
       for (let ch = 0; ch < 2; ch++) { const d = b.getChannelData(ch); let lp = 0; const a = 1 - Math.exp(-2 * Math.PI * 3200 / c.sampleRate); for (let i = 0; i < len; i++) { lp += a * ((Math.random() * 2 - 1) - lp); d[i] = lp * 1.8 * Math.pow(1 - i / len, decay) * Math.min(1, i / (0.01 * c.sampleRate)); } }
       return b;
     }
-    const PORTS = ['port1', 'port2', 'port3', 'menu'];
+    const PORTS = ['port1', 'port2', 'port3', 'port4', 'menu'];
     const TRACKS = {
       menu:  { sec:24 * 4 * 60 / 76,  name:'Nil\'in Şafağı',   desc:'Ana menü teması · ney, kanun ve arp' },
       port1: { sec:32 * 4 * 60 / 100, name:'Mennefer Limanı',  desc:'Sıcak liman çarşısı · ud, ney ve darbuka' },
       port2: { sec:32 * 4 * 60 / 116, name:'Çarşı Davulları',  desc:'Hareketli pazar · kamış, ud ve el çırpma' },
       port3: { sec:20 * 4 * 60 / 66,  name:'Tapınak Gölgesi',  desc:'Gizemli ve dingin · ney, arp, sistrum' },
+      port4: { sec:24 * 4 * 60 / 92,  name:'Vaha Kervanı',     desc:'Çöl ve sınır limanları · ud, kanun ve kervan davulu' },
       sail:  { sec:32 * 4 * 60 / 104, name:'Yelkenler Açık',   desc:'Nehir yolculuğu · arp dalgaları ve ney' },
       rough: { sec:24 * 4 * 60 / 112, name:'Dalgalı Su',       desc:'Çağlayan ve fırtına · bendir, ud ve ney', scene:true },
       chase: { sec:28 * 4 * 60 / 132, name:'Pusu',             desc:'Takip · alçak davullar ve ud', scene:true },
@@ -253,7 +254,7 @@
     }
 
     /* ---------- playback: tracks are prepared one at a time in the background and crossfade by mode ---------- */
-    let menuTrack = 'menu', curPort = PORTS.includes(lsGet(MUS + '-t')) ? lsGet(MUS + '-t') : 'port1', auto = lsGet(MUS + '-a') !== '0', rotT = null, onChange = null, portVisits = 0;
+    let menuTrack = 'menu', curPort = PORTS.includes(lsGet(MUS + '-t')) ? lsGet(MUS + '-t') : 'port1', auto = lsGet(MUS + '-a') !== '0', rotT = null, rotTrack = '', onChange = null, lastCity = null, spotTrack = null;
     const pending = {}, queue = [], stopT = {};
     let lastErr = '', busy = 0;
     const urgentNow = {};
@@ -293,13 +294,13 @@
     function prefetch() {
       const soon = [menuTrack, curPort, 'sail'];
       soon.forEach(k => ensure(k));
-      db().then(() => ['rough', 'race', 'chase', 'dive', 'port1', 'port2', 'port3', 'menu'].forEach(k => { if (!stored[k]) ensure(k); }));
+      db().then(() => ['rough', 'race', 'chase', 'dive', 'port1', 'port2', 'port3', 'port4', 'menu'].forEach(k => { if (!stored[k]) ensure(k); }));
     }
     const atSea = () => mode !== 'menu' && mode !== 'port';
     function gainOf(k) { if (!gains[k]) { gains[k] = ac.createGain(); gains[k].gain.value = 0; gains[k].connect(mGain); } return gains[k]; }
     function desired() {
       if (mode === 'menu') return { [menuTrack]:0.6 };
-      if (mode === 'port') return { [curPort]:0.62 };
+      if (mode === 'port') return { [spotTrack || curPort]:0.62 };
       if (mode === 'sea') return { sail:0.6 };
       return { [mode]: mode === 'dive' ? 0.6 : 0.62 };
     }
@@ -327,22 +328,46 @@
         if (!inD && srcs[k]) { if (!stopT[k]) stopT[k] = setTimeout(() => { stopT[k] = 0; if (!(k in desired()) && srcs[k]) { stopSrc(k); evict(); } }, 4000 + (tc || 0.7) * 1500); }
         else if (inD) { clearTimeout(stopT[k]); stopT[k] = 0; }
       });
-      if (mode === 'port') armRotation(); else clearTimeout(rotT);
+      if (mode === 'port') armRotation(); else { clearTimeout(rotT); rotT = null; rotTrack = ''; }
       if (onChange) onChange();
     }
-    /* in automatic mode the port tune changes after it has played through twice */
+    /* in automatic mode the port tune rotates once per full play without resetting on UI re-renders */
     function armRotation() {
-      clearTimeout(rotT);
-      if (!auto) return;
-      rotT = setTimeout(() => { if (mode === 'port' && auto) next(true); }, TRACKS[curPort].sec * 2 * 1000);
+      const active = spotTrack || curPort;
+      if (!auto || spotTrack) { clearTimeout(rotT); rotT = null; rotTrack = ''; return; }
+      if (rotT && rotTrack === active) return;
+      clearTimeout(rotT); rotTrack = active;
+      rotT = setTimeout(() => { rotT = null; rotTrack = ''; if (mode === 'port' && auto && !spotTrack) next(true); }, TRACKS[curPort].sec * 1000);
     }
     function next(quiet) {
+      spotTrack = null; clearTimeout(rotT); rotT = null; rotTrack = '';
       const i = PORTS.indexOf(curPort); curPort = PORTS[(i + 1) % PORTS.length]; if (mode === 'menu') menuTrack = curPort;
       if (!quiet) lsSet(MUS + '-t', curPort);
       if (mode === 'port' || mode === 'menu') apply(1.4); else if (onChange) onChange();
       return curPort;
     }
-    function pick(name) { if (!PORTS.includes(name)) return; curPort = name; menuTrack = name; lsSet(MUS + '-t', name); if (mode === 'port' || mode === 'menu') apply(1.2); else if (onChange) onChange(); }
+    function pick(name) { if (!PORTS.includes(name)) return; spotTrack = null; clearTimeout(rotT); rotT = null; rotTrack = ''; curPort = name; menuTrack = name; lsSet(MUS + '-t', name); if (mode === 'port' || mode === 'menu') apply(1.2); else if (onChange) onChange(); }
+    const CITY_TRACK = ['port2', 'port1', 'port3', 'menu', 'port4', 'port4', 'port4', 'port4'];
+    function city(ci) {
+      if (ci == null || !CITY_TRACK[ci]) return;
+      const changed = lastCity !== ci;
+      lastCity = ci;
+      if (!auto || !changed) return;
+      const want = CITY_TRACK[ci];
+      if (curPort === want) return;
+      curPort = want; clearTimeout(rotT); rotT = null; rotTrack = '';
+      if (mode === 'port' && !spotTrack) apply(1.4); else if (onChange) onChange();
+    }
+    function spot(name) {
+      if (!auto || !TRACKS[name] || spotTrack === name) return;
+      spotTrack = name; clearTimeout(rotT); rotT = null; rotTrack = '';
+      if (mode === 'port') apply(0.9); else if (onChange) onChange();
+    }
+    function clearSpot() {
+      if (!spotTrack) return;
+      spotTrack = null;
+      if (mode === 'port') apply(1.1); else if (onChange) onChange();
+    }
     function setAuto(on) { auto = !!on; lsSet(MUS + '-a', on ? '1' : '0'); if (mode === 'port') armRotation(); if (onChange) onChange(); }
     function init() {
       if (ac) { wake(); return ac; }
@@ -394,8 +419,8 @@
     let raceT = 0;
     function setMode(m) {
       if (!MODE[m] || m === mode) return;
-      const was = mode, wasSea = atSea(); mode = m; lastSea = atSea() ? m : lastSea;
-      if (m === 'port' && wasSea && auto) { portVisits++; if (portVisits % 2 === 0) { const i = PORTS.indexOf(curPort); curPort = PORTS[i < 0 || i >= 2 ? 0 : i + 1]; } }
+      const was = mode; mode = m; lastSea = atSea() ? m : lastSea;
+      if (m !== 'port') spotTrack = null;
       clearTimeout(raceT);
       if (m === 'race') { grid = null; raceT = setTimeout(() => { if (mode === 'race' && grid == null && ac) { grid = ac.currentTime; apply(0.3); } }, 1500); }
       if (m !== 'sea' && atSea()) ensure(m, true);
@@ -430,7 +455,7 @@
     function setMusic(on) { pref.music = on; lsSet(MUS, on ? '1' : '0'); if (onChange) onChange(); if (on) prefetch(); if (!ac) return; if (on) startMusic(); else stopMusic(); }
     function setSfx(on) { pref.sfx = on; lsSet(SFX, on ? '1' : '0'); if (ac) sBus.gain.setTargetAtTime(on ? 0.7 : 0, ac.currentTime, 0.05); }
     function info() {
-      const playing = mode === 'menu' ? menuTrack : mode === 'port' ? curPort : mode === 'sea' ? 'sail' : mode;
+      const playing = mode === 'menu' ? menuTrack : mode === 'port' ? (spotTrack || curPort) : mode === 'sea' ? 'sail' : mode;
       const ready = id => !!bufs[id] || !!stored[id] || !!(srcs[id] && streams[id]);
       const mem = Object.keys(bufs).reduce((s, k) => s + bufs[k].length * 8, 0);
       return { err:lastErr, ac:ac ? ac.state : 'none', srcs:Object.keys(srcs), gains:Object.fromEntries(Object.keys(gains).map(k => [k, +gains[k].gain.value.toFixed(2)])), mg:mGain ? +mGain.gain.value.toFixed(2) : -1, mode, auto, cur:curPort, playing, music:pref.music, started, worker:wkOk, memMB:+(mem / 1048576).toFixed(1), held:Object.keys(bufs), streaming:Object.keys(streams), stats, tracks:PORTS.concat(['sail', 'rough', 'chase', 'race', 'dive']).map(id => ({ id, name:TRACKS[id].name, desc:TRACKS[id].desc, scene:!!TRACKS[id].scene, ready:ready(id), prog:Math.round((prog[id] || 0) * 100) })), race:{ grid:grid != null, rate:srcs.race ? +srcs.race.rate.toFixed(3) : null, err:+beatErr.toFixed(3), e:+lastE.toFixed(3), reph:rephN }, allReady:Object.keys(TRACKS).every(k => bufs[k] || stored[k]) };
@@ -497,5 +522,5 @@
     };
     function play(k) { if (!pref.sfx || !init() || !fx[k]) return; try { fx[k](); } catch (e) {} }
     function note(n) { if (!pref.sfx || !init()) return; try { pl(n, now(), 0.13, 1.1); glass(n + 12, now(), 0.022, 0.6); } catch (e) {} }
-    return { note, _bufs:bufs, prefetch, unlock:init, play, setMusic, setSfx, pref, mode:setMode, scene, beat, lastSea:() => lastSea, next, pick, setAuto, info, set onChange(f) { onChange = f; }, ready:() => Object.fromEntries(Object.keys(TRACKS).map(k => [k, !!bufs[k] || !!stored[k]])) };
+    return { note, _bufs:bufs, prefetch, unlock:init, play, setMusic, setSfx, pref, mode:setMode, city, spot, clearSpot, scene, beat, lastSea:() => lastSea, next, pick, setAuto, info, set onChange(f) { onChange = f; }, ready:() => Object.fromEntries(Object.keys(TRACKS).map(k => [k, !!bufs[k] || !!stored[k]])) };
   })();

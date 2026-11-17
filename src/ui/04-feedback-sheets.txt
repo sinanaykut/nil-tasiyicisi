@@ -57,6 +57,7 @@
     if (phase === 'sea') Sea.pause(false);
     if (sheetName === 'title' || (sheetName === 'music' && musicBack === 'toTitle')) Snd.mode(phase === 'sea' ? Snd.lastSea() : 'port');
     sheetName = '';
+    setTimeout(() => { if ($('#veil').hidden && typeof Snd !== 'undefined' && Snd.clearSpot) Snd.clearSpot(); }, 0);
     if (opener && document.body.contains(opener)) opener.focus({ preventScroll:true });
     opener = null;
   }

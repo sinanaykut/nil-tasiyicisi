@@ -43,6 +43,7 @@
   function templeType(ci) { return typeof templeTypeFor === 'function' ? templeTypeFor(ci, S.rs) : 'light'; }
   function goTemple() {
     if (!canTemple(S) || phase !== 'port') return;
+    if (typeof Snd !== 'undefined' && Snd.spot) Snd.spot('port3');
     const ci = S.city, type = templeType(ci), solved = S.stats.temples || 0;
     const level = Math.min(4, solved + ((TEMPLE_LV[ci] || 0) >= 3 ? 1 : 0));
     S.temple[ci] = true; save();

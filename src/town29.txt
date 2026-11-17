@@ -88,9 +88,10 @@ void main() {
 #else
   vec3 n = normalize(vN), c = vC;
   float tone;
-  if (n.y > 0.86) tone = 1.0;
+  if (n.y > 0.86) tone = 0.98;
   else if (n.y < -0.5) tone = 0.42;
-  else { float d = dot(normalize(n.xz + vec2(1e-4)), normalize(uSun.xz)); tone = d > 0.3 ? 0.84 : d > -0.3 ? 0.7 : 0.56; if (n.y > 0.35) tone = mix(tone, 1.0, 0.3); }
+  else { float d = dot(normalize(n.xz + vec2(1e-4)), normalize(uSun.xz)); tone = mix(0.54, 0.88, smoothstep(-0.75, 0.75, d)); if (n.y > 0.25) tone = mix(tone, 0.98, clamp((n.y - 0.25) * 0.65, 0.0, 0.45)); }
+  if (vE < 0.5 && n.y < 0.95) c *= 0.982 + hh(floor(vW.xz * 1.6)) * 0.035;
   if (vE > 1.5 && vE < 2.5 && n.y > 0.86) {
     vec2 q = vW.xz / 7.5, f = abs(fract(q) - 0.5), id = floor(q); float aa = fwidth(q.x) * 1.4 + 0.01;
     c *= 0.94 + 0.1 * hh(id);
@@ -1025,7 +1026,7 @@ void main() {
       const U = {}, own = [], kp = q => { own.push(q); return q; }, col = h => new T.Color(h);
       const pr = Math.min(1.5, window.devicePixelRatio || 1);
       const SHd = shared(), uw = SHd.uw, tu = SHd.tu, mats = SHd.mats; Object.assign(U, SHd.U);
-      U.uInk.value = 1.5; U.uPR.value = pr;
+      U.uInk.value = 0.95; U.uPR.value = pr;
       const sc = new T.Scene(), cam = new T.OrthographicCamera(-1, 1, 1, -1, 1, 4000), ODIST = 1800;
       /* ground: painted canvas on a plane, and a wide plain under it */
       const gmat = kp(new T.ShaderMaterial({ uniforms:{ uMap:{ value:null }, uLit:tu.uLit, uTint:tu.uTint, uTintA:tu.uTintA, uFar:{ value:col('#E2C68E') }, uGlow:tu.uGlow, uHaze:tu.uHaze, uNight:tu.uNight, uLamp:tu.uLamp }, vertexShader:GR_V, fragmentShader:GR_F }));
@@ -1197,7 +1198,7 @@ void main() {
       function labels(o2) {
         const sp = o2.spots || {}, desert = !(CP[CID[o2.ci]] || {}).water, notes = o2.notes || {};
         SPOTS.forEach(key => {
-          const on = key === 'hero' ? !!heroKey(o2.hero) : !!sp[key] && !!(key === 'ship' || (town0 && town0.B.spots[key]));
+          const on = key === 'hero' ? false : !!sp[key] && !!(key === 'ship' || (town0 && town0.B.spots[key]));
           let L = lab[key];
           if (!on) { if (L) L.hidden = true; return; }
           if (!L) { L = lab[key] = document.createElement('button'); L.type = 'button'; L.className = 'v3t-l'; labs.appendChild(L); L.addEventListener('focus', () => highlight(key, true)); L.addEventListener('blur', () => highlight(key, false)); }
@@ -1237,7 +1238,7 @@ void main() {
         townBox(); zp.fix();
         frame(0);
         zLast = 0;
-        const prN = slowT ? 1 : pr; r.setPixelRatio(prN); r.setSize(W, H, false); const db = r.getDrawingBufferSize(_n); uw.uRes.value.set(db.x, db.y); uw.uLW.value = 1.55 * prN;
+        const prN = slowT ? 1 : pr; r.setPixelRatio(prN); r.setSize(W, H, false); const db = r.getDrawingBufferSize(_n); uw.uRes.value.set(db.x, db.y); uw.uLW.value = 1.1 * prN;
         uw.uBias.value = 3 * 2 / (cam.far - cam.near); frame(0);
         layout();
         return true;

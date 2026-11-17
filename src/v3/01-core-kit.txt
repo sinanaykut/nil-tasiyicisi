@@ -19,7 +19,7 @@
       return avail;
     }
     function weak() { const n = navigator.hardwareConcurrency, m = navigator.deviceMemory; return (n > 0 && n <= 2) || (m > 0 && m <= 2); }
-    function pref() { if (!available()) return false; return lsGet(PK) === '1'; }
+    function pref() { if (!available()) return false; return lsGet(PK) !== '0'; }
     function setPref(on) { lsSet(PK, on ? '1' : '0'); if (on) return enable(); disable(); return Promise.resolve(false); }
     function load() {
       if (loadP) return loadP;

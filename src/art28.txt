@@ -96,15 +96,15 @@
 
   /* ---------- the plaque that names a place, and the tappable group around it ---------- */
   function lab28(x, y, text, icon, sub) {
-    const fs = 23, two = text.length > 12 && text.indexOf(' ') > 0 && !sub;
+    const fs = 16, two = text.length > 12 && text.indexOf(' ') > 0 && !sub;
     const lines = two ? [text.slice(0, text.lastIndexOf(' ')), text.slice(text.lastIndexOf(' ') + 1)] : [text];
-    const tw = Math.max.apply(null, lines.map(t => t.length * 0.6 * fs)) + (sub ? sub.length * 0.54 * 18 + 12 : 0), w = Math.round(tw + 50), h = two ? 56 : 38;
+    const tw = Math.max.apply(null, lines.map(t => t.length * 0.62 * fs)) + (sub ? sub.length * 0.56 * 13 + 8 : 0), w = Math.round(tw + 38), h = two ? 42 : 30;
     let s = '<g class="spot-lab" transform="translate(' + f28(x) + ' ' + f28(y) + ')"><g class="t28-labi">';
-    s += r28(-w / 2 + 2, 3, w, h, INK, 'rx="10" opacity=".35"') + r28(-w / 2, 0, w, h, '#FBF3DF', 'rx="10" stroke="' + INK + '" stroke-width="2.6"');
-    s += r28(-w / 2 + 4, 4, w - 8, 4, '#D9A43A', 'rx="2"');
-    s += c28(-w / 2 + 21, h / 2 + 1, 14, '#D9A43A', 'stroke="' + INK + '" stroke-width="2"') + '<use href="#' + icon + '" x="' + f28(-w / 2 + 10) + '" y="' + f28(h / 2 - 10) + '" width="22" height="22" color="' + INK + '"/>';
-    s += '<text x="' + f28(-w / 2 + 42) + '" y="' + (two ? 25 : 28) + '" font-size="' + fs + '" font-weight="800" fill="' + INK + '" font-family="Nunito,system-ui,sans-serif">' + esc(lines[0]) + (sub ? '<tspan dx="8" font-size="18" font-weight="700" fill="#8F2F21">' + esc(sub) + '</tspan>' : '') + '</text>';
-    if (two) s += '<text x="' + f28(-w / 2 + 42) + '" y="48" font-size="' + fs + '" font-weight="800" fill="' + INK + '" font-family="Nunito,system-ui,sans-serif">' + esc(lines[1]) + '</text>';
+    s += r28(-w / 2 + 1.5, 2, w, h, INK, 'rx="6" opacity=".32"') + r28(-w / 2, 0, w, h, '#FBF3DF', 'rx="6" stroke="#3A2618" stroke-width="1.8"');
+    s += r28(-w / 2 + 2.5, 2.5, w - 5, h - 5, 'none', 'rx="4" stroke="#D9A43A" stroke-width="1.1"');
+    s += c28(-w / 2 + 16, h / 2 + 0.5, 10, '#E7B94B', 'stroke="#3A2618" stroke-width="1.4"') + '<use href="#' + icon + '" x="' + f28(-w / 2 + 8) + '" y="' + f28(h / 2 - 7.5) + '" width="16" height="16" color="' + INK + '"/>';
+    s += '<text x="' + f28(-w / 2 + 31) + '" y="' + (two ? 19 : 21) + '" font-size="' + fs + '" font-weight="700" fill="' + INK + '" font-family="Cinzel,Georgia,serif" letter-spacing="0.3">' + esc(lines[0]) + (sub ? '<tspan dx="6" font-size="13" font-weight="700" fill="#8F2F21">' + esc(sub) + '</tspan>' : '') + '</text>';
+    if (two) s += '<text x="' + f28(-w / 2 + 31) + '" y="35" font-size="' + fs + '" font-weight="700" fill="' + INK + '" font-family="Cinzel,Georgia,serif" letter-spacing="0.3">' + esc(lines[1]) + '</text>';
     return s + '</g></g>';
   }
   /* hit = [x, y, w, h] a generous invisible tap box; lab = [x, y] where the plaque hangs */
@@ -245,9 +245,14 @@
       t += pth('M' + f28(x1 - tw * 0.26) + ' ' + b + 'L' + f28(x1 - tw * 0.26 + bt * 0.25) + ' ' + (b - th) + 'H' + f28(x1 - bt) + 'L' + x1 + ' ' + b + 'Z', D);
       t += pth('M' + f28(x0 + bt - 5) + ' ' + (b - th + 1) + 'q' + f28((x1 - x0 - 2 * bt) / 2 + 5) + ' -6 ' + f28(x1 - x0 - 2 * bt + 10) + ' 0v-9q' + f28(-(x1 - x0 - 2 * bt) / 2 - 5) + ' -9 ' + f28(-(x1 - x0 - 2 * bt) - 10) + ' 0z', mix(F, '#FFFFFF', 0.2), ink(1.6));
       t += l28('M' + f28(x0 + bt + 3) + ' ' + (b - th + 14) + 'H' + f28(x1 - bt - 3), o.c1 || '#1F5FA8', 3);
-      /* relief: the king with a raised mace, painted big on each tower */
-      const mx = (x0 + x1) / 2 - tw * 0.06, my = b - th * 0.55, q = th / 150;
-      t += '<g transform="translate(' + f28(mx) + ' ' + f28(my) + ') scale(' + f28(q * (left ? 1 : -1)) + ' ' + f28(q) + ')" opacity=".75">' + l28('M-4 30L0 0L6 30M0 0V-26M0 -18L-16 -34M0 -16L14 -8', o.c2 || '#B7412E', 4) + c28(0, -33, 6, o.c2 || '#B7412E') + pth('M-6 -38h12l-2 -10h-8z', '#E9C46A') + l28('M-16 -34l-2 -12', INK, 2.4) + '</g>';
+      /* architectural stone niches, carved registers and winged sun relief */
+      const cxT = (x0 + x1) / 2, rx = f28(cxT - tw * 0.24), rw = f28(tw * 0.48), ry = f28(b - th * 0.72), rh = f28(th * 0.44);
+      t += r28(cxT - tw * 0.34, b - th * 0.85, 4.5, th * 0.85, mix(D, '#4A3624', 0.25), 'opacity=".45"');
+      t += r28(cxT + tw * 0.26, b - th * 0.85, 4.5, th * 0.85, mix(D, '#4A3624', 0.25), 'opacity=".45"');
+      t += r28(rx, ry, rw, rh, 'none', 'stroke="' + mix(D, '#5A4632', 0.45) + '" stroke-width="1.2" opacity=".6"');
+      t += l28('M' + rx + ' ' + f28(ry + rh * 0.34) + 'h' + rw + 'M' + rx + ' ' + f28(ry + rh * 0.68) + 'h' + rw + 'M' + f28(x0 + bt * 0.5) + ' ' + f28(b - th * 0.48) + 'H' + f28(x1 - bt * 0.5), mix(D, '#5A4632', 0.38), 1, 'opacity=".45"');
+      const sx = f28(cxT), sy = f28(ry + rh * 0.17);
+      t += pth('M' + sx + ' ' + sy + 'q' + f28(-rw * 0.28) + ' -4 ' + f28(-rw * 0.38) + ' 2q' + f28(rw * 0.22) + ' 0 ' + f28(rw * 0.38) + ' 3q' + f28(rw * 0.16) + ' -3 ' + f28(rw * 0.38) + ' -3q' + f28(-rw * 0.1) + ' -6 ' + f28(-rw * 0.38) + ' -2z', o.c1 || '#1F5FA8', 'opacity=".55"') + c28(sx, sy + 1, 2.4, o.c2 || '#B7412E', 'opacity=".65"');
       return t;
     };
     s += tower(cx - gw / 2 - tw, cx - gw / 2 + 4, true) + tower(cx + gw / 2 - 4, cx + gw / 2 + tw, false);
@@ -428,7 +433,7 @@
     for (let j = 0; j < 3; j++) s += r28(452 + j * 4, QY - 10 - j * 9, 44 - j * 8, 9, j % 2 ? '#B0784A' : '#C98E5A', 'rx="4" stroke="' + INK + '" stroke-width="1.4"') + c28(455 + j * 4, QY - 5.5 - j * 9, 4, '#E9C08A', 'stroke="' + INK + '" stroke-width="1"');
     s += pth('M572 ' + QY + 'l4 -14h12l4 14z', '#3A2A1E', ink(1.4)) + pth('M576 ' + (QY + 1) + 'q6 -12 12 0', '#F28C2A', 'class="a27-fl"') + smoke28(582, QY - 24, 0.8, '#9C9488');
     const kx = big ? 600 : 594, ky = QY - 2;
-    s += '<g transform="translate(' + kx + ' ' + ky + ') scale(1.35)">' + personSVG(0, 0, '#E6CB95', 'none', true).replace(/<path d="M4 -22l7 6"[^>]*\/>/, '') + '<g class="t28-ham">' + pole28('M-3 -22l-12 -10', '#B57A50', 1.6) + r28(-22, -40, 10, 7, '#8E5A33', 'rx="2" stroke="' + INK + '" stroke-width="1.2"') + '</g></g>';
+    s += '<g transform="translate(' + kx + ' ' + ky + ') scale(1.35)">' + personSVG(0, 0, '#E6CB95', 'none', true).replace(/<g class="p-arm">[\s\S]*?<\/g>/, '') + '<g class="t28-ham">' + pole28('M-3 -22l-12 -10', '#B57A50', 1.6) + r28(-22, -40, 10, 7, '#8E5A33', 'rx="2" stroke="' + INK + '" stroke-width="1.2"') + '</g></g>';
     if (big) {
       /* the royal dockyard: scaffolding, a shear-leg crane and the king's banners */
       s += pole28('M452 ' + (QY - 4) + 'V420M592 ' + (QY - 26) + 'V420M452 428H592', '#A8743F', 2.4);

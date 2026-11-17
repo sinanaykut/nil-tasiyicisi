@@ -128,14 +128,19 @@
     return s;
   }
   function personSVG(x, y, cloth, load, flip) {
-    const f = flip ? -1 : 1;
+    const f = flip ? -1 : 1, sk = '#B57A50';
     let s = '<g transform="translate(' + x + ' ' + y + ') scale(' + f + ' 1)">';
-    s += pth('M-4 0L-2 -9M4 0L2 -9', 'none', 'stroke="#8C5A38" stroke-width="2.6" stroke-linecap="round"');
-    s += pth('M-6 -8L-4 -24H4L6 -8Z', cloth, ink(1.4)) + pth('M-4 -24h8v-4q-4 -3 -8 0z', '#B57A50', ink(1.2));
-    s += '<circle cx="0" cy="-32" r="5" fill="#B57A50" stroke="' + INK + '" stroke-width="1.3"/>' + pth('M-5.2 -33a5.2 5.2 0 0 1 10.4 0l0 3h-2v-2h-6.4v4h-2z', '#2B2340');
-    if (load === 'jar') s += pth('M4 -26L8 -38', 'none', 'stroke="#B57A50" stroke-width="2.2" stroke-linecap="round"') + pth('M-6 -37q-3 -10 2 -15h8q5 5 2 15z', '#B7412E', ink(1.3));
-    else if (load === 'sack') s += pth('M-9 -40q0 -10 9 -10t9 10q-3 4 -9 4t-9 -4z', '#E2C88E', ink(1.3)) + pth('M-4 -26l-6 -10M4 -26l6 -10', 'none', 'stroke="#B57A50" stroke-width="2" stroke-linecap="round"');
-    else s += pth('M4 -22l7 6', 'none', 'stroke="#B57A50" stroke-width="2.2" stroke-linecap="round"');
+    /* striding anatomical legs & sandals */
+    s += pth('M-5 -10l-2 9h3.5l1.5-9zm7 0l2 9h3.5l-1.5-9z', sk, ink(1.1)) + pth('M-7.5 -1h4.5v1.5h-4.5zm11.5 0h4.5v1.5h-4.5z', '#5A3A22');
+    /* linen schenti skirt, waist sash & sculpted torso/shoulders */
+    s += pth('M-7 -8L-5 -21H5L7 -8Z', cloth, ink(1.3)) + pth('M-5 -21h10v2.5h-10z', '#C9A258') + pth('M-1 -18v9M2 -18l1 9', 'none', 'stroke="' + INK + '" stroke-width=".8" opacity=".35"');
+    s += pth('M-6 -21l-1 -5q7 -3 14 0l-1 5z', sk, ink(1.1)) + pth('M-4 -26q4 4 8 0', 'none', 'stroke="#D9A43A" stroke-width="1.6"');
+    /* sculpted Egyptian head, kohl eye & layered wig */
+    s += pth('M-2.2 -26v-4h4.4v4z', sk, ink(1)) + pth('M-4.2 -32q0 -6.5 4.6 -7t4.4 7q0 4.5 -4.4 5t-4.6 -5z', sk, ink(1.2));
+    s += pth('M-5.2 -33a5.2 5.4 0 0 1 10.2 -0.5l-1.2 4.5h-1.8v-3.2h-4.8v5.5h-2.4z', '#221B2E') + pth('M1 -33.5h2.2', 'none', 'stroke="' + INK + '" stroke-width="1" stroke-linecap="round"');
+    if (load === 'jar') s += pth('M3.5 -24l4.5 -6 -1 -9h-2.4l.4 7.5-3.2 5z', sk, ink(1)) + pth('M-6 -38q-3 -10 2 -15h8q5 5 2 15z', '#B7412E', ink(1.3));
+    else if (load === 'sack') s += pth('M-9 -40q0 -10 9 -10t9 10q-3 4 -9 4t-9 -4z', '#E2C88E', ink(1.3)) + pth('M-4 -25l-6 -10 2 -1 6 10zm8 0l6 -10 -2 -1 -6 10z', sk, ink(1));
+    else s += '<g class="p-arm">' + pth('M4.5 -24l6.5 7 -1.8 1.8 -6.2 -6z', sk, ink(1)) + '</g>';
     return s + '</g>';
   }
   /* ---------- colour helpers: the day moves from dawn to dusk over the fifteen days ---------- */
@@ -160,16 +165,21 @@
   function merchantFig(ci, mood) {
     const L = MERCHANTS[ci].look, skin = L.skin, cloth = L.c1, band = L.c2;
     let s = '<g class="mfig' + (mood > 0 ? ' glad' : mood < 0 ? ' sour' : '') + '" transform="translate(126 258)">';
-    s += pth('M-6 0L-4 -12M6 0L4 -12', 'none', 'stroke="' + skin + '" stroke-width="3.4" stroke-linecap="round"');
-    s += pth('M-9 -10L-7 -34H7L9 -10Z', cloth, ink(1.6)) + pth('M-7 -30h14', 'none', 'stroke="' + band + '" stroke-width="3"') + pth('M-6 -34h12v-5q-6 -4 -12 0z', skin, ink(1.3));
-    s += '<circle cx="0" cy="-45" r="7" fill="' + skin + '" stroke="' + INK + '" stroke-width="1.5"/>';
-    if (L.wig === 'bald') s += pth('M-7 -46a7 7 0 0 1 14 0z', skin) + pth('M-7 -46q7 -4 14 0', 'none', 'stroke="' + L.band + '" stroke-width="2.2"');
-    else if (L.wig === 'puff') s += '<circle cx="0" cy="-48" r="9" fill="' + L.hair + '"/><circle cx="0" cy="-45" r="7" fill="' + skin + '"/>' + pth('M-7 -47a7 7 0 0 1 14 0z', L.hair);
-    else s += pth('M-7.4 -46a7.4 7.4 0 0 1 14.8 0l0 ' + (L.wig === 'long' ? 9 : 5) + 'h-2.6v-5h-9.6v' + (L.wig === 'long' ? 9 : 5) + 'h-2.6z', L.hair);
-    if (L.beard) s += pth('M-3 -39h6l-1 6h-4z', L.hair);
-    s += '<g class="arm">' + pth('M7 -30l9 6', 'none', 'stroke="' + skin + '" stroke-width="3" stroke-linecap="round"') + '</g>';
-    s += '<g class="armW">' + pth('M7 -30l9 -12', 'none', 'stroke="' + skin + '" stroke-width="3" stroke-linecap="round"') + '</g>';
-    s += pth('M-7 -30l-8 7', 'none', 'stroke="' + skin + '" stroke-width="3" stroke-linecap="round"');
+    /* sculpted legs & sandals */
+    s += pth('M-6.5 -11l-1.8 11h4l1.5-11zm9 0l1.8 11h4l-1.5-11z', skin, ink(1.2)) + pth('M-9 -1.5h5v2h-5zm13 0h5v2h-5z', '#5A3A22');
+    /* layered kalasiris tunic, girdle, shoulder mantle & collar */
+    s += pth('M-9.5 -9L-7 -33H7L9.5 -9Z', cloth, ink(1.5)) + pth('M-7.5 -27h15v3.5h-15z', band) + pth('M-1 -24v13M3 -24l1 13', 'none', 'stroke="' + INK + '" stroke-width=".9" opacity=".35"');
+    s += pth('M-8 -33l-1 -5q9 -4 18 0l-1 5z', skin, ink(1.2)) + pth('M-6 -37q6 6 12 0l-2 4q-4 3 -8 0z', '#D9A43A', ink(0.9));
+    /* neck, sculpted oval face & kohl features */
+    s += pth('M-3 -38v-5h6v5z', skin, ink(1.1)) + pth('M-6.2 -46q0 -8 6.2 -8.5t6.2 8.5q0 6 -6.2 7t-6.2 -7z', skin, ink(1.4));
+    s += pth('M-3.5 -46.5h2.4M1.5 -46.5h2.4', 'none', 'stroke="' + INK + '" stroke-width="1.2" stroke-linecap="round"') + pth('M-1.5 -41.5q1.5 1.2 3 0', 'none', 'stroke="' + INK + '" stroke-width="1" stroke-linecap="round"');
+    if (L.wig === 'bald') s += pth('M-6.6 -46a6.6 6.6 0 0 1 13.2 0z', skin) + pth('M-6.6 -47.5q6.6 -3.5 13.2 0', 'none', 'stroke="' + L.band + '" stroke-width="2.2"');
+    else if (L.wig === 'puff') s += '<ellipse cx="0" cy="-49" rx="9" ry="7.5" fill="' + L.hair + '" stroke="' + INK + '" stroke-width="1.2"/>' + pth('M-5.8 -46q0 -5.5 5.8 -6t5.8 6q0 5.5 -5.8 6.5t-5.8 -6.5z', skin) + pth('M-3.5 -46.5h2.4M1.5 -46.5h2.4', 'none', 'stroke="' + INK + '" stroke-width="1.2" stroke-linecap="round"');
+    else s += pth('M-7.6 -46.5a7.6 7.8 0 0 1 15.2 0l0 ' + (L.wig === 'long' ? 10 : 6) + 'h-2.8v-6h-9.6v' + (L.wig === 'long' ? 10 : 6) + 'h-2.8z', L.hair, ink(1.1));
+    if (L.beard) s += pth('M-2.6 -39.5h5.2l-0.8 6h-3.6z', L.hair);
+    s += '<g class="arm">' + pth('M7.5 -32l9 6 -1.8 2.2 -8.5 -5z', skin, ink(1.1)) + '</g>';
+    s += '<g class="armW">' + pth('M7.5 -32l9 -11 -2 -1.8 -8.2 10z', skin, ink(1.1)) + '</g>';
+    s += pth('M-7.5 -32l-8 7 1.8 2.2 7.5 -6z', skin, ink(1.1));
     return s + '</g>';
   }
   /* what makes each harbour its own place: things on the quay and on the near bank */
