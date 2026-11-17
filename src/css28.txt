@@ -110,7 +110,10 @@ body.at-sea .cart,body.at-sea .spots,body.at-sea .hold{display:none}
 .tdots i.on{background:#6E5236}
 .tdots.low i.on{background:#B7412E}
 .tdots.craft{font:800 9px Nunito,sans-serif;color:#8C6E44;letter-spacing:.02em}
-.tile .held{position:absolute;top:-7px;right:-6px;min-width:21px;height:21px;border-radius:11px;background:var(--lapis);color:#fff;border:2px solid var(--ink);font:800 11.5px/17px Nunito,sans-serif;font-style:normal;text-align:center;padding:0 4px;z-index:1}
+.tile .held{position:absolute;top:-7px;right:-4px;min-width:21px;height:21px;border-radius:11px;background:var(--lapis);color:#fff;border:2px solid var(--ink);font:800 11px/17px Nunito,sans-serif;font-style:normal;text-align:center;padding:0 5px;z-index:1;display:inline-flex;align-items:center;justify-content:center;gap:3px;white-space:nowrap}
+.tile .held em{font-style:normal;font-size:10px;border-left:1px solid rgba(255,255,255,.45);padding-left:3px}
+.tile .held.pos{background:#1F6B40}
+.tile .held.neg{background:#A8432F}
 .tile .hot{position:absolute;top:-7px;left:-6px;width:19px;height:19px;border-radius:50%;background:#B7412E;color:#fff;border:2px solid var(--ink);font:800 11px/15px Nunito,sans-serif;font-style:normal;text-align:center}
 .tile.sm{padding:4px 3px}
 .tile:disabled{opacity:.45}
@@ -125,7 +128,8 @@ body.at-sea .cart,body.at-sea .spots,body.at-sea .hold{display:none}
 .ab1{display:flex;align-items:center;gap:7px}
 .abg{flex:1;min-width:0;display:flex;gap:6px;align-items:center}
 .abg > span{min-width:0}
-.abg b{font:700 15px Cinzel,serif;display:block;line-height:1.1}
+.abg b{font:700 15px Cinzel,serif;display:flex;align-items:center;gap:5px;flex-wrap:wrap;line-height:1.1}
+.abg b .tw{font:800 11px/1.25 Nunito,sans-serif;padding:0 5px}
 .abg small{display:block;font-size:11.5px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700}
 .abg small svg{width:12px;height:12px;vertical-align:-1px}
 .abw{color:var(--ochre2);font-weight:800;margin-left:5px}
@@ -134,6 +138,8 @@ body.at-sea .cart,body.at-sea .spots,body.at-sea .hold{display:none}
 .abg small .abi{white-space:nowrap}
 .tw{font-style:normal;font-weight:800;border-radius:5px;padding:0 4px;background:#EDE2C6}
 .tw.steal{background:#2F7D4F;color:#fff}.tw.cheap{background:#BFE3C2}.tw.dear{background:#F6C9A8}.tw.boom{background:#B7412E;color:#fff}
+.abp{font-style:normal;font-weight:800;border-radius:5px;padding:0 4px}
+.abp.pos{background:#BFE3C2;color:#1F5A36}.abp.neg{background:#F6C9A8;color:#7A2A1C}.abp.even{background:#EDE2C6;color:var(--ink2)}
 .ab1 .chips .chip{padding:4px 10px;font-size:13px}
 .ab2{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
 .ab2 .btn{flex-direction:column;gap:0;padding:4px 6px;line-height:1.1;min-height:48px;white-space:nowrap}
@@ -286,8 +292,8 @@ body.at-sea .cart,body.at-sea .spots,body.at-sea .hold{display:none}
   .main{grid-template-columns:minmax(0,1fr) clamp(360px,31vw,430px)}
 }
 @media (min-width:900px) and (max-height:760px){
-  .tile .ti{width:24px;height:24px}.tile{padding:5px 3px 3px}.mg h4{margin-bottom:2px}.mgrid{gap:4px;padding-top:3px}.tiles{gap:5px}
-  .pbody.mk28{gap:6px;padding-top:7px}.abar{padding-top:5px;gap:5px}.ab0{min-height:44px}.ab2 .btn{min-height:44px}
+  .tile .ti{width:24px;height:24px}.tile{padding:3px 3px 2px}.mg h4{margin-bottom:2px}.mgrid{gap:3px;padding-top:2px}.tiles{gap:4px}
+  .pbody.mk28{gap:5px;padding:6px 10px 7px}.abar{padding-top:5px;gap:5px}.ab0{min-height:44px}.ab2 .btn{min-height:44px}
   .mhd .pt{width:44px;height:44px}.mhn small{-webkit-line-clamp:1}
   .cart h1{font-size:21px}
 }
@@ -561,7 +567,7 @@ body.at-sea .cart,body.at-sea .spots,body.at-sea .hold{display:none}
 .hold.corner::before{display:none}
 .mbar,.mkx{display:none}
 /* craft goods: the merchant buys them */
-.tile.sellonly .tp{background:#E3EEE6;border-color:#2F7346}
+.tile.sellonly .tp{background:#E3EEE6;border-color:#2F7346;color:#1B4D2E}.tile.sellonly .tp.steal{background:#2F7D4F;color:#fff}.tile.sellonly .tp.boom{background:#B7412E;color:#fff}
 .tile .tp i.so{font-style:normal;font-size:10px;font-weight:800;margin-right:3px;color:#2F7346;text-transform:uppercase}
 .tile .tdots.craft{color:#2F7346}
 /* the voyage header: our boat as a silhouette */
@@ -595,7 +601,9 @@ body.at-sea .cart,body.at-sea .spots,body.at-sea .hold{display:none}
   .mbar .mbm{flex:1;justify-content:flex-start;gap:8px;background:var(--gold)}
   .mbar .mbm span{display:flex;flex-direction:column;align-items:flex-start;line-height:1.1}
   .mbar .mbm b{font-size:16px}.mbar .mbm small{font-size:11px}
-  .mbar .abgo{font-size:16px;padding:8px 14px}
+  .mbar .abgo,.mbar .sellall,.mbar .mbdel{display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;flex-shrink:0}
+  .mbar .abgo{font-size:16px;padding:8px 16px}
+  .mbar .abgo span,.mbar .mbdel span{line-height:1;white-space:nowrap}
   .hold.corner{right:auto;left:8px;bottom:64px}
   .title-art.t31 .logo-plate h2{font-size:32px}
 }
@@ -790,3 +798,11 @@ body.at-sea .cart,body.at-sea .spots,body.at-sea .hold{display:none}
 .hlnote{margin:6px 0 4px;padding:6px 10px;border-radius:9px;background:#F8DCCF;border:1.5px solid #A8432F;font:700 13px Nunito,sans-serif;color:#7A2E1F}
 @media (max-width:420px){ .hlist li{grid-template-columns:34px minmax(0,1fr) auto auto;gap:6px} .hli{width:34px;height:34px} .hlc{font-size:18px} }
 @media (prefers-reduced-motion: reduce){ .hbar em{transition:none} }
+.ptab .pth,.ptab .pgh{all:unset;cursor:pointer;display:inline-flex;flex-direction:column;align-items:center;width:100%}
+.ptab .pgh{flex-direction:row;gap:5px;justify-content:flex-start}
+.ptab .pth:hover,.ptab .pgh:hover{color:var(--lapis)}
+.ptab td .pdiff{display:block;font-size:10px;line-height:1.1;margin-top:1px}
+.ptab td .pdiff.pos{color:#1E6B3A}.ptab td .pdiff.neg{color:#9E2B20}
+.olist .olbtn{font:inherit;color:inherit;background:rgba(255,248,236,.75);border:1px solid rgba(43,29,20,.25);border-radius:8px;padding:4px 8px;display:inline-flex;align-items:center;gap:4px;cursor:pointer;text-align:left}
+.olist .olbtn:hover:not(:disabled){border-color:var(--ink);background:#fff}
+.olist .olbtn:disabled{cursor:default;background:none;border-color:transparent;padding:2px 0}

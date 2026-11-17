@@ -8,7 +8,7 @@
   function stop48(t) {
     if (!VG) return false;
     if (t === 'market' || t === 'smugglers') { mk48(t, true); return true; }
-    if (t === 'tomb') { tb48Start(t); return true; }
+    if (t === 'tomb' || t === 'dtomb' || t === 'ruin') { tb48Start(t === 'ruin' ? 'dtomb' : t); return true; }
     return false;
   }
   const K48 = ' stroke="' + INK + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"';

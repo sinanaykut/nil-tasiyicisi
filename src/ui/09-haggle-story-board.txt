@@ -125,18 +125,18 @@
   function qGoal(q) {
     q = q || Q(); if (!q || q.st !== 'active') return null;
     if (q.id === 'kedi') {
-      if (q.step === 1) return { t:'Per-Bastet\'teki tapınak kasasından altın kediyi al', c:0, by:8 };
-      if (q.f.stolen) return { t:'Djedi heykeli Vaset\'te satıyor: geri al', c:3, by:13 };
-      return { t:'Altın kediyi Abidos\'taki Cemiyet\'e götür', c:2, by:13 };
+      if (q.step === 1) return { t:'Per-Bastet\'teki tapınak kasasından altın kediyi al', c:0, by:14 };
+      if (q.f.stolen) return { t:'Djedi heykeli Vaset\'te satıyor: geri al', c:3, by:24 };
+      return { t:'Altın kediyi Abidos\'taki Cemiyet\'e götür', c:2, by:24 };
     }
     if (q.id === 'ba') {
-      if (q.step === 1) return { t:'Yolda bir batığa dal, Hesy\'nin udunu bul', c:null, by:11 };
-      if (q.step === 2) return { t:'Vaset\'teki kör arpçı şarkıyı hatırlatabilir', c:3, by:13 };
-      return { t:'Şarkıyı Abidos\'ta Osiris\'in kapısında çal', c:2, by:15 };
+      if (q.step === 1) return { t:'Yolda bir batığa dal, Hesy\'nin udunu bul', c:null, by:18 };
+      if (q.step === 2) return { t:'Vaset\'teki kör arpçı şarkıyı hatırlatabilir', c:3, by:23 };
+      return { t:'Şarkıyı Abidos\'ta Osiris\'in kapısında çal', c:2, by:28 };
     }
-    if (q.step === 1) return { t:'Vaset\'te Müfettiş Nakht ile buluş', c:3, by:9 };
-    if (q.step === 2) return { t:'Abu\'da üç şüpheliyi sorgula', c:4, by:12 };
-    return { t:'Yolda kalpazanların gece iskelesini bas', c:null, by:15 };
+    if (q.step === 1) return { t:'Vaset\'te Müfettiş Nakht ile buluş', c:3, by:15 };
+    if (q.step === 2) return { t:'Abu\'da üç şüpheliyi sorgula', c:4, by:21 };
+    return { t:'Yolda kalpazanların gece iskelesini bas', c:null, by:28 };
   }
   const qVoyage = () => { const q = Q(); if (!q || q.st !== 'active') return null; if (q.id === 'ba' && q.step === 1) return 'dive'; if (q.id === 'lapis' && q.step === 3) return 'forgers'; return null; };
   function qScene() {

@@ -266,29 +266,46 @@
   }
   function orderBox() {
     const dl = deliverable(S);
+    let s = '';
     if (dl.length) {
-      const o = dl[0];
-      return '<div class="box order ready"><div class="ot"><span class="oq">' + gIco(o.g, 26) + '<b>' + o.q + '</b></span><span><b>Teslimat hazır</b><span class="och"><i>' + ico('i-coin', 14) + '+' + fmt(o.reward) + '</i>' + PERKTXT(o) + '</span></span></div><button class="btn sm gold" type="button" data-act="deliver">Teslim et</button></div>';
+      dl.forEach(o => {
+        const idx = S.orders.indexOf(o);
+        s += '<div class="box order ready"><div class="ot"><span class="oq">' + gIco(o.g, 26) + '<b>' + o.q + '</b></span><span><b>Teslimat hazır · ' + esc(MERCHANT_NAMES[o.from]) + '</b><span class="och"><i>' + ico('i-coin', 14) + '+' + fmt(o.reward) + '</i>' + PERKTXT(o) + '</span></span></div><button class="btn sm gold" type="button" data-act="deliver"' + (idx >= 0 ? ' data-ord="' + idx + '"' : '') + '>Teslim et</button></div>';
+      });
+      if (dl.length > 1) {
+        const canAll = GOODS.every(g => S.inv[g.id].n >= dl.filter(o => o.g === g.id).reduce((a, o) => a + o.q, 0));
+        if (canAll) s += '<button class="btn sm go1 wide" type="button" data-act="deliver" data-all="1">İkisini de teslim et · +' + fmt(dl.reduce((a, o) => a + o.reward, 0)) + '</button>';
+      }
     }
     const off = S.offers[S.city];
     if (off) {
       const full = S.orders.length >= 2;
-      return '<div class="box order"><div class="ot"><span class="oq">' + gIco(off.g, 26) + '<b>' + off.q + '</b></span><span><b>Sipariş</b><span class="och"><i>→ ' + cIco(off.to, 14) + esc(CITIES[off.to].name) + '</i>' + (!isRiver(off.to) || !isRiver(off.from) ? '<i>' + ico('i-donkey', 14) + 'kervan işi</i>' : '') + '<i>' + ico('i-sun', 14) + off.due + '. güne kadar</i><i>' + ico('i-coin', 14) + '+' + fmt(off.reward) + '</i>' + PERKTXT(off) + '</span></span></div><button class="btn sm" type="button" data-act="accept"' + (full ? ' disabled title="En fazla 2 sipariş taşıyabilirsin"' : '') + '>' + (full ? 'Dolu' : 'Kabul et') + '</button></div>';
+      s += '<div class="box order"><div class="ot"><span class="oq">' + gIco(off.g, 26) + '<b>' + off.q + '</b></span><span><b>Sipariş</b><span class="och"><i>→ ' + cIco(off.to, 14) + esc(CITIES[off.to].name) + '</i>' + (!isRiver(off.to) || !isRiver(off.from) ? '<i>' + ico('i-donkey', 14) + 'kervan işi</i>' : '') + '<i>' + ico('i-sun', 14) + off.due + '. güne kadar</i><i>' + ico('i-coin', 14) + '+' + fmt(off.reward) + '</i>' + PERKTXT(off) + '</span></span></div><button class="btn sm" type="button" data-act="accept"' + (full ? ' disabled title="En fazla 2 sipariş taşıyabilirsin"' : '') + '>' + (full ? 'Dolu' : 'Kabul et') + '</button></div>';
     }
-    if (S.orders.length) return '<div class="box order mini"><span class="och">' + S.orders.map(o => '<i>' + gIco(o.g, 14) + o.q + ' → ' + cIco(o.to, 14) + esc(CITIES[o.to].name) + ' · ' + o.due + '. gün</i>').join('') + '</span></div>';
-    return '';
+    if (!s && S.orders.length) return '<div class="box order mini"><span class="och">' + S.orders.map(o => '<i>' + gIco(o.g, 14) + o.q + ' → ' + cIco(o.to, 14) + esc(CITIES[o.to].name) + ' · ' + o.due + '. gün</i>').join('') + '</span></div>';
+    return s;
   }
   const firstRun = () => meta.runs === 0 && S.mode === 'free' && !meta.noHints;
   const PCOLS = () => CITIES.map((c, i) => i).filter(i => isRiver(i) || has(S, 'desert'));
   function showPrices() {
-    let s = '<div class="sh-h"><h2 id="shTitle">Fiyat tablosu<small>Bildiğin son fiyatlar · ' + esc(CITIES[S.city].name) + ' sütunu canlı</small></h2>' + xBtn + '</div><div class="ptab-w"><table class="ptab"><thead><tr><th></th>' +
-      PCOLS().map(i => [CITIES[i], i]).map(([c, i]) => '<th class="' + (i === S.city ? 'cur' : '') + (c.river ? '' : ' dz') + '">' + cIco(i, 18) + '<span>' + esc(c.name) + '</span><small>' + (i === S.city ? 'şimdi' : S.seen[i] ? (S.seen[i].src ? 'fısıltı · ' : '') + ago(S.seen[i].d) : 'gidilmedi') + '</small></th>').join('') + '<th class="own">Elinde<small>adet</small></th><th class="own">Maliyet<small>birim ort.</small></th></tr></thead><tbody>';
+    const portOk = phase === 'port' && !S.over;
+    let s = '<div class="sh-h"><h2 id="shTitle">Fiyat tablosu<small>Bildiğin son fiyatlar · ' + esc(CITIES[S.city].name) + ' sütunu canlı' + (portOk ? ' · şehre veya mala dokun' : '') + '</small></h2>' + xBtn + '</div><div class="ptab-w"><table class="ptab"><thead><tr><th></th>' +
+      PCOLS().map(i => [CITIES[i], i]).map(([c, i]) => {
+        const inner = cIco(i, 18) + '<span>' + esc(c.name) + '</span><small>' + (i === S.city ? 'şimdi' : S.seen[i] ? (S.seen[i].src ? 'fısıltı · ' : '') + ago(S.seen[i].d) : 'gidilmedi') + '</small>';
+        return '<th class="' + (i === S.city ? 'cur' : '') + (c.river ? '' : ' dz') + '">' + (portOk && i !== S.city ? '<button type="button" class="pth" data-city="' + i + '">' + inner + '</button>' : inner) + '</th>';
+      }).join('') + '<th class="own">Elinde<small>adet</small></th><th class="own">Maliyet<small>birim ort.</small></th></tr></thead><tbody>';
     GOODS.forEach(g => {
       const cols = PCOLS(), vals = cols.map(i => !deals(i, g.id) ? '—' : i === S.city ? Math.round(S.prices[i][g.id]) : S.seen[i] && S.seen[i].p[g.id] != null ? S.seen[i].p[g.id] : null);
       const known = vals.filter(v => typeof v === 'number'), hi = Math.max(...known), lo = Math.min(...known);
       const it = S.inv[g.id];
       const avg = it.n ? it.cost / it.n : 0;
-      s += '<tr><th>' + gIco(g.id, 22) + '<span>' + esc(g.short) + '</span></th>' + vals.map((v, k) => { const i = cols[k]; if (v === '—') return '<td class="na' + (i === S.city ? ' cur' : '') + '">—</td>'; return '<td class="' + (i === S.city ? 'cur ' : '') + (v == null ? 'unk' : known.length > 1 && v === hi ? 'hi' : known.length > 1 && v === lo ? 'lo' : '') + (it.n && v != null && v > avg * 1.05 ? ' pr' : '') + '"' + (it.n && v != null ? ' title="Senin maliyetine göre birim kâr: ' + (v - avg >= 0 ? '+' : '') + fmt(v - avg) + '"' : '') + '>' + (v == null ? '?' : fmt(v)) + '</td>'; }).join('') +
+      const gHead = gIco(g.id, 22) + '<span>' + esc(g.short) + '</span>';
+      s += '<tr><th>' + (portOk ? '<button type="button" class="pgh" data-pgg="' + g.id + '">' + gHead + '</button>' : gHead) + '</th>' + vals.map((v, k) => {
+        const i = cols[k];
+        if (v === '—') return '<td class="na' + (i === S.city ? ' cur' : '') + '">—</td>';
+        const diff = it.n && v != null ? Math.round(v - avg) : null;
+        return '<td class="' + (i === S.city ? 'cur ' : '') + (v == null ? 'unk' : known.length > 1 && v === hi ? 'hi' : known.length > 1 && v === lo ? 'lo' : '') + (it.n && v != null && v > avg * 1.05 ? ' pr' : '') + '"' + (diff != null ? ' title="Senin maliyetine göre birim kâr: ' + (diff > 0 ? '+' : diff < 0 ? '−' : '') + fmt(Math.abs(diff)) + '"' : '') + '>' + (v == null ? '?' : fmt(v) + (diff != null ? '<small class="pdiff ' + (diff > 0 ? 'pos' : diff < 0 ? 'neg' : '') + '">' + (diff > 0 ? '+' + fmt(diff) : diff < 0 ? '−' + fmt(Math.abs(diff)) : '=') + '</small>' : '')) + '</td>';
+      }).join('') +
         (it.n ? '<td class="own n">' + it.n + '</td><td class="own">' + fmt(avg) + '</td>' : '<td class="own none" colspan="2">–</td>') + '</tr>';
     });
     s += '</tbody></table></div><p class="muted" style="margin:0"><span class="lg hi"></span> en yüksek (satış için)  <span class="lg lo"></span> en düşük (alış için)  <span class="lg pr"></span> elindeki malı kârla satabileceğin yer. Fiyatları gittiğin şehirlerden öğrenirsin. "Fısıltı" sütunları Lonca\'daki Kayıkçı ağından ya da kayıkçılardan gelir ve yalnızca birkaç malı gösterir.</p>';
@@ -317,8 +334,9 @@
   function renderMbar() {
     const el = $('#mbar'); if (!el || !S) return;
     if (phase !== 'port' || S.over) { el.innerHTML = ''; return; }
-    const any = CITIES.some((c, i) => canGo(S, i));
+    const any = CITIES.some((c, i) => canGo(S, i)), dl = typeof deliverable === 'function' ? deliverable(S) : [];
     el.innerHTML = '<button type="button" class="btn mbm" data-act="mkOpen">' + ico('i-stall', 20) + '<span><b>Pazar</b><small>' + esc(MERCHANT_NAMES[S.city]) + '</small></span></button>' +
+      (dl.length ? '<button type="button" class="btn sm gold mbdel" data-act="deliver" data-all="1">' + ico('i-scroll', 16) + '<span>Teslim (' + dl.length + ')</span></button>' : '') +
       (load(S) ? '<button type="button" class="btn sm sellall" data-act="sellAll">Hepsini sat</button>' : '') +
       (any ? '<button type="button" class="btn go1 abgo" data-act="travel">' + ico(isRiver(S.city) ? 'i-boat' : 'i-donkey', 20) + '<span>' + (isRiver(S.city) ? 'Yola çık' : 'Dönüş') + '</span></button>' : '<button type="button" class="btn gold abgo" data-act="finish">Seferi bitir</button>');
   }
@@ -352,11 +370,14 @@
     if (sc) s += '<div class="box"><h3>' + esc((NODES[dzs && SN[sc] ? SN[sc] : sc === 'dive' ? 'wreck' : sc] || { name:{ chase:dzs ? 'Çöl akıncıları' : 'Pusu!', race:'Sethi ile yarış' }[sc] }).name) + '</h3><p>' + esc(dzs && HELPD[sc] ? HELPD[sc] : HELP[sc]) + '</p></div>';
     else s += '<div class="steps"><span class="stp on">' + ico('i-map', 18) + '<b>Durak seç</b></span><i class="sa">›</i><span class="stp">' + ico('i-bolt', 18) + '<b>Sahne</b></span><i class="sa">›</i><span class="stp">' + cIco(plan.dest, 18) + '<b>' + esc(CITIES[plan.dest].name) + '</b></span></div><p class="muted" style="margin:0">⚠ risk · ★ ödül · sisli duraklar yaklaşınca görünür</p>';
     if (v) {
-      const a = v.acc;
-      s += '<div class="box"><div class="och big"><i title="Canın">' + ico('i-heart', 16) + Math.max(0, v.hh) + '/' + v.hhMax + '</i><i title="' + (S.caravan ? 'Kervan gücü' : 'Gövde (tahta)') + '">' + ico(S.caravan ? 'i-donkey' : 'i-boat', 16) + Math.max(0, v.hp) + '/' + v.maxhp + '</i>' + (S.caravan ? '<i title="Günlük su">' + ico('i-water', 16) + S.caravan.water + '</i>' : '') + '<i title="Tayfa morali">' + ico('i-sun', 16) + v.morale + '/5</i><i title="Nehirden toplanan">' + ico('i-coin', 16) + '+' + fmt(a.coins + a.nearCoins) + '</i><i title="Sandık">' + ico('i-chest', 16) + a.crates + '</i>' + (v.torn ? '<i class="bad" title="Yelken yırtık">' + ico('i-storm', 16) + 'yırtık</i>' : '') + '</div>' +
+      const a = v.acc, destOrds = (S.orders || []).filter(o => o.to === plan.dest), qg = typeof qGoal === 'function' ? qGoal() : null;
+      const goals = destOrds.map(o => o.q + ' ' + gName(o.g) + ' siparişi (+' + fmt(o.reward) + ')');
+      if (S.contra && S.contra.to === plan.dest) goals.push('Hapu\'nun sandıkları (+' + fmt(S.contra.reward) + ')');
+      if (qg && qg.c === plan.dest) goals.push('Görev: ' + qg.t);
+      if (goals.length || a.notes.length) s += '<div class="box">' + (goals.length ? '<h3>Varışta bekliyor</h3>' + goals.map(t => '<p style="margin:2px 0">• ' + esc(t) + '</p>').join('') : '') +
         (a.notes.length ? a.notes.slice(-2).map(n => '<p class="muted" style="margin:4px 0 0">• ' + esc(n.text) + '</p>').join('') : '') + '</div>';
     }
-    s += '<div class="box"><div class="cargo">' + c + '</div></div>';
+    s += '<div class="box"><h3>Ambar</h3><div class="cargo">' + c + '</div></div>';
     s += '<button class="btn wide" type="button" data-act="quick" title="Kalan günleri zar belirler; çoğu zaman oynamaktan kötü sonuçlanır">Yolculuğu atla 🎲</button></div>';
     return s;
   }

@@ -277,14 +277,29 @@
       return '<path class="' + cls + ' ru" d="' + d + '"/><path class="' + cls + '" d="' + d + '"/>';
     };
     const pts = new Map(), at = el => { let q = pts.get(el); if (!q) { q = vPt(el, mr); pts.set(el, q); } return q; };
+    const vStart = $('#vn-start'), vEnd = $('#vn-end'), startP = vStart && at(vStart), endP = vEnd && at(vEnd);
+    const dz = VG.plan.terrain === 'desert';
+    let bg = '';
+    if (startP && endP) {
+      let rp;
+      if (col) {
+        const y0 = Math.max(0, startP.cy - 20), y1 = Math.min(mr.height, endP.cy + 20), h = y1 - y0, x0 = startP.cx;
+        rp = 'M' + x0 + ' ' + y0 + ' C' + (x0 + 48) + ' ' + (y0 + h * 0.33) + ' ' + (x0 - 48) + ' ' + (y0 + h * 0.66) + ' ' + endP.cx + ' ' + y1;
+      } else {
+        const x0 = Math.max(0, startP.cx - 24), x1 = Math.min(mr.width, endP.cx + 24), w = x1 - x0, y0 = startP.cy;
+        rp = 'M' + x0 + ' ' + y0 + ' C' + (x0 + w * 0.33) + ' ' + (y0 - 44) + ' ' + (x0 + w * 0.66) + ' ' + (y0 + 44) + ' ' + x1 + ' ' + endP.cy;
+      }
+      bg = dz ? '<path class="vbank" d="' + rp + '"/><path class="vflow dz" d="' + rp + '"/>'
+        : '<path class="vvly" d="' + rp + '"/><path class="vbank" d="' + rp + '"/><path class="vriv" d="' + rp + '"/><path class="vflow" d="' + rp + '"/>';
+    }
     let d = '';
     VG.layers.forEach((opts, i) => opts.forEach((nd, j) => {
       const from = $('#vn-' + i + '-' + j); if (!from) return;
-      if (i === 0) d += seg(at($('#vn-start')), at(from), VG.picks[0] === j ? 'done' : VG.layer === 0 ? 'open' : 'faint');
-      if (i === VG.layers.length - 1) d += seg(at(from), at($('#vn-end')), VG.picks[i] === j ? 'done' : 'faint');
+      if (i === 0 && startP) d += seg(startP, at(from), VG.picks[0] === j ? 'done' : VG.layer === 0 ? 'open' : 'faint');
+      if (i === VG.layers.length - 1 && endP) d += seg(at(from), endP, VG.picks[i] === j ? 'done' : 'faint');
       else nd.links.forEach(m => { const to = $('#vn-' + (i + 1) + '-' + m); if (!to) return; const done = VG.picks[i] === j && VG.picks[i + 1] === m, open = i + 1 === VG.layer && VG.picks[i] === j; d += seg(at(from), at(to), done ? 'done' : open ? 'open' : 'faint'); });
     }));
-    svg.innerHTML = d;
+    svg.innerHTML = bg + d;
     voyBoat(at, col, mr);
   }
   /* our boat (or the donkeys) as a token docked BESIDE the stop we are at (on the incoming path, or to its side when that is crowded),

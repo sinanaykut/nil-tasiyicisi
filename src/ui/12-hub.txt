@@ -7,7 +7,7 @@
     { id:'craft', name:'Atölye', col:'#8A4E8E', g:['muska', 'kitap', 'kyphi'] }
   ];
   let msel = null, hgSide = false, useTS = false, tvMap = null;
-  const shown28 = gid => deals(S.city, gid) || S.inv[gid].n > 0;
+  const shown28 = gid => { const g = gById(gid); return !!g && (S.inv[gid].n > 0 || (!g.craft && deals(S.city, gid))); };
   const TAGW = { steal:'Kelepir', cheap:'Ucuz', ok:'Olağan', dear:'Pahalı', boom:'Fırladı' }, TAGA = { steal:'⇊', cheap:'↓', ok:'', dear:'↑', boom:'⇈' };
   function priceTag(g, p) { const r = p / g.base; return r < 0.55 ? 'steal' : r < 0.82 ? 'cheap' : r > 1.9 ? 'boom' : r > 1.25 ? 'dear' : 'ok'; }
   /* v48: one price signal for the market tiles and the merchant's stall in the conversation: the price shown here
@@ -16,10 +16,29 @@
     const p = Math.round(S.prices[S.city][g.id]), tg = priceTag(g, p);
     return { p, tg, show:g.craft ? Math.round(p * (1 + sellBonus(S))) : Math.round(p * (1 - buyDisc(S))), word:TAGW[tg], arrow:TAGA[tg], best:bestElsewhere(g.id) };
   }
+  function unitDiff(gid) {
+    const it = S && S.inv && S.inv[gid];
+    if (!it || !it.n || !deals(S.city, gid)) return null;
+    const q1 = quoteSell(S, gid, 1);
+    if (!q1 || !q1.n) return null;
+    return Math.round(q1.rev - (it.cost || 0) / it.n);
+  }
+  function heldBadge(gid) {
+    const it = S && S.inv && S.inv[gid];
+    if (!it || !it.n) return '';
+    if (!deals(S.city, gid)) return '<i class="held" title="Elindeki">' + it.n + '</i>';
+    const stk = S.stock ? S.stock[S.city][gid] : 99, mx = S.stock ? stockMax(S, S.city, gid) : 0, full = !!S.stock && stk >= mx;
+    const uDiff = full ? null : unitDiff(gid), avg = Math.round((it.cost || 0) / it.n);
+    if (uDiff == null) return '<i class="held" title="Elinde ' + it.n + ' · ort. ' + fmt(avg) + '">' + it.n + '</i>';
+    const cls = uDiff > 0 ? ' pos' : uDiff < 0 ? ' neg' : ' even';
+    const tag = uDiff > 0 ? '+' + fmt(uDiff) : uDiff < 0 ? '−' + fmt(Math.abs(uDiff)) : '=';
+    const tip = 'Elinde ' + it.n + ' · maliyet ort. ' + fmt(avg) + ' · burada birim ' + (uDiff > 0 ? '+' + fmt(uDiff) + ' kâr' : uDiff < 0 ? '−' + fmt(Math.abs(uDiff)) + ' zarar' : 'başa baş');
+    return '<i class="held' + cls + '" title="' + tip + '">' + it.n + '<em>' + tag + '</em></i>';
+  }
   /* v45: five dots = how full the merchant's storeroom is for this good (all five: he takes no more of it) */
   function dots5(gid, stk, mx) { const n = stk >= 99 && !mx ? 5 : Math.min(5, Math.ceil(5 * stk / Math.max(1, mx || STOCK[gid]))); return Array.from({ length:5 }, (_, k) => '<i' + (k < n ? ' class="on"' : '') + '></i>').join(''); }
   function tileHtml(g) {
-    const it = S.inv[g.id], on = msel === g.id, held = it.n ? '<i class="held" title="Elindeki">' + it.n + '</i>' : '';
+    const it = S.inv[g.id], on = msel === g.id, held = heldBadge(g.id);
     if (!deals(S.city, g.id)) return '<button type="button" class="tile off' + (on ? ' sel' : '') + '" data-tile="' + g.id + '" aria-pressed="' + on + '" aria-label="' + esc(g.name) + ': burada alınıp satılmaz">' + held + '<span class="ti">' + gIco(g.id, 28) + '</span><b class="tn">' + esc(g.short) + '</b><span class="tp no">satılmaz</span></button>';
     const sg = priceSig(g), p = sg.p, tg = sg.tg, stk = S.stock ? S.stock[S.city][g.id] : 99, mx = S.stock ? stockMax(S, S.city, g.id) : 0, full = !!S.stock && stk >= mx, show = sg.show;
     const hot = (S.mods || []).some(m => m.city === S.city && (!m.g || m.g === g.id) && S.day >= m.from && S.day <= m.until);
@@ -42,8 +61,10 @@
     if (S.over) return '<div class="ab0"><span class="abh">Sefer bitti.</span></div>';
     const g = msel && gById(msel);
     if (!g) {
-      const any = CITIES.some((c, i) => canGo(S, i));
-      return '<div class="ab0"><span class="abh">' + ico('i-stall', 18) + '<span>' + (load(S) ? 'Satmak ya da almak için mala dokun' : 'Almak için bir mala dokun') + '</span></span>' + (load(S) ? '<button type="button" class="btn sm sellall" data-act="sellAll">Hepsini sat</button>' : '') +
+      const any = CITIES.some((c, i) => canGo(S, i)), dl = deliverable(S);
+      return '<div class="ab0"><span class="abh">' + ico('i-stall', 18) + '<span>' + (load(S) ? 'Satmak ya da almak için mala dokun' : 'Almak için bir mala dokun') + '</span></span>' +
+        (dl.length ? '<button type="button" class="btn sm gold" data-act="deliver" data-all="1">' + ico('i-scroll', 16) + '<span>Teslim et (+' + fmt(dl.reduce((a, o) => a + o.reward, 0)) + ')</span></button>' : '') +
+        (load(S) ? '<button type="button" class="btn sm sellall" data-act="sellAll">Hepsini sat</button>' : '') +
         (any ? '<button type="button" class="btn go1 abgo" data-act="travel">' + ico(isRiver(S.city) ? 'i-boat' : 'i-donkey', 20) + '<span>' + (isRiver(S.city) ? 'Yola çık' : 'Dönüş') + '</span></button>' : (S.day < S.days ? '<button type="button" class="btn sm" data-act="wait">Bir gün bekle</button>' : '') + '<button type="button" class="btn gold abgo" data-act="finish">Seferi bitir</button>') + '</div>';
     }
     const it = S.inv[g.id], dl = deals(S.city, g.id), b = bestElsewhere(g.id), avg = it.n ? it.cost / it.n : 0;
@@ -53,8 +74,12 @@
     (S.mods || []).forEach(m => { if (m.city !== S.city || (m.g && m.g !== g.id) || S.day < m.from || S.day > m.until) return; notes.push(m.src === 'sethi' ? (m.mult < 1 ? 'Sethi boşalttı: ' + m.until + '. güne kadar ucuz' : 'Sethi topladı: ' + m.until + '. güne kadar kıt') : 'Kriz: ' + m.until + '. güne kadar ' + (m.mult > 1 ? 'pahalı' : 'ucuz')); });
     const room = dl && S.stock ? stockRoom(S, g.id) : Infinity;
     if (dl && it.n && room < it.n) notes.unshift(room ? 'Tüccarın deposunda ' + room + ' ' + g.short.toLowerCase() + ' yeri kaldı' : 'Tüccarın deposu dolu: bu malı almaz');
-    const info = [dl ? '<em class="tw ' + tg + '">' + TAGW[tg] + '</em>' : '', it.n ? 'Elinde ' + it.n + ' · ort. ' + fmt(avg) : 'Elinde yok', b ? cIco(b.i, 12) + fmt(b.p) + '↗' : ''].filter(Boolean).map(x => '<span class="abi">' + x + '</span>').join('\u00a0· ') + (notes.length ? '<span class="abw">⚠ ' + esc(notes[0]) + '</span>' : '');
-    let s = '<div class="ab1"><span class="abg">' + gIco(g.id, 30) + '<span><b>' + esc(g.short) + '</b><small>' + info + '</small></span></span>' +
+    const dlOrd = deliverable(S).find(o => o.g === g.id);
+    if (dlOrd) notes.unshift('Sipariş hazır: ' + dlOrd.q + ' ' + g.short.toLowerCase() + ' → +' + fmt(dlOrd.reward) + ' deben');
+    const uDiff = dl && it.n ? unitDiff(g.id) : null;
+    const diffTag = uDiff != null ? '<em class="abp ' + (uDiff > 0 ? 'pos' : uDiff < 0 ? 'neg' : 'even') + '">' + (uDiff > 0 ? '+' + fmt(uDiff) + '/ad.' : uDiff < 0 ? '−' + fmt(Math.abs(uDiff)) + '/ad.' : 'başa baş') + '</em>' : '';
+    const info = [it.n ? 'Elinde ' + it.n + ' · ort. ' + fmt(avg) : 'Elinde yok', diffTag, b ? cIco(b.i, 12) + fmt(b.p) + '↗' : ''].filter(Boolean).map(x => '<span class="abi">' + x + '</span>').join('\u00a0· ') + (notes.length ? '<span class="abw">⚠ ' + esc(notes[0]) + '</span>' : '');
+    let s = '<div class="ab1"><span class="abg">' + gIco(g.id, 30) + '<span><b>' + esc(g.short) + (dl ? ' <em class="tw ' + tg + '">' + TAGW[tg] + '</em>' : '') + '</b><small>' + info + '</small></span></span>' +
       (dl ? marketQtyControls(g.id) : '') +
       '<button type="button" class="x sm abx" data-act="unpick" aria-label="Seçimi kapat">' + ico('i-close', 16) + '</button></div>';
     if (!dl) return s + '<div class="ab2"><span class="abno">Burada alınıp satılmaz' + (b ? ' · en iyi ' + esc(CITIES[b.i].name) + ' ' + fmt(b.p) : '') + '</span></div>';
@@ -62,9 +87,10 @@
     if (hgSide && hgSide.g === g.id) return hgBar(g);
     const hgOk = canHaggle28(S, g.id), why = hgMad(S) ? 'Tüccar küs' : !hgOk ? 'Bugün oldu' : '';
     if (!CITIES.some((c, i) => canGo(S, i))) s += '<div class="ab3">' + (S.day < S.days ? '<button type="button" class="btn sm" data-act="wait">Bir gün bekle</button>' : '') + '<button type="button" class="btn gold" data-act="finish">Seferi bitir</button></div>';
+    const sProf = qs.n ? Math.round(qs.rev - avg * qs.n) : 0;
     return s + '<div class="ab2">' +
       '<button type="button" class="btn buy" data-buy="' + g.id + '"' + (qb.n ? '' : ' disabled') + ' aria-label="' + esc(g.name) + ' al"><b>Al' + (qb.n ? ' ' + qb.n : '') + '</b><small>' + (qb.n ? '−' + fmt(qb.cost) : g.craft ? 'satmaz' : qb.reason === 'cap' ? 'ambar dolu' : qb.reason === 'stock' ? 'tezgâh boş' : 'para yok') + '</small></button>' +
-      '<button type="button" class="btn sell" data-sell="' + g.id + '"' + (qs.n ? '' : ' disabled') + ' aria-label="' + esc(g.name) + ' sat"><b>Sat' + (qs.n ? ' ' + qs.n : '') + '</b><small>' + (qs.n ? '+' + fmt(qs.rev) : qs.reason === 'full' ? 'depo dolu' : 'elinde yok') + '</small></button>' +
+      '<button type="button" class="btn sell" data-sell="' + g.id + '"' + (qs.n ? '' : ' disabled') + ' aria-label="' + esc(g.name) + ' sat"><b>Sat' + (qs.n ? ' ' + qs.n : '') + '</b><small>' + (qs.n ? '+' + fmt(qs.rev) + ' · ' + (sProf > 0 ? 'kâr +' + fmt(sProf) : sProf < 0 ? 'zarar −' + fmt(Math.abs(sProf)) : 'başa baş') : qs.reason === 'full' ? 'depo dolu' : 'elinde yok') + '</small></button>' +
       '<button type="button" class="btn hag" data-act="hag28"' + (hgOk && (qb.n || qs.n) ? '' : ' disabled') + ' title="Bu mal için tüccarla pazarlık et">' + ico('i-whisper', 18) + '<b>' + (why || 'Pazarlık') + '</b></button></div>';
   }
   function pickGood(gid) {
@@ -482,7 +508,8 @@
     const rows = items.map(g => {
       const it = S.inv[g.id], avg = it.n ? Math.round(it.cost / it.n) : 0, dl = deals(S.city, g.id), q = dl ? quoteSell(S, g.id, it.n) : null;
       if (q) tot += q.rev;
-      const val = !dl ? '<em class="no">burada satılmaz</em>' : !q.n ? '<em class="no">depo dolu</em>' : '<em>+' + fmt(q.rev) + '</em><small>' + (q.n < it.n ? q.n + ' tanesi satılır' : 'burada satış') + '</small>';
+      const sp = q && q.n > 0 ? Math.round(q.rev - (it.n ? it.cost / it.n : 0) * q.n) : 0;
+      const val = !dl ? '<em class="no">burada satılmaz</em>' : !q.n ? '<em class="no">depo dolu</em>' : '<em>+' + fmt(q.rev) + '</em><small>' + (sp > 0 ? 'kâr +' + fmt(sp) : sp < 0 ? 'zarar −' + fmt(Math.abs(sp)) : 'maliyetine') + (q.n < it.n ? ' · ' + q.n + ' satılır' : '') + '</small>';
       return row(gIco(g.id, 28), esc(g.name), it.n, avg ? 'ort. ' + fmt(avg) + ' deben' : 'yoldan buldun', val);
     });
     if (S.contra) rows.unshift(row(ico('i-chest', 26), 'Hapu\'nun sandıkları', CONTRA, CITIES[S.contra.to].dat + ' · ' + S.contra.due + '. güne kadar', '<em>' + fmt(S.contra.reward) + '</em>'));

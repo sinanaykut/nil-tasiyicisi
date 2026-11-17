@@ -205,7 +205,7 @@
       '<li><b>Tekneler ve çöl:</b> Mennefer tersanesinde yeni tekne alırsın. Mennefer, Abidos ve Vaset\'ten eşek kervanıyla çöl şehirlerine gidersin; su biterse eşek kaybedersin.</li>' +
       '<li><b>Atölye:</b> Per-Bastet, Abidos ve Vaset ustalarına hammadde bırak; iki gün sonra gelip ürünü al.</li>' +
       '<li><b>Pazar:</b> Etiketler bir malın olağan fiyatına göre ucuz mu pahalı mı olduğunu söyler. Çok alırsan fiyat yükselir, çok satarsan düşer. "↗" o malı en iyi bildiğin fiyattan nerede satabileceğini gösterir.</li>' +
-      '<li><b>Mevsimler:</b> Taşkın (1-5. gün), Ekim (6-10) ve Hasat (11-15). Her mevsim fiyatları ve nehri değiştirir.</li>' +
+      '<li><b>Mevsimler:</b> Taşkın (1-10. gün), Ekim (11-20) ve Hasat (21-30). Her mevsim fiyatları ve nehri değiştirir.</li>' +
       '<li><b>Tüccarlar:</b> Bir şehirde alışveriş yaptıkça tüccar sana ısınır; Tanıdık, Dost ve Can dostu olunca alış ve satışta avantaj verir. Sevdiği malı hediye edersen hem güvenini hem bir karşılık kazanırsın.</li>' +
       '<li><b>Siparişler:</b> Tüccarlar bir malı başka şehre götürmeni ister. Zamanında teslim edersen ödül ve güven, geç kalırsan güven kaybı.</li>' +
       '<li><b>Yolculuk:</b> Her yolculuk günlere bölünür; her gün haritadan bir durak seçersin. Sahneler: sakin su, çağlayan (kıl payı bahşişleri), fırtına (tayfayı rüzgâra yığ, sandıkları bağla), batık (dalgıçla yüz, nefesini idare et), gece geçişi (fenerlerden kaç). Molalar: köy pazarı, tapınak, kayıkçı. Takipçiler yolda pusu kurar, Sethi varıştan önce yarışa çağırır. Esc oyunu duraklatır.</li>' +
@@ -232,7 +232,7 @@
     if (st.trips <= 3) return 'Az yolculuk yaptın. Kısa rotalarla daha sık al-sat yapmak çoğu zaman daha çok kazandırır.';
     if (!st.haggles) return 'Hiç pazarlık kazanmadın. Her şehirde günde bir kez dene: iyi bir pazarlık bütün alış satışı iyileştirir.';
     if (!st.orders) return 'Hiç sipariş teslim etmedin. Siparişler para ve tüccar güveni getirir.';
-    return r.beat ? 'Sethi\'yi geçtin. Bir sonraki hedef: Nil\'in Efendisi için 16.000 deben.' : 'Sethi\'yi geçmek için değerli malları kıt oldukları şehirlerden topla.';
+    return r.beat ? 'Sethi\'yi geçtin. Bir sonraki hedef: Nil\'in Efendisi için 30.000 deben.' : 'Sethi\'yi geçmek için değerli malları kıt oldukları şehirlerden topla.';
   }
   function showEnd(hi, gained) {
     const r = S.result, st = r.stats;
