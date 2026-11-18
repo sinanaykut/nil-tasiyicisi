@@ -129,7 +129,7 @@
     ['Ekim zamanı! Tarlalar yeşerdi, şarap küpleri doldu.', 'Hoş geldin kaptan. Ekmek sıcak, bira soğuk.'],
     ['Hasat bitti, ambarlar dolu: buğday yok pahası.', 'Şehir malı mı getirdin? Köyde herkes merak ediyor.']
   ];
-  const MK48_FOLK = ['Yaşlı balıkçı Ani', 'Çömlekçi Tiye', 'Çiftçi Bek', 'Sazcı Meryt'];
+  const MK48_FOLK = ['Yaşlı balıkçı Ani', 'Çömlekçi Tiye', 'Çiftçi Bek', 'Sazcı Meryt', 'Arıcı Henut', 'Sepetçi İpuki'];
   let MK = null;
   function mk48(t, first) {
     const p = VG.plan, L = VG.layer, sm = t === 'smugglers', si = seasonIdx(S);

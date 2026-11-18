@@ -976,7 +976,7 @@ function arrive(S, plan, res) {
   if (S.city === 1 && S.debt > 0 && S.cash > 0 && isRiver(plan.from)) out.push({ kind:'info', title:'Hapu\'nun evi burada', text:'Borç yalnızca Mennefer\'de ödenir. Üstteki Borç rakamına dokunup ' + fmtN(Math.min(S.cash, S.debt)) + ' debene kadar ödeyebilirsin.' });
   ledger.interest = S.debt - before;
   S.last = { from:plan.from, days:d, out, news:S.news.slice(), path:res.path || null, quick:!!res.quick, chaser:plan.chaser || null, rival:!!plan.rival, ledger, car:plan.terrain === 'desert' ? car : null };
-  S.pendingEvent = (isRiver(S.city) || CITIES[S.city].id === 'saww') && rng() < 0.45 ? pickEvent(S) : null;
+  S.pendingEvent = rng() < 0.45 ? pickEvent(S) : null;
   const cr = has(S, 'crisis') && (S.crises || []).find(c => c.city === S.city && !c.done && S.day >= c.from && S.day <= c.until && CRISIS_EV[c.k]);
   if (cr) S.pendingEvent = 'crisis:' + cr.id;
   S.log.push({ d:S.day, t:CITIES[S.city].name + ' şehrine vardın. ' + out.map(o => o.title).join(' · ') + '.' });
@@ -991,13 +991,13 @@ const EVENTS = [
   { id:'tax', ok:S => S.cash >= 200, title:'Vergi memuru', text:'Vergi memuru: "Yüzde on. Ya da konuşabiliriz."',
     choices:[ { label:'Öde', sub:'Paranın yüzde 10\'u', run(S) { const t = Math.round(S.cash * 0.1); S.cash -= t; return { kind:'info', text:fmtN(t) + ' deben ödedin. Memur seni deftere "uslu" diye yazdı.' }; } },
               { label:'Pazarlık et', sub:'Yarı yarıya şans', run(S) { if (rng() < 0.5) { const t = Math.round(S.cash * 0.03); S.cash -= t; return { kind:'good', text:'Memur güldü, sadece ' + fmtN(t) + ' deben aldı.' }; } const t = Math.round(S.cash * 0.2); S.cash -= t; return { kind:'bad', text:'Memur kızdı. Cezalı vergi: ' + fmtN(t) + ' deben.' }; } } ] },
-  { id:'wreck', ok:S => S.cash >= 150 && freeCap(S) >= 3, title:'Batık tekne', text:'Kıyıda batık bir tekne; bir dalgıç 150 debene bakar.',
+  { id:'wreck', ok:S => isRiver(S.city) && S.cash >= 150 && freeCap(S) >= 3, title:'Batık tekne', text:'Kıyıda batık bir tekne; bir dalgıç 150 debene bakar.',
     choices:[ { label:'Dalgıç tut', sub:'150 deben, içinde ne var bilinmez', run(S) { S.cash -= 150; if (rng() < 0.6) { const g = pick(GOODS.slice(1, 5)), want = Math.max(1, Math.round(500 / g.base)), q = addGoods(S, g.id, want); return { kind:'good', text:'Dalgıç ' + q + ' ' + g.short.toLowerCase() + ' çıkardı!' + (want > q ? ' Ambar dolu: ' + (want - q) + ' ' + g.short.toLowerCase() + ' kıyıda kaldı.' : '') }; } return { kind:'bad', text:'Teknede ıslak bir sepet ve şaşkın bir kurbağadan başka bir şey yoktu.' }; } },
               { label:'Geç', sub:'Kurbağayı rahat bırak', run() { return { kind:'info', text:'Batığı geride bıraktın.' }; } } ] },
   { id:'dice', ok:S => S.cash >= 300, title:'Zar oyunu', text:'Kumarbaz: "300 koy, kazanırsan 600 al."',
     choices:[ { label:'Oyna', sub:'Yarı yarıya', run(S) { if (rng() < 0.5) { S.cash += 300; return { kind:'good', text:'Altılar geldi! 300 deben kazandın.' }; } S.cash -= 300; return { kind:'bad', text:'Zarlar biraz fazla düzgün döndü. 300 deben kaybettin.' }; } },
               { label:'Oynama', sub:'Akıllıca', run() { return { kind:'info', text:'Kumarbaz sana "korkak tavuk" dedi. Tavuklar zengin ölür.' }; } } ] },
-  { id:'tip', ok:S => S.cash >= 40, title:'Kayıkçının fısıltısı', text:'Yaşlı kayıkçı 40 debene bir fiyat fısıldayacak.',
+  { id:'tip', ok:S => isRiver(S.city) && S.cash >= 40, title:'Kayıkçının fısıltısı', text:'Yaşlı kayıkçı 40 debene bir fiyat fısıldayacak.',
     choices:[ { label:'Dinle', sub:'40 deben', run(S) { S.cash -= 40; let best = null; CITIES.forEach((c, i) => { if (i === S.city) return; GOODS.forEach(g => { if (!deals(i, g.id) || g.craft) return; const r = S.prices[i][g.id] / (g.base * c.mult[g.id]); if (!best || r > best.r) best = { i, g, r, p:S.prices[i][g.id] }; }); }); S.seen[best.i] = S.seen[best.i] || { d:S.day, p:{}, src:'ag' }; S.seen[best.i].p[best.g.id] = Math.round(best.p); return { kind:'good', text:'"' + CITIES[best.i].name + '\'ta ' + best.g.short.toLowerCase() + ' kapış kapış gidiyor, ' + fmtN(best.p) + ' deben civarı." Fiyat hafızana eklendi.' }; } },
               { label:'Geç', sub:'Kayıkçılar çok konuşur', run() { return { kind:'info', text:'Kayıkçı fısıltısını bir başkasına sattı.' }; } } ] },
   { id:'hapu', ok:S => S.debt > 2500 && S.city !== 1, title:'Hapu\'nun mektubu', text:'Hapu\'dan mektup: "Biraz öde, adamlarımı göndermeyeyim."',
@@ -1032,7 +1032,13 @@ EVENTS.push(
                 if (S.inv.hurma.n >= 5) loseGoods(S, 'hurma', 5); else loseGoods(S, 'bugday', 10);
                 S.bless = S.bless || 'hapi'; addTrust(S, S.city, 80);
                 return { kind:'good', text:'Babunlar karınlarını doyurup sandıkların üstünde uyudu. Bir rahip: "Thoth seni gördü." ' + BLESS[S.bless].name + ' seninle.' }; } },
-              { label:'Görmezden gel', sub:'Belki bir şey olmaz…', run(S) { const o = ownedRaw(S); if (!o.length || rng() < 0.4) return { kind:'info', text:'Babunlar sıkılıp gitti.' }; const g = pick(o), l = loseGoods(S, g.id, Math.min(3, S.inv[g.id].n), true); return { kind:'bad', text:'Bir babun ' + l + ' ' + g.short.toLowerCase() + ' kapıp hurma ağacına çıktı.' }; } } ] }
+              { label:'Görmezden gel', sub:'Belki bir şey olmaz…', run(S) { const o = ownedRaw(S); if (!o.length || rng() < 0.4) return { kind:'info', text:'Babunlar sıkılıp gitti.' }; const g = pick(o), l = loseGoods(S, g.id, Math.min(3, S.inv[g.id].n), true); return { kind:'bad', text:'Bir babun ' + l + ' ' + g.short.toLowerCase() + ' kapıp hurma ağacına çıktı.' }; } } ] },
+  { id:'izsurucu', ok:S => !isRiver(S.city) && S.cash >= 90, title:'Çöl iz sürücüsü', text:'Eski kervan rehberi 90 debene vaha ve nehir şehirlerinin güncel fiyatlarını sayar, yorgun eşeğine de otlu su içirir.',
+    choices:[ { label:'Dinle ve su ver', sub:'90 deben · tüm fiyatlar ve en yorgun eşeğe +1 güç', run(S) { S.cash -= 90; CITIES.forEach((c, i) => { S.seen[i] = snap(S, i); }); const r = S.caravan ? dkRest(S.caravan, false) : 0; return { kind:'good', text:'İz sürücü bütün pazarların fiyatını kumda çizdi; defterin güncellendi.' + (r ? ' En yorgun eşek otlu sudan sonra dinlendi.' : '') }; } },
+              { label:'Geç', sub:'Rehbersiz de yol bulunur', run() { return { kind:'info', text:'İz sürücü kum tepesinin ardında kayboldu.' }; } } ] },
+  { id:'punt_sandigi', ok:S => CITIES[S.city].id === 'saww' && S.cash >= 260 && freeCap(S) >= 2, title:'Punt gemisinden mühürlü sandık', text:'Punt\'tan dönen bir denizci güverteden inen mühürlü sandığı 260 debene bırakıyor.',
+    choices:[ { label:'Sandığı al', sub:'260 deben · içinden saf Punt tütsüsü çıkabilir', run(S) { S.cash -= 260; if (rng() < 0.65) { const q = addGoods(S, 'tutsu', 2); if (q) S.inv.tutsu.cost += 260; return { kind:'good', text:'Sandıktan mis kokulu ' + q + ' Punt tütsüsü çıktı!' }; } const q = addGoods(S, 'hurma', 4); if (q) S.inv.hurma.cost += 140; S.cash += 120; return { kind:'info', text:'Sandıkta ' + q + ' taze hurma ve 120 deben değerinde Kızıldeniz sedefi çıktı.' }; } },
+              { label:'Bırak', sub:'Mühürlü mal şansa kalır', run() { return { kind:'info', text:'Denizci sandığı rıhtımdaki başka bir kervancıya taşıdı.' }; } } ] }
 );
 const crisisPrice = (S, c) => Math.round(S.prices[c.city][CRISES[c.k].g]);
 const CRISIS_EV = {

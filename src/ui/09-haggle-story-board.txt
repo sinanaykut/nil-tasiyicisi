@@ -108,7 +108,7 @@
   }
 
   /* ================= story arcs: one per run, inspired by films and games ================= */
-  const ARCS = ['kedi', 'ba', 'lapis'];
+  const ARCS = ['kedi', 'ba', 'lapis', 'punt'];
   const QUESTS = {
     kedi: { name:'Bastet\'in Altın Kedisi', ico:'i-chest',
       intro:'Kâtip Merenre: "Leydi Nebet altın kediyi bana bıraktı ama yeğeni Djedi onu çalacak. Heykeli Per-Bastet\'teki tapınak kasasından sen al, Abidos\'taki Cemiyet\'e götür. Ödülü bölüşürüz."',
@@ -118,7 +118,10 @@
       reward:'900 deben, 3 Lonca itibarı ve kalan seferde hep coşkulu bir tayfa' },
     lapis: { name:'Kalpazanlar', ico:'i-scroll',
       intro:'Müfettiş Nakht: "Pazarlar sahte lapisle doldu. Gözü keskin bir kervancı lazım. Beni Vaset\'te bul, kalpazanların izini birlikte sürelim."',
-      reward:'1.500 deben, 2 lapis ve 3 Lonca itibarı' }
+      reward:'1.500 deben, 2 lapis ve 3 Lonca itibarı' },
+    punt: { name:'Punt\'un Günlüğü', ico:'i-c-saww',
+      intro:'Kaptan Parahu\'nun ulağı nefes nefese geldi: "Punt filosunun seyir defteri Vaset\'te mühürlü kaldı! Defteri Vaset\'ten al, Kızıldeniz kıyısındaki Saww\'a ulaştır; dönüşte Harga vahasındaki tapınağa adağını bırak."',
+      reward:'1.650 deben, 2 tütsü ve 3 Lonca itibarı' }
   };
   const SONG = [62, 66, 69, 74];
   const Q = () => S && S.quest;
@@ -134,6 +137,11 @@
       if (q.step === 2) return { t:'Vaset\'teki kör arpçı şarkıyı hatırlatabilir', c:3, by:23 };
       return { t:'Şarkıyı Abidos\'ta Osiris\'in kapısında çal', c:2, by:28 };
     }
+    if (q.id === 'punt') {
+      if (q.step === 1) return { t:'Vaset\'te Punt seyir defterinin mührünü çöz', c:3, by:14 };
+      if (q.step === 2) return { t:'Seyir defterini Kızıldeniz limanı Saww\'da Parahu\'ya ulaştır', c:7, by:23 };
+      return { t:'Parahu\'nun adağını Harga vahasındaki Hibis tapınağına götür', c:6, by:29 };
+    }
     if (q.step === 1) return { t:'Vaset\'te Müfettiş Nakht ile buluş', c:3, by:15 };
     if (q.step === 2) return { t:'Abu\'da üç şüpheliyi sorgula', c:4, by:21 };
     return { t:'Yolda kalpazanların gece iskelesini bas', c:null, by:28 };
@@ -143,6 +151,7 @@
     const q = Q(), g = qGoal(q); if (!g || g.c !== S.city || phase !== 'port' || S.over) return null;
     if (q.id === 'kedi') return q.step === 1 ? kediVault : q.f.stolen ? kediDjedi : q.cargo ? kediGuild : null;
     if (q.id === 'ba') return q.step === 2 ? baHarp : q.step === 3 ? baGate : null;
+    if (q.id === 'punt') return q.step === 1 ? puntSeal : q.step === 2 ? puntSaww : q.step === 3 ? puntKharga : null;
     return q.step === 1 ? lapisScale : q.step === 2 ? lapisLiar : null;
   }
   function qLog(t) { const q = Q(); q.log.push({ d:S.day, t }); S.log.push({ d:S.day, t:QUESTS[q.id].name + ': ' + t }); }
@@ -153,7 +162,7 @@
     qStory(QUESTS[q.id].name, t + (cash ? ' (+' + fmt(cash) + ' deben)' : ''), 'good', 'Görev tamamlandı');
   }
   /* a story beat in a sheet */
-  const qFace = title => /Djedi/.test(title || '') ? 'djedi' : { kedi:'merenre', ba:'ba', lapis:'nakht' }[Q().id];
+  const qFace = title => /Djedi/.test(title || '') ? 'djedi' : { kedi:'merenre', ba:'ba', lapis:'nakht', punt:7 }[Q().id];
   function qStory(title, text, kind, head, btns) {
     openSheet('<div class="sh-h"><span class="pt big">' + faceOf(qFace(title)) + '</span><h2 id="shTitle">' + esc(title) + '<small>' + esc(head || QUESTS[Q().id].name) + '</small></h2></div><div class="out">' + outHtml({ kind:kind || 'info', title:'', text }) + '</div>' +
       (btns || '<button class="btn go1" type="button" data-close data-first>Devam</button>'), true, 'qstory');
@@ -190,7 +199,7 @@
     const g = qGoal(q);
     if (g && g.by && S.day > g.by) {
       q.st = 'fail'; q.cargo = 0;
-      const t = q.id === 'kedi' ? 'Djedi heykeli başka bir yoldan kaçırdı; Merenre eli boş kaldı.' : q.id === 'ba' ? 'Hesy\'nin şarkısı zamanında çalınamadı. Ba kuşu sessizce uçup gitti.' : 'Kalpazanlar izlerini sildi ve Nil\'in aşağısına kaçtı.';
+      const t = q.id === 'kedi' ? 'Djedi heykeli başka bir yoldan kaçırdı; Merenre eli boş kaldı.' : q.id === 'ba' ? 'Hesy\'nin şarkısı zamanında çalınamadı. Ba kuşu sessizce uçup gitti.' : q.id === 'punt' ? 'Punt filosu rüzgârı bekleyemedi ve seyir defteri olmadan yelken açtı.' : 'Kalpazanlar izlerini sildi ve Nil\'in aşağısına kaçtı.';
       qLog(t); out.push({ kind:'bad', title:QUESTS[q.id].name + ': görev kaçtı', text:t });
     } else if (g && g.c === S.city) out.push({ kind:'info', title:QUESTS[q.id].name, text:'Görevin burada devam ediyor. Pazara çıkınca hikâye kaldığı yerden sürer.' });
   }
@@ -283,6 +292,32 @@
       const got = addGoods(S, 'lapis', 2);
       qDone('Fenerlere görünmeden yanaştın; Nakht\'ın adamları kalpazanları kalıplarıyla birlikte yakaladı. Vezir ödülü ' + (got ? 've el konan ' + got + ' gerçek lapisi sana bıraktı.' + (got < 2 ? ' Ambar dolu: bir lapis vezirde kaldı.' : '') : 'sana; el konan iki lapis ambarda yer olmadığı için vezirde kaldı.'), q.f.sharp ? 1500 : 1200);
     } else qDone('Devriye fenerleri seni ele verdi, kalpazanlar kaçtı. Yine de kalıplarına el koydun; vezir yarım ödül gönderdi.', 500, { rep:1 });
+  }
+  /* ---- the logbook of Punt (a royal voyage to the Red Sea and Kharga Oasis) ---- */
+  function puntSeal() {
+    const q = Q();
+    const seq = Array.from({ length:4 }, () => Math.floor(Math.random() * 4));
+    pzMemory({ title:'Punt seyir sandığı', sub:'Vaset · kraliyet rıhtımı ambarı', text:'Sedir sandık dört kutsal mühürle kilitlenmiş. Kâtibin elindeki damgaya bak: dört işaret sırayla parlayacak, sen de aynı sırayla dokun.',
+      pads:[{ ico:'i-ankh', label:'Ankh' }, { ico:'i-sun', label:'Güneş' }, { ico:'i-anchor', label:'Çapa' }, { ico:'i-water', label:'Su' }], seq, cancel:'Sonra',
+      cb(ok) {
+        if (ok) { q.step = 2; qLog('Vaset\'teki sedir sandığın mührünü çözdün ve Punt seyir defterini aldın.'); save(); renderAll(); qStory('Seyir defteri sende', 'Kraliyet mührü açıldı. Seyir defterini Kızıldeniz kıyısındaki Saww limanında Kaptan Parahu\'ya götür.', 'good'); }
+        else qStory('Mühür kilitlendi', 'İşaretlerin sırası karıştı; kâtip başını iki yana salladı. Tekrar deneyebilirsin.', 'bad', null, '<div class="row"><button class="btn go1" type="button" data-act="qScene" data-first>Tekrar dene</button><button class="btn" type="button" data-close>Sonra</button></div>');
+      } });
+  }
+  function puntSaww() {
+    const q = Q();
+    pzScale({ title:'Kaptan Parahu', sub:'Saww · Punt filosu rıhtımı', text:'Parahu seyir defterini görünce rahatladı ve Hibis tapınağına adak gidecek sekiz mühür taşını dizdi: "Biri sahte kireç taşı, daha hafif. İki tartı hakkın var, sahteyi ayır ki tapınağa gerçek adak gitsin."',
+      cb(ok) {
+        q.step = 3; q.f.pure = ok;
+        qLog(ok ? 'Saww\'da sahte taşı ayırdın; Parahu adak sandığını Harga\'ya göndermen için emanet etti.' : 'Yanlış taşı seçtin; Parahu deneyimli gözüyle sahteyi kendisi ayırıp adak sandığını teslim etti.');
+        save(); renderAll();
+        qStory(ok ? 'Adak mühürlendi' : 'Parahu fark etti', (ok ? 'Parahu sırtını sıvazladı: "Gözün keskinmiş!" ' : 'Parahu gülümsedi, hafif taşı kenara itti: "Neyse ki denizci gözü yanılmaz." ') + 'Şimdi Abidos üzerinden Harga vahasındaki Hibis tapınağına geç ve adağı rahiplere bırak.', ok ? 'good' : 'bad');
+      } });
+  }
+  function puntKharga() {
+    const got = addGoods(S, 'tutsu', 2);
+    addTrust(S, 7, 150); addTrust(S, 6, 150);
+    qDone('Hibis rahipleri Punt tütsüsünü yakıp kervanını kutsadı; Kaptan Parahu söz verdiği payı ' + (got ? 've ' + got + ' sandık saf tütsüyü gönderdi.' + (got < 2 ? ' Ambar dolu: kalan tütsü tapınakta kaldı.' : '') : 'gönderdi; ancak ambarda yer olmadığı için iki tütsü tapınakta kaldı.'), 1650);
   }
   function goalChip() {
     const el = $('#goal'); if (!el) return;

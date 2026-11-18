@@ -594,11 +594,11 @@
           if (r[2] === 'bead') s += P(mid, 'none', 'stroke="' + r[3] + '" stroke-width="' + f(r[1] - 2) + '" stroke-dasharray="5 5"') + P(mid, 'none', 'stroke="' + INK + '" stroke-width="' + f(r[1] - 1) + '" stroke-dasharray="1 4" opacity=".6"');
           if (col === GOLD) s += P(arcLine(g, rx0 + (a + 1) * kx, ry0 + a + 1), 'none', st(1.2, '#FFF2B8', op('.7')));
         });
-        s += P(band(g, rx0, ry0, rx0 + (tot - 4) * kx, ry0 + tot - 4), 'none', st(1.8)) + '</g>';
+        s += P(band(g, rx0, ry0, rx0 + (tot - 4) * kx, ry0 + tot - 4), 'none', st(1.8)) + Ci(L(rx0 + 4), g.ccy - 6, 3.6, GOLD, st(1.4)) + Ci(R(rx0 + 4), g.ccy - 6, 3.6, GOLD, st(1.4)) + '</g>';
       } else if (Cl.k === 'gold') {
         const k2 = 1.9;
         s += '<g ' + clip('tc') + '>' + P(band(g, rx0, ry0, rx0 + 44 * k2, ry0 + 44), K.sh, 'transform="translate(2 7)" opacity=".5"') + P(band(g, rx0, ry0, rx0 + 42 * k2, ry0 + 42), GOLD, st(2.2)) +
-          P(arcLine(g, rx0 + 14 * k2, ry0 + 14), 'none', st(1.4, '#9A6A1E')) + P(arcLine(g, rx0 + 28 * k2, ry0 + 28), 'none', st(1.4, '#9A6A1E')) + P(arcLine(g, rx0 + 21 * k2, ry0 + 21), 'none', 'stroke="#B8352A" stroke-width="7" stroke-dasharray="4 9"') + P(arcLine(g, rx0 + 35 * k2, ry0 + 35), 'none', 'stroke="#2BA59A" stroke-width="6" stroke-dasharray="3 7"') + P(arcLine(g, rx0 + 6 * k2, ry0 + 6), 'none', st(2.5, '#FFF2B8', op('.6'))) + '</g>';
+          P(arcLine(g, rx0 + 14 * k2, ry0 + 14), 'none', st(1.4, '#9A6A1E')) + P(arcLine(g, rx0 + 28 * k2, ry0 + 28), 'none', st(1.4, '#9A6A1E')) + P(arcLine(g, rx0 + 21 * k2, ry0 + 21), 'none', 'stroke="#B8352A" stroke-width="7" stroke-dasharray="4 9"') + P(arcLine(g, rx0 + 35 * k2, ry0 + 35), 'none', 'stroke="#2BA59A" stroke-width="6" stroke-dasharray="3 7"') + P(arcLine(g, rx0 + 6 * k2, ry0 + 6), 'none', st(2.5, '#FFF2B8', op('.6'))) + Ci(C, g.ccy + ry0 + 21, 5.2, '#2350A8', st(1.6)) + Ci(C - 1.4, g.ccy + ry0 + 19.5, 1.4, '#FFF2B8', op('.75')) + '</g>';
       } else if (Cl.k === 'beads' || Cl.k === 'seeds' || Cl.k === 'shells') {
         const n = Cl.n || 1;
         for (let k = 0; k < n + (Cl.k === 'shells' ? 1 : 0); k++) {
@@ -695,7 +695,7 @@
         s += ink(d, sd > 0 ? K.sh : K.sk, 2.2) + P('M' + X(fw) + ',' + f(ey - 3) + ' C' + X(fw + 9) + ',' + f(ey - 6) + ' ' + X(fw + 9) + ',' + f(ey + 12) + ' ' + X(fw + 3) + ',' + f(ey + 16), 'none', st(1.6, K.sh2)) + P('M' + X(fw + 2) + ',' + f(ey + 4) + ' q4,3 1,8', 'none', st(1.4, K.sh2, op('.8')));
         const E = Rc.ear;
         if (E && E.k === 'stud') s += Ci(C + sd * (fw + 5), ey + 31, 3.6, E.c, st(1.4)) + Ci(C + sd * (fw + 4), ey + 30, 1.2, '#FFFFFF', op('.7'));
-        if (E && E.k === 'hoop') s += El(C + sd * (fw + 5), ey + 41, 7, 9.5, 'none', st(5.4)) + El(C + sd * (fw + 5), ey + 41, 7, 9.5, 'none', st(3, E.c));
+        if (E && E.k === 'hoop') s += El(C + sd * (fw + 5), ey + 41, 7, 9.5, 'none', st(5.4)) + El(C + sd * (fw + 5), ey + 41, 7, 9.5, 'none', st(3, E.c)) + El(C + sd * (fw + 5), ey + 41, 7, 9.5, 'none', st(1.1, '#FFF2B8', 'stroke-dasharray="5 24" opacity=".8"'));
         if (E && E.k === 'bighoop') s += El(C + sd * (fw + 6), ey + 50, 12, 18, 'none', st(5.6)) + El(C + sd * (fw + 6), ey + 50, 12, 18, 'none', st(3.4, E.c)) + El(C + sd * (fw + 6), ey + 50, 12, 18, 'none', st(1, '#FFF2B8', 'stroke-dasharray="6 30" opacity=".8"'));
       });
       return s;

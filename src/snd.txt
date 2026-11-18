@@ -35,8 +35,8 @@
     };
   }
   const Snd = (() => {
-    let ac = null, out, mGain, sBus, mode = 'port', started = false;
-    const bufs = {}, srcs = {}, gains = {};
+    let ac = null, out, mGain, sBus, ambGain = null, ambSrc = null, ambKind = '', mode = 'port', started = false;
+    const bufs = {}, srcs = {}, gains = {}, ambBufs = {};
     const pref = { music: lsGet(MUS) !== '0', sfx: lsGet(SFX) !== '0' };
     const SR = 32000, MUSIC_VER = 'm48', MAXBUF = 4, MAXMB = 58, SEGMIN = 2;
     const midi = n => 440 * Math.pow(2, (n - 69) / 12);
@@ -329,7 +329,49 @@
         else if (inD) { clearTimeout(stopT[k]); stopT[k] = 0; }
       });
       if (mode === 'port') armRotation(); else { clearTimeout(rotT); rotT = null; rotTrack = ''; }
+      ambSync();
       if (onChange) onChange();
+    }
+    function mkAmb(kind) {
+      if (ambBufs[kind]) return ambBufs[kind];
+      const sr = ac ? ac.sampleRate : SR, sec = 4, len = Math.floor(sr * sec), ov = Math.floor(sr * 0.35);
+      const b = ac ? ac.createBuffer(2, len, sr) : mkBuf(len);
+      const cut = kind === 'wind' ? 420 : 680, a = 1 - Math.exp(-2 * Math.PI * cut / sr);
+      const br = 1 - Math.exp(-2 * Math.PI * (kind === 'wind' ? 140 : 210) / sr);
+      for (let ch = 0; ch < 2; ch++) {
+        const tmp = new Float32Array(len + ov), d = b.getChannelData(ch);
+        let lp1 = 0, lp2 = 0;
+        for (let i = 0; i < len + ov; i++) {
+          const w = Math.random() * 2 - 1;
+          lp1 += a * (w - lp1);
+          lp2 += br * (lp1 - lp2);
+          tmp[i] = lp1 * 0.45 + lp2 * 0.75;
+        }
+        for (let i = 0; i < len; i++) {
+          const base = i < ov ? tmp[i] * (i / ov) + tmp[len + i] * (1 - i / ov) : tmp[i];
+          const ph = (kind === 'wind' ? 4 : 2) * Math.PI * i / len + (ch ? Math.PI * 0.5 : 0);
+          const env = kind === 'wind' ? 0.62 + 0.38 * Math.sin(ph) : 0.72 + 0.28 * (ch ? Math.cos(ph) : Math.sin(ph));
+          d[i] = base * env * 0.65;
+        }
+      }
+      ambBufs[kind] = b;
+      return b;
+    }
+    function ambSync() {
+      if (!ac || !ambGain) return;
+      const t = ac.currentTime;
+      if ((!pref.music && !pref.sfx) || mode === 'menu' || ac.state !== 'running') {
+        ambGain.gain.setTargetAtTime(0, t, 0.5);
+        return;
+      }
+      const want = (mode === 'port' && (lastCity === 5 || lastCity === 6)) || mode === 'rough' ? 'wind' : 'water';
+      if (ambKind !== want || !ambSrc) {
+        if (ambSrc) { try { ambSrc.stop(t + 0.08); } catch (e) {} try { ambSrc.disconnect(); } catch (e) {} ambSrc = null; }
+        const s = ac.createBufferSource();
+        s.buffer = mkAmb(want); s.loop = true; s.connect(ambGain); s.start(t);
+        ambSrc = s; ambKind = want;
+      }
+      ambGain.gain.setTargetAtTime(0.038, t, 0.8);
     }
     /* in automatic mode the port tune rotates once per full play without resetting on UI re-renders */
     function armRotation() {
@@ -352,6 +394,7 @@
       if (ci == null || !CITY_TRACK[ci]) return;
       const changed = lastCity !== ci;
       lastCity = ci;
+      ambSync();
       if (!auto || !changed) return;
       const want = CITY_TRACK[ci];
       if (curPort === want) return;
@@ -372,11 +415,12 @@
     function init() {
       if (ac) { wake(); return ac; }
       try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
-      ac.onstatechange = () => { if (ac.state === 'running' && started) apply(0.4); changed(); };
+      ac.onstatechange = () => { if (ac.state === 'running') { if (started) apply(0.4); ambSync(); } changed(); };
       const lim = ac.createDynamicsCompressor();
       lim.threshold.value = -3; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.002; lim.release.value = 0.15;
       out = ac.createGain(); out.gain.value = 0.85; out.connect(lim); lim.connect(ac.destination);
       mGain = ac.createGain(); mGain.gain.value = 0; mGain.connect(out);
+      ambGain = ac.createGain(); ambGain.gain.value = 0; ambGain.connect(out);
       /* effects: soften the top end (phone speakers), then a short warm room */
       sBus = ac.createGain(); sBus.gain.value = pref.sfx ? 0.7 : 0;
       const sHs = ac.createBiquadFilter(); sHs.type = 'highshelf'; sHs.frequency.value = 4500; sHs.gain.value = -5;
@@ -387,6 +431,7 @@
       document.addEventListener('visibilitychange', () => { if (!ac) return; if (document.hidden) ac.suspend(); else ac.resume(); });
       wake();
       if (pref.music) startMusic();
+      ambSync();
       setInterval(watchdog, 2000);
       return ac;
     }
@@ -394,7 +439,7 @@
     function wake() {
       if (!ac || ac.state === 'running' || document.hidden) return;
       try { const b = ac.createBuffer(1, 1, ac.sampleRate), s = ac.createBufferSource(); s.buffer = b; s.connect(ac.destination); s.start(0); } catch (e) {}
-      try { const pr = ac.resume(); if (pr && pr.then) pr.then(() => { if (started) apply(0.4); changed(); }).catch(() => {}); } catch (e) {}
+      try { const pr = ac.resume(); if (pr && pr.then) pr.then(() => { if (started) apply(0.4); ambSync(); changed(); }).catch(() => {}); } catch (e) {}
     }
     /* if a wanted track is ready but nothing is sounding, start it */
     function watchdog() {
@@ -414,6 +459,7 @@
       if (!ac) return;
       const t = ac.currentTime;
       mGain.gain.cancelScheduledValues(t); mGain.gain.setValueAtTime(mGain.gain.value, t); mGain.gain.linearRampToValueAtTime(0, t + 0.8);
+      ambSync();
     }
     /* modes: menu, port, sea (the voyage map, calm water, night), rough, chase, race, dive */
     let raceT = 0;
@@ -426,6 +472,7 @@
       if (m !== 'sea' && atSea()) ensure(m, true);
       /* into a chase or the race at once; a scene ends with a longer fade back to the sail tune */
       apply(m === 'chase' || m === 'race' ? 0.25 : m === 'rough' ? 0.5 : m === 'dive' ? 0.9 : was === 'chase' || was === 'race' || was === 'rough' ? 1.2 : 0.8);
+      ambSync();
     }
     let lastSea = 'sea';
     /* a river scene starts (Sea.play kinds) */
@@ -452,8 +499,8 @@
       P.p0 = posOf(P, t); P.a0 = t; P.rate = rate;
       try { n.playbackRate.setValueAtTime(rate, t); } catch (e2) {}
     }
-    function setMusic(on) { pref.music = on; lsSet(MUS, on ? '1' : '0'); if (onChange) onChange(); if (on) prefetch(); if (!ac) return; if (on) startMusic(); else stopMusic(); }
-    function setSfx(on) { pref.sfx = on; lsSet(SFX, on ? '1' : '0'); if (ac) sBus.gain.setTargetAtTime(on ? 0.7 : 0, ac.currentTime, 0.05); }
+    function setMusic(on) { pref.music = on; lsSet(MUS, on ? '1' : '0'); if (onChange) onChange(); if (on) prefetch(); if (!ac) return; if (on) startMusic(); else stopMusic(); ambSync(); }
+    function setSfx(on) { pref.sfx = on; lsSet(SFX, on ? '1' : '0'); if (ac) sBus.gain.setTargetAtTime(on ? 0.7 : 0, ac.currentTime, 0.05); ambSync(); }
     function info() {
       const playing = mode === 'menu' ? menuTrack : mode === 'port' ? (spotTrack || curPort) : mode === 'sea' ? 'sail' : mode;
       const ready = id => !!bufs[id] || !!stored[id] || !!(srcs[id] && streams[id]);

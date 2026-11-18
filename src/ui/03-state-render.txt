@@ -44,7 +44,7 @@
         (p.gifted != null && (!Array.isArray(p.gifted) || !p.gifted.every(v => typeof v === 'boolean'))) ||
         !Object.values(p.seen).every(sn => saveObject(sn) && saveNumber(sn.d) && saveObject(sn.p) && Object.values(sn.p).every(saveNumber))) return false;
     if (!p.orders.every(saveOrder) || !Object.values(p.offers).every(o => o == null || saveOrder(o)) || !saveLog(p.log) ||
-        (p.quest != null && (!saveObject(p.quest) || !['kedi', 'ba', 'lapis'].includes(p.quest.id) ||
+        (p.quest != null && (!saveObject(p.quest) || !['kedi', 'ba', 'lapis', 'punt'].includes(p.quest.id) ||
           !saveObject(p.quest.f) || !saveLog(p.quest.log) || !Number.isInteger(p.quest.step))) ||
         (p.over && (!saveObject(p.result) || !saveObject(p.result.stats) || !saveNumber(p.result.score) || !Array.isArray(p.result.ach)))) return false;
     if (p.voyage != null && (!saveObject(p.voyage) || !CITIES[p.voyage.from] || !CITIES[p.voyage.dest] ||
