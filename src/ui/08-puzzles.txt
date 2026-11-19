@@ -10,7 +10,7 @@
     PZ = { kind:'mem', tok:Math.random(), seq:o.seq, i:0, phase:'ready', pads:o.pads, cb:o.cb, timers:[] };
     let s = '<div class="sh-h"><h2 id="shTitle">' + esc(o.title) + '<small>' + esc(o.sub) + '</small></h2></div>';
     s += '<p class="ntext">' + esc(o.text) + '</p>';
-    s += '<div class="mempads">' + o.pads.map((p, k) => '<button type="button" class="mpad c' + k + '" data-pz="' + k + '" disabled>' + (p.ico ? ico(p.ico, 34) : '') + '<b>' + esc(p.label) + '</b><kbd>' + (k + 1) + '</kbd></button>').join('') + '</div>';
+    s += '<div class="mempads">' + o.pads.map((p, k) => '<button type="button" class="mpad c' + k + '" data-pz="' + k + '" disabled><span class="mpad-ring" aria-hidden="true"></span>' + (p.ico ? ico(p.ico, 34) : '') + '<b>' + esc(p.label) + '</b><kbd>' + (k + 1) + '</kbd></button>').join('') + '</div>';
     s += '<p class="pzst" id="pzSt">' + o.seq.length + ' işaret. Hazır olunca başla; sıra bitince aynı sırayla dokun.</p>';
     s += '<div class="row"><button class="btn go1" type="button" data-act="pzStart" data-first>İzle</button>' + (o.cancel ? '<button class="btn" type="button" data-act="pzCancel">' + esc(o.cancel) + '</button>' : '') + '</div>';
     openSheet(s, true, 'pz');
@@ -58,10 +58,10 @@
     const a = Math.max(-1, Math.min(1, tilt)) * 10 * Math.PI / 180, C0 = 200, Y0 = 46, L = 128, ca = Math.cos(a), sa = Math.sin(a);
     const ends = [[C0 - L * ca, Y0 - L * sa], [C0 + L * ca, Y0 + L * sa]];
     const item = (it, x, y) => {
-      if (it.k === 'g') return '<g transform="translate(' + x + ' ' + y + ')">' + pth('M-24 0q-6 -22 6 -34h36q12 12 6 34z', '#C98E62', ink(2)) + pth('M-14 -34q14 -10 28 0', 'none', ink(2)) + pth('M-20 -14h40', 'none', 'stroke="#8E5A33" stroke-width="2"') + '<text x="0" y="-12" text-anchor="middle" font-family="Nunito,sans-serif" font-weight="800" font-size="13" fill="#2B1D14">' + it.v + '</text></g>';
+      if (it.k === 'g') return '<g transform="translate(' + x + ' ' + y + ')"><ellipse cx="0" cy="0" rx="22" ry="3.5" fill="#2B1D14" opacity=".16"/>' + pth('M-11 -33l-3 -7h28l-3 7z', '#DFB07D', ink(1.6)) + pth('M-24 0q-6 -22 6 -34h36q12 12 6 34z', '#C98E62', ink(2)) + pth('M-14 -34q14 -10 28 0', 'none', ink(2)) + pth('M-20 -14h40', 'none', 'stroke="#8E5A33" stroke-width="2"') + pth('M-16 -24c-2 6 -2 12 0 18', 'none', 'stroke="#F2C89C" stroke-width="1.8" stroke-linecap="round" opacity=".65"') + '<text x="0" y="-12" text-anchor="middle" font-family="Nunito,sans-serif" font-weight="800" font-size="13" fill="#2B1D14">' + it.v + '</text></g>';
       if (it.k === 's') return '<g transform="translate(' + x + ' ' + y + ')"><path d="M-11-8-6-18 5-20 12-10 7-1-6 0Z" fill="#29528F" stroke="' + INK + '" stroke-width="1.4"/><path d="M-6-18 1-10 12-10 5-20Z" fill="#7499C5"/><path d="M1-10 7-1 12-10Z" fill="#1D3D70"/><text x="0" y="-5" text-anchor="middle" font-family="Nunito,sans-serif" font-weight="800" font-size="10" fill="#fff">' + it.n + '</text></g>';
       const w = { 1:18, 3:24, 9:30, 27:38 }[it.v], h = { 1:13, 3:17, 9:21, 27:26 }[it.v];
-      return '<g transform="translate(' + x + ' ' + y + ')">' + pth('M' + (-w / 2) + ' 0L' + (-w / 2 + 4) + ' ' + (-h) + 'H' + (w / 2 - 4) + 'L' + (w / 2) + ' 0Z', '#B9853F', ink(1.6)) + '<rect x="' + (-w / 4) + '" y="' + (-h - 4) + '" width="' + (w / 2) + '" height="5" rx="2" fill="#9C6A2E" stroke="' + INK + '" stroke-width="1.2"/><text x="0" y="' + (-h / 2 + 4) + '" text-anchor="middle" font-family="Nunito,sans-serif" font-weight="800" font-size="' + (it.v > 9 ? 12 : 11) + '" fill="#2B1D14">' + it.v + '</text></g>';
+      return '<g transform="translate(' + x + ' ' + y + ')">' + pth('M' + (-w / 2) + ' 0L' + (-w / 2 + 4) + ' ' + (-h) + 'H' + (w / 2 - 4) + 'L' + (w / 2) + ' 0Z', '#5A4A42', ink(1.6)) + pth('M' + (-w / 2 + 1) + ' -1L' + (-w / 2 + 4.5) + ' ' + (-h + 1) + 'H-1L-1 -1Z', '#857063', 'stroke="none" opacity=".7"') + '<rect x="' + (-w / 2 + 3) + '" y="' + (-h + 3) + '" width="' + (w - 6) + '" height="3.2" fill="#F2C65A" opacity=".85"/><rect x="' + (-w / 4) + '" y="' + (-h - 4) + '" width="' + (w / 2) + '" height="5" rx="2" fill="#D9A43A" stroke="' + INK + '" stroke-width="1.2"/><text x="0" y="' + (-h / 2 + 5) + '" text-anchor="middle" font-family="Nunito,sans-serif" font-weight="800" font-size="' + (it.v > 9 ? 12 : 11) + '" fill="#FFF6DC">' + it.v + '</text></g>';
     };
     const width = it => it.k === 'g' ? 50 : it.k === 's' ? 24 : ({ 1:18, 3:24, 9:30, 27:38 }[it.v]) + 3;
     const pan = ([x, y], items) => {
@@ -203,15 +203,16 @@
     pzClear();
     const pool = duelPool(o.city), own = DUEL_M[o.city] ? DUEL_M[o.city].length : 0;
     const order = shuffle(pool.map((_, i) => i).filter(i => !own || i < own)).slice(0, o.rounds || 3);
-    PZ = { kind:'duel', tok:Math.random(), order, pool, r:0, score:0, who:o.who, cb:o.cb, timers:[], title:o.title, sub:o.sub };
+    PZ = { kind:'duel', tok:Math.random(), order, pool, r:0, score:0, who:o.who, city:o.city, cb:o.cb, timers:[], title:o.title, sub:o.sub };
     duelRound();
   }
   function duelRound() {
     if (!PZ || PZ.kind !== 'duel') return;
     const D = PZ.pool, k = PZ.order[PZ.r], wrong = shuffle(D.map((_, i) => i).filter(i => i !== k)).slice(0, 2), opts = shuffle([k].concat(wrong));
     PZ.opts = opts; PZ.k = k;
+    const face = typeof portrait === 'function' && PZ.city != null && typeof S !== 'undefined' && S ? portrait(PZ.city, typeof trustLv === 'function' ? trustLv(S, PZ.city) : 1) : (typeof faceOf === 'function' ? faceOf('sethi', 'sly') : '');
     let s = '<div class="sh-h"><h2 id="shTitle">' + esc(PZ.title) + '<small>' + esc(PZ.sub) + ' · ' + (PZ.r + 1) + '/' + PZ.order.length + ' · doğru: ' + PZ.score + '</small></h2></div>';
-    s += '<div class="duel"><div class="jab"><b>' + esc(PZ.who) + ':</b> "' + esc(D[k][0]) + '"</div><div class="choices one neutral">' + opts.map((i, n) => '<button type="button" class="choice" data-pzduel="' + n + '"' + (n ? '' : ' data-first') + '><b>"' + esc(D[i][1]) + '"</b></button>').join('') + '</div></div>';
+    s += '<div class="duel"><div class="jab" id="duelJab">' + (face ? '<span class="pt duel-pt">' + face + '</span>' : '') + '<div class="duel-bub"><b>' + esc(PZ.who) + ':</b> "' + esc(D[k][0]) + '"</div></div><div class="choices one neutral">' + opts.map((i, n) => '<button type="button" class="choice" data-pzduel="' + n + '"' + (n ? '' : ' data-first') + '><b>"' + esc(D[i][1]) + '"</b></button>').join('') + '</div></div>';
     s += '<p class="muted" style="margin:0">Her lafa ancak bir cevap tam oturur.</p>';
     openSheet(s, true, 'pz');
   }
@@ -219,6 +220,7 @@
     if (!PZ || PZ.kind !== 'duel' || PZ.lock) return;
     const ok = PZ.opts[n] === PZ.k; PZ.lock = true;
     if (ok) PZ.score++;
+    const jb = $('#duelJab'); if (jb && jb.classList) jb.classList.add(ok ? 'hit-ok' : 'hit-no');
     const btns = document.querySelectorAll('[data-pzduel]');
     btns.forEach((b, m) => { b.disabled = true; if (PZ.opts[m] === PZ.k) b.classList.add('right'); else if (m === n) b.classList.add('wrong'); });
     play(ok ? 'haggle' : 'no');

@@ -19,7 +19,11 @@
 .bbslot.steal.left .bbape{transform:translate(-250px,-4px);transition:transform .7s cubic-bezier(.5,0,.9,.6),visibility 0s}
 .bbslot.steal.right .bbape{transform:translate(250px,-4px);transition:transform .7s cubic-bezier(.5,0,.9,.6),visibility 0s}
 .bbslot.hit .bbpoof{animation:bbPoof .45s ease-out}
+.bbslot.hit .bb-ring{transform-box:fill-box;transform-origin:center;animation:bbRing .45s ease-out}
+@keyframes bbRing{from{transform:scale(.4);opacity:1}to{transform:scale(1.6);opacity:0}}
 @keyframes bbPoof{0%{opacity:1;transform:scale(.6)}100%{opacity:0;transform:translateY(-10px) scale(1.25)}}
+.bbwave{animation:bbWave 3.6s ease-in-out infinite alternate}
+@keyframes bbWave{from{transform:translateX(-6px)}to{transform:translateX(6px)}}
 .bbslot.demo .bbape{animation:bbPeek 1.6s ease-in-out infinite}
 @keyframes bbPeek{0%,100%{transform:translateY(4px)}50%{transform:translateY(-3px)}}
 .bbhand{display:none}
@@ -33,4 +37,4 @@
 @keyframes snPop2{from{transform:translate(-50%,-50%) scale(.5);opacity:0}}
 .bbgo{min-width:180px;min-height:52px}
 .bbbar{margin-top:-2px}
-@media (prefers-reduced-motion: reduce){ .bbape,.bbslot.hit .bbape,.bbslot.steal.left .bbape,.bbslot.steal.right .bbape{transition:none} .bbslot.steal .bbape{opacity:0} .bbslot.hit .bbpoof,.bbslot.demo .bbape,.bbwrap.ready .bbhand,.bbend{animation:none} }
+@media (prefers-reduced-motion: reduce){ .bbape,.bbslot.hit .bbape,.bbslot.steal.left .bbape,.bbslot.steal.right .bbape{transition:none} .bbslot.steal .bbape{opacity:0} .bbslot.hit .bbpoof,.bbslot.hit .bb-ring,.bbwave,.bbslot.demo .bbape,.bbwrap.ready .bbhand,.bbend{animation:none} }

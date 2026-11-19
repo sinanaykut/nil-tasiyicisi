@@ -264,7 +264,7 @@
     if (PZ.tut) s += '<div class="sncoach" id="tgCoach"><div class="sncp" id="tgCp"></div><div class="sncb"><b>Paneb</b><p id="tgCoachT" aria-live="polite"></p><button class="btn go1 sm sncok" type="button" data-tgok hidden>Tamam</button></div></div>';
     s += '<div class="tg tg-' + id + (wideOK ? ' w' : '') + (PZ.tut ? ' tgtm' : '') + '"><div class="tgbd" id="tgBd">' + D.board() + '<svg viewBox="0 0 ' + D.W + ' ' + D.H + '" class="tgov" aria-hidden="true"><g id="tgTut"></g><g id="tgHl"></g><g id="tgPcs">';
     ['a', 'p'].forEach(sd => PZ.pos[sd].forEach((q, i) => { const [x, y] = D.xy(sd, q, i); s += '<g class="tgpc ' + sd + '" id="tgP' + sd + i + '" data-tgpc="' + (sd === 'p' ? i : '') + '" style="transform:translate(' + x + 'px,' + y + 'px)"><g class="tgpcb"><g transform="scale(' + (D.ps || 1) + ')">' + (sd === 'p' ? D.hit || '' : '') + D.piece(sd) + '</g></g></g>'; }));
-    s += '</g></svg></div><div class="tgpn">';
+    s += '</g><g id="tgFx" class="snfx"></g></svg></div><div class="tgpn">';
     const oppK = (() => { try { if (typeof CAST !== 'undefined') for (const c in CAST) if (CAST[c].name === who) return c; } catch (e) {} return null; })();
     PZ.oppK = oppK;
     s += '<div class="snpl a" id="tgPa"><svg viewBox="-18 -' + (id === 'hounds' ? 44 : 20) + ' 36 ' + (id === 'hounds' ? 50 : 36) + '" width="26" height="30" aria-hidden="true">' + D.piece('a') + '</svg>' + (oppK ? '<span class="snav" data-k="' + oppK + '">' + CH40.icon(oppK, 'neutral') + '</span>' : '') + '<b>' + esc(who) + '</b>' + dots + '</div>';
@@ -387,7 +387,7 @@
     if (m.kind === 'cap') {
       PZ.pos[op][m.j] = 0;
       const oe = $('#tgP' + op + m.j), [hx, hy] = D.xy(op, 0, m.j);
-      tgLater(() => { tgSetPos(oe, hx, hy, 520); play('haggle'); if (oe) { oe.classList.add('hit'); } }, t);
+      tgLater(() => { tgSetPos(oe, hx, hy, 520); if (typeof snBurst === 'function') snBurst(D.xy(side, m.t, m.i), 'cap', '#tgFx'); play('haggle'); if (oe) { oe.classList.add('hit'); } }, t);
       tgLater(() => { if (oe) oe.classList.remove('hit'); }, t + 600);
       t += 560;
       msg = side === 'p' ? 'Vurdun! Rakibin aslanı <b>kuyruğa</b> döndü.' : esc(PZ.who) + ' aslanını vurdu: <b>kuyruğa</b> döndü!';
@@ -395,11 +395,11 @@
       tgLater(() => snFace(side === 'p' ? 'angry' : 'laugh', 1600), t - 500);
     } else if (m.kind === 'jump' || m.kind === 'slide') {
       const [fx, fy] = D.xy(side, m.fin, m.i);
-      tgLater(() => { tgSetPos(el, fx, fy, 520); play(m.kind === 'jump' ? 'good' : 'bad'); snFace((m.kind === 'jump') === (side === 'p') ? 'surprised' : side === 'a' ? 'sad' : 'laugh', 1500); }, t); t += 560;
+      tgLater(() => { tgSetPos(el, fx, fy, 520); if (typeof snBurst === 'function') snBurst(D.xy(side, m.fin, m.i), m.kind, '#tgFx'); play(m.kind === 'jump' ? 'good' : 'bad'); snFace((m.kind === 'jump') === (side === 'p') ? 'surprised' : side === 'a' ? 'sad' : 'laugh', 1500); }, t); t += 560;
       msg = m.kind === 'jump' ? (side === 'p' ? 'Kestirme! Tazın <b>' + m.fin + '</b>. deliğe atladı.' : esc(PZ.who) + ' kestirmeden <b>' + m.fin + '</b>\'e atladı.') : (side === 'p' ? 'Çukur! Tazın <b>' + m.fin + '</b>. deliğe kaydı.' : esc(PZ.who) + '\'nin çakalı çukura düştü.');
     } else if (m.kind === 'off') {
       const [gx, gy] = D.xy(side, D.GOAL, m.i);
-      tgLater(() => { tgSetPos(el, gx, gy, 260); if (el) el.classList.add('home'); play(side === 'p' ? 'coin' : 'no'); tgDots(); snFace(side === 'p' ? 'sad' : 'happy', 1400); }, t); t += 300;
+      tgLater(() => { tgSetPos(el, gx, gy, 260); if (el) el.classList.add('home'); if (typeof snBurst === 'function') snBurst(D.xy(side, D.GOAL, m.i), 'off', '#tgFx'); play(side === 'p' ? 'coin' : 'no'); tgDots(); snFace(side === 'p' ? 'sad' : 'happy', 1400); }, t); t += 300;
       msg = side === 'p' ? 'Bir ' + D.lab + ' <b>vardı</b>!' : esc(PZ.who) + ' bir taşını <b>vardırdı</b>.';
     }
     tgLater(() => {

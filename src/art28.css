@@ -2,12 +2,12 @@
 .ts{display:block;width:100%;height:100%;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
 .ts .spot{cursor:pointer;outline:none}
 .ts .spot .hit{transition:fill .18s,stroke .18s;stroke:transparent;stroke-width:3}
-.ts .spot:hover .hit,.ts .spot:focus-visible .hit{fill:rgba(255,236,180,.2);stroke:#D9A43A;stroke-dasharray:9 6}
+.ts .spot:hover .hit,.ts .spot:focus-visible .hit{fill:rgba(255,236,180,.2);stroke:#D9A43A;stroke-dasharray:9 6;filter:drop-shadow(0 0 6px rgba(242,197,61,.55))}
 .ts .spot:active .hit,.ts .spot.on .hit{fill:rgba(255,226,150,.32);stroke:#D9A43A}
 .ts .spot-lab{pointer-events:auto}
 .ts .t28-labi{transform-box:fill-box;transform-origin:50% 100%;transition:transform .18s;animation:t28lab 4.2s ease-in-out infinite}
 .ts .spot:nth-of-type(2n) .t28-labi{animation-delay:-1.4s}.ts .spot:nth-of-type(3n) .t28-labi{animation-delay:-2.6s}
-.ts .spot:hover .t28-labi,.ts .spot:focus-visible .t28-labi{transform:scale(1.08);animation:none}
+.ts .spot:hover .t28-labi,.ts .spot:focus-visible .t28-labi{transform:scale(1.08);animation:none;filter:drop-shadow(0 2px 4px rgba(43,29,20,.35))}
 @keyframes t28lab{0%,100%{transform:none}50%{transform:translateY(-3px)}}
 .ts .spot-badge{animation:t28badge 1.8s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
 @keyframes t28badge{50%{transform:scale(1.14)}}

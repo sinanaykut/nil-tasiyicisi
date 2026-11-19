@@ -30,7 +30,9 @@
   function trustToast(lv, i) { if (lv) { toast(MERCHANT_NAMES[i] + ' artık ' + TRUST[lv].name.toLowerCase() + ': o pazarda %' + Math.round(TRUST[lv].b * 100) + ' avantaj.'); play('good'); } }
 
   /* ================= sheets ================= */
+  function clearSel() { try { const s = window.getSelection && window.getSelection(); if (s && s.removeAllRanges) s.removeAllRanges(); } catch (e) {} }
   function openSheet(html, lock, name, wide) {
+    clearSel();
     const wasOpen = !$('#veil').hidden, prevName = sheetName;
     if (!wasOpen) opener = document.activeElement;
     if ($('#tut')) $('#tut').hidden = true;
@@ -44,8 +46,10 @@
     $('#veil').hidden = false;
     const f = $('#sheet').querySelector('[data-first]') || $('#sheet').querySelector('button:not(.x)') || $('#sheet').querySelector('button');
     if (f) f.focus({ preventScroll:true });
+    clearSel();
   }
   function closeSheet() {
+    clearSel();
     cancelAnimationFrame(hagRaf); pzClear();
     if (shipV) { try { shipV.dispose(); } catch (e) {} shipV = null; }
     if (tvMap) { try { tvMap.dispose(); } catch (e) {} tvMap = null; }
@@ -60,6 +64,7 @@
     setTimeout(() => { if ($('#veil').hidden && typeof Snd !== 'undefined' && Snd.clearSpot) Snd.clearSpot(); }, 0);
     if (opener && document.body.contains(opener)) opener.focus({ preventScroll:true });
     opener = null;
+    clearSel();
   }
   const xBtn = '<button class="x" type="button" data-close aria-label="Kapat">' + ico('i-close', 20) + '</button>';
   const backBtn = to => '<button class="x" type="button" data-act="' + to + '" aria-label="Geri">' + ico('i-close', 20) + '</button>';
@@ -165,15 +170,16 @@
   }
   /* ---------- guild ---------- */
   function showLonca(back) {
+    const PERK_ICO = { kese:'i-coin', tayfa:'i-boat', usta:'i-anchor', ag:'i-whisper', hapu:'i-scroll' };
     let s = '<div class="sh-h"><h2 id="shTitle">Kervancılar Loncası<small>İtibarın: <b>' + meta.rep + '</b> · serbest seferlerde kazanılır</small></h2>' + (back ? backBtn(back) : xBtn) + '</div>';
     s += '<h3 class="sh-sec">Avantajlar</h3><div class="ups">';
     Object.keys(PERKS).forEach(k => {
       const p = PERKS[k], lv = meta.lv[k] || 0, c = lv < p.max ? p.cost[lv] : null;
-      s += '<div class="up"><b>' + esc(p.name) + '</b><div class="pips">' + Array.from({ length:p.max }, (_, i) => '<i class="' + (i < lv ? 'on' : '') + '"></i>').join('') + '</div><p>' + esc(p.desc) + '</p>' +
+      s += '<div class="up"><div class="up-h"><span class="up-ic">' + ico(PERK_ICO[k] || 'i-sun', 18) + '</span><b>' + esc(p.name) + '</b></div><div class="pips">' + Array.from({ length:p.max }, (_, i) => '<i class="' + (i < lv ? 'on' : '') + '"></i>').join('') + '</div><p>' + esc(p.desc) + '</p>' +
         (c == null ? '<button class="btn sm" type="button" disabled>Tamam</button>' : '<button class="btn sm gold" type="button" data-perk="' + k + '"' + (meta.rep >= c ? '' : ' disabled') + '>' + c + ' itibar</button>') + '</div>';
     });
     s += '</div><h3 class="sh-sec">Başarımlar</h3><div class="achs">';
-    ACH.forEach(a => { const ok = !!meta.ach[a.id]; s += '<div class="ach' + (ok ? ' ok' : '') + '"><span class="am">' + (ok ? '★' : '☆') + '</span><div><b>' + esc(a.name) + '</b><small>' + esc(a.desc) + ' · +' + a.rep + ' itibar</small></div></div>'; });
+    ACH.forEach(a => { const ok = !!meta.ach[a.id]; s += '<div class="ach' + (ok ? ' ok' : '') + '"><span class="am">' + (ok ? ico('i-ankh', 18) : '☆') + '</span><div><b>' + esc(a.name) + '</b><small>' + esc(a.desc) + ' · +' + a.rep + ' itibar</small></div></div>'; });
     s += '</div><p class="muted" style="margin:0">Her serbest sefer sonunda net servetinin her ' + REP_STEP + ' debeni için 1 itibar (en az 1), Sethi\'yi geçersen 2 itibar daha kazanırsın. Yeni avantajlar bir sonraki serbest seferinde geçerli olur.</p>';
     openSheet(s, !!back, 'lonca', true);
   }
@@ -237,9 +243,10 @@
   }
   function showEnd(hi, gained) {
     const r = S.result, st = r.stats;
+    const mxW = Math.max(1, Math.max(0, r.score), Math.max(0, r.rival)), pW = Math.round(Math.max(0, r.score) / mxW * 100), sW = Math.round(Math.max(0, r.rival) / mxW * 100);
     let s = '<div class="sh-h"><h2 id="shTitle">Sefer bitti<small>' + (S.mode === 'daily' ? 'Günün seferi · ' : '') + S.day + '. gün, ' + esc(CITIES[S.city].name) + '</small></h2></div>' +
-      '<div class="score"><div class="big"><span data-count="' + r.score + '" data-pre="">' + fmt(r.score) + '</span> deben</div><div class="rk">' + esc(r.rank) + '</div></div>' +
-      '<div class="oi ' + (r.beat ? 'good' : 'bad') + '"><span class="pt endf">' + faceOf('sethi', r.beat ? 'angry' : 'laugh') + '</span><div><b>' + (r.beat ? 'Sethi\'yi geçtin!' : 'Sethi bu sefer önde') + '</b><p>Sethi ' + fmt(r.rival) + ' deben ile döndü.</p></div></div>' +
+      '<div class="score"><div class="rk-crest" aria-hidden="true"><svg viewBox="0 0 180 38"><path d="M12 22c24-12 46-12 62-4h32c16-8 38-8 62 4-20 4-42 6-62 2H74c-20 4-42 2-62-2Z" fill="#E5B93F" stroke="#2B1D14" stroke-width="2"/><circle cx="90" cy="19" r="11" fill="#F26430" stroke="#2B1D14" stroke-width="2"/><circle cx="90" cy="19" r="5" fill="#FFE484"/></svg></div><div class="big"><span data-count="' + r.score + '" data-pre="">' + fmt(r.score) + '</span> deben</div><div class="rk">' + esc(r.rank) + '</div></div>' +
+      '<div class="oi ' + (r.beat ? 'good' : 'bad') + '"><span class="pt endf">' + faceOf('sethi', r.beat ? 'angry' : 'laugh') + '</span><div><b>' + (r.beat ? 'Sethi\'yi geçtin!' : 'Sethi bu sefer önde') + '</b><p>Sethi ' + fmt(r.rival) + ' deben ile döndü.</p><div class="end-cmp"><div><small>Sen</small><i style="width:' + Math.max(6, pW) + '%"></i></div><div><small>Sethi</small><i class="st" style="width:' + Math.max(6, sW) + '%"></i></div></div></div></div>' +
       '<p class="muted" style="margin:0;text-align:center">' + (r.debtLeft > 0 ? 'Borcun tam kapanmadı: Hapu ' + fmt(r.debtLeft) + ' deben alacaklı.' : 'Kalan mal satıldı, Hapu\'ya ' + fmt(r.paid) + ' deben ödendi.') + '</p>' +
       '<div class="grid2 g5"><div class="kv"><small>Yolculuk</small><b>' + st.trips + '</b></div><div class="kv"><small>Kusursuz</small><b>' + st.perfect + '</b></div><div class="kv"><small>Kaçış</small><b>' + st.escapes + '</b></div><div class="kv"><small>Sipariş</small><b>' + st.orders + '</b></div><div class="kv"><small>Kıl payı</small><b>' + (st.near || 0) + '</b></div></div>';
     const bt = st.best, st0 = r.start == null ? -300 : r.start;

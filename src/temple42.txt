@@ -86,6 +86,8 @@
     const sh = $('#sheet');
     if (sh && !sh._tpBound) {
       sh._tpBound = true;
+      sh.addEventListener('mousedown', e => { if (PZ && PZ.kind === 'temple' && e.detail > 1) e.preventDefault(); });
+      sh.addEventListener('selectstart', e => { if (PZ && PZ.kind === 'temple') e.preventDefault(); });
       sh.addEventListener('click', e => {
         if (!PZ || PZ.kind !== 'temple' || !PZ.type || PZ.type === 'light') return;
         const t = e.target.closest && e.target.closest('[data-tpg],[data-tps],[data-tpw],[data-tpr]');
@@ -346,8 +348,9 @@
     html(G) {
       let s = '<div class="scwrap"><svg class="scsvg" viewBox="0 0 360 270" role="img" aria-label="Terazi"><defs>' + grad('scBz' + PZ.uid, [[0, '#F7D57A'], [0.5, '#D9A43A'], [1, '#9C6A2A']], true) + '</defs>';
       s += '<ellipse cx="180" cy="256" rx="120" ry="10" fill="#2B1D14" opacity=".14"/>';
-      s += '<rect x="150" y="236" width="60" height="18" rx="4" fill="#8E5A33" stroke="' + INK + '" stroke-width="2.4"/><rect x="171" y="64" width="18" height="174" rx="4" fill="url(#scBz' + PZ.uid + ')" stroke="' + INK + '" stroke-width="2.4"/>';
-      s += pth('M180 22c-10 6 -12 26 -4 44h8c8 -18 6 -38 -4 -44z', '#FBF3DF', ink(2)) + pth('M180 26v38', 'none', 'stroke="#C9B38A" stroke-width="1.6"');
+      s += '<rect x="142" y="242" width="76" height="14" rx="4" fill="#6E4425" stroke="' + INK + '" stroke-width="2.2"/><rect x="150" y="232" width="60" height="14" rx="4" fill="#8E5A33" stroke="' + INK + '" stroke-width="2.4"/><rect x="171" y="64" width="18" height="170" rx="4" fill="url(#scBz' + PZ.uid + ')" stroke="' + INK + '" stroke-width="2.4"/>';
+      s += pth('M162 84q18-10 36 0l-5-16h-26Z', '#2BA59A', ink(2)) + '<rect x="168" y="84" width="24" height="5" rx="2" fill="#D9A43A" stroke="' + INK + '" stroke-width="1.6"/>';
+      s += pth('M180 22c-10 6 -12 26 -4 44h8c8 -18 6 -38 -4 -44z', '#FBF3DF', ink(2)) + pth('M180 26v38M174 36l6 5M186 38l-6 5M173 46l7 5M187 48l-7 5', 'none', 'stroke="#C9B38A" stroke-width="1.4" stroke-linecap="round"');
       s += '<g id="scBeam" class="scbeam"><rect x="56" y="58" width="248" height="11" rx="5.5" fill="url(#scBz' + PZ.uid + ')" stroke="' + INK + '" stroke-width="2.4"/><circle cx="180" cy="63.5" r="7" fill="#B7412E" stroke="' + INK + '" stroke-width="2"/>' + pth('M168 75l12 -10 12 10', 'none', ink(2.2)) + '</g>';
       ['L', 'R'].forEach(sd => {
         s += '<g id="scPan' + sd + '" class="scpan"><path d="M0 0L-54 74M0 0L54 74" stroke="' + INK + '" stroke-width="1.8"/><circle r="5" fill="#D9A43A" stroke="' + INK + '" stroke-width="2"/><path d="M-64 74h128c-7 22 -114 22 -128 0z" fill="url(#scBz' + PZ.uid + ')" stroke="' + INK + '" stroke-width="2.4"/><g class="scin" id="scIn' + sd + '"></g></g>';
@@ -357,8 +360,8 @@
       return s;
     },
     stone(w, x, y, k, on) {
-      const r = 9 + Math.min(5, w * 0.4);
-      return '<g class="scst' + (on ? ' on' : '') + '" transform="translate(' + x + ' ' + y + ')"' + (k != null ? ' data-tpw="' + k + '" role="button" tabindex="0" aria-label="' + w + ' deben taşı: başka yere koy"' : '') + '><path d="M' + (-r) + ' 0c0 -' + (r * 1.15) + ' ' + (r * 2) + ' -' + (r * 1.15) + ' ' + (r * 2) + ' 0z" fill="#6E6A60" stroke="' + INK + '" stroke-width="2"/><path d="M' + (-r * 0.6) + ' ' + (-r * 0.55) + 'q' + (r * 0.4) + ' -' + (r * 0.35) + ' ' + (r * 0.8) + ' -' + (r * 0.3) + '" stroke="#B9B3A4" stroke-width="2" fill="none" stroke-linecap="round"/><text y="-3" text-anchor="middle" class="scnum">' + w + '</text></g>';
+      const r = 9 + Math.min(5, w * 0.4), rw = (r * 0.78).toFixed(1), ry = (r * 0.95).toFixed(1), rt = (r * 1.25).toFixed(1);
+      return '<g class="scst' + (on ? ' on' : '') + '" transform="translate(' + x + ' ' + y + ')"' + (k != null ? ' data-tpw="' + k + '" role="button" tabindex="0" aria-label="' + w + ' deben taşı: başka yere koy"' : '') + '><path d="M' + (-r) + ' 0L' + (-rw) + ' ' + (-ry) + 'Q0 ' + (-rt) + ' ' + rw + ' ' + (-ry) + 'L' + r + ' 0Z" fill="#5A554E" stroke="' + INK + '" stroke-width="2"/><path d="M' + (-r * 0.78).toFixed(1) + ' ' + (-r * 0.25).toFixed(1) + 'H' + (r * 0.78).toFixed(1) + '" stroke="#D9A43A" stroke-width="1.3" opacity=".8"/><path d="M' + (-r * 0.56).toFixed(1) + ' ' + (-r * 0.68).toFixed(1) + 'Q0 ' + (-r * 0.96).toFixed(1) + ' ' + (r * 0.44).toFixed(1) + ' ' + (-r * 0.74).toFixed(1) + '" stroke="#A9A296" stroke-width="1.6" fill="none" stroke-linecap="round"/><text y="-3.5" text-anchor="middle" class="scnum">' + w + '</text></g>';
     },
     gift(gi, wt, x, y) {
       const c = SC_GIFT[gi][1];
@@ -470,14 +473,14 @@
       const u = PZ.uid;
       let s = '<svg class="stsvg" viewBox="0 0 340 340" role="img" aria-label="Yıldız tavanı: ' + esc(G.con.n) + '"><defs><radialGradient id="stSky' + u + '"><stop offset="0" stop-color="#2E4C92"/><stop offset="1" stop-color="#0F1D45"/></radialGradient></defs>';
       s += '<rect width="340" height="340" rx="16" fill="#C9A46A"/><rect x="5" y="5" width="330" height="330" rx="13" fill="none" stroke="#8E6A3C" stroke-width="2.5"/>';
-      s += '<circle cx="' + ST_C + '" cy="' + ST_C + '" r="' + (ST_R1 + 6) + '" fill="#E9C46A" stroke="' + INK + '" stroke-width="3"/>';
+      s += '<circle cx="' + ST_C + '" cy="' + ST_C + '" r="' + (ST_R1 + 6) + '" fill="#E9C46A" stroke="' + INK + '" stroke-width="3"/><circle cx="' + ST_C + '" cy="' + ST_C + '" r="' + (ST_R1 + 2) + '" fill="url(#stSky' + u + ')"/>';
       for (let i = G.k - 1; i >= 0; i--) {
         const r0 = ST_R0 + G.band * i, r1 = r0 + G.band, c = i % 2 ? '#1B2C63' : '#22397A';
         s += '<g class="stg" id="stR' + i + '" data-tpr="' + i + '" role="button" tabindex="0" aria-label="' + (i + 1) + '. halka: döndür" style="transform:rotate(' + G.ang[i] + 'deg)">';
         s += '<path d="M' + (ST_C + r1) + ' ' + ST_C + 'A' + r1 + ' ' + r1 + ' 0 1 0 ' + (ST_C - r1) + ' ' + ST_C + 'A' + r1 + ' ' + r1 + ' 0 1 0 ' + (ST_C + r1) + ' ' + ST_C + 'ZM' + (ST_C + r0) + ' ' + ST_C + 'A' + r0 + ' ' + r0 + ' 0 1 1 ' + (ST_C - r0) + ' ' + ST_C + 'A' + r0 + ' ' + r0 + ' 0 1 1 ' + (ST_C + r0) + ' ' + ST_C + 'Z" fill="' + c + '" fill-rule="evenodd" stroke="#D9A43A" stroke-width="2"/>';
         /* little notches so the turning shows */
         for (let j = 0; j < ST_P; j++) { const a = j * Math.PI / 4 + Math.PI / 8; s += '<circle cx="' + (ST_C + Math.cos(a) * (r1 - 4)).toFixed(1) + '" cy="' + (ST_C + Math.sin(a) * (r1 - 4)).toFixed(1) + '" r="1.6" fill="#D9A43A" opacity=".7"/>'; }
-        G.dec.filter(d => d.ring === i).forEach(d => { s += '<g transform="translate(' + (ST_C + Math.cos(d.a) * d.r).toFixed(1) + ' ' + (ST_C + Math.sin(d.a) * d.r).toFixed(1) + ')">' + stStar(d.sz, false) + '</g>'; });
+        G.dec.filter(d => d.ring === i).forEach((d, di) => { s += '<g class="st-tw" style="animation-delay:' + ((di * 0.45 + i * 0.3) % 2).toFixed(2) + 's" transform="translate(' + (ST_C + Math.cos(d.a) * d.r).toFixed(1) + ' ' + (ST_C + Math.sin(d.a) * d.r).toFixed(1) + ')">' + stStar(d.sz, false) + '</g>'; });
         G.stars.forEach(st => { if (st.ring === i) s += '<g class="stbig" transform="translate(' + (ST_C + Math.cos(st.a) * st.r).toFixed(1) + ' ' + (ST_C + Math.sin(st.a) * st.r).toFixed(1) + ')"><circle r="10" fill="#FFE9A0" opacity=".25"/>' + stStar(7.5, true) + '</g>'; });
         s += '</g>';
       }

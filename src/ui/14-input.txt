@@ -9,6 +9,8 @@
   }
   const NAVSND = new Set(['wait', 'oiMore', 'goMennefer', 'unlockOk', 'share', 'qScene', 'qDecline', 'pzCancel', 'pzEmpty', 'new', 'daily', 'cont', 'loadMenu', 'lonca', 'lonca2', 'recsT', 'helpT', 'helpM', 'toTitle', 'musicT', 'endBack', 'recs', 'event', 'land', 'finish', 'tutDone', 'noHints', 'rapid', 'mAuto', 'mOn', 'newAsk', 'finishAsk']);
   ['pointerdown', 'pointerup', 'click', 'touchend', 'keydown'].forEach(ev => document.addEventListener(ev, () => Snd.unlock(), true));
+  document.addEventListener('mousedown', e => { if (e.detail > 1 && !(e.target && e.target.closest && e.target.closest('input,textarea'))) e.preventDefault(); });
+  document.addEventListener('selectstart', e => { if (!(e.target && e.target.closest && e.target.closest('input,textarea'))) e.preventDefault(); });
   document.addEventListener('click', e => {
     const sp = e.target.closest && e.target.closest('[data-spot]');
     if (sp && (sp.closest('#pscene') || sp.closest('#spots')) && $('#veil').hidden) { e.preventDefault(); openSpot(sp.dataset.spot); return; }
