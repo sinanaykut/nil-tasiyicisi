@@ -577,8 +577,12 @@ body.at-sea .goal{display:none}
 .stone{width:30px;height:28px;border-radius:50% 50% 45% 45%;border:2px solid var(--ink);background:var(--lapis);color:#fff;font-weight:800;font-size:13px;padding:0}
 .pick8{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:4px}
 .suspects{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-.sus{border:2.5px solid var(--ink);border-radius:12px;background:var(--papl);padding:8px;display:flex;flex-direction:column;gap:4px}
-.sus b{font-family:Cinzel,serif;font-size:16px}.sus small{font-size:12px;color:var(--ink2);font-weight:700}.sus p{margin:0;font-size:14px;font-weight:800;flex:1}
+.sus{border:2.5px solid var(--ink);border-radius:12px;background:var(--papl);padding:8px;display:flex;flex-direction:column;gap:5px}
+.sus-h{display:flex;align-items:center;gap:8px}
+.sus-pt{width:42px;height:42px;border-radius:50%;border:2px solid var(--ink);overflow:hidden;flex:none;background:var(--pap2)}
+.sus-pt svg{width:100%;height:100%;display:block}
+.sus b{font-family:Cinzel,serif;font-size:16px}.sus small{display:block;font-size:11.5px;color:var(--ink2);font-weight:700;line-height:1.2}
+.sus p,.sus-q{margin:2px 0;font-size:14px;font-weight:800;flex:1;background:var(--pap2);border-left:3px solid var(--ochre);border-radius:0 8px 8px 0;padding:6px 8px}
 .bal .wch,.bal .good{font-style:normal;display:inline-block;border:2px solid var(--ink);border-radius:6px;background:var(--papl);padding:1px 6px;font-weight:800;font-size:13px}
 .bal .good{background:var(--ochre);color:#fff}
 .wts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}

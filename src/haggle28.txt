@@ -253,8 +253,14 @@
     const C = ['#2BA59A', '#B7412E', '#D9A43A'], P = tall ? [[166, 254], [140, 254], [192, 254]] : over ? [] : [[286, 152], [252, 152], [300, 128]], sc = 1;
     P.forEach((q, i) => {
       if (i === 2 && cr < 3) return;
-      const on = i < cr;
-      s += '<g class="hgppl' + (on ? '' : ' off') + '" transform="translate(' + q[0] + ' ' + q[1] + ') scale(' + sc + ')">' + pth('M-9 0l2 -26h14l2 26z', on ? C[i] : '#B9A27A', ink(1.6)) + '<circle cy="-33" r="8" fill="' + (on ? '#B57A50' : '#C9B18A') + '" stroke="' + INK + '" stroke-width="1.6"/>' + (on ? pth('M7 -24l9 -14', 'none', 'stroke="#B57A50" stroke-width="3.2" stroke-linecap="round"') + '<circle cx="17" cy="-40" r="3" fill="#B57A50" stroke="' + INK + '" stroke-width="1.2"/>' : '') + '</g>';
+      const on = i < cr, skin = on ? '#B57A50' : '#C9B18A', hair = on ? '#261B1A' : '#8C7A65';
+      s += '<g class="hgppl' + (on ? '' : ' off') + '" transform="translate(' + q[0] + ' ' + q[1] + ') scale(' + sc + ')">' +
+        '<path d="M-9.5-33q0-9.5 9.5-9.5t9.5 9.5v10h-3v-7h-13v7h-3Z" fill="' + hair + '" stroke="' + INK + '" stroke-width="1.5"/>' +
+        pth('M-9 0l2 -26h14l2 26z', on ? C[i] : '#B9A27A', ink(1.6)) +
+        (on ? pth('M-5 -25q5 5 10 0', 'none', 'stroke="#F2C65A" stroke-width="2.4" stroke-linecap="round"') + pth('M-7 -12h14', 'none', 'stroke="#F7EBCD" stroke-width="2" opacity=".7"') : '') +
+        '<circle cy="-33" r="8" fill="' + skin + '" stroke="' + INK + '" stroke-width="1.6"/>' +
+        (on ? '<path d="M-8 -36h16" stroke="#F2C65A" stroke-width="2.2"/><circle cx="-3" cy="-34" r="1.1" fill="#2B1D14"/><circle cx="3" cy="-34" r="1.1" fill="#2B1D14"/>' +
+          pth('M7 -24l9 -14', 'none', 'stroke="' + skin + '" stroke-width="3.2" stroke-linecap="round"') + '<circle cx="17" cy="-40" r="3.8" fill="#F2C65A" stroke="' + INK + '" stroke-width="1.2"/>' : '') + '</g>';
     });
     if (!tall && over && cr) s += '<g transform="translate(300 96)"><circle r="12" fill="' + C[0] + '" stroke="' + INK + '" stroke-width="1.6"/><text y="5" text-anchor="middle" class="hgcnt">' + cr + '</text></g>';
     if (tall) {
@@ -374,7 +380,7 @@
       else h += '<div class="hgtot"><span>' + (st.cur > 0 ? '<s>' + hgUnitTxt(list) + '</s> ' : '') + '× ' + fmt(q) + ' = <b>' + fmt(tot) + '</b></span>' + (st.cur > 0 ? '<span class="gain">' + hgPct(st, st.cur) + ' · ' + (st.buy ? fmt(diff) + ' ucuz' : fmt(diff) + ' fazla') + '</span>' : '<span class="list">liste fiyatı</span>') + (net != null ? '<span class="hgcost ' + (net > 0 ? 'pos' : net < 0 ? 'neg' : '') + '">maliyetin ' + hgUnitTxt(st.o.cost) + ' · net ' + (net > 0 ? '+' + fmt(net) : net < 0 ? '−' + fmt(Math.abs(net)) : '=') + '</span>' : '') + '</div>';
       if (st.fin) {
         const r = st.res, ok = r.done;
-        h += '<div class="hgstamp ' + (r.angry ? 'bad' : ok ? 'ok' : 'no') + '">' + (r.angry ? 'Kovuldun!' : ok ? 'Anlaştık' + (st.cur > 0 ? ' ' + hgPct(st, st.cur) : '') : 'Anlaşma yok') + '</div>';
+        h += '<div class="hgstamp ' + (r.angry ? 'bad' : ok ? 'ok' : 'no') + '">' + (ok && typeof ico === 'function' ? ico('i-ankh', 18) + ' ' : '') + (r.angry ? 'Kovuldun!' : ok ? 'Anlaştık' + (st.cur > 0 ? ' ' + hgPct(st, st.cur) : '') : 'Anlaşma yok') + '</div>';
       }
       h += '<div class="hgstatus" role="status"><span>' + (st.fin ? (st.res.done ? 'Tamam ile alışverişi bitir.' : 'Bu pazarlıkta alışveriş yapılmadı.') : st.final ? 'Son fiyat: kabul et ya da vazgeç.' : 'Kalan teklif: ' + Math.max(0, st.max - st.round) + ' · ' + (st.pat <= 1 ? 'Sabrı tükeniyor.' : 'Yüzünü izle, sonra teklif ver.')) + '</span></div>';
       if (st.log.length) h += '<ol class="hghistory" aria-label="Son pazarlık adımları">' + st.log.slice(-3).map(x => '<li><span>' + (x.act === 'offer' ? 'İstedin: ' + hgPct(st, x.asked) : ({ walk:'Gidiyormuş gibi yaptın', praise:'Övgü', accept:'Kabul ettin', leave:'Vazgeçtin', guess:'Yüzünü okudun', flashGone:'Son fırsat geçti' }[x.act] || 'Karşılık')) + '</span><b>' + (x.ev === 'angry' ? 'Anlaşma bozuldu' : x.ev === 'leave' || x.ev === 'bye' ? 'Alışveriş yok' : hgUnitTxt(hgPrice(st, x.price)) + ' / tane') + '</b></li>').join('') + '</ol>';
@@ -391,7 +397,7 @@
         h += '<div class="hgoff">' + HG_OFF.map((a, k) => '<button class="btn hgo o' + k + '" type="button" data-hg="offer" data-k="' + k + '"' + (!canOff || a <= st.cur + 1e-9 ? ' disabled' : '') + ' title="' + (st.buy ? 'Bu kadar indirim iste' : 'Satış fiyatını bu kadar artır') + '"><b>' + hgPct(st, a) + '</b><small>' + hgUnitTxt(hgPrice(st, a)) + ' / tane</small></button>').join('') + '</div>';
         h += '<div class="hgact"><button class="btn hga" type="button" data-hg="praise"' + (st.praised ? ' disabled' : '') + '>' + ico('i-whisper', 18) + 'Övgü</button>';
         h += '<button class="btn hga" type="button" data-hg="walk"' + (st.walked || !canOff ? ' disabled' : '') + '>' + hgWalkIco() + 'Gidiyormuş gibi yap</button>';
-        h += st.flash ? '<button class="btn go1 hgk flash" type="button" data-hg="accept" data-first>Hemen kabul!<small>' + hgUnitTxt(hgPrice(st, st.flash)) + '</small><i class="hgclk" aria-hidden="true"></i></button></div>'
+        h += st.flash ? '<button class="btn go1 hgk flash" type="button" data-hg="accept" data-first><svg class="hg-hglass" viewBox="0 0 20 24" width="16" height="18" aria-hidden="true"><path d="M3 2h14M3 22h14M5 2c0 6 5 8 5 10s-5 4-5 10h10c0-6-5-8-5-10s5-4 5-10Z" fill="#FFF3C4" stroke="#2B1D14" stroke-width="1.8"/><path d="M7 19h6l-3-4Z" fill="#D9822B"/></svg>Hemen kabul!<small>' + hgUnitTxt(hgPrice(st, st.flash)) + '</small><i class="hgclk" aria-hidden="true"></i></button></div>'
           : '<button class="btn go1 hgk" type="button" data-hg="accept"' + (canOff ? '' : ' data-first') + '>Kabul<small>' + hgUnitTxt(hgPrice(st, st.cur)) + '</small></button></div>';
       }
       bt.innerHTML = h;

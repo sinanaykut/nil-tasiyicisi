@@ -197,6 +197,9 @@
 /* the "last offer": the accept button shows a draining clock */
 .hgk.flash{position:relative;overflow:hidden;background:var(--gold);color:var(--ink);animation:hgFl .6s ease-in-out infinite alternate}
 .hgk.flash .hgclk{position:absolute;left:0;right:0;bottom:0;height:6px;background:#B7412E;transform-origin:left;animation:hgClk 6s linear forwards}
+.hg-hglass{vertical-align:-3px;margin-right:4px;animation:hgGlass 1.1s ease-in-out infinite alternate}
+.hgstamp svg{vertical-align:-3px}
+@keyframes hgGlass{to{transform:rotate(12deg) scale(1.08)}}
 @keyframes hgClk{to{transform:scaleX(0)}}
 @keyframes hgFl{to{box-shadow:0 0 0 4px rgba(217,164,58,.55),0 2px 0 var(--ink)}}
 @media (max-width:700px){
@@ -208,7 +211,7 @@
   .hgquiz .hgg{width:20px;height:20px}
   .hgquiz .btn{min-height:42px;font-size:14px;padding:3px 5px}
 }
-@media (prefers-reduced-motion: reduce){ .hgk.flash,.hgquiz{animation:none} .hgk.flash .hgclk{animation-duration:6s} }
+@media (prefers-reduced-motion: reduce){ .hgk.flash,.hgquiz,.hg-hglass{animation:none} .hgk.flash .hgclk{animation-duration:6s} }
 
 
 /* The same bounded amount control in the market and haggle preparation. */
