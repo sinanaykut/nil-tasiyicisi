@@ -428,6 +428,15 @@ div.contra p{margin:0;flex:1}
 @media (prefers-reduced-motion: reduce){ .hfull{animation:none;box-shadow:0 0 0 3px #B7412E} }
 .ntext.hfnote{margin-top:6px;padding:6px 10px;border-radius:10px;background:#F6C9A8;border:2px solid #B7412E;color:#5A1E14;font-weight:700;font-size:13.5px}
 .mplay{display:flex;align-items:center;gap:10px;background:var(--ink);color:var(--pap);border-radius:12px;padding:8px 10px}
+.mplay-harp{flex:none}
+.hapu-art{border:2px solid var(--ink);border-radius:12px;overflow:hidden;background:linear-gradient(135deg,#241934,#432C5A);margin-bottom:2px}
+.hapu-art svg{width:100%;height:auto;display:block}
+.hp-flame{animation:hpFl .95s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:center bottom}
+@keyframes hpFl{to{transform:scaleY(1.2) translateY(-1px)}}
+.sm-pt{display:inline-block;width:28px;height:28px;border-radius:50%;border:1.5px solid var(--ink);overflow:hidden;vertical-align:-7px;margin-right:5px;background:var(--pap2)}
+.sm-pt svg{width:100%;height:100%;display:block}
+.rk-b{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;border:1.5px solid var(--ink);font-weight:800;font-size:12px;background:var(--pap2)}
+.rk-b.r1{background:var(--gold)}.rk-b.r2{background:#D8DEE9}.rk-b.r3{background:#E2A76F}
 .mplay small{display:block;font-size:11px;color:var(--gold);font-weight:800;text-transform:uppercase;letter-spacing:.05em}
 .mplay b{font-family:Cinzel,serif;font-size:16px}
 .mplay > div{flex:1;min-width:0}
@@ -612,7 +621,7 @@ body.at-sea .goal{display:none}
 .ps .bob2{animation:bob 4.2s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 100%}
 .ps .ripple{animation:ripple 3.4s ease-in-out infinite}
 @keyframes ripple{50%{opacity:.25;transform:translateY(2px)}}
-@media (prefers-reduced-motion: reduce){ .ps .cloud,.ps .glint,.ps .walk,.ps .sway,.ps .sway2,.ps .row,.ps .pennant,.ps .bob2,.ps .ripple,.mpad.lit .mpad-ring,.duel .jab.hit-ok,.duel .jab.hit-no{animation:none} }
+@media (prefers-reduced-motion: reduce){ .ps .cloud,.ps .glint,.ps .walk,.ps .sway,.ps .sway2,.ps .row,.ps .pennant,.ps .bob2,.ps .ripple,.mpad.lit .mpad-ring,.duel .jab.hit-ok,.duel .jab.hit-no,.hp-flame{animation:none} }
 @media (max-width:860px){ .cargoBox{display:grid;grid-template-columns:auto 1fr;align-items:center;column-gap:10px;row-gap:0} .cargoBox .cbh{gap:6px} .cargoBox .cbar{grid-column:1/-1;order:3;height:6px;margin:4px 0 0} .cargoBox .cgs{justify-content:flex-end;gap:4px} .cargoBox .cg{padding:0 5px 0 2px} .cargoBox .cg svg{width:18px;height:18px} .cargoBox .cg b{font-size:13.5px} }
 .shipview{height:200px}
 .balwrap{display:flex;justify-content:center}.balwrap svg{width:100%;max-width:440px;height:auto;display:block}

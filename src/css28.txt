@@ -289,6 +289,8 @@ body.at-sea .cart,body.at-sea .spots,body.at-sea .hold{display:none}
 .note .btn.gold{white-space:normal;font-size:13px}
 .mgo{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px}
 .mgo .ib{width:100%}
+.hold-art{border:2px solid var(--ink);border-radius:12px;overflow:hidden;background:#EAD4A4}
+.hold-art svg{width:100%;height:auto;display:block}
 
 /* ---------- desktop ---------- */
 @media (min-width:900px){
