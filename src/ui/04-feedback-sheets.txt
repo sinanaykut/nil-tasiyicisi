@@ -99,7 +99,7 @@
     musicBack = back || null;
     const inf = Snd.info();
     let s = '<div class="sh-h"><h2 id="shTitle">Müzik<small>Parçalar oyunun içinde, notadan sese çevrilerek hazırlanır</small></h2>' + (back ? backBtn(back) : xBtn) + '</div>';
-    s += '<div class="mplay"><span class="eq" aria-hidden="true"><i></i><i></i><i></i></span><div><small>Şimdi çalıyor</small><b id="mNow"></b></div><button class="btn sm gold" type="button" data-act="mNext">Sonraki parça ⏭</button></div>';
+    s += '<div class="mplay"><svg class="mplay-harp" viewBox="0 0 28 32" width="24" height="28" aria-hidden="true"><path d="M8 27h14M10 27c-3-9 0-20 11-22 3 0 5 2 3 5-5 4-4 11-4 17Z" fill="#D9A43A" stroke="#2B1D14" stroke-width="1.8"/><path d="M13 11v14M16 9v16M19 8v17" stroke="#FFF3C4" stroke-width="1.2"/></svg><span class="eq" aria-hidden="true"><i></i><i></i><i></i></span><div><small>Şimdi çalıyor</small><b id="mNow"></b></div><button class="btn sm gold" type="button" data-act="mNext">Sonraki parça ⏭</button></div>';
     s += '<div class="tracks">' + inf.tracks.filter(t => !t.scene && t.id !== 'sail').map(t => '<button class="trk" type="button" data-track="' + t.id + '"><b>' + esc(t.name) + '</b><small>' + esc(t.desc) + '</small><span class="ts"></span></button>').join('') + '</div>';
     s += '<p class="muted" style="margin:0">Seçtiğin parça limanda çalar. Yolda "Yelkenler Açık" çalar; dalgalı suda, pusuda, Sethi ile yarışta ve batıkta her sahnenin kendi müziği vardır.</p>';
     s += '<p class="muted" id="mDiag" style="margin:0;font-size:11.5px"></p><div class="row"><button class="btn sm" type="button" data-act="mAuto"></button><button class="btn sm" type="button" data-act="mOn"></button><button class="btn sm" type="button" data-act="mSfx"></button>' + (haptic.can ? '<button class="btn sm" type="button" data-act="mHap"></button>' : '') + (V3.available() ? '<button class="btn sm" type="button" data-act="m3d"></button>' : '') + '</div><div id="installSlot">' + installHtml() + '</div>';
@@ -186,9 +186,10 @@
   /* ---------- journal ---------- */
   function showDefter() {
     const si = seasonIdx(S), se = SEASONS[si], nx = SEASONS[si + 1];
+    const sIco = { akhet:'i-flood', peret:'i-sprout', shemu:'i-sheaf' }[se.id] || 'i-sun';
     let s = '<div class="sh-h"><h2 id="shTitle">Defter<small>' + S.day + '. gün · ' + esc(CITIES[S.city].name) + '</small></h2>' + xBtn + '</div>';
-    s += '<div class="grid2"><div class="kv season" data-s="' + se.id + '"><small>Mevsim · ' + seasonLeft(S) + ' gün kaldı</small><b>' + esc(se.name) + '</b><p>' + esc(se.desc) + '</p>' + (nx ? '<p class="muted">Sonra: ' + esc(nx.name) + ', ' + esc(nx.title.toLowerCase()) + '</p>' : '') + '</div>' +
-      '<div class="kv"><small>Rakip</small><b>Sethi</b><p>' + (S.rival.plan ? esc(CITIES[S.rival.plan.to].dat) + ' ' + gName(S.rival.plan.g) + ' götürüyor, ' + S.rival.plan.arrive + '. gün varır.' : 'Son görüldüğü yer ' + esc(CITIES[S.rival.city].name) + '.') + ' Tahmini serveti ' + fmt(S.rival.cash) + ' deben. Seferi ondan zengin bitirmeye çalış.</p><p class="muted">Yarışlar: ' + S.stats.raceWins + '/' + S.stats.races + ' kazandın</p></div></div>';
+    s += '<div class="grid2"><div class="kv season" data-s="' + se.id + '"><small>Mevsim · ' + seasonLeft(S) + ' gün kaldı</small><b>' + ico(sIco, 18) + ' ' + esc(se.name) + '</b><p>' + esc(se.desc) + '</p>' + (nx ? '<p class="muted">Sonra: ' + esc(nx.name) + ', ' + esc(nx.title.toLowerCase()) + '</p>' : '') + '</div>' +
+      '<div class="kv"><small>Rakip</small><b><span class="pt sm-pt">' + faceOf('sethi', 'sly') + '</span>Sethi</b><p>' + (S.rival.plan ? esc(CITIES[S.rival.plan.to].dat) + ' ' + gName(S.rival.plan.g) + ' götürüyor, ' + S.rival.plan.arrive + '. gün varır.' : 'Son görüldüğü yer ' + esc(CITIES[S.rival.city].name) + '.') + ' Tahmini serveti ' + fmt(S.rival.cash) + ' deben. Seferi ondan zengin bitirmeye çalış.</p><p class="muted">Yarışlar: ' + S.stats.raceWins + '/' + S.stats.races + ' kazandın</p></div></div>';
     if (S.bless) s += '<div class="oi good"><span class="dot"></span><div><b>' + esc(BLESS[S.bless].name) + '</b><p>' + esc(BLESS[S.bless].desc) + '</p></div></div>';
     if (S.contra) s += '<div class="oi bad"><span class="dot"></span><div><b>Kaçak sandıklar</b><p>' + esc(CITIES[S.contra.to].dat) + ', en geç ' + S.contra.due + '. gün · ' + fmt(S.contra.reward) + ' deben. Medjay\'a yakalanma.</p></div></div>';
     s += '<h3 class="sh-sec">Siparişler</h3>' + (S.orders.length ? S.orders.map(o => '<div class="oi info"><span class="dot"></span><div><b>' + esc(CITIES[o.to].dat) + ' ' + o.q + ' ' + gName(o.g) + '</b><p>' + MERCHANT_NAMES[o.from] + ' için · en geç ' + o.due + '. gün · ödül ' + fmt(o.reward) + ' deben · elinde ' + S.inv[o.g].n + '</p></div></div>').join('') : '<p class="muted" style="margin:0">Taşıdığın sipariş yok. Tüccarlar pazarda sipariş önerir.</p>');
@@ -230,7 +231,7 @@
   function showRecs(hi, back) {
     const r = recs();
     let s = '<div class="sh-h"><h2 id="shTitle">Rekorlar</h2>' + (back ? backBtn(back) : xBtn) + '</div>';
-    s += r.length ? '<table class="recs"><tbody>' + r.map((x, i) => '<tr class="' + (x.id === hi ? 'me' : '') + '"><td>' + (i + 1) + '.</td><td>' + esc(x.rk) + '<br><small class="muted">' + esc(x.d) + (x.m === 'daily' ? ' · günün seferi' : '') + '</small></td><td>' + fmt(x.s) + '</td></tr>').join('') + '</tbody></table>' : '<p class="muted">Henüz biten bir sefer yok.</p>';
+    s += r.length ? '<table class="recs"><tbody>' + r.map((x, i) => '<tr class="' + (x.id === hi ? 'me' : '') + '"><td>' + (i < 3 ? '<span class="rk-b r' + (i + 1) + '">' + (i + 1) + '</span>' : (i + 1) + '.') + '</td><td>' + esc(x.rk) + '<br><small class="muted">' + esc(x.d) + (x.m === 'daily' ? ' · günün seferi' : '') + '</small></td><td>' + fmt(x.s) + '</td></tr>').join('') + '</tbody></table>' : '<p class="muted">Henüz biten bir sefer yok.</p>';
     openSheet(s, !!back, 'recs');
   }
   function sumAdvice(r, st) {

@@ -516,6 +516,11 @@
     if (S.quest && S.quest.cargo) rows.unshift(row(ico('i-scroll', 26), 'Görev yükü', S.quest.cargo, 'satılmaz', ''));
     const f = Math.min(1, L / Math.max(1, C));
     let s = '<div class="sh-h"><span class="pt big wk">' + ico(K ? 'i-donkey' : 'i-chest', 32) + '</span><h2 id="shTitle">' + (K ? 'Kervan yükü' : 'Ambar') + '<small>' + L + ' / ' + C + ' dolu · ' + Math.max(0, C - L) + ' boş yer</small></h2>' + xBtn + '</div>';
+    const slotsN = Math.min(24, Math.max(1, C)), filledN = Math.round(Math.min(1, L / Math.max(1, C)) * slotsN), cols = slotsN <= 12 ? slotsN : Math.ceil(slotsN / 2), rowsN = slotsN > cols ? 2 : 1, bw = 240 / cols, bh = rowsN === 2 ? 16 : 26;
+    let hsvg = '<svg viewBox="0 0 320 56"><path d="' + (K ? 'M14 48Q28 10 50 10H270Q292 10 306 48Z' : 'M10 14Q28 50 64 50H256Q292 50 310 14Z') + '" fill="' + (K ? '#C7924F' : '#8E5A33') + '" stroke="#2B1D14" stroke-width="2.2"/>';
+    hsvg += '<path d="' + (K ? 'M26 44Q38 16 54 16H266Q282 16 294 44Z' : 'M22 18Q38 44 66 44H254Q282 44 298 18Z') + '" fill="#F2DEC0" stroke="#2B1D14" stroke-width="1.5"/>';
+    for (let i = 0; i < slotsN; i++) { const cx = 40 + (i % cols) * bw + 2, cy = rowsN === 1 ? 15 : 11 + Math.floor(i / cols) * 18, on = i < filledN; hsvg += on ? '<rect class="ha-box on" x="' + cx.toFixed(1) + '" y="' + cy.toFixed(1) + '" width="' + Math.max(6, bw - 4).toFixed(1) + '" height="' + bh + '" rx="2.5" fill="' + (i % 2 ? '#D9A43A' : '#B9783E') + '" stroke="#2B1D14" stroke-width="1.4"/>' : '<rect class="ha-box" x="' + cx.toFixed(1) + '" y="' + cy.toFixed(1) + '" width="' + Math.max(6, bw - 4).toFixed(1) + '" height="' + bh + '" rx="2.5" fill="none" stroke="#8A7254" stroke-width="1.2" stroke-dasharray="3 2" opacity=".6"/>'; }
+    s += '<div class="hold-art" aria-hidden="true">' + hsvg + '</svg></div>';
     s += '<i class="hbar big ' + (L >= C ? 'full' : f >= 0.8 ? 'hi' : '') + '"><em style="width:' + Math.round(f * 100) + '%"></em></i>';
     s += rows.length ? '<ul class="hlist">' + rows.join('') + '</ul>' : '<p class="muted">Ambar boş. Pazarda ucuz bir mala dokun, "Al"a bas.</p>';
     if (tot) s += '<p class="hltot">' + esc(CITIES[S.city].loc) + ' hepsini satarsan: <b>' + fmt(tot) + ' deben</b></p>';

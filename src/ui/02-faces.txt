@@ -208,6 +208,8 @@
     const here = S.city === 1, canPay = here && phase === 'port' && !S.over && S.debt > 0 && S.cash > 0;
     const left = S.days - S.day, max = Math.min(S.cash, S.debt), def = max;
     let s = '<div class="sh-h"><span class="pt big" id="hapuPt">' + faceOf('hapu', S.debt > DANGER_DEBT ? 'angry' : 'neutral') + '</span><h2 id="shTitle">Tefeci Hapu<small>' + (here ? 'Mennefer\'deki evinde, hesap defteri açık' : 'Hapu Mennefer\'de oturur · sen ' + esc(CITIES[S.city].loc + ({ a:'sın', ı:'sın', o:'sun', u:'sun', e:'sin', i:'sin', ö:'sün', ü:'sün' }[(CITIES[S.city].loc.match(/[aıoueiöü](?=[^aıoueiöü]*$)/) || ['a'])[0]] || 'sin'))) + '</small></h2>' + xBtn + '</div>';
+    const hu = ++uid;
+    s += '<div class="hapu-art" aria-hidden="true"><svg viewBox="0 0 320 68"><defs><radialGradient id="hpG' + hu + '"><stop offset="0%" stop-color="#FFE07A"/><stop offset="65%" stop-color="#F29B38" stop-opacity=".45"/><stop offset="100%" stop-color="#F29B38" stop-opacity="0"/></radialGradient></defs><rect x="0" y="50" width="320" height="18" fill="#3B241A"/><circle cx="52" cy="36" r="24" fill="url(#hpG' + hu + ')"/><path d="M40 50c0-6 24-6 24 0Z" fill="#C98A3A" stroke="#2B1D14" stroke-width="1.6"/><path class="hp-flame" d="M52 46q4-11 0-16q-4 5 0 16Z" fill="#FFE484"/><rect x="108" y="22" width="104" height="28" rx="4" fill="#F3E3B3" stroke="#2B1D14" stroke-width="2"/><path d="M122 30h48M122 37h38M122 43h28" stroke="#8F6B25" stroke-width="1.8" stroke-linecap="round"/><circle cx="192" cy="38" r="8" fill="' + (S.debt ? '#B7412E' : '#E5B93F') + '" stroke="#2B1D14" stroke-width="1.6"/><circle cx="192" cy="38" r="4" fill="' + (S.debt ? '#F2C53D' : '#2BA59A') + '"/><path d="M262 50V18M244 22h36M246 22l-7 16h14Zm32 0l-7 16h14Z" fill="#D9A43A" stroke="#2B1D14" stroke-width="1.6" stroke-linejoin="round"/><rect x="250" y="50" width="24" height="5" rx="2" fill="#B9853F" stroke="#2B1D14" stroke-width="1.5"/></svg></div>';
     s += '<div class="grid3"><div class="kv"><small>Borç</small><b>' + fmt(S.debt) + '</b></div><div class="kv"><small>Günlük faiz</small><b>%' + String(+(S.rate * 100).toFixed(1)).replace('.', ',') + (S.debt ? ' · ' + fmt(Math.round(S.debt * S.rate)) : '') + '</b></div><div class="kv"><small>Sefer sonunda</small><b>' + fmt(Math.round(S.debt * Math.pow(1 + S.rate, left))) + '</b></div></div>';
     s += debtGauge(canPay ? S.debt - def : null);
     if (S.debt > DANGER_DEBT) s += '<p class="warnl">Borcun 3.500\'ün üstünde: Hapu\'nun adamları nehirde peşine düşer.</p>';
@@ -239,6 +241,7 @@
   function payUpdate() {
     const r = $('#payR'); if (!r || !S) return;
     const v = +r.value, left = S.days - S.day, save = Math.round(v * (Math.pow(1 + S.rate, left) - 1));
+    const hp = $('#hapuPt'); if (hp && typeof faceOf === 'function') hp.innerHTML = faceOf('hapu', S.debt - v <= 0 ? 'happy' : S.debt - v > DANGER_DEBT ? 'angry' : 'neutral');
     const pv = $('#payV'); if (pv) pv.textContent = fmt(v);
     const ps = $('#paySave'); if (ps) ps.textContent = v ? 'Kalan ' + left + ' günde ' + fmt(save) + ' deben faizden kurtarır' + (v >= S.debt ? ' · borç kapanır' : '') : 'Tutar seç';
     const g = document.querySelector('#sheet .dg'); if (g) g.outerHTML = debtGauge(S.debt - v);

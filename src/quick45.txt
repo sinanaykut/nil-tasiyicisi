@@ -73,7 +73,9 @@
       pth(body, '#F4E9CF', 'stroke="' + INK + '" stroke-width="2.6" stroke-linejoin="round"') +
       pth('M-22 8C-16 18 -4 21 8 20C18 19 24 14 25 10C29 4 29 -2 27 -6C26 4 16 12 2 13C-10 14 -18 12 -22 8Z', '#D9C49A', 'opacity=".8"') +
       pth('M-20 -12C-14 -18 -4 -19 4 -18', 'none', 'stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" opacity=".7"') +
-      dots.map(([x, y]) => '<circle cx="' + x + '" cy="' + y + '" r="3.7" fill="#8E3B2A"/><circle cx="' + (x - 1) + '" cy="' + (y - 1.2) + '" r="1.1" fill="#E7A88E"/>').join('') + '</svg>';
+      pth('M-14 0Q0 5 14 0', 'none', 'stroke="#C9B082" stroke-width="1.8" stroke-linecap="round" opacity=".75"') +
+      dots.map(([x, y]) => '<circle cx="' + x + '" cy="' + y + '" r="3.7" fill="#8E3B2A"/><circle cx="' + (x - 1) + '" cy="' + (y - 1.2) + '" r="1.1" fill="#E7A88E"/>').join('') +
+      (v === 6 ? '<circle cx="0" cy="0" r="2.2" fill="#F2C53D" opacity=".85"/>' : '') + '</svg>';
   }
   /* a clay cup, mouth down */
   function qkCup(k) {
@@ -83,7 +85,7 @@
       pth('M10 92Q50 106 90 92L92 99Q50 114 8 99Z', '#A9502A', 'stroke="' + INK + '" stroke-width="3" stroke-linejoin="round"') +
       pth('M22 14Q50 4 78 14Q50 22 22 14Z', '#F0B07A', 'stroke="' + INK + '" stroke-width="2.4"') +
       pth('M30 26L22 84', 'none', 'stroke="#FFE2C2" stroke-width="5" stroke-linecap="round" opacity=".45"') +
-      pth('M16 60Q50 70 84 60', 'none', 'stroke="#7A3216" stroke-width="2.4" opacity=".55"') + pth('M14 70Q50 80 86 70', 'none', 'stroke="#E9C46A" stroke-width="3" opacity=".9"') + '</svg>';
+      pth('M16 60Q50 70 84 60', 'none', 'stroke="#7A3216" stroke-width="2.4" opacity=".55"') + pth('M18 46Q50 56 82 46', 'none', 'stroke="#2BA59A" stroke-width="3.4" opacity=".9"') + pth('M28 52v14M40 54v15M50 55v15M60 54v15M72 52v14', 'none', 'stroke="#FFF3C4" stroke-width="1.5" stroke-linecap="round" opacity=".65"') + pth('M14 70Q50 80 86 70', 'none', 'stroke="#E9C46A" stroke-width="3" opacity=".9"') + '</svg>';
   }
   const QK_BEAN = '<svg viewBox="0 0 40 26" class="qkbean" aria-hidden="true"><ellipse cx="20" cy="22" rx="14" ry="3" fill="#2B1D14" opacity=".25"/><path d="M6 13C4 5 14 1 20 6C26 1 36 5 34 13C33 20 26 22 20 19C14 22 7 20 6 13Z" fill="#8A5A2A" stroke="#2B1D14" stroke-width="2.2"/><path d="M12 9Q16 6 19 9" fill="none" stroke="#D9A86A" stroke-width="2" stroke-linecap="round"/><path d="M20 8V17" stroke="#5A3414" stroke-width="1.6" stroke-linecap="round"/></svg>';
   /* one throw stick: the light (flat, painted) side or the dark (rounded) side */
