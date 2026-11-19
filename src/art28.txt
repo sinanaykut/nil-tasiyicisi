@@ -39,9 +39,12 @@
   function house28(x, b, w, h, P, o) {
     o = o || {};
     const dp = o.dp != null ? o.dp : Math.max(6, Math.round(w * 0.15)), F = o.F || P.WW, D = o.D || P.WD, iw = o.iw || 1.5, t = b - h;
-    let s = pth('M' + (x + w) + ' ' + b + 'V' + t + 'l' + dp + ' ' + (-dp * 0.45) + 'V' + (b - dp * 0.45) + 'Z', D, ink(iw));
+    let s = e28(f28(x + w * 0.52), f28(b + 1.5), f28(w * 0.56), 3.2, '#2B1D14', 'opacity=".18"');
+    s += pth('M' + (x + w) + ' ' + b + 'V' + t + 'l' + dp + ' ' + (-dp * 0.45) + 'V' + (b - dp * 0.45) + 'Z', D, ink(iw));
     s += pth('M' + x + ' ' + t + 'l' + dp + ' ' + f28(-dp * 0.45) + 'H' + (x + w + dp) + 'l' + (-dp) + ' ' + f28(dp * 0.45) + 'Z', mix(F, '#FFFFFF', 0.25), ink(iw));
     s += r28(x, t, w, h, F, ink(iw));
+    if (w > 18 && h > 16) s += l28('M' + f28(x + 3) + ' ' + f28(t + h * 0.35) + 'h' + f28(w * 0.38) + 'M' + f28(x + w * 0.45) + ' ' + f28(t + h * 0.68) + 'h' + f28(w * 0.48), D, 1.1, 'opacity=".55"');
+    if (w > 14 && h > 12) s += r28(x + 1, b - 4, w - 2, 3, D, 'opacity=".36"');
     if (o.band) s += r28(x + 1, t + 4, w - 2, 4, o.band);
     if (o.logs !== false && w > 26) { let d = ''; for (let q = x + 6; q < x + w - 3; q += 9) d += 'M' + (q - 1.8) + ' ' + (t + 1) + 'h3.6'; s += l28(d, '#7A5434', 2.6); }
     if (o.door) s += pth('M' + (x + o.door[0]) + ' ' + b + 'v' + (-o.door[1]) + 'q' + (o.door[2] / 2) + ' -5 ' + o.door[2] + ' 0v' + o.door[1] + 'z', o.doorC || P.dark, ink(1.2));
@@ -122,6 +125,7 @@
     let s = r28(0, 0, 1000, Y0 + 6, 'url(#' + k + 'sky)');
     if (P.stars) { const R = rnd28(7), pts = []; for (let j = 0; j < 46; j++) pts.push([R() * 1000, 8 + R() * 220, j % 5 ? 1.1 : 1.8]); s += pth(dots28(pts), '#FFF6DC', 'opacity="' + f28(0.25 + 0.7 * P.stars) + '"'); }
     s += c28(P.sx, P.sy, 240, 'url(#' + k + 'sun)');
+    if (!P.stars) { const rx = P.sx, ry = P.sy; s += pth('M' + rx + ' ' + ry + 'L' + (rx - 250) + ' 260H' + (rx - 140) + 'Z', 'url(#' + k + 'ray)', 'class="t28-ray" opacity=".26"') + pth('M' + rx + ' ' + ry + 'L' + (rx - 70) + ' 260H' + (rx + 45) + 'Z', 'url(#' + k + 'ray)', 'class="t28-ray" opacity=".22"') + pth('M' + rx + ' ' + ry + 'L' + (rx + 125) + ' 260H' + (rx + 245) + 'Z', 'url(#' + k + 'ray)', 'class="t28-ray" opacity=".24"'); }
     let rays = ''; for (let j = 0; j < 16; j++) { const a = j * Math.PI / 8, ca = Math.cos(a), sa = Math.sin(a); rays += 'M' + f28(62 * sa) + ' ' + f28(-62 * ca) + 'L' + f28(44 * sa + 4 * ca) + ' ' + f28(-44 * ca + 4 * sa) + 'L' + f28(44 * sa - 4 * ca) + ' ' + f28(-44 * ca - 4 * sa) + 'Z'; }
     s += '<g transform="translate(' + f28(P.sx) + ' ' + f28(P.sy) + ')">' + pth(rays, P.sun, 'class="sunr" opacity=".55"') + c28(0, 0, 34, P.sun) + c28(0, 0, 34, 'none', 'stroke="#E9A93A" stroke-width="3" opacity=".7"') + c28(0, 0, 24, 'none', 'stroke="#F2C65A" stroke-width="2" opacity=".6"') + '</g>';
     const cl = o.crisis === 'cekirge' ? 0.5 : 1;
@@ -683,7 +687,7 @@
     if (hasW) {
       s += '<!--r-->';
       s += r28(0, Y0, 1000, 560 - Y0, 'url(#' + k + 'w)', 'class="wat"') + l28('M0 ' + (Y0 + 0.5) + 'H1000', '#FFF6E0', 1.5, 'class="wat" opacity=".55"');
-      let gd = '<g class="wglint" opacity=".85">';
+      let gd = '<g class="wglint" opacity=".85">' + e28(P.sx, Y0 + 68, 56, 62, 'url(#' + k + 'sun)', 'opacity=".35"');
       for (let j = 0; j < 10; j++) gd += r28(P.sx - 34 + ((j * 37) % 68), Y0 + 6 + j * j * 2.2, 30 - j * 1.6, 2.4, '#FFF8DC', 'rx="1.2" class="glint" style="animation-delay:' + (j * 0.31).toFixed(2) + 's"');
       s += gd + '</g>';
       let fl = ''; for (let j = 0; j < 26; j++) { const x = (j * 97) % 1040 - 20, y = Y0 + 14 + ((j * 53) % (560 - Y0 - 20)); fl += 'M' + x + ' ' + y + 'h' + (16 + (j % 4) * 7); }
