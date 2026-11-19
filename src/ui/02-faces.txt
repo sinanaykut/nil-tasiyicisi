@@ -8,15 +8,35 @@
   );
   /* Hesy, the Ba: a human-headed bird against the night */
   function baFace() {
-    let s = '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="50" fill="#1C2240"/>';
-    for (let k = 0; k < 14; k++) s += '<circle cx="' + (8 + (k * 37) % 84) + '" cy="' + (6 + (k * 23) % 60) + '" r="' + (k % 3 ? 1 : 1.6) + '" fill="#F5EBC8" opacity=".8"/>';
-    s += '<circle cx="50" cy="56" r="30" fill="#F2C65A" opacity=".12"/>';
-    s += pth('M50 70Q20 72 10 56Q26 60 36 54Z', '#D9A43A', ink(1.6)) + pth('M50 70Q80 72 90 56Q74 60 64 54Z', '#D9A43A', ink(1.6));
-    s += pth('M38 76L50 92L62 76Z', '#B98A1E', ink(1.6)) + '<ellipse cx="50" cy="66" rx="17" ry="12" fill="#E9C46A" stroke="#2B1D14" stroke-width="1.8"/>';
-    s += pth('M38 64q12 6 24 0M40 70q10 5 20 0', 'none', 'stroke="#B98A1E" stroke-width="1.6" stroke-linecap="round"');
-    s += '<circle cx="50" cy="44" r="12" fill="#B57A50" stroke="#2B1D14" stroke-width="1.8"/>' + pth('M38 44a12 12 0 0 1 24 0v4h-3v-4h-18v6h-3z', '#2B2340');
-    s += '<path d="M44 44q2 -2 4 0M52 44q2 -2 4 0" stroke="#2B1D14" stroke-width="1.8" fill="none" stroke-linecap="round"/><path d="M46 50q4 3 8 0" stroke="#7A3B2E" stroke-width="1.6" fill="none" stroke-linecap="round"/>';
-    s += pth('M46 31h8v-3h-8z', '#E5B93F') + '<circle cx="50" cy="26" r="2.6" fill="#E5B93F"/>';
+    const id = 'ba' + (++uid), bx = 50, by = 43;
+    let s = '<svg viewBox="0 0 100 100" aria-hidden="true"><defs>' +
+      '<radialGradient id="' + id + 'g" cx=".48" cy=".42" r=".62"><stop offset="0" stop-color="#2D3B72"/><stop offset=".6" stop-color="#1A2244"/><stop offset="1" stop-color="#0E1228"/></radialGradient>' +
+      '<linearGradient id="' + id + 'w" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFE084"/><stop offset=".55" stop-color="#D9A43A"/><stop offset="1" stop-color="#8F5E16"/></linearGradient></defs>';
+    s += '<circle cx="50" cy="50" r="50" fill="url(#' + id + 'g)"/>';
+    s += '<circle cx="50" cy="50" r="46" fill="none" stroke="#F2C65A" stroke-width="1.1" stroke-dasharray="3 5" opacity=".45"/>';
+    for (let k = 0; k < 16; k++) s += '<circle cx="' + (10 + (k * 37) % 80) + '" cy="' + (8 + (k * 23) % 58) + '" r="' + (k % 3 ? 0.9 : 1.5) + '" fill="#FBF2CF" opacity="' + (k % 2 ? '.85' : '.5') + '"/>';
+    s += '<circle cx="50" cy="50" r="30" fill="#FFE28C" opacity=".16"/><circle cx="50" cy="48" r="22" fill="none" stroke="#FFE28C" stroke-width="1.2" opacity=".35"/>';
+    /* fanned tail + layered primary/secondary wings */
+    s += pth('M37 74L44 94H56L63 74Z', '#9E7018', ink(1.5)) + pth('M43 76L46 92M50 76V93M57 76L54 92', 'none', 'stroke="#F2C65A" stroke-width="1.2" opacity=".8"');
+    s += pth('M46 68C24 72 10 62 6 48Q22 50 38 56Z', '#2BA59A', ink(1.5)) + pth('M54 68C76 72 90 62 94 48Q78 50 62 56Z', '#2BA59A', ink(1.5));
+    s += pth('M46 65C26 66 13 56 11 45Q25 48 39 54Z', '#1F5FA8', ink(1.4)) + pth('M54 65C74 66 87 56 89 45Q75 48 61 54Z', '#1F5FA8', ink(1.4));
+    s += pth('M48 63C32 62 20 53 18 46Q30 48 41 53Z', 'url(#' + id + 'w)', ink(1.4)) + pth('M52 63C68 62 80 53 82 46Q70 48 59 53Z', 'url(#' + id + 'w)', ink(1.4));
+    /* chest + mini usekh collar */
+    s += '<ellipse cx="50" cy="65" rx="16.5" ry="12.5" fill="#E9C46A" stroke="#2B1D14" stroke-width="1.8"/>';
+    s += pth('M37 59q13 8 26 0', 'none', 'stroke="#1F5FA8" stroke-width="3.2" stroke-linecap="round"') + pth('M39 63q11 7 22 0', 'none', 'stroke="#B7412E" stroke-width="2.4" stroke-linecap="round"') + pth('M40 69q10 5 20 0', 'none', 'stroke="#B98A1E" stroke-width="1.5" stroke-linecap="round"');
+    /* human head with shaded skin, nemes headdress, kohl eyes and uraeus fillet */
+    s += '<circle cx="' + bx + '" cy="' + by + '" r="12.5" fill="#BA7E53" stroke="#2B1D14" stroke-width="1.8"/>';
+    s += '<path d="M50 31a12 12 0 0 1 0 24a8 12 0 0 0 0-24z" fill="#8C5835" opacity=".45"/><ellipse cx="45" cy="44" rx="3.2" ry="2.2" fill="#E3AD7E" opacity=".5"/>';
+    s += pth('M36.5 42C36 33 43 27 50 27C57 27 64 33 63.5 42L66 53L60 52V40C60 35 55 33 50 33C45 33 40 35 40 40V52L34 53Z', '#1F5FA8', ink(1.5));
+    s += pth('M38 38h24M37 42h3M60 42h3', 'none', 'stroke="#F2C65A" stroke-width="1.4" opacity=".9"');
+    /* eyes with white sclera, pupil & kohl wing + soft smile */
+    s += '<ellipse cx="45.5" cy="43" rx="2.6" ry="1.6" fill="#FBF4E8"/><circle cx="45.5" cy="43" r="1.2" fill="#1A120B"/>' +
+      '<ellipse cx="54.5" cy="43" rx="2.6" ry="1.6" fill="#FBF4E8"/><circle cx="54.5" cy="43" r="1.2" fill="#1A120B"/>' +
+      '<path d="M41.5 42.2q4 -2.2 6.8 .5l-1.5 .2M58.5 42.2q-4 -2.2 -6.8 .5l1.5 .2" stroke="#2B1D14" stroke-width="1.4" fill="none" stroke-linecap="round"/>' +
+      '<path d="M48.5 44.5l1.5 2 1.5 -2" stroke="#7A482A" stroke-width="1.1" fill="none" stroke-linecap="round"/>' +
+      '<path d="M46.5 49.5q3.5 2.5 7 0" stroke="#7A3B2E" stroke-width="1.5" fill="none" stroke-linecap="round"/>';
+    /* royal fillet & solar disk */
+    s += pth('M43 32h14v-3h-14z', '#F2C65A', ink(1.1)) + '<circle cx="50" cy="24" r="3.4" fill="#F2C65A" stroke="#2B1D14" stroke-width="1.3"/><circle cx="49" cy="23" r="1.1" fill="#FFF9E0"/>';
     return s + '</svg>';
   }
   MERCHANTS.push(
@@ -51,7 +71,8 @@
     kitlik:{ ico:'i-bugday', mood:'danger', load:'sack' }, bayram:{ ico:'i-sarap', mood:'gold', load:'jar' }, maden:{ ico:'i-bakir', mood:'day' }, liman:{ ico:'i-anchor', mood:'danger', boat:true },
     temple:{ ico:'i-ankh', mood:'gold' }, market:{ ico:'i-stall', mood:'day', load:'jar' }, boatman:{ ico:'i-whisper', mood:'water', boat:true }, checkpoint:{ ico:'i-scroll', mood:'danger', boat:true }, smugglers:{ ico:'i-moon', mood:'night', boat:true } };
   EV_ART.cekirge = { ico:'i-locust', mood:'danger' }; EV_ART.babun = { ico:'i-baboon', mood:'day' };
-  const EV_META = { lapis:[{ ico:'i-lapis', gain:2, risk:2 }, { ico:'i-close' }], tax:[{ ico:'i-coin', risk:1 }, { ico:'i-whisper', gain:1, risk:2 }], wreck:[{ ico:'i-anchor', gain:2, risk:1 }, { ico:'i-close' }], dice:[{ ico:'i-coin', gain:2, risk:2 }, { ico:'i-close' }], tip:[{ ico:'i-whisper', gain:1 }, { ico:'i-close' }], hapu:[{ ico:'i-coin', risk:1 }, { ico:'i-bolt', risk:2 }], saray:[{ ico:'i-coin', gain:2 }, { ico:'i-close' }], kahin:[{ ico:'i-ankh', gain:2 }, { ico:'i-close' }], tapinak:[{ ico:'i-ankh', gain:1 }, { ico:'i-close' }], hirsiz:[{ ico:'i-moon', risk:1 }, { ico:'i-bolt', risk:2 }] };
+  EV_ART.izsurucu = { ico:'i-donkey', mood:'gold' }; EV_ART.punt_sandigi = { ico:'i-chest', mood:'water', boat:true };
+  const EV_META = { lapis:[{ ico:'i-lapis', gain:2, risk:2 }, { ico:'i-close' }], tax:[{ ico:'i-coin', risk:1 }, { ico:'i-whisper', gain:1, risk:2 }], wreck:[{ ico:'i-anchor', gain:2, risk:1 }, { ico:'i-close' }], dice:[{ ico:'i-coin', gain:2, risk:2 }, { ico:'i-close' }], tip:[{ ico:'i-whisper', gain:1 }, { ico:'i-close' }], hapu:[{ ico:'i-coin', risk:1 }, { ico:'i-bolt', risk:2 }], saray:[{ ico:'i-coin', gain:2 }, { ico:'i-close' }], kahin:[{ ico:'i-ankh', gain:2 }, { ico:'i-close' }], tapinak:[{ ico:'i-ankh', gain:1 }, { ico:'i-close' }], hirsiz:[{ ico:'i-moon', risk:1 }, { ico:'i-bolt', risk:2 }], izsurucu:[{ ico:'i-coin', gain:2 }, { ico:'i-close' }], punt_sandigi:[{ ico:'i-chest', gain:2, risk:1 }, { ico:'i-close' }] };
   const pips = (n, ch, cls) => n ? '<i class="pp ' + cls + '">' + ch.repeat(Math.min(3, n)) + '</i>' : '';
   function choiceHtml(c, attr, first, off, offText) {
     return '<button class="choice' + (c.ico ? ' ic' : '') + '" type="button" ' + attr + (first ? ' data-first' : '') + (off ? ' disabled' : '') + '>' + (c.ico ? '<span class="cI">' + ico(c.ico, 26) + '</span>' : '') + '<b>' + esc(c.label) + '</b><small>' + esc(off && offText ? offText : c.sub) + '</small>' + (c.gain || c.risk ? '<span class="cp">' + pips(c.gain, '★', 'g') + pips(c.risk, '⚠', 'r') + '</span>' : '') + '</button>';
@@ -59,7 +80,7 @@
   /* two bone dice that tumble and land on the result the game already decided */
   function diceHtml(win) {
     let a, b; do { a = 1 + Math.floor(Math.random() * 6); b = 1 + Math.floor(Math.random() * 6); } while ((a + b >= 7) !== win);
-    const die = (n, k) => { const P = { 1:[[50, 50]], 2:[[28, 28], [72, 72]], 3:[[28, 28], [50, 50], [72, 72]], 4:[[28, 28], [72, 28], [28, 72], [72, 72]], 5:[[28, 28], [72, 28], [50, 50], [28, 72], [72, 72]], 6:[[28, 26], [72, 26], [28, 50], [72, 50], [28, 74], [72, 74]] }[n]; return '<svg class="die d' + k + '" viewBox="0 0 100 100"><rect x="6" y="6" width="88" height="88" rx="18" fill="#FBF3DF" stroke="#2B1D14" stroke-width="5"/>' + P.map(([x, y]) => '<circle cx="' + x + '" cy="' + y + '" r="8" fill="#2B1D14"/>').join('') + '</svg>'; };
+    const die = (n, k) => { const du = 'dk' + (++uid), P = { 1:[[50, 50]], 2:[[28, 28], [72, 72]], 3:[[28, 28], [50, 50], [72, 72]], 4:[[28, 28], [72, 28], [28, 72], [72, 72]], 5:[[28, 28], [72, 28], [50, 50], [28, 72], [72, 72]], 6:[[28, 26], [72, 26], [28, 50], [72, 50], [28, 74], [72, 74]] }[n]; return '<svg class="die d' + k + '" viewBox="0 0 100 100"><defs><linearGradient id="' + du + '" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFFDF5"/><stop offset=".6" stop-color="#F6E9C8"/><stop offset="1" stop-color="#DEC694"/></linearGradient></defs><rect x="6" y="6" width="88" height="88" rx="18" fill="url(#' + du + ')" stroke="#2B1D14" stroke-width="5"/><rect x="12" y="12" width="76" height="76" rx="13" fill="none" stroke="' + (win ? '#D9A43A' : '#FFFDF5') + '" stroke-width="2" opacity="' + (win ? '.7' : '.55') + '"/>' + P.map(([x, y]) => '<circle cx="' + x + '" cy="' + y + '" r="8.4" fill="#2B1D14"/><circle cx="' + (x - 2) + '" cy="' + (y - 2) + '" r="2.2" fill="#8E684A" opacity=".6"/>').join('') + '</svg>'; };
     return '<div class="dice' + (win ? ' win' : '') + '">' + die(a, 1) + die(b, 2) + '<b>' + (a + b) + '</b></div>';
   }
 
@@ -72,10 +93,201 @@
     if (/Akhet|Peret|Shemu/.test(t)) return 'i-flood'; if (/görev|Görev|Altın Kedi|Ba'nın|Kalpazan/.test(t)) return 'i-map'; if (/Yolda/.test(t)) return 'i-whisper';
     return 'i-whisper';
   }
-  /* v30: a little painted diorama — the stop's iso tile big in the middle, two quiet tiles at the sides, sky or night behind */
-  const EV_TILE = { lapis:'market', tax:'checkpoint', wreck:'wreck', dice:'night', tip:'boatman', hapu:'checkpoint', saray:'temple', kahin:'temple', tapinak:'temple', hirsiz:'night', kitlik:'market', bayram:'temple', maden:'canyon', liman:'checkpoint', cekirge:'storm', babun:'market', smugglers:'smugglers', boatman:'boatman', market:'market', temple:'temple', checkpoint:'checkpoint' };
+  /* v30 + v56: illustrated event & stop dioramas (all 17 events + travel stops) */
+  const EV_TILE = { lapis:'market', tax:'checkpoint', wreck:'wreck', dice:'night', tip:'boatman', hapu:'checkpoint', saray:'temple', kahin:'temple', tapinak:'temple', hirsiz:'night', kitlik:'market', bayram:'temple', maden:'canyon', liman:'checkpoint', cekirge:'storm', babun:'market', izsurucu:'dunes', punt_sandigi:'wreck', smugglers:'smugglers', boatman:'boatman', market:'market', temple:'temple', checkpoint:'checkpoint' };
+  const EV_SCENES = new Set(['lapis', 'tax', 'wreck', 'dice', 'tip', 'hapu', 'saray', 'kahin', 'tapinak', 'hirsiz', 'babun', 'izsurucu', 'punt_sandigi', 'kitlik', 'cekirge', 'bayram', 'maden', 'liman', 'boatman', 'checkpoint', 'oasis', 'mirage']);
+  function evSceneSVG(kind, o) {
+    o = o || {};
+    const u = 'ev' + (++uid), K = INK;
+    const S = (d, f, ex) => '<path d="' + d + '" fill="' + (f || 'none') + '"' + (ex || '') + '/>';
+    const St = (d, c, w, ex) => '<path d="' + d + '" fill="none" stroke="' + (c || K) + '" stroke-width="' + (w || 1.8) + '" stroke-linecap="round" stroke-linejoin="round"' + (ex || '') + '/>';
+    const Ci = (x, y, r, f, ex) => '<circle cx="' + x + '" cy="' + y + '" r="' + r + '" fill="' + f + '"' + (ex || '') + '/>';
+    const El = (x, y, rx, ry, f, ex) => '<ellipse cx="' + x + '" cy="' + y + '" rx="' + rx + '" ry="' + ry + '" fill="' + f + '"' + (ex || '') + '/>';
+    const Ol = ' stroke="' + K + '" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"';
+    const Ot = ' stroke="' + K + '" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round"';
+    const crate = (x, y, c, lbl) => '<g transform="translate(' + x + ' ' + y + ')">' + S('M0 0h24v20H0z', c || '#C99658', Ol) + S('M0 0l6-5h24l-6 5z', '#E6B87A', Ot) + S('M24 0l6-5v20l-6 5z', '#9E6E3A', Ot) + St('M2 7h20M2 13h20M6 0v20M18 0v20', '#7A4F26', 1.1) + (lbl ? '<circle cx="12" cy="10" r="3.5" fill="' + lbl + '"/>' : '') + '</g>';
+    const jar = (x, y, c, sc) => '<g transform="translate(' + x + ' ' + y + ') scale(' + (sc || 1) + ')">' + S('M-6 0q-6-10-1-16h14q5 6-1 16z', c || '#B7412E', Ot) + S('M-5 -16h10l1-4h-12z', c || '#B7412E', Ot) + St('M-3 -12v7', '#FFFFFF', 1.1, ' opacity=".38"') + '</g>';
+    const fig = (x, y, c) => {
+      c = c || {};
+      const sk = c.sk || '#BA7E53', tn = c.tunic || '#F5ECD6', sc = c.s || 1, f = c.dir || 1, kl = c.kneel;
+      let g = '<g transform="translate(' + x + ' ' + y + ') scale(' + (f * sc) + ' ' + sc + ')">';
+      g += El(0, 1, kl ? 13 : 10, 2.8, 'rgba(43,29,20,.26)');
+      if (kl) {
+        g += S('M-9 -4h14l4 5h-19z', sk, Ot) + S('M-8 -16l13 -2 2 14h-15z', tn, Ot);
+      } else {
+        g += St('M-3 -14l-3 14M3 -14l3.5 14', sk, 3.2) + St('M-3 -14l-3 14M3 -14l3.5 14', K, 0.8, ' opacity=".35"');
+        if (c.robe) g += S('M-6 -29h12l4 27h-20z', tn, Ot) + St('M-2 -26l-3 22M2 -26l3 22', 'rgba(43,29,20,.22)', 1);
+        else g += S('M-5.5 -29h11l1.5 13h-14z', sk, Ot) + S('M-6.5 -17h13l2 9h-17z', tn, Ot) + (c.sash ? St('M-6.5 -17h13', c.sash, 2.2) : '');
+      }
+      const ty = kl ? -16 : -27;
+      if (c.collar) g += S('M-5.5 ' + (ty - 1) + 'q5.5 6 11 0', '#D9A43A', Ot) + St('M-4 ' + ty + 'q4 4 8 0', '#2BA59A', 1.5);
+      const l = c.lArm || [-7, 9], r = c.rArm || [8, 8];
+      g += St('M-5 ' + ty + 'L' + (-5 + l[0]) + ' ' + (ty + l[1]), sk, 2.8) + St('M5 ' + ty + 'L' + (5 + r[0]) + ' ' + (ty + r[1]), sk, 2.8);
+      /* head & headgear */
+      const hy = ty - 8;
+      g += Ci(0, hy, 5.4, sk, Ot) + Ci(1.8, hy - 0.6, 0.9, K);
+      const hd = c.head || 'bob';
+      if (hd === 'bob') g += S('M-6 ' + (hy + 1) + 'a6 6 0 0 1 12 0l1 4h-3v-4h-7v4h-3z', c.hair || '#1E1826', Ot);
+      else if (hd === 'hood') g += S('M-6.5 ' + (hy + 3) + 'c0-8 2-11 6.5-11s6.5 3 6.5 11l-2 2v-5c0-3-2-4-4.5-4s-4.5 1-4.5 4v5z', c.hoodC || '#3A304A', Ot);
+      else if (hd === 'nemes') g += S('M-6.5 ' + (hy + 2) + 'c0-7 3-10 6.5-10s6.5 3 6.5 10l2 6-3.5-1v-4c0-3-2-4-5-4s-5 1-5 4v4l-3.5 1z', '#1F5FA8', Ot) + St('M-5 ' + (hy - 3) + 'h10', '#F2C65A', 1.4);
+      else if (hd === 'guard') g += S('M-6 ' + (hy - 1) + 'a6 6 0 0 1 12 0z', '#C98A3E', Ot) + St('M-5 ' + (hy - 1) + 'h10', '#B7412E', 1.5);
+      else if (hd === 'priest') g += S('M-5 ' + (hy - 1) + 'a5 5 0 0 1 10 0', 'none', ' stroke="#8E684A" stroke-width="1"') + St('M-4.5 ' + (hy - 2) + 'h9', '#D9A43A', 1.6);
+      else if (hd === 'turban') g += S('M-6.5 ' + (hy - 1) + 'q6.5-8 13 0q-2 4-6.5 3q-4.5 1-6.5-3z', c.hoodC || '#E9D9B4', Ot);
+      if (c.band) g += St('M-5.5 ' + (hy - 2.5) + 'h11', c.band, 1.5);
+      return g + '</g>';
+    };
+
+    const night = /^(dice|kahin|hirsiz|forgers|smugglers)$/.test(kind) || (o.mood === 'night' && kind !== 'tip');
+    const desert = /^(izsurucu|oasis|mirage|cekirge)$/.test(kind);
+    const dusk = /^(tip|hapu|checkpoint|liman)$/.test(kind) || o.mood === 'danger';
+    const skyStops = night ? ['#0F1733', '#23325C', '#3A4A72'] : dusk ? ['#C95E36', '#E99B58', '#F6D79A'] : desert ? ['#5CA3C6', '#BFE0DC', '#F5DFAD'] : ['#5B9EC4', '#A9D6DF', '#F6E6BE'];
+    let out = '<svg class="ev-svg" viewBox="0 0 380 132" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs>' +
+      '<linearGradient id="' + u + 'sk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + skyStops[0] + '"/><stop offset=".6" stop-color="' + skyStops[1] + '"/><stop offset="1" stop-color="' + skyStops[2] + '"/></linearGradient>' +
+      '<radialGradient id="' + u + 'gl"><stop offset="0" stop-color="#FFF5C4" stop-opacity=".85"/><stop offset=".5" stop-color="#F2B83A" stop-opacity=".35"/><stop offset="1" stop-color="#F2B83A" stop-opacity="0"/></radialGradient>' +
+      '<linearGradient id="' + u + 'wt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + (night ? '#162749' : dusk ? '#376C88' : '#3C8AA8') + '"/><stop offset="1" stop-color="' + (night ? '#0B142B' : '#1E4F6B') + '"/></linearGradient>' +
+      '</defs>';
+    out += '<rect width="380" height="132" fill="url(#' + u + 'sk)"/>';
+    /* celestial light + distant horizon */
+    if (night) {
+      for (let k = 0; k < 22; k++) out += Ci(12 + (k * 47) % 356, 8 + (k * 23) % 58, k % 4 ? 0.9 : 1.5, '#F9F0CF', ' opacity="' + (k % 2 ? '.85' : '.45') + '"');
+      out += S('M322 14a11 11 0 1 0 8 17a9 9 0 0 1-8-17z', '#F7E7A6', Ot);
+    } else {
+      const sx = dusk ? 74 : 318, sy = dusk ? 54 : 28;
+      out += Ci(sx, sy, 38, 'url(#' + u + 'gl)') + Ci(sx, sy, 14, dusk ? '#FFB55A' : '#FFE89E', ' opacity=".92"');
+    }
+    if (desert) {
+      out += S('M0 84q60-20 130-8t140-6 110 8V132H0z', '#E4B876') + S('M0 98q95-14 195-2t185-4V132H0z', '#D5A05A', ' stroke="' + K + '" stroke-width="1.4"');
+    } else {
+      out += S('M0 78q50-10 100-4t140-6 140 8V92H0z', night ? '#20323B' : dusk ? '#7A6448' : '#7CA868', ' opacity=".75"');
+      out += '<rect y="82" width="380" height="24" fill="url(#' + u + 'wt)"/>';
+      for (let k = 0; k < 7; k++) out += St('M' + (18 + k * 54) + ' ' + (90 + (k % 2) * 5) + 'h18', night ? '#4E72A8' : '#CDEAF4', 1.6, ' opacity=".55"');
+      out += S('M0 98q120-6 240 2t140-2V132H0z', night ? '#4E4438' : '#D9B87A', ' stroke="' + K + '" stroke-width="1.6"');
+    }
+
+    /* scene-specific composition */
+    if (kind === 'lapis') {
+      out += S('M20 104V40q44-24 88 0v64h-16V52q-28-14-56 0v52z', '#D8B378', Ol) + palmSVG(340, 102, 56, -8);
+      out += jar(54, 104, '#B7412E', 0.9) + jar(70, 106, '#2BA59A', 0.75) + crate(268, 88, '#B88446');
+      out += fig(152, 108, { dir:1, sk:'#A86A44', tunic:'#4B3B5E', robe:1, head:'hood', hoodC:'#3A304A', lArm:[9, -2], rArm:[15, -4], s:1.15 });
+      out += Ci(178, 78, 18, 'url(#' + u + 'gl)');
+      out += S('M170 78l7-9 7 4-4 9z', '#1F5FA8', Ol) + S('M182 82l6-8 6 5-3 7z', '#2A72C8', Ol);
+      out += Ci(175, 75, 1.3, '#FFE47A', ' class="ev-glint"') + Ci(187, 79, 1.3, '#FFE47A', ' class="ev-glint"');
+      out += fig(236, 108, { dir:-1, sk:'#BA7E53', tunic:'#FBF3DF', collar:1, head:'bob', lArm:[8, 4], rArm:[12, -2], s:1.12 });
+    } else if (kind === 'tax' || kind === 'checkpoint') {
+      out += S('M28 104V52h56v52z', '#DEC18E', Ol) + S('M22 52h68v-8H22z', '#B98C50', Ol) + S('M48 104V72h16v32z', '#3A2614');
+      out += '<g transform="translate(306 58)"><use href="#boatMini"/></g>';
+      out += fig(122, 108, { dir:1, sk:'#B57A50', tunic:'#F5ECD6', head:'guard', lArm:[8, 4], rArm:[10, -8], s:1.12 });
+      out += St('M135 50v58', '#6E4A2A', 2.4) + S('M133 50l2-9 2 9z', '#C98A3E', Ot) + S('M112 72q10-2 10 14q-10 4-10-14z', '#E6C88A', Ol);
+      out += fig(202, 108, { dir:1, sk:'#C48858', tunic:'#FBF3DF', robe:1, collar:1, band:'#1F5FA8', head:'bob', lArm:[9, -3], rArm:[12, -1], s:1.15 });
+      out += '<rect x="210" y="71" width="14" height="10" rx="2" fill="#F3E2B8"' + Ot + '/>' + St('M213 75h8M213 78h6', '#8E684A', 1.1);
+      out += St('M260 108V66M246 72h28', '#B9852A', 2.2) + S('M246 72l-6 13h12zM274 72l-6 13h12z', '#D9A43A', Ot);
+    } else if (kind === 'wreck' || kind === 'punt_sandigi') {
+      if (kind === 'punt_sandigi') {
+        out += S('M10 38Q80 76 165 62L152 102Q72 114 0 98Z', '#7D4E28', Ol) + St('M30 56Q90 82 152 68', '#D9A43A', 2.4);
+        out += S('M24 20h100v34H24z', '#EEDB9A', ' opacity=".7" stroke="' + K + '" stroke-width="1.4"');
+        out += fig(188, 108, { dir:1, sk:'#9B623B', tunic:'#F5ECD6', sash:'#2BA59A', head:'turban', hoodC:'#D9B87A', lArm:[8, 5], rArm:[11, 2], s:1.12 });
+        out += crate(218, 86, '#9B5A2E', '#B7412E') + Ci(230, 96, 18, 'url(#' + u + 'gl)', ' opacity=".45"');
+        out += St('M218 93h24M218 99h24', '#D9A43A', 1.6) + Ci(230, 96, 3.6, '#B7412E', Ot);
+        out += jar(276, 106, '#2BA59A', 0.9) + palmSVG(348, 102, 54, -10);
+      } else {
+        out += '<g class="ev-bob">' + S('M120 96q42 18 92-12l-10-12q-40 20-76 10z', '#8A5630', Ol) + St('M178 86L204 28', K, 3) + S('M202 34l28 18-32 8z', '#D8C8A2', Ol) + '</g>';
+        out += Ci(242, 92, 22, 'url(#' + u + 'gl)') + S('M232 94h20v12h-20z', '#C98A2E', Ol) + St('M232 98h20', '#2B1D14', 1.4);
+        out += fig(104, 108, { dir:1, sk:'#B57A50', tunic:'#2BA59A', head:'cap', lArm:[11, -4], rArm:[13, 2], s:1.12 });
+        out += S('M60 104q8-12 16 0M66 104q5-14 11 0', 'none', ' stroke="#3E8E5A" stroke-width="2.2"');
+      }
+    } else if (kind === 'dice') {
+      out += S('M130 82h120v46H130z', '#5A3A20', Ol) + St('M134 88h112', '#8E5A30', 2);
+      out += Ci(190, 56, 38, 'url(#' + u + 'gl)');
+      out += S('M156 54h22v22h-22z', '#FBF3DF', Ol) + Ci(162, 60, 2, K) + Ci(172, 60, 2, K) + Ci(162, 70, 2, K) + Ci(172, 70, 2, K) + Ci(167, 65, 2, K);
+      out += S('M192 50h22v22h-22z', '#FBF3DF', Ol) + Ci(198, 56, 2, K) + Ci(208, 66, 2, K) + Ci(203, 61, 2, K);
+      out += Ci(232, 76, 5.5, '#D9A43A', Ot) + Ci(240, 78, 5.5, '#F2C65A', Ot);
+      out += fig(106, 114, { dir:1, sk:'#A86A44', tunic:'#8F2F21', head:'hood', hoodC:'#2B2340', lArm:[12, -6], rArm:[14, -2], s:1.18 });
+      out += fig(278, 114, { dir:-1, sk:'#BA7E53', tunic:'#F5ECD6', head:'bob', lArm:[10, -4], rArm:[12, -7], s:1.15 });
+    } else if (kind === 'tip' || kind === 'boatman') {
+      out += '<g class="ev-bob">' + S('M140 94q50 18 100 0l-8-10H148z', '#9E6E3A', Ol) + St('M146 88h88', '#D9A43A', 2) + fig(188, 88, { dir:-1, sk:'#B57A50', tunic:'#F5ECD6', head:'cap', hair:'#E3DCCD', lArm:[8, 4], rArm:[12, -2], s:1.05 }) + '</g>';
+      out += Ci(224, 72, 16, 'url(#' + u + 'gl)') + S('M220 70h8v10h-8z', '#F7C65A', Ot) + St('M152 88l-16 14', '#6E4A2A', 2.4);
+      out += St('M96 68q8-8 16 0M90 62q14-12 28 0', '#FFE8A8', 1.5, ' class="ev-glint" opacity=".8"') + palmSVG(46, 102, 58, 10);
+    } else if (kind === 'hapu') {
+      out += S('M22 104V58h72v46z', '#B98A54', Ol) + S('M260 104V48h88v56z', '#C99A60', Ol);
+      out += Ci(192, 68, 34, 'url(#' + u + 'gl)');
+      out += S('M170 46h46v36h-46z', '#F4E4B4', Ol) + St('M178 55h30M178 63h24M178 71h18', '#7A482A', 1.8);
+      out += Ci(204, 74, 6.5, '#B7412E', Ot) + Ci(204, 74, 2.5, '#F2C65A');
+      out += fig(142, 108, { dir:1, sk:'#A86A44', tunic:'#8F2F21', collar:1, head:'cap', lArm:[11, -3], rArm:[16, -6], s:1.15 });
+    } else if (kind === 'saray') {
+      out += S('M18 104V24h344v14H18z', '#E4C892', Ol) + St('M22 30h336', '#1F5FA8', 3.5);
+      [56, 126, 254, 324].forEach(cx => { out += S('M' + (cx - 8) + ' 104V38h16v66z', '#ECD39E', Ol) + S('M' + (cx - 12) + ' 38h24l-4 7h-16z', '#D9A43A', Ot); });
+      out += fig(190, 108, { dir:-1, sk:'#C48858', tunic:'#FBF3DF', robe:1, collar:1, head:'nemes', lArm:[8, 4], rArm:[14, -4], s:1.22 });
+      out += jar(148, 106, '#D9A43A', 1) + jar(162, 106, '#B7412E', 0.85) + jar(228, 106, '#2BA59A', 0.95);
+    } else if (kind === 'kahin' || kind === 'tapinak') {
+      const k = kind === 'kahin';
+      out += S('M40 104V22h300v82H40z', k ? '#1D2246' : '#E2C38E', Ol) + S('M146 104V48q44-22 88 0v56z', k ? '#121632' : '#3A2614');
+      out += Ci(190, 62, 34, 'url(#' + u + 'gl)', ' class="ev-glint"');
+      if (k) out += S('M170 52q20-16 40 0q-20 12-40 0z', '#FBF3DF', Ot) + Ci(190, 51, 5, '#2BA59A') + St('M188 58l-4 11M193 57q7 7 12 2', '#F2C65A', 1.8);
+      else out += St('M190 46v22M181 56h18', '#F2C65A', 3.4) + '<ellipse cx="190" cy="41" rx="6" ry="7.5" fill="none" stroke="#F2C65A" stroke-width="3"/>';
+      out += S('M176 104h28l-4-16h-20z', '#C98D32', Ol) + S('M186 86q-6-10 4-20q8 8 2 20z', '#FFE284', ' class="ev-smoke"');
+      out += fig(126, 108, { dir:1, sk:'#BA7E53', tunic:k ? '#6E3F86' : '#FBF3DF', robe:1, collar:1, head:'priest', kneel:k, s:1.15 });
+    } else if (kind === 'hirsiz') {
+      out += S('M170 86Q250 108 330 82L320 98Q250 118 182 98Z', '#7D4E28', Ol) + St('M250 94V34', K, 3) + S('M214 44h68l-6 36h-56z', '#B9AE9A', Ol);
+      out += fig(226, 92, { dir:1, sk:'#9B623B', tunic:'#2B2340', head:'hood', hoodC:'#1D1829', lArm:[9, -3], rArm:[13, -1], s:1.05 });
+      out += fig(78, 108, { dir:1, sk:'#BA7E53', tunic:'#F5ECD6', head:'guard', lArm:[8, 4], rArm:[12, -10], s:1.15 });
+      out += Ci(96, 62, 24, 'url(#' + u + 'gl)') + S('M93 66h6l-1 14h-4z', '#6E4A2A', Ot) + Ci(96, 62, 4, '#FFE284');
+    } else if (kind === 'babun') {
+      out += palmSVG(54, 106, 68, 12) + crate(134, 86, '#C99658', '#D9A43A') + crate(168, 88, '#B88446', '#2BA59A') + crate(204, 86, '#C99658', '#B7412E');
+      [152, 194, 246].forEach((bx, bi) => {
+        const by = bi === 1 ? 78 : 88;
+        out += '<g transform="translate(' + bx + ' ' + by + ')" class="' + (bi === 1 ? 'ev-bob' : '') + '">' +
+          St('M-4 6q-10-4-12-14', '#6E4A2A', 2.4) + S('M-6 8q0-12 6-14t8 14z', '#8B684A', Ot) + Ci(0, -8, 5, '#A88260', Ot) + Ci(2, -7, 3, '#E8BA92') + Ci(-2, -12, 2, '#8B684A') + Ci(3, -12, 2, '#8B684A') +
+          Ci(8, -14 - bi * 3, 3.2, '#D9A43A', Ot) + '</g>';
+      });
+    } else if (kind === 'izsurucu') {
+      out += S('M40 102V64l34-18 28 16v40z', '#A96B3E', Ol);
+      out += fig(154, 110, { dir:1, sk:'#A86A44', tunic:'#F3E4C2', sash:'#B7412E', head:'turban', hoodC:'#E8D4A8', lArm:[8, 6], rArm:[13, 6], s:1.15 });
+      out += St('M176 112l4-2M186 108l4-2M196 112l4-2', '#6E4A2A', 2);
+      out += S('M226 102q0-14 14-14h22q10 0 10 14v12h-5v-10h-22v10h-5z', '#9A846E', Ol) + S('M266 90l9-12 7 5-4 8-8 4z', '#9A846E', Ot) + S('M236 86h20l2 9h-24z', '#D9A43A', Ot);
+      out += S('M204 114q8-7 16 0z', '#2BA59A', Ot) + St('M206 110h12', '#9FD8F0', 1.8);
+    } else if (kind === 'kitlik') {
+      [78, 128, 178].forEach(sx => { out += S('M' + (sx - 20) + ' 104V68q0-24 20-26q20 2 20 26v36z', '#C9A268', Ol) + S('M' + (sx - 7) + ' 104V82h14v22z', '#2B1D14'); });
+      out += S('M226 104q8-12 16 0zM248 104q8-12 16 0z', '#C49A58', Ot) + fig(294, 108, { dir:-1, sk:'#B57A50', tunic:'#F3E2B8', head:'bob', lArm:[9, 3], rArm:[12, -2], s:1.15 });
+      out += Ci(330, 60, 18, 'url(#' + u + 'gl)') + St('M330 72V44M330 50l-5-4M330 56l5-4', '#F2C65A', 2.4);
+    } else if (kind === 'cekirge') {
+      out += S('M0 102q90-10 190 0t190-4V132H0z', '#B98C44', ' stroke="' + K + '" stroke-width="1.4"');
+      for (let x = 20; x < 170; x += 18) out += St('M' + x + ' 112q2-14 4-22M' + (x + 4) + ' 92l-3-5', '#C9963A', 2);
+      for (let k = 0; k < 12; k++) { const lx = 60 + k * 24 + (k % 3) * 9, ly = 24 + (k * 19) % 48; out += S('M' + lx + ' ' + ly + 'q8-5 14 0l-6 4z', '#3A2614', ' class="ev-bob"'); }
+      out += fig(248, 110, { dir:-1, sk:'#B57A50', tunic:'#F5ECD6', head:'cap', lArm:[8, 2], rArm:[13, -11], s:1.15 });
+      out += Ci(232, 66, 20, 'url(#' + u + 'gl)') + S('M232 68q-5-9 2-15q5 7 0 15z', '#FFE284') + S('M230 50q8-10 16-8', 'none', ' stroke="#D8D2C6" stroke-width="4" opacity=".6" class="ev-smoke"');
+    } else if (kind === 'bayram') {
+      out += palmSVG(46, 102, 58, 8) + palmSVG(340, 102, 58, -10);
+      out += fig(136, 110, { dir:1, sk:'#B57A50', tunic:'#F5ECD6', collar:1, head:'bob', lArm:[7, -12], rArm:[9, -12], s:1.1 }) + fig(244, 110, { dir:1, sk:'#A86A44', tunic:'#F5ECD6', collar:1, head:'bob', lArm:[7, -12], rArm:[9, -12], s:1.1 });
+      out += S('M114 68Q190 92 266 68L254 58H126Z', '#F2C65A', Ol) + S('M162 58V40h56v18z', '#B7412E', Ol) + Ci(190, 46, 6, '#FFE89E', Ot);
+      out += jar(76, 108, '#B7412E', 1) + jar(94, 108, '#D9A43A', 0.9) + jar(296, 108, '#2BA59A', 1);
+    } else if (kind === 'maden') {
+      out += S('M18 104V58l30-16 26 14v48z', '#7A4E2A', Ol) + Ci(46, 86, 14, 'url(#' + u + 'gl)') + S('M38 92q8-14 16 0z', '#FF9838');
+      for (let r = 0; r < 3; r++) for (let c = 0; c < 3 - r; c++) { const ix = 160 + c * 28 + r * 14, iy = 96 - r * 10; out += S('M' + ix + ' ' + iy + 'l4-8h20l-4 8z', '#D97B4A', Ol) + St('M' + (ix + 4) + ' ' + (iy - 4) + 'h14', '#F4B88A', 1.3); }
+      out += Ci(202, 82, 18, 'url(#' + u + 'gl)', ' class="ev-glint"');
+      out += fig(118, 108, { dir:1, sk:'#9B623B', tunic:'#E2C28A', head:'cap', lArm:[9, -2], rArm:[12, 2], s:1.15 });
+    } else if (kind === 'liman') {
+      out += '<g class="ev-bob">' + S('M120 90q50 18 102 0l-8-10H128z', '#8B5A33', Ol) + St('M170 84V34', K, 3) + S('M140 44h60l-6 30h-48z', '#F4ECD8', Ol) + '</g>';
+      out += St('M70 104h240', '#8E5A30', 5) + S('M96 90l10-12 10 12-10 4z', '#B7412E', Ol) + fig(264, 108, { dir:-1, sk:'#B57A50', tunic:'#F5ECD6', head:'guard', lArm:[8, 4], rArm:[12, -4], s:1.12 });
+    } else if (kind === 'oasis') {
+      out += El(190, 106, 86, 16, '#4C97B8', Ol) + St('M148 104q16-4 32 0t32 0', '#CDEAF4', 2);
+      out += palmSVG(110, 100, 62, -8) + palmSVG(272, 100, 68, 10) + S('M164 106l12-14 14 2-6 12z', '#D9A43A', Ot);
+      out += fig(142, 112, { dir:1, sk:'#A86A44', tunic:'#F5ECD6', head:'turban', lArm:[9, 2], rArm:[12, -2], s:1.1 });
+    } else if (kind === 'mirage') {
+      out += '<g opacity=".65" class="ev-bob">' + El(120, 90, 42, 8, '#8FD3E8', ' stroke-dasharray="4 3" stroke="#2B1D14" stroke-width="1.4"') + palmSVG(142, 86, 40, 8) + '</g>';
+      out += El(268, 108, 48, 10, '#4C97B8', Ol) + palmSVG(290, 104, 52, 8) + fig(216, 112, { dir:1, sk:'#B57A50', tunic:'#F3E2B8', head:'turban', lArm:[8, 4], rArm:[14, -6], s:1.12 });
+    }
+    if (o.res) {
+      const col = o.res === 'good' ? '#2F7346' : o.res === 'bad' ? '#B7412E' : '#8C6E44';
+      out += '<rect x="1" y="1" width="378" height="130" rx="10" fill="none" stroke="' + col + '" stroke-width="3" opacity=".55"/>';
+    }
+    return out + '</svg>';
+  }
   function isoStage(kind, o) {
     o = o || {};
+    if (EV_SCENES.has(kind)) {
+      const dz = o.desert || (VT.desert && VT.desert(kind)), night = /night|smugglers|forgers|dice|kahin|hirsiz/.test(kind) || o.mood === 'night';
+      return '<div class="istage ev-sc' + (dz ? ' dz' : '') + (night ? ' nt' : '') + (o.cls ? ' ' + o.cls : '') + '" aria-hidden="true">' + evSceneSVG(kind, o) + (o.ico ? '<i class="ist-i">' + ico(o.ico, 22) + '</i>' : '') + '</div>';
+    }
     const dz = o.desert || (VT.desert && VT.desert(kind)), night = /night|smugglers|forgers/.test(kind) || o.mood === 'night', side = dz ? 'dunes' : night ? 'night' : 'calm';
     return '<div class="istage' + (dz ? ' dz' : '') + (night ? ' nt' : '') + (o.cls ? ' ' + o.cls : '') + '" aria-hidden="true"><span class="ist-s l">' + VT.tile(o.left || side) + '</span><span class="ist-m">' + VT.tile(kind, 'big') + (o.ico ? '<i class="ist-i">' + ico(o.ico, 22) + '</i>' : '') + '</span><span class="ist-s r">' + VT.tile(o.right || (dz ? 'oasis' : night ? 'night' : 'boatman')) + '</span></div>';
   }
@@ -168,8 +380,8 @@
   function showEvent() {
     const e = eventDef(S, S.pendingEvent);
     if (!e) { landDone(); return; }
-    const art = EV_ART[e.crisis ? e.crisis.k : e.id] || { ico:'i-whisper', mood:'day' }, meta = EV_META[e.id] || [];
-    openSheet('<div class="ev-card pic iso' + (e.crisis ? ' crisis' : '') + '">' + isoStage(EV_TILE[e.crisis ? e.crisis.k : e.id] || 'boatman', { ico:art.ico, mood:art.mood }) + '<div class="evb">' + (e.crisis ? '<small class="kick">Pazar krizi · ' + e.crisis.until + '. güne kadar</small>' : '') + '<h3 id="shTitle">' + esc(e.title) + '</h3><p>' + esc(e.text) + '</p></div></div><div class="choices">' +
+    const k = e.crisis ? e.crisis.k : e.id, art = EV_ART[k] || { ico:'i-whisper', mood:'day' }, meta = EV_META[e.id] || [];
+    openSheet('<div class="ev-card pic iso' + (e.crisis ? ' crisis' : '') + '">' + isoStage(k, { ico:art.ico, mood:art.mood }) + '<div class="evb">' + (e.crisis ? '<small class="kick">Pazar krizi · ' + e.crisis.until + '. güne kadar</small>' : '') + '<h3 id="shTitle">' + esc(e.title) + '</h3><p>' + esc(e.text) + '</p></div></div><div class="choices">' +
       e.choices.map((ch, i) => { const off = ch.ok && !ch.ok(S); return choiceHtml(Object.assign({}, meta[i] || {}, ch), 'data-choice="' + i + '"', !i, off, ch.label.includes('söz') ? 'Sipariş defterin dolu (en fazla 2)' : 'Şu an yapamazsın'); }).join('') + '</div>', true, 'event');
   }
 

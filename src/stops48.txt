@@ -64,13 +64,14 @@
   }
   function fig48(x, y, o) {
     const sk = o.sk || '#A86C44', c = o.c || '#F4ECD8';
-    let s = '<g' + (o.s ? ' transform="translate(' + x + ' ' + y + ') scale(' + o.s + ') translate(' + (-x) + ' ' + (-y) + ')"' : '') + '><g class="m48-fig' + (o.cls ? ' ' + o.cls : '') + '"' + (o.d ? ' style="animation-delay:-' + o.d + 's"' : '') + '><ellipse cx="' + x + '" cy="' + (y + 1) + '" rx="7" ry="2" fill="rgba(43,29,20,.25)"/>';
+    let s = '<g' + (o.s ? ' transform="translate(' + x + ' ' + y + ') scale(' + o.s + ') translate(' + (-x) + ' ' + (-y) + ')"' : '') + '><g class="m48-fig' + (o.cls ? ' ' + o.cls : '') + '"' + (o.d ? ' style="animation-delay:-' + o.d + 's"' : '') + '><ellipse cx="' + x + '" cy="' + (y + 1) + '" rx="7.5" ry="2.2" fill="rgba(43,29,20,.26)"/>';
     s += L48(x - 2, y - 10, x - 3, y, sk, 2.6) + L48(x + 2, y - 10, x + 3, y, sk, 2.6);
-    if (o.f) s += P48('M' + (x - 4.5) + ' ' + (y - 22) + 'h9l2.2 19h-13.4z', c, K48t);
-    else s += '<rect x="' + (x - 4) + '" y="' + (y - 23) + '" width="8" height="11" rx="3" fill="' + sk + '"' + K48t + '/>' + P48('M' + (x - 5) + ' ' + (y - 13) + 'h10l1.4 6h-12.8z', c, K48t);
+    if (o.f) s += P48('M' + (x - 4.5) + ' ' + (y - 22) + 'h9l2.2 19h-13.4z', c, K48t) + L48(x - 1.5, y - 19, x - 2.5, y - 4, 'rgba(43,29,20,.22)', 1) + L48(x + 1.5, y - 19, x + 2.5, y - 4, 'rgba(43,29,20,.22)', 1);
+    else s += '<rect x="' + (x - 4) + '" y="' + (y - 23) + '" width="8" height="11" rx="3" fill="' + sk + '"' + K48t + '/>' + P48('M' + (x - 5) + ' ' + (y - 13) + 'h10l1.4 6h-12.8z', c, K48t) + L48(x - 5, y - 13, x + 5, y - 13, o.band || '#D9A43A', 1.4);
+    if (o.band || o.f) s += '<path d="M' + (x - 3.6) + ' ' + (y - 22) + 'q3.6 3.5 7.2 0" fill="none" stroke="' + (o.band || '#D9A43A') + '" stroke-width="1.6"/>';
     const up = o.prop === 'jar';
     s += L48(x - 4, y - 21, x - 6.5, y - 12, sk, 2.4) + (up ? L48(x + 4, y - 21, x + 5, y - 31, sk, 2.4) : L48(x + 4, y - 21, x + 6.5, y - 12, sk, 2.4));
-    s += '<circle cx="' + x + '" cy="' + (y - 27) + '" r="4.6" fill="' + sk + '"' + K48t + '/>';
+    s += '<circle cx="' + x + '" cy="' + (y - 27) + '" r="4.6" fill="' + sk + '"' + K48t + '/><circle cx="' + (x - 1.4) + '" cy="' + (y - 27) + '" r=".75" fill="' + INK + '"/><circle cx="' + (x + 1.6) + '" cy="' + (y - 27) + '" r=".75" fill="' + INK + '"/>';
     s += P48('M' + (x - 5) + ' ' + (y - 26) + 'q0 -7.5 5 -7.5q5 0 5 7.5v3.5h-2v-3.5h-6v3.5h-2z', o.hair || '#1C1620', K48t);
     if (o.band) s += L48(x - 5, y - 29, x + 5, y - 29, o.band, 1.6);
     if (up) s += jar48(x + 1, y - 37, o.pc || '#B7412E');
@@ -524,7 +525,13 @@
   ];
   function tbRiddle() {
     const R = RD48[Math.floor(TB.r() * RD48.length)], ord = [0, 1, 2]; for (let i = 2; i > 0; i--) { const j = Math.floor(TB.r() * (i + 1)); [ord[i], ord[j]] = [ord[j], ord[i]]; }
-    let body = '<g transform="translate(70 50)">' + P48('M8 52v-18q0-8 8-8h8l4 26z', '#F4ECD8', K48t) + '<circle cx="18" cy="18" r="7" fill="#A86C44"' + K48t + '/>' + P48('M10 18q0-11 8-11t8 11v4h-3v-4h-10v4h-3z', '#1C1620', K48t) + L48(26, 32, 40, 28, '#A86C44', 2.4) + L48(40, 28, 46, 18, '#B7412E', 2) + '</g>';
+    let body = '<g transform="translate(68 48)"><ellipse cx="18" cy="54" rx="14" ry="3.5" fill="rgba(43,29,20,.28)"/>' +
+      P48('M8 52v-18q0-8 8-8h8l4 26z', '#F4ECD8', K48t) + L48(14, 34, 13, 51, '#C9B48C', 1.2) + L48(20, 34, 21, 51, '#C9B48C', 1.2) +
+      '<path d="M12 27q6 5 12 0" fill="none" stroke="#D9A43A" stroke-width="2.2" stroke-linecap="round"/><path d="M13 29q5 4 10 0" fill="none" stroke="#1F5FA8" stroke-width="1.4" stroke-linecap="round"/>' +
+      '<circle cx="18" cy="18" r="7" fill="#A86C44"' + K48t + '/><circle cx="20.5" cy="17.5" r="1" fill="' + INK + '"/>' +
+      P48('M10 18q0-11 8-11t8 11v6h-3v-6h-10v6h-3z', '#1C1620', K48t) + L48(11, 14, 25, 14, '#D9A43A', 1.8) +
+      P48('M2 35l12-4 2 8-12 4z', '#C99658', K48t) + '<circle cx="6" cy="36" r="1.4" fill="#B7412E"/><circle cx="10" cy="35" r="1.4" fill="#1F5FA8"/>' +
+      L48(26, 32, 40, 28, '#A86C44', 2.4) + L48(40, 28, 46, 18, '#B7412E', 2) + '<circle cx="46" cy="17" r="1.6" fill="#F2C65A"/></g>';
     body += '<rect x="130" y="50" width="100" height="54" rx="27" fill="#F3E2B8"' + K48 + '/><text x="180" y="86" text-anchor="middle" font-family="Cinzel,serif" font-weight="700" font-size="26" fill="' + INK + '">?</text>';
     body += '<g transform="translate(252 58)">' + GL48[2]('#B7412E') + '</g><g transform="translate(268 74)">' + GL48[4]('#1F5FA8') + '</g><g transform="translate(252 88)">' + GL48[1]('#B9852A') + '</g>';
     const answer = ok => { if (ok) { tb48Give(50, []); tb48Coffin('"Doğru!" Boyalı duvar ikiye ayrıldı; ressamın armağanı (+50 deben) ve arkasında bir lahit.'); } else if (TB.r() < 0.5) { tb48Hurt(1); setMorale(-1); tb48End('bad', 'Yanlış cevap! Duvardaki göz sana dik dik baktı; başın zonkladı: ressamın laneti (−1 can, moral −1).'); } else tb48End('info', 'Yanlış cevap. Duvar sessiz kaldı, kapı açılmadı.'); };

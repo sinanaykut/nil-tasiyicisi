@@ -75,8 +75,11 @@
     openSheet(hdr + art + rw + '<div class="out icons">' + outHtml({ kind:q === 'miss' ? 'info' : 'good', title:q === 'miss' ? 'Tapınak sessiz' : (q === 'perfect' ? 'Kusursuz sunu!' : 'Sunu kabul edildi'), text:txt }) + '</div><div class="row"><button class="btn go1 wide" type="button" data-close data-first>Tapınaktan ayrıl</button></div>', false, 'tdone');
   }
   function showEventResult(evId, idx, r) {
+      const ck = String(evId || '').startsWith('crisis:') && S && (S.crises || []).find(x => 'crisis:' + x.id === evId);
+      const kind = ck ? ck.k : evId;
+      const art = typeof EV_SCENES !== 'undefined' && EV_SCENES.has(kind) ? '<div class="ev-res-art">' + evSceneSVG(kind, { res:r && r.kind, mood:r && r.kind === 'good' ? 'gold' : r && r.kind === 'bad' ? 'danger' : 'day' }) + '</div>' : '';
       const extra = evId === 'dice' && idx === 0 && r ? diceHtml(r.kind === 'good') : ''; if (extra) buzz([20, 40, 20, 40, 60]);
-      openSheet(extra + '<div class="out icons"><div class="oi ' + (r ? r.kind : 'info') + '"><span class="oiI">' + ico(r && r.kind === 'good' ? 'i-sun' : r && r.kind === 'bad' ? 'i-storm' : 'i-whisper', 20) + '</span><div><p>' + esc(r ? r.text : '') + '</p></div></div></div><button class="btn go1" type="button" data-act="land" data-first>Pazara çık</button>', true, 'event');
+      openSheet(art + extra + '<div class="out icons"><div class="oi ' + (r ? r.kind : 'info') + '"><span class="oiI">' + ico(r && r.kind === 'good' ? 'i-sun' : r && r.kind === 'bad' ? 'i-storm' : 'i-whisper', 20) + '</span><div><p>' + esc(r ? r.text : '') + '</p></div></div></div><button class="btn go1" type="button" data-act="land" data-first>Pazara çık</button>', true, 'event');
   }
   /* an event choice that is a little game first (the baboons) */
   function eventGame(idx) {

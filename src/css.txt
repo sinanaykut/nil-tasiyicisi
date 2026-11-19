@@ -865,5 +865,20 @@ button.st.debt.here{background:#F7DFA8;outline:2px solid var(--gold);outline-off
 .btn:disabled,.btn.go1:disabled{box-shadow:none}
 .t28-ray{transform-origin:top center;animation:t28RayPulse 7s ease-in-out infinite alternate;mix-blend-mode:screen}
 @keyframes t28RayPulse{0%{opacity:.20}100%{opacity:.36}}
-@media (prefers-reduced-motion: reduce){.t28-ray{animation:none}}
+/* ---------- v56: event & quest scene dioramas ---------- */
+.istage.ev-sc{display:block;height:auto;max-height:146px;padding:0;background:none}
+.istage.ev-sc::before{display:none}
+.istage.ev-sc .ist-i{left:10px;top:8px;transform:none;width:32px;height:32px}
+.ev-svg{width:100%;height:100%;display:block}
+.ev-res-art,.q-art{border:2.5px solid var(--ink);border-radius:12px;overflow:hidden;box-shadow:inset 0 0 18px rgba(43,29,20,.18), 0 2px 0 rgba(43,29,20,.14);margin-bottom:8px;background:var(--pap2)}
+.ev-res-art svg,.q-art svg{display:block;width:100%;height:auto;max-height:112px}
+.q-art svg{max-height:98px}
+.ev-glint{animation:evGlint 2.6s ease-in-out infinite alternate}
+.ev-smoke{transform-box:fill-box;transform-origin:bottom center;animation:evSmoke 3.4s ease-in-out infinite alternate}
+.ev-bob{transform-box:fill-box;transform-origin:center;animation:evBob 2.8s ease-in-out infinite}
+@keyframes evGlint{0%{opacity:.55;transform:scale(.95)}100%{opacity:1;transform:scale(1.06)}}
+@keyframes evSmoke{0%{opacity:.55;transform:translateY(0) scaleX(.95)}100%{opacity:.95;transform:translateY(-4px) scaleX(1.08)}}
+@keyframes evBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2.5px)}}
+@media (max-width:600px){.istage.ev-sc{max-height:112px}.istage.ev-sc .ist-i{left:6px;top:6px;width:26px;height:26px}.ev-res-art svg{max-height:96px}.q-art svg{max-height:84px}}
+@media (prefers-reduced-motion: reduce){.t28-ray,.ev-glint,.ev-smoke,.ev-bob{animation:none}}
 </style>
