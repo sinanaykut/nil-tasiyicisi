@@ -161,16 +161,78 @@
     if (phase === 'sea' && VG) { VG.acc.notes.push({ kind:'good', title:'Görev tamamlandı: ' + QUESTS[q.id].name, text:t + (cash ? ' (+' + fmt(cash) + ' deben)' : '') }); toast(QUESTS[q.id].name + ' tamamlandı!'); return; }
     qStory(QUESTS[q.id].name, t + (cash ? ' (+' + fmt(cash) + ' deben)' : ''), 'good', 'Görev tamamlandı');
   }
-  /* a story beat in a sheet */
+  /* a story beat in a sheet + illustrated quest scene */
+  function questSceneSVG(qId, step, title, guild) {
+    const qu = 'qa' + (++uid), K = INK, dj = /Djedi/.test(title || '') || guild === 'djedi';
+    const night = guild === true || qId === 'ba' || (qId === 'lapis' && step >= 3);
+    const sky = night ? ['#131A38', '#2A3966'] : dj ? ['#D87C44', '#F3D298'] : ['#5A9BC0', '#EED8A2'];
+    let s = '<div class="q-art" aria-hidden="true"><svg viewBox="0 0 360 94" preserveAspectRatio="xMidYMid slice"><defs>' +
+      '<linearGradient id="' + qu + 's" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + sky[0] + '"/><stop offset="1" stop-color="' + sky[1] + '"/></linearGradient>' +
+      '<radialGradient id="' + qu + 'g"><stop offset="0" stop-color="#FFE88A" stop-opacity=".85"/><stop offset=".6" stop-color="#E89A2E" stop-opacity=".3"/><stop offset="1" stop-color="#E89A2E" stop-opacity="0"/></radialGradient></defs>';
+    s += '<rect width="360" height="94" fill="url(#' + qu + 's)"/>';
+    if (night) for (let k = 0; k < 14; k++) s += '<circle cx="' + (14 + (k * 43) % 330) + '" cy="' + (8 + (k * 19) % 44) + '" r="' + (k % 3 ? 0.9 : 1.4) + '" fill="#F8EECA" opacity=".8"/>';
+    s += '<path d="M0 72h360v22H0z" fill="' + (night ? '#1B223B' : '#B8894E') + '" stroke="' + K + '" stroke-width="1.4"/>';
+    if (qId === 'kedi') {
+      if (guild) {
+        s += '<rect x="128" y="14" width="104" height="62" fill="#6E4E32" stroke="' + K + '" stroke-width="1.8"/><path d="M158 76V34h44v42z" fill="#2B1D14"/><circle cx="102" cy="44" r="14" fill="url(#' + qu + 'g)"/><circle cx="258" cy="44" r="14" fill="url(#' + qu + 'g)"/><path d="M100 50h4l-1 14h-2zM256 50h4l-1 14h-2z" fill="#6E4A2A"/><circle cx="102" cy="46" r="4" fill="#FFE07A"/><circle cx="258" cy="46" r="4" fill="#FFE07A"/>' +
+          '<path d="M168 38l24 22M192 38l-24 22" stroke="#D9A43A" stroke-width="3" stroke-linecap="round"/><circle cx="218" cy="52" r="6" fill="#BA7E53" stroke="' + K + '" stroke-width="1.5"/><path d="M213 51h10l-2 5h-6z" fill="#D9A43A" stroke="' + K + '" stroke-width="1.2"/>';
+      } else if (dj) {
+        s += '<rect x="130" y="60" width="100" height="14" fill="#A8743A" stroke="' + K + '" stroke-width="1.6"/><circle cx="180" cy="42" r="22" fill="url(#' + qu + 'g)"/>' +
+          '<path d="M172 60q-2-14 4-20l-2-8 5 4h4l5-4-2 8q5 6 3 20z" fill="#F2C65A" stroke="' + K + '" stroke-width="1.6"/><circle cx="179" cy="42" r="1.4" fill="#2BA59A"/><circle cx="184" cy="42" r="1.4" fill="#2BA59A"/>' +
+          '<circle cx="96" cy="44" r="7" fill="#9E623A" stroke="' + K + '" stroke-width="1.5"/><path d="M86 72v-20h20v20z" fill="#4B3B5E" stroke="' + K + '" stroke-width="1.5"/>' +
+          '<circle cx="264" cy="44" r="7" fill="#9E623A" stroke="' + K + '" stroke-width="1.5"/><path d="M254 72v-20h20v20z" fill="#4B3B5E" stroke="' + K + '" stroke-width="1.5"/>';
+      } else {
+        s += '<circle cx="180" cy="44" r="32" fill="url(#' + qu + 'g)"/><rect x="136" y="18" width="88" height="54" rx="4" fill="#8C6236" stroke="' + K + '" stroke-width="1.8"/><rect x="148" y="26" width="64" height="46" fill="#3A2614"/>' +
+          '<path d="M170 68q-3-16 4-24l-2-9 6 4h5l6-4-2 9q6 8 4 24z" fill="#F2C65A" stroke="' + K + '" stroke-width="1.6"/><circle cx="177" cy="46" r="1.6" fill="#2BA59A"/><circle cx="183" cy="46" r="1.6" fill="#2BA59A"/>' +
+          '<path d="M180 56a4 4 0 1 0 0.1 0" fill="none" stroke="#B7412E" stroke-width="2"/>';
+      }
+    } else if (qId === 'ba') {
+      s += '<circle cx="180" cy="44" r="28" fill="url(#' + qu + 'g)"/>';
+      if (step === 1) {
+        s += '<path d="M60 72Q130 56 200 72" fill="#264C6E" opacity=".6"/><path d="M168 72V18M146 28h44" stroke="#E2C28A" stroke-width="2.6" stroke-linecap="round"/><path d="M178 28q12-2 16-8q-6 8-14 10z" fill="#D9A43A" stroke="' + K + '" stroke-width="1.3"/><circle cx="182" cy="18" r="3.4" fill="#BA7E53" stroke="' + K + '" stroke-width="1.2"/>' +
+          '<ellipse cx="268" cy="60" rx="14" ry="8" transform="rotate(-18 268 60)" fill="#C98A3E" stroke="' + K + '" stroke-width="1.5"/><path d="M278 52l14-14" stroke="#C98A3E" stroke-width="3" stroke-linecap="round"/>';
+      } else if (step === 2) {
+        s += '<path d="M150 74q-4-34 22-46q24 6 22 46z" fill="#D9A43A" stroke="' + K + '" stroke-width="1.8"/><path d="M160 72V38M168 72V34M176 72V33M184 72V36" stroke="#FFF4D2" stroke-width="1.2"/>' +
+          '<circle cx="116" cy="40" r="6" fill="#A86A44" stroke="' + K + '" stroke-width="1.5"/><path d="M108 74v-24h16v24z" fill="#1F5FA8" stroke="' + K + '" stroke-width="1.5"/>' +
+          '<path d="M236 44q6-6 10-2M256 36q6-6 10-2" fill="none" stroke="#FFE284" stroke-width="2" class="ev-glint"/>';
+      } else {
+        s += '<path d="M130 74V26h100v48z" fill="#5A4672" stroke="' + K + '" stroke-width="1.8"/><path d="M158 74V36q22-16 44 0v38z" fill="#FFE89E" opacity=".88"/><path d="M170 46q10-8 20-4q-8 8-16 10z" fill="#D9A43A" stroke="' + K + '" stroke-width="1.4"/>';
+      }
+    } else if (qId === 'lapis') {
+      s += '<circle cx="180" cy="46" r="28" fill="url(#' + qu + 'g)"/>';
+      if (step === 1) {
+        s += '<path d="M180 68V24M144 30h72" stroke="#D9A43A" stroke-width="2.4" stroke-linecap="round"/><path d="M144 30l-9 18h18zM216 30l-9 18h18z" fill="#B9852A" stroke="' + K + '" stroke-width="1.5"/>' +
+          '<circle cx="144" cy="44" r="3" fill="#1F5FA8"/><circle cx="216" cy="44" r="3" fill="#2A72C8"/><circle cx="180" cy="66" r="3" fill="#1F5FA8"/>';
+      } else if (step === 2) {
+        s += '<path d="M28 74V30l42-14 38 14v44z" fill="#B9653E" stroke="' + K + '" stroke-width="1.6"/><path d="M252 74V26l44-12 36 16v44z" fill="#A95834" stroke="' + K + '" stroke-width="1.6"/>' +
+          '<circle cx="146" cy="44" r="6" fill="#BA7E53" stroke="' + K + '" stroke-width="1.4"/><circle cx="180" cy="44" r="6" fill="#A86A44" stroke="' + K + '" stroke-width="1.4"/><circle cx="214" cy="44" r="6" fill="#C48858" stroke="' + K + '" stroke-width="1.4"/>';
+      } else {
+        s += '<path d="M110 72h140v8H110z" fill="#6E4A2A" stroke="' + K + '" stroke-width="1.5"/><rect x="174" y="34" width="12" height="16" rx="2" fill="#F7C65A" stroke="' + K + '" stroke-width="1.5"/><path d="M220 72q14-20 40-10l12 10z" fill="#1F5FA8" stroke="' + K + '" stroke-width="1.5"/>';
+      }
+    } else {
+      s += '<circle cx="180" cy="44" r="28" fill="url(#' + qu + 'g)"/>';
+      if (step === 1) {
+        s += '<rect x="142" y="42" width="76" height="30" rx="4" fill="#9B5A2E" stroke="' + K + '" stroke-width="1.8"/><path d="M142 54h76" stroke="#D9A43A" stroke-width="2.4"/><circle cx="180" cy="54" r="6" fill="#B7412E" stroke="' + K + '" stroke-width="1.5"/>';
+      } else if (step === 2) {
+        s += '<path d="M84 62Q156 82 228 62L218 52H94z" fill="#8B5A33" stroke="' + K + '" stroke-width="1.8"/><path d="M156 54V20" stroke="' + K + '" stroke-width="2.4"/><path d="M126 26h60l-6 24h-48z" fill="#FBF3DF" stroke="' + K + '" stroke-width="1.6"/>' +
+          '<circle cx="268" cy="46" r="6.5" fill="#8E5236" stroke="' + K + '" stroke-width="1.5"/><path d="M258 72v-20h20v20z" fill="#F5ECD6" stroke="' + K + '" stroke-width="1.5"/>';
+      } else {
+        s += '<path d="M112 74V32h136v42z" fill="#E2C38E" stroke="' + K + '" stroke-width="1.6"/><path d="M168 74h24l-4-14h-16z" fill="#C98D32" stroke="' + K + '" stroke-width="1.5"/><path d="M178 58q-6-12 4-22q8 10 2 22z" fill="#FFE8A8" class="ev-smoke"/>';
+      }
+    }
+    return s + '</svg></div>';
+  }
   const qFace = title => /Djedi/.test(title || '') ? 'djedi' : { kedi:'merenre', ba:'ba', lapis:'nakht', punt:7 }[Q().id];
   function qStory(title, text, kind, head, btns) {
-    openSheet('<div class="sh-h"><span class="pt big">' + faceOf(qFace(title)) + '</span><h2 id="shTitle">' + esc(title) + '<small>' + esc(head || QUESTS[Q().id].name) + '</small></h2></div><div class="out">' + outHtml({ kind:kind || 'info', title:'', text }) + '</div>' +
+    const q = Q();
+    openSheet('<div class="sh-h"><span class="pt big">' + faceOf(qFace(title)) + '</span><h2 id="shTitle">' + esc(title) + '<small>' + esc(head || QUESTS[q.id].name) + '</small></h2></div>' + questSceneSVG((q && q.id) || 'kedi', (q && q.step) || 1, title, false) + '<div class="out">' + outHtml({ kind:kind || 'info', title:'', text }) + '</div>' +
       (btns || '<button class="btn go1" type="button" data-close data-first>Devam</button>'), true, 'qstory');
   }
   function showQuest() {
     const q = Q(); if (!q) return;
     const A = QUESTS[q.id], g = qGoal(q), here = qScene();
     let s = '<div class="sh-h"><span class="pt big">' + faceOf(qFace()) + '</span><h2 id="shTitle">' + esc(A.name) + '<small>Hikâye görevi' + (q.st === 'done' ? ' · tamamlandı' : q.st === 'fail' ? ' · kaybedildi' : '') + '</small></h2>' + (q.st === 'offer' ? '' : xBtn) + '</div>';
+    s += questSceneSVG(q.id, q.step, A.name, false);
     s += '<p class="ntext">' + esc(A.intro) + '</p>';
     if (q.log.length) s += '<div class="qlog">' + q.log.map(l => '<p><b>' + l.d + '. gün</b> ' + esc(l.t) + '</p>').join('') + '</div>';
     if (q.st === 'offer') {
@@ -238,7 +300,7 @@
   function kediGuild() {
     const r = RIDDLES[Math.floor(Math.random() * RIDDLES.length)], opts = shuffle(r[1].map((x, i) => i));
     Q().f.riddle = r;
-    openSheet('<div class="sh-h"><span class="vm big t-quest">' + ico('i-chest', 30) + '</span><h2 id="shTitle">Çapraz Kürekler Cemiyeti<small>Abidos · kapıda maskeli bir kapıcı</small></h2></div><p class="ntext">"Parolayı bilmeyen içeri giremez. Bilmece şu: ' + esc(r[0]) + '"</p><div class="choices neutral">' +
+    openSheet('<div class="sh-h"><span class="vm big t-quest">' + ico('i-chest', 30) + '</span><h2 id="shTitle">Çapraz Kürekler Cemiyeti<small>Abidos · kapıda maskeli bir kapıcı</small></h2></div>' + questSceneSVG('kedi', 3, 'Çapraz Kürekler Cemiyeti', true) + '<p class="ntext">"Parolayı bilmeyen içeri giremez. Bilmece şu: ' + esc(r[0]) + '"</p><div class="choices neutral">' +
       opts.map((i, n) => '<button type="button" class="choice" data-qriddle="' + i + '"' + (n ? '' : ' data-first') + '><b>' + esc(r[1][i]) + '</b></button>').join('') + '</div>', true, 'qstory');
   }
   function kediRiddle(i) {

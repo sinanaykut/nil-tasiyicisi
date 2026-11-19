@@ -259,10 +259,13 @@
       out += P(scl, '#FBF4E8');
       const IR = Rc.iris || K.iris;
       const iris = blind ? Ci(icx, icy + 1, ir * 0.95, '#DCE4E6', st(1, '#9AA8B0')) + Ci(icx, icy + 1, ir * 0.5, '#C2CED4') :
-        Ci(icx, icy, ir, IR) + Ci(icx, icy, ir, 'none', st(1.4, dark(IR))) + Ci(icx, icy + ir * 0.35, ir * 0.62, mx(IR, '#E0A060', 0.25), op('.45')) + Ci(icx, icy, ir * 0.46, '#120A08') + Ci(icx - ir * 0.34, icy - ir * 0.38, ir * 0.26, '#FFFFFF') + Ci(icx + ir * 0.38, icy + ir * 0.3, ir * 0.11, '#FFFFFF', op('.8'));
-      out += '<g ' + clip(cid) + '>' + Gp('c40ir', iris) + P(up, 'none', st(4.5, K.lid, op('.55'))) + '</g>';
+        Ci(icx, icy, ir, IR) + Ci(icx, icy, ir, 'none', st(1.4, dark(IR))) +
+        P('M' + f(icx - ir * 0.62) + ',' + f(icy) + ' L' + f(icx + ir * 0.62) + ',' + f(icy) + ' M' + f(icx) + ',' + f(icy - ir * 0.62) + ' L' + f(icx) + ',' + f(icy + ir * 0.62) + ' M' + f(icx - ir * 0.45) + ',' + f(icy - ir * 0.45) + ' L' + f(icx + ir * 0.45) + ',' + f(icy + ir * 0.45) + ' M' + f(icx + ir * 0.45) + ',' + f(icy - ir * 0.45) + ' L' + f(icx - ir * 0.45) + ',' + f(icy + ir * 0.45), 'none', st(0.9, mx(IR, '#FFE2A8', 0.38), op('.48'))) +
+        Ci(icx, icy + ir * 0.35, ir * 0.62, mx(IR, '#E0A060', 0.25), op('.45')) + Ci(icx, icy, ir * 0.46, '#120A08') + Ci(icx - ir * 0.34, icy - ir * 0.38, ir * 0.26, '#FFFFFF') + Ci(icx + ir * 0.38, icy + ir * 0.3, ir * 0.11, '#FFFFFF', op('.8')) + Ci(icx + ir * 0.14, icy - ir * 0.46, ir * 0.1, '#FFE8A8', op('.75'));
+      out += '<g ' + clip(cid) + '>' + Gp('c40ir', iris) + El(ix + s * 2.3, iy - 0.2, 2.1, 1.4, '#D47668', op('.65')) + P('M' + f(ix + s * 3) + ',' + f(iy + 0.4) + ' Q' + f(ex) + ',' + f(ey + lo + 0.3) + ' ' + f(ox - s * 3) + ',' + f(oy + 0.4), 'none', st(1.1, '#FFFFFF', op('.55'))) + P(up, 'none', st(4.5, K.lid, op('.55'))) + '</g>';
       /* kohl: the heavy upper lid line with its wing, the thin lower line that meets the wing */
       out += P(up + ' L' + f(wx) + ',' + f(wy), 'none', st(2.3 + kh * 1.1));
+      if (g.fem || kh > 0.7) out += P(up + ' L' + f(wx) + ',' + f(wy - 1.3), 'none', st(1.1, g.fem ? GOLD : '#4E7088', op('.42')));
       out += P('M' + f(ox - s * 3) + ',' + f(oy - 1.2) + ' L' + f(wx) + ',' + f(wy) + ' L' + f(ox - s * 1) + ',' + f(oy + 2.2) + ' Z', INK);
       out += P('M' + f(ix) + ',' + f(iy) + ' C' + f(ex - s * w * 0.45) + ',' + f(ey + lo + 1.4) + ' ' + f(ex + s * w * 0.5) + ',' + f(ey + lo + 1) + ' ' + f(ox) + ',' + f(oy) + ' L' + f(wx - s * 2) + ',' + f(wy + 1.2), 'none', st(1.5, INK, op('.9')));
       out += P('M' + f(ix + s * 1) + ',' + f(iy - 1) + ' l' + f(-s * 2.6) + ',1.4', 'none', st(1.6));
@@ -309,6 +312,8 @@
       s += P('M' + L(ww * 0.42) + ',' + f(ny + 2.5 + td * 0.3) + ' Q' + C + ',' + f(ny + 5 + td) + ' ' + R(ww * 0.42) + ',' + f(ny + 2.5 + td * 0.3), 'none', st(1.6, INK, op('.7')));
       s += El(C - ww * 0.45, ny + 1.5, 2.6 * ns, 1.4 * ns, K.sh2, op('.85')) + El(C + ww * 0.45, ny + 1.5, 2.6 * ns, 1.4 * ns, K.sh2, op('.85'));
       s += El(C - 3, ny - 6 + td * 0.5, 3.5 * (k === 'button' ? 1.3 : 1), 2.4 * (k === 'button' ? 1.3 : 1), K.hl, op(k === 'button' ? '.7' : '.55'));
+      s += P('M' + L(ww - 1) + ',' + f(ny - 6) + ' Q' + L(ww + 2) + ',' + f(ny - 1) + ' ' + L(ww * 0.55) + ',' + f(ny + 1.5), 'none', st(1.3, K.hl, op('.5')));
+      s += P('M' + L(ww * 0.5) + ',' + f(ny + 2.5) + ' Q' + C + ',' + f(ny + 10.5 + td * 0.6) + ' ' + R(ww * 0.5) + ',' + f(ny + 2.5) + ' Z', K.sh2, op('.28'));
       s += P('M' + L(1.5) + ',' + f(g.by + 26) + ' L' + L(2.5) + ',' + f(ny - 14), 'none', st(2.2, K.hl, op('.35')));
       s += El(C + 2, ny + 9 + td * 0.5, 11, 3.2, K.sh, op('.55'));
       return s;
@@ -327,12 +332,15 @@
           s += P('M' + f(C - w2 + 2 + sx) + ',' + f(my + ly + 0.5) + ' C' + f(C - w2 * 0.45 + sx) + ',' + f(my + cyy) + ' ' + f(C + w2 * 0.45 + sx) + ',' + f(my + cyy) + ' ' + f(C + w2 - 2 + sx) + ',' + f(my + ry + 0.5) + ' C' + f(C + w2 * 0.5 + sx) + ',' + f(my + cyy + 9 * lf) + ' ' + f(C - w2 * 0.5 + sx) + ',' + f(my + cyy + 9 * lf) + ' ' + f(C - w2 + 2 + sx) + ',' + f(my + ly + 0.5) + ' Z', K.lip);
           s += El(C - 3 + sx, my + cyy + 4.5 * lf, 5 * lf, 1.6 * lf, '#FFFFFF', op('.38')) + P('M' + f(C - w2 * 0.55 + sx) + ',' + f(my + cyy + 7 * lf) + ' Q' + f(C + sx) + ',' + f(my + cyy + 10 * lf) + ' ' + f(C + w2 * 0.55 + sx) + ',' + f(my + cyy + 7 * lf), 'none', st(1.2, mx(K.lip, '#2A1010', 0.4), op('.5')));
           s += P(d, 'none', st(2));
+          s += P('M' + L(3.2) + ',' + f(my - 12) + ' Q' + L(3.8) + ',' + f(my - 8) + ' ' + L(3.4) + ',' + f(my - 5) + ' M' + R(3.2) + ',' + f(my - 12) + ' Q' + R(3.8) + ',' + f(my - 8) + ' ' + R(3.4) + ',' + f(my - 5), 'none', st(1.1, K.sh, op('.45')));
         } else {
           s += P('M' + f(C - w2 * 0.8 + sx) + ',' + f(my + ly * 0.8 + 1) + ' C' + f(C - w2 * 0.4 + sx) + ',' + f(my + cyy + 1) + ' ' + f(C + w2 * 0.4 + sx) + ',' + f(my + cyy + 1) + ' ' + f(C + w2 * 0.8 + sx) + ',' + f(my + ry * 0.8 + 1) + ' C' + f(C + w2 * 0.4 + sx) + ',' + f(my + cyy + 7 * lf) + ' ' + f(C - w2 * 0.4 + sx) + ',' + f(my + cyy + 7 * lf) + ' ' + f(C - w2 * 0.8 + sx) + ',' + f(my + ly * 0.8 + 1) + ' Z', K.lip, op('.55'));
           s += P('M' + f(C - w2 * 0.85 + sx) + ',' + f(my + ly * 0.8 - 1) + ' C' + f(C - w2 * 0.5 + sx) + ',' + f(my - 4 * lf) + ' ' + f(C + w2 * 0.5 + sx) + ',' + f(my - 4 * lf) + ' ' + f(C + w2 * 0.85 + sx) + ',' + f(my + ry * 0.8 - 1) + ' Z', mx(K.lip, '#2A1010', 0.2), op('.4'));
+          s += El(C - 2 + sx, my + cyy + 4 * lf, 4.5 * lf, 1.4 * lf, K.hl, op('.36'));
           s += P(d, 'none', st(2.6));
           s += P('M' + f(C - 9 + sx) + ',' + f(my + cyy + 9) + ' Q' + f(C + sx) + ',' + f(my + cyy + 12) + ' ' + f(C + 9 + sx) + ',' + f(my + cyy + 9), 'none', st(2.2, K.sh, op('.8')));
-          s += P('M' + f(C - 4) + ',' + f(my - 12) + ' Q' + f(C) + ',' + f(my - 9) + ' ' + f(C + 4) + ',' + f(my - 12), 'none', st(1.3, K.sh, op('.6')));
+          s += P('M' + f(C - 4) + ',' + f(my - 12) + ' Q' + f(C) + ',' + f(my - 9) + ' ' + f(C + 4) + ',' + f(my - 12), 'none', st(1.3, K.sh, op('.6'))) +
+            P('M' + L(3.2) + ',' + f(my - 13) + ' Q' + L(3.8) + ',' + f(my - 8) + ' ' + L(3.4) + ',' + f(my - 5) + ' M' + R(3.2) + ',' + f(my - 13) + ' Q' + R(3.8) + ',' + f(my - 8) + ' ' + R(3.4) + ',' + f(my - 5), 'none', st(1.2, K.sh, op('.45')));
         }
         if (type === 'smile' || type === 'smirk') s += P('M' + f(C + w2 + 2 + sx) + ',' + f(my + ry - 4) + ' q3,3 1,7', 'none', st(1.5, INK, op('.7')));
         if (type === 'smile') s += P('M' + f(C - w2 - 2) + ',' + f(my + ly - 4) + ' q-3,3 -1,7', 'none', st(1.5, INK, op('.7')));
@@ -652,12 +660,13 @@
       if (cl.k === 'dress') {
         inner += P('M' + L(sw + 20) + ',480 L' + L(sw - 30) + ',420 C' + L(70) + ',446 ' + R(70) + ',446 ' + R(sw - 30) + ',420 L' + R(sw + 20) + ',480 Z', cl.c, st(2.4)) +
           P('M' + L(sw - 30) + ',420 L' + L(sw - 48) + ',338 M' + R(sw - 30) + ',420 L' + R(sw - 48) + ',338', 'none', st(9, INK)) + P('M' + L(sw - 30) + ',420 L' + L(sw - 48) + ',338 M' + R(sw - 30) + ',420 L' + R(sw - 48) + ',338', 'none', st(6, cl.c)) +
-          P('M' + L(60) + ',450 L' + L(70) + ',480 M' + L(20) + ',446 L' + L(22) + ',480 M' + R(24) + ',446 L' + R(26) + ',480 M' + R(64) + ',448 L' + R(72) + ',480', 'none', st(1.3, mx(cl.c, INK, 0.3), op('.6')));
+          P('M' + L(60) + ',450 L' + L(70) + ',480 M' + L(20) + ',446 L' + L(22) + ',480 M' + R(24) + ',446 L' + R(26) + ',480 M' + R(64) + ',448 L' + R(72) + ',480', 'none', st(1.3, mx(cl.c, INK, 0.3), op('.6'))) +
+          P('M' + L(42) + ',448 L' + L(46) + ',480 M' + R(6) + ',446 L' + R(7) + ',480 M' + R(44) + ',447 L' + R(50) + ',480', 'none', st(1.6, mx(cl.c, '#FFFFFF', 0.45), op('.45')));
         if (cl.c2) inner += P('M' + L(sw - 30) + ',420 C' + L(70) + ',446 ' + R(70) + ',446 ' + R(sw - 30) + ',420', 'none', st(5, cl.c2));
       }
       if (cl.k === 'robe') {
-        let pl = ''; for (let i = -6; i <= 6; i++) { if (!i) continue; const x0 = C + i * 13, x1 = C + i * 30; pl += 'M' + f(x0) + ',' + f(350 + Math.abs(i) * 4) + ' L' + f(x1) + ',480 '; }
-        inner += P(pl, 'none', st(1.3, mx(cl.c, INK, 0.35), op('.55')));
+        let pl = '', plh = ''; for (let i = -6; i <= 6; i++) { if (!i) continue; const x0 = C + i * 13, x1 = C + i * 30; pl += 'M' + f(x0) + ',' + f(350 + Math.abs(i) * 4) + ' L' + f(x1) + ',480 '; if (i < 3) plh += 'M' + f(x0 - 2.5) + ',' + f(356 + Math.abs(i) * 4) + ' L' + f(x1 - 4) + ',480 '; }
+        inner += P(plh, 'none', st(1.4, mx(cl.c, '#FFFFFF', 0.42), op('.36'))) + P(pl, 'none', st(1.3, mx(cl.c, INK, 0.35), op('.55')));
         if (cl.c2) inner += P('M' + L(sw - 20) + ',480 C' + L(sw - 30) + ',430 ' + L(80) + ',400 ' + R(40) + ',480', 'none', st(16, INK)) + P('M' + L(sw - 20) + ',480 C' + L(sw - 30) + ',430 ' + L(80) + ',400 ' + R(40) + ',480', 'none', st(12.5, cl.c2));
       }
       if (cl.k === 'straps') {
@@ -665,7 +674,7 @@
       }
       if (cl.k === 'shawl') {
         const d = 'M' + R(sw - 70) + ',340 C' + R(sw - 30) + ',370 ' + R(sw - 10) + ',420 ' + R(sw + 10) + ',480 L' + L(sw - 60) + ',480 C' + L(60) + ',460 ' + R(10) + ',410 ' + R(sw - 110) + ',336 Z';
-        inner += ink(d, cl.c, 2.4) + P('M' + R(sw - 92) + ',352 C' + R(20) + ',420 ' + L(50) + ',456 ' + L(sw - 60) + ',476', 'none', st(10, cl.c2, 'stroke-dasharray="8 8"')) + P('M' + R(sw - 60) + ',372 C' + R(40) + ',440 ' + L(30) + ',470 ' + L(sw - 90) + ',490', 'none', st(6, cl.c3, 'stroke-dasharray="4 6"'));
+        inner += ink(d, cl.c, 2.4) + P('M' + R(sw - 100) + ',346 C' + R(14) + ',416 ' + L(54) + ',454 ' + L(sw - 64) + ',476', 'none', st(2, mx(cl.c, '#FFFFFF', 0.45), op('.42'))) + P('M' + R(sw - 92) + ',352 C' + R(20) + ',420 ' + L(50) + ',456 ' + L(sw - 60) + ',476', 'none', st(10, cl.c2, 'stroke-dasharray="8 8"')) + P('M' + R(sw - 60) + ',372 C' + R(40) + ',440 ' + L(30) + ',470 ' + L(sw - 90) + ',490', 'none', st(6, cl.c3, 'stroke-dasharray="4 6"'));
       }
       if (cl.k === 'leopard') {
         const d = 'M' + L(sw - 50) + ',340 C' + L(sw - 90) + ',330 ' + L(60) + ',330 ' + L(30) + ',352 C' + R(20) + ',400 ' + R(70) + ',450 ' + R(90) + ',480 L' + L(sw + 10) + ',480 L' + L(sw) + ',412 Z';
@@ -712,6 +721,9 @@
       K.defs += '<clipPath id="rh§"><rect x="' + R(fw * 0.55) + '" y="0" width="200" height="480"/></clipPath>';
       /* light: cheekbone, forehead, chin; a soft hollow under the lit cheekbone */
       s += El(C - fw * 0.52, cky + 10, 16 + ck * 4, 9, K.hl, op('.45') + ' transform="rotate(-14 ' + f(C - fw * 0.52) + ' ' + f(cky + 10) + ')"') + El(C - 14, by - 22, 22, 8, K.hl, op('.35')) + El(C - 4, cy - 13, Math.max(6, cw * 0.55), 4.5, K.hl, op('.4'));
+      s += P('M' + L(fw - 1) + ',148 Q' + L(fw + 2) + ',' + f(cky) + ' ' + L(jw + 1) + ',' + f(jy - 4), 'none', st(3, K.hl, op('.45'))) +
+        P('M' + L(42) + ',' + f(by - 8) + ' Q' + L(26) + ',' + f(by - 12) + ' ' + L(14) + ',' + f(by - 7), 'none', st(2, K.hl, op('.28'))) +
+        El(C, my + 15.5, Math.max(8, g.mw * 0.5), 3.6, K.sh, op('.38'));
       if (ck > 0.3) s += El(C - fw * 0.6, cky + 34, 13, 6 + ck * 4, K.sh, op(f(0.1 + ck * 0.16)) + ' transform="rotate(-28 ' + f(C - fw * 0.6) + ' ' + f(cky + 34) + ')"');
       const H = Rc.hair || {}, hairline = /^(bob|shortwig|longbob|shoulder|long|braids)$/.test(H.s) ? by - 10 : H.s === 'crop' ? (H.hl || 126) + 2 : H.s === 'wrap' ? 140 : H.s === 'curly' || H.s === 'curls' ? 136 : 0;
       if (hairline) s += P('M' + L(fw + 10) + ',' + f(hairline - 6) + ' L' + R(fw + 10) + ',' + f(hairline - 6) + ' L' + R(fw + 10) + ',' + f(hairline + 9) + ' Q' + C + ',' + f(hairline + 3) + ' ' + L(fw + 10) + ',' + f(hairline + 9) + ' Z', K.sh, op('.85'));
@@ -1054,7 +1066,20 @@
       if (tell) front += tellParts(tell, g, K, Rc);
       let fig = back + body + '<g class="c40h"><g' + ht + '>' + head + '</g></g>' + front;
       if (tell === 'lean') fig = '<g transform="translate(200 500) scale(1.08) translate(-200 -490)">' + fig + '</g>';
-      const bg = o.bg === false ? '' : o.frame === 'face' ? '<rect x="0" y="0" width="400" height="480" fill="' + (o.bg || Rc.bg || '#F3E2B8') + '"/>' : '';
+      const bgc = /^#[0-9a-fA-F]{6}$/.test(o.bg || '') ? o.bg : (/^#[0-9a-fA-F]{6}$/.test(Rc.bg || '') ? Rc.bg : '#F3E2B8');
+      let bg = '';
+      if (o.bg !== false) {
+        if (o.frame === 'face') {
+          K.defs += '<radialGradient id="pbg§" cx=".42" cy=".36" r=".72"><stop offset="0" stop-color="' + mx(bgc, '#FFFDF4', 0.45) + '"/><stop offset=".62" stop-color="' + bgc + '"/><stop offset="1" stop-color="' + mx(bgc, '#5A381E', 0.28) + '"/></radialGradient>';
+          bg = '<rect x="0" y="0" width="400" height="480" fill="url(#pbg§)"/>' +
+            Ci(200, 198, 91, 'none', 'stroke="#FFF6DC" stroke-width="1.6" opacity=".45"') +
+            Ci(200, 198, 85, 'none', 'stroke="' + GOLD + '" stroke-width="1.2" stroke-dasharray="4 6" opacity=".42"') +
+            El(206, 204, g.fw + 14, 88, '#2B1D14', op('.12'));
+        } else {
+          bg = El(200, 192, g.fw + 34, 104, '#FFF6DC', op('.16')) +
+            Ci(200, 188, g.fw + 24, 'none', 'stroke="' + GOLD + '" stroke-width="1.3" stroke-dasharray="5 7" opacity=".3"');
+        }
+      }
       return '<svg class="c40' + (tell ? ' t-' + tell : '') + ' f-' + (o.frame || 'bust') + '" viewBox="' + (FRAMES[o.frame] || FRAMES.bust) + '"' + (o.frame === 'card' || o.frame === 'head' ? ' preserveAspectRatio="xMidYMid slice"' : '') + ' role="img" aria-label="' + (CAST[key] ? CAST[key].name : key) + '"><defs>' + K.defs + '</defs>' + bg + '<g class="c40b">' + fig + '</g></svg>';
     }
     function key(who) {
