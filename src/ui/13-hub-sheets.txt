@@ -296,7 +296,7 @@
   /* ---------- the shipyard: mend the hull everywhere, boats and devices in Mennefer ---------- */
   function shipPic(dmg) {
     const k = ++uid, spec = { boat:S.boat, up:S.up, dev:S.dev, dmg }, ship = typeof shipSVG3 === 'function' ? shipSVG3(spec, crateList(), k) : shipSVG2(spec, crateList(), k);
-    return '<svg class="ps" viewBox="-250 -236 500 290" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Teknen"><defs>' + grad('v' + k + 'w', [[0, '#7DB5D2'], [1, '#2B5E8E']], true) + grad('v' + k + 's', [[0, '#9FCDE0'], [1, '#F4E7C6']], true) + '</defs><rect x="-700" y="-236" width="1400" height="240" fill="url(#v' + k + 's)"/><rect x="-700" y="2" width="1400" height="60" fill="url(#v' + k + 'w)"/>' +
+    return '<svg class="ps" viewBox="-250 -236 500 290" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Teknen"><defs>' + grad('v' + k + 'w', [[0, '#7DB5D2'], [1, '#2B5E8E']], true) + grad('v' + k + 's', [[0, '#9FCDE0'], [1, '#F4E7C6']], true) + '</defs><rect x="-700" y="-236" width="1400" height="240" fill="url(#v' + k + 's)"/><circle cx="170" cy="-170" r="24" fill="#FFE07A" opacity=".55"/><circle cx="170" cy="-170" r="15" fill="#F4C96A"/><path d="M-240 2l38-44 38 44h40l26-30 26 30Z" fill="#C9A86A" opacity=".45"/><rect x="-700" y="2" width="1400" height="60" fill="url(#v' + k + 'w)"/><path d="M-210 18h46M-90 28h56M40 16h64M140 26h44" stroke="#B6DFEC" stroke-width="2.2" stroke-linecap="round" opacity=".5"/>' +
       '<g transform="translate(0 4) scale(1 -.45)" opacity=".22">' + ship + '</g><g class="bob">' + ship + '</g></svg>';
   }
   const DMG_TXT = ['Sapasağlam', 'Birkaç çizik', 'Yaralı: yamalar, çatlak kalaslar', 'Ağır yaralı: bir darbe daha batırabilir'];
@@ -351,6 +351,7 @@
     if (!k) { play('no'); return 0; }
     play('build'); buzz('big'); save(); lastScene = ''; renderAll(); toast(k + ' yara onarıldı. Gövde ' + hullNow(S) + '/' + maxHp(S) + '.');
     if (sheetName === 'ship') showYard();
+    const sv = $('#shipV'); if (sv && sv.classList) { sv.classList.remove('rep-fx'); void sv.offsetWidth; sv.classList.add('rep-fx'); }
     return k;
   }
   /* after a rough voyage Paneb asks for the yard once */

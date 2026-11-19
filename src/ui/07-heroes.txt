@@ -15,7 +15,7 @@
       const big = CH40.svg('h_' + k, { mood:on ? 'happy' : 'neutral', frame:'card' });
       s += '<button type="button" class="hero' + (on ? ' on' : '') + '" data-hero="' + k + '" style="--hc:' + col + '" aria-pressed="' + on + '">' +
         '<span class="hbust" data-hb="' + k + '">' + (big || heroPic(k, 96)) + '</span><b>' + esc(h.name) + '</b><small>' + esc(h.title) + '</small>' +
-        '<span class="hlife" aria-label="' + (h.hearts || 3) + ' can">' + heartsHtml(h.hearts || 3, h.hearts || 3) + '</span><span class="hp1">' + ico('i-bolt', 14) + esc(h.passive) + '</span><span class="hp2"><em>' + esc(h.power) + '</em>' + esc(h.pdesc) + '</span></button>';
+        '<span class="hlife" aria-label="' + (h.hearts || 3) + ' can">' + heartsHtml(h.hearts || 3, h.hearts || 3) + '</span><span class="hp1">' + ico('i-bolt', 14) + esc(h.passive) + '</span><span class="hp2"><em>' + ico('i-sun', 13) + ' ' + esc(h.power) + '</em>' + esc(h.pdesc) + '</span></button>';
     });
     s += '</div><div class="row"><button class="btn go1 wide" type="button" data-act="heroGo" data-first>' + esc(HEROES[heroSel].name) + ' ile başla</button></div>';
     openSheet(s, true, 'hero', true);

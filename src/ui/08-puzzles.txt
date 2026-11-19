@@ -167,9 +167,10 @@
   function pzLiar(o) {
     pzClear();
     const P = liarPuzzle(), intro = ['"Dün gece ocaktaydım, yemin ederim."', '"Ben sadece taş keserim, boyamam."', '"Kimseyi gammazlamam ama…"'];
+    const susFace = i => typeof CH40 !== 'undefined' && CH40.icon ? (CH40.icon(['folk', 'tv1', 'h_sitre'][i], 'sly') || (typeof faceOf === 'function' ? faceOf('sethi', 'sly') : '')) : (typeof faceOf === 'function' ? faceOf('sethi', 'sly') : '');
     PZ = { kind:'liar', tok:Math.random(), c:P.c, cb:o.cb, timers:[] };
     let s = '<div class="sh-h"><h2 id="shTitle">' + esc(o.title) + '<small>' + esc(o.sub) + '</small></h2></div><p class="ntext">' + esc(o.text) + '</p>';
-    s += '<div class="suspects">' + P.names.map((n, i) => '<div class="sus"><b>' + n + '</b><small>' + esc(intro[i]) + '</small><p>"' + esc(P.st[i].txt) + '"</p><button type="button" class="btn sm red" data-pzliar="' + i + '">' + n + ' yalancı</button></div>').join('') + '</div>';
+    s += '<div class="suspects">' + P.names.map((n, i) => '<div class="sus" id="susCard' + i + '"><div class="sus-h"><span class="pt sus-pt">' + susFace(i) + '</span><div><b>' + n + '</b><small>' + esc(intro[i]) + '</small></div></div><p class="sus-q">"' + esc(P.st[i].txt) + '"</p><button type="button" class="btn sm red" data-pzliar="' + i + '">' + n + ' yalancı</button></div>').join('') + '</div>';
     s += '<p class="muted" style="margin:0">Kural: kalpazan yalan söylüyor, diğer ikisi doğruyu. Tek bir kişi bütün ifadelerle tutarlı.</p>';
     openSheet(s, true, 'pz');
   }

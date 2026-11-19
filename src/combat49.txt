@@ -76,6 +76,43 @@
       '<g class="ac-shield"><path d="M18 92q-20 11-13 50l23 17 23-17q7-39-13-50z" fill="' + (enemy ? '#643E30' : '#255B76') + '"/>' +
       '<path d="M18 98q-14 9-8 40l18 13 18-13q6-31-8-40z" fill="none" stroke="#CBAD69" stroke-width="3"/><path d="M12 123h32" stroke="#CBAD69" stroke-width="1.8" opacity=".6"/><circle cx="28" cy="123" r="9" fill="#CBA75E"/><circle cx="28" cy="123" r="4" fill="' + (enemy ? '#9B4D37' : '#D9A43A') + '"/></g></g></svg>';
   }
+  function ambushBgSVG(desert) {
+    if (desert) {
+      return '<svg viewBox="0 0 400 180" preserveAspectRatio="none" aria-hidden="true">' +
+        '<circle cx="330" cy="34" r="26" fill="#FFE7A8" opacity=".32"/><circle cx="330" cy="34" r="18" fill="#F6C862" opacity=".65"/>' +
+        '<polygon points="48,104 92,58 136,104" fill="#C7A266" opacity=".45"/><polygon points="92,58 136,104 92,104" fill="#A67F45" opacity=".35"/>' +
+        '<polygon points="112,104 142,74 172,104" fill="#C7A266" opacity=".38"/>' +
+        '<path d="M0 106Q110 86 220 104T400 96V180H0Z" fill="#D6AE6C" opacity=".65"/>' +
+        '<path d="M0 124Q130 106 270 122T400 118V180H0Z" fill="#C2934E" opacity=".55"/>' +
+        '<path d="M24 114q-2-18 6-30m-1-2q-12-4-16 4m16-4q12-4 16 4m-16-4q-7-10-14-7m14 7q7-10 14-7" fill="none" stroke="#5A462C" stroke-width="2" stroke-linecap="round" opacity=".5"/></svg>';
+    }
+    return '<svg viewBox="0 0 400 180" preserveAspectRatio="none" aria-hidden="true">' +
+      '<circle cx="318" cy="30" r="24" fill="#FFE7A8" opacity=".35"/><circle cx="318" cy="30" r="15" fill="#F4C96A" opacity=".7"/>' +
+      '<path d="M0 80q90-6 180 0t220-2v10H0Z" fill="#6B9E68" opacity=".45"/>' +
+      '<g opacity=".55"><path d="M310 82l18-38 4 38Z" fill="#FBF3DF" stroke="#5A462C" stroke-width="1.2"/><path d="M302 82q16 6 34 0l-4 5h-26Z" fill="#6E4627"/></g>' +
+      '<g class="ac-wave" fill="none" stroke="#B6DFEC" stroke-width="2" stroke-linecap="round" opacity=".55"><path d="M20 96q16-4 32 0t32 0M140 104q18-4 36 0t36 0M275 94q16-4 32 0t32 0"/></g>' +
+      '<g opacity=".5"><rect x="0" y="118" width="400" height="8" fill="#8B633A" stroke="#46342C" stroke-width="1.4"/><path d="M40 112v14M120 112v14M200 112v14M280 112v14M360 112v14M0 114h400" stroke="#46342C" stroke-width="2"/></g></svg>';
+  }
+  function ambushFxSVG(last) {
+    if (last === 'strike') {
+      return '<svg class="ac-clash" viewBox="0 0 200 120" aria-hidden="true"><g class="ac-fx strike">' +
+        '<path d="M108 78Q126 42 156 44" fill="none" stroke="#FFE484" stroke-width="5" stroke-linecap="round"/>' +
+        '<path d="M114 74Q130 46 156 44" fill="none" stroke="#B7412E" stroke-width="2.2" stroke-linecap="round"/>' +
+        '<path d="M138 38v-10M138 78v10M118 58h-10M158 58h10M124 44l-7-7M152 72l7 7M152 44l7-7M124 72l-7 7" stroke="#FFE484" stroke-width="2.6" stroke-linecap="round"/>' +
+        '<circle cx="138" cy="58" r="10" fill="none" stroke="#FFE07A" stroke-width="2.4"/></g></svg>';
+    }
+    if (last === 'guard') {
+      return '<svg class="ac-clash" viewBox="0 0 200 120" aria-hidden="true"><g class="ac-fx guard">' +
+        '<circle cx="76" cy="62" r="24" fill="none" stroke="#2BA59A" stroke-width="4"/>' +
+        '<circle cx="76" cy="62" r="15" fill="none" stroke="#F2C65A" stroke-width="2.6" stroke-dasharray="6 4"/>' +
+        '<path d="M68 50l16 12-16 12" fill="none" stroke="#FFF3C4" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></g></svg>';
+    }
+    if (last === 'dodge') {
+      return '<svg class="ac-clash" viewBox="0 0 200 120" aria-hidden="true"><g class="ac-fx dodge" fill="none" stroke="#FFF3D5" stroke-width="2.8" stroke-linecap="round">' +
+        '<path d="M32 48q26-10 50-4"/><path d="M28 62q28-8 54-2" stroke="#D9A43A"/><path d="M34 76q24-6 46-2"/></g></svg>';
+    }
+    return '';
+  }
   let activeAmbushCombat = null;
   function stopAmbushCombat() { if (activeAmbushCombat) activeAmbushCombat.dispose(); }
   function startAmbushCombat(o, callback) {
@@ -90,7 +127,7 @@
       const tell = ambushTell(s);
       const rec = s.done ? '' : tell.id === 'lunge' ? 'guard' : tell.id === 'sweep' ? (s.stamina ? 'dodge' : 'guard') : (s.stamina ? 'strike' : 'guard');
       root.innerHTML = '<header><span class="ac-kicker">' + (o.terrain === 'desert' ? 'Kervanın savunması' : 'Güvertede karşılaşma') + '</span><h2>Yolunu koru</h2><p>Mızrak ve kalkan · ' + s.turns + '/12 hamle</p></header>' +
-        '<div class="ac-arena a-' + s.last + (s.done ? '' : ' tell-' + tell.id + (s.opening ? ' has-open' : '')) + '"><div class="ac-horizon"></div><div class="ac-fighter ac-you">' + ambushFigure(o.hero, false) + '<b>Sen</b>' + hearts(s.hp, s.maxHp) + '</div><div class="ac-fighter ac-enemy">' + ambushFigure('', true) + '<b>Saldırgan</b>' + hearts(s.enemy, s.maxEnemy) + '</div><div class="ac-dust"></div></div>' +
+        '<div class="ac-arena a-' + s.last + (s.done ? '' : ' tell-' + tell.id + (s.opening ? ' has-open' : '')) + '"><div class="ac-bg">' + ambushBgSVG(o.terrain === 'desert') + '</div><div class="ac-horizon"></div><div class="ac-fighter ac-you">' + ambushFigure(o.hero, false) + '<b>Sen</b>' + hearts(s.hp, s.maxHp) + '</div><div class="ac-fighter ac-enemy">' + ambushFigure('', true) + '<b>Saldırgan</b>' + hearts(s.enemy, s.maxEnemy) + '</div><div class="ac-dust"></div>' + ambushFxSVG(s.last) + '</div>' +
         '<div class="ac-info" aria-live="polite"><b>' + (s.done ? s.won ? 'Yol açıldı' : 'Geri çekildin' : tell.name) + '</b><p>' + (s.done ? s.text : tell.help) + '</p></div>' +
         '<p class="ac-response" role="status">' + (s.done ? '' : s.text) + '</p>' +
         (s.done ? '<button type="button" class="btn gold wide" data-ac="finish">Yola devam et</button>' :
