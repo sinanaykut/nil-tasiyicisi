@@ -131,22 +131,27 @@
     'M-5 9h10M-3 9V-8h6V9M-5 -2h10M-5 -5h10'
   ];
   function tmMirrorSVG(it, id) {
-    const a = it.o === 0 ? 45 : 135, cx = tmCX(it.x), cy = tmCX(it.y);
+    const a = it.o === 0 ? 45 : 135, cx = tmCX(it.x), cy = tmCX(it.y), u = PZ.uid;
     it.ang = a;
     let s = '<g transform="translate(' + cx + ' ' + cy + ')" id="' + id + '" class="tmm' + (it.fix ? ' fix' : '') + '">';
-    if (it.fix) s += '<rect x="-23" y="-23" width="46" height="46" rx="6" fill="#A79A82" stroke="' + INK + '" stroke-width="2"/><rect x="-17" y="-17" width="34" height="34" rx="3" fill="#BDB096" stroke="#7E725E" stroke-width="1.2"/>' + [[-17, -17], [17, -17], [-17, 17], [17, 17]].map(([u, v]) => '<circle cx="' + u + '" cy="' + v + '" r="2.4" fill="#5A4E3E"/>').join('');
-    else s += '<circle r="25" fill="#F3E3B8" opacity=".55"/><circle r="25" class="tmring" fill="none" stroke="#2BA59A" stroke-width="2.6" stroke-dasharray="6 5"/><path d="M15 -22a26 26 0 0 1 9 9" fill="none" stroke="#1E7D74" stroke-width="2.6" stroke-linecap="round"/><path d="M26 -16l-1 6-5 -3z" fill="#1E7D74"/><circle r="9" fill="#8E5A33" stroke="' + INK + '" stroke-width="2"/>';
-    s += '<g class="tmrot" style="transform:rotate(' + a + 'deg)"><rect x="-26" y="-5.5" width="52" height="11" rx="5.5" fill="' + (it.fix ? '#8F7B5A' : 'url(#tmBz' + PZ.uid + ')') + '" stroke="' + INK + '" stroke-width="2.2"/><path d="M-21 -1.6H21" stroke="' + (it.fix ? '#D9CBA8' : '#FFF4C4') + '" stroke-width="2.2" stroke-linecap="round"/></g>';
+    if (it.fix) s += '<rect x="-23" y="-23" width="46" height="46" rx="6" fill="#A79A82" stroke="' + INK + '" stroke-width="2"/><rect x="-17" y="-17" width="34" height="34" rx="3" fill="#BDB096" stroke="#7E725E" stroke-width="1.2"/>' + [[-17, -17], [17, -17], [-17, 17], [17, 17]].map(([x0, y0]) => '<circle cx="' + x0 + '" cy="' + y0 + '" r="2.4" fill="#5A4E3E"/>').join('');
+    else {
+      s += '<circle r="26" class="tm-aura" fill="#FFE89C" opacity="0"/>';
+      s += '<circle r="24.5" fill="#EDE0BD" stroke="#A68856" stroke-width="1.4"/><circle r="20" fill="#E3CE9E" opacity=".6"/>';
+      s += '<circle r="24.5" class="tmring" fill="none" stroke="#2BA59A" stroke-width="2.4" stroke-dasharray="6 5"/><path d="M15 -21.5a25 25 0 0 1 8.5 8.5" fill="none" stroke="#1E7D74" stroke-width="2.4" stroke-linecap="round"/><path d="M25.5 -15.5l-1 5.8-4.8-2.8z" fill="#1E7D74"/>';
+      s += '<circle r="9.5" fill="url(#tmBz' + u + ')" stroke="' + INK + '" stroke-width="1.8"/><circle r="4.2" fill="#2BA59A" stroke="' + INK + '" stroke-width="1.1"/>';
+    }
+    s += '<g class="tmrot" style="transform:rotate(' + a + 'deg)"><rect x="-26" y="-6" width="52" height="12" rx="6" fill="' + (it.fix ? '#8F7B5A' : 'url(#tmBz' + u + ')') + '" stroke="' + INK + '" stroke-width="2.2"/><path d="M-21 -1.8H21" stroke="' + (it.fix ? '#D9CBA8' : '#FFF7D6') + '" stroke-width="2.6" stroke-linecap="round"/><path d="M-19 2.4H19" stroke="' + (it.fix ? '#6A5B40' : '#1E7D74') + '" stroke-width="1.3" stroke-linecap="round" opacity=".65"/></g>';
     return s + '</g>';
   }
   function tmRoomSVG(R) {
     const n = R.n, T = n * TM_C + TM_W * 2, u = PZ.uid, E = R.entry, inner = TM_W, iw = n * TM_C;
     let s = '<svg viewBox="0 0 ' + T + ' ' + T + '" class="tmsvg" role="img" aria-label="Tapınak odası: güneş ışığı, aynalar ve altın heykel"><defs>';
-    s += grad('tmBz' + u, [[0, '#F7D57A'], [0.5, '#D9A43A'], [1, '#9C6A2A']], true);
+    s += grad('tmBz' + u, [[0, '#FFF1B8'], [0.45, '#D9A43A'], [1, '#8E5A22']], true);
     s += '<radialGradient id="tmGl' + u + '"><stop offset="0" stop-color="#FFF8D8" stop-opacity="1"/><stop offset=".35" stop-color="#FFE08A" stop-opacity=".8"/><stop offset="1" stop-color="#FFD24A" stop-opacity="0"/></radialGradient>';
     s += '<radialGradient id="tmFl' + u + '" cx="' + (tmCX(R.target.x) / T) + '" cy="' + (tmCX(R.target.y) / T) + '" r=".9"><stop offset="0" stop-color="#FFF6CF" stop-opacity=".95"/><stop offset=".5" stop-color="#FFE08A" stop-opacity=".55"/><stop offset="1" stop-color="#F2B640" stop-opacity=".25"/></radialGradient>';
     s += '</defs>';
-    /* walls with a painted frieze of hieroglyphs */
+    /* walls with a painted frieze of hieroglyphs and corner brass braziers */
     s += '<rect x="1.5" y="1.5" width="' + (T - 3) + '" height="' + (T - 3) + '" rx="10" fill="#B98E55" stroke="' + INK + '" stroke-width="3"/>';
     s += '<rect x="6" y="6" width="' + (T - 12) + '" height="' + (T - 12) + '" rx="6" fill="#D9B97E" stroke="#8E6A3C" stroke-width="1.4"/>';
     let gl = '', gi = 0;
@@ -158,9 +163,17 @@
       });
     }
     s += '<g class="tmg" fill="none" stroke="#7A5530" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' + gl + '</g>';
-    /* the floor */
+    /* 4 corner braziers */
+    [[14, 14], [T - 14, 14], [14, T - 14], [T - 14, T - 14]].forEach(([bx, by], k) => {
+      s += '<g class="tm-brazier" style="animation-delay:' + (k * -0.45) + 's" transform="translate(' + bx + ' ' + by + ')"><circle r="11" fill="#F7B84A" opacity=".28"/><circle r="6.5" fill="#8E5A33" stroke="' + INK + '" stroke-width="1.6"/><path class="tm-flame" d="M-3 0c0-5 2-8 3-10c1 2 3 5 3 10a3 3 0 0 1-6 0Z" fill="#FFD24A" stroke="#D96B27" stroke-width="1"/></g>';
+    });
+    /* the floor with subtle chamfered slab borders */
     s += '<rect x="' + inner + '" y="' + inner + '" width="' + iw + '" height="' + iw + '" fill="#EBD8A9" stroke="' + INK + '" stroke-width="2.5"/>';
-    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if ((x + y) % 2) s += '<rect x="' + (inner + x * TM_C) + '" y="' + (inner + y * TM_C) + '" width="' + TM_C + '" height="' + TM_C + '" fill="#E2CB94"/>';
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+      const sx0 = inner + x * TM_C, sy0 = inner + y * TM_C;
+      if ((x + y) % 2) s += '<rect x="' + sx0 + '" y="' + sy0 + '" width="' + TM_C + '" height="' + TM_C + '" fill="#E2CB94"/>';
+      s += '<path d="M' + (sx0 + 3) + ' ' + (sy0 + TM_C - 3) + 'V' + (sy0 + 3) + 'H' + (sx0 + TM_C - 3) + '" fill="none" stroke="#FFF6DB" stroke-width="1" opacity=".45"/>';
+    }
     let gr = ''; for (let i = 1; i < n; i++) gr += 'M' + (inner + i * TM_C) + ' ' + inner + 'v' + iw + 'M' + inner + ' ' + (inner + i * TM_C) + 'h' + iw;
     s += pth(gr, 'none', 'stroke="#B99A62" stroke-width="1.2" opacity=".7"');
     /* the gap where the sun comes in */
@@ -171,20 +184,20 @@
     s += '<circle cx="' + sx + '" cy="' + sy + '" r="17" fill="none" stroke="#F2A81E" stroke-width="2.2" stroke-dasharray="3 4" class="tmsun"/><circle cx="' + sx + '" cy="' + sy + '" r="10" fill="#FFD24A" stroke="' + INK + '" stroke-width="2"/>';
     /* the statue: a golden ankh on an altar */
     const tx = tmCX(R.target.x), ty = tmCX(R.target.y);
-    s += '<g class="tmtgt" transform="translate(' + tx + ' ' + ty + ')"><circle r="46" fill="url(#tmGl' + u + ')" class="tmhalo"/>';
+    s += '<g class="tmtgt" transform="translate(' + tx + ' ' + ty + ')"><circle r="46" fill="url(#tmGl' + u + ')" class="tmhalo"/><circle r="18" fill="none" stroke="#FFD24A" stroke-width="3" class="tm-wave"/>';
     s += '<g class="tmrays" stroke="#FFD24A" stroke-width="3" stroke-linecap="round">' + Array.from({ length:12 }, (_, i) => { const a = i * Math.PI / 6; return '<path d="M' + (Math.cos(a) * 30).toFixed(1) + ' ' + (Math.sin(a) * 30).toFixed(1) + 'L' + (Math.cos(a) * 44).toFixed(1) + ' ' + (Math.sin(a) * 44).toFixed(1) + '"/>'; }).join('') + '</g>';
     s += '<rect x="-22" y="-20" width="44" height="42" rx="5" fill="#1F5FA8" stroke="' + INK + '" stroke-width="2.2"/><rect x="-17" y="-15" width="34" height="32" rx="3" fill="#E9D7A8" stroke="' + INK + '" stroke-width="1.6"/>';
     s += pth('M0 -2c-7 0 -7 -12 0 -12s7 12 0 12zM-9 -1h18M0 -2v15', 'none', 'stroke="' + INK + '" stroke-width="7" stroke-linecap="round"') + pth('M0 -2c-7 0 -7 -12 0 -12s7 12 0 12zM-9 -1h18M0 -2v15', 'none', 'class="tmank" stroke="#D9A43A" stroke-width="3.6" stroke-linecap="round"') + '</g>';
     if (R.target2) {
       const bx = tmCX(R.target2.x), by = tmCX(R.target2.y);
-      s += '<g class="tmtgt b" transform="translate(' + bx + ' ' + by + ')"><circle r="40" fill="url(#tmGl' + u + ')" class="tmhalo"/>';
+      s += '<g class="tmtgt b" transform="translate(' + bx + ' ' + by + ')"><circle r="40" fill="url(#tmGl' + u + ')" class="tmhalo"/><circle r="16" fill="none" stroke="#FFD24A" stroke-width="2.6" class="tm-wave"/>';
       s += '<rect x="-20" y="-19" width="40" height="40" rx="5" fill="#D9A43A" stroke="' + INK + '" stroke-width="2.2"/><rect x="-15" y="-14" width="30" height="30" rx="3" fill="#E9D7A8" stroke="' + INK + '" stroke-width="1.6"/>';
       s += pth('M-9 4c0 -8 4 -12 9 -12s9 4 9 12zM0 -8v-4M-11 8h22', '#1F5FA8', ink(2)) + '<circle cy="-1" r="2" fill="#FFD24A"/></g>';
     }
-    /* pillars, prisms and mirrors */
+    /* fluted papyrus-capital pillars, prisms and mirrors */
     R.items.forEach((it, k) => {
       const cx = tmCX(it.x), cy = tmCX(it.y);
-      if (it.t === 'p') s += '<g transform="translate(' + cx + ' ' + cy + ')"><circle cx="3" cy="4" r="23" fill="#2B1D14" opacity=".18"/><circle r="23" fill="#D6B676" stroke="' + INK + '" stroke-width="2.2"/><circle r="15" fill="#B7412E" stroke="' + INK + '" stroke-width="1.6"/>' + pth('M0 -15v30M-15 0h30M-10.6 -10.6l21.2 21.2M10.6 -10.6l-21.2 21.2', 'none', 'stroke="#E9C46A" stroke-width="1.6"') + '<circle r="5" fill="#2BA59A" stroke="' + INK + '" stroke-width="1.4"/></g>';
+      if (it.t === 'p') s += '<g transform="translate(' + cx + ' ' + cy + ')"><circle cx="3" cy="5" r="24" fill="#2B1D14" opacity=".2"/><circle r="23" fill="#D6B676" stroke="' + INK + '" stroke-width="2.2"/><circle r="16.5" fill="#C49A52" stroke="#8E6A3C" stroke-width="1.2"/><circle r="14" fill="#B7412E" stroke="' + INK + '" stroke-width="1.6"/>' + pth('M0 -14v28M-14 0h28M-10 -10l20 20M10 -10l-20 20', 'none', 'stroke="#E9C46A" stroke-width="1.6"') + '<circle r="5.5" fill="#2BA59A" stroke="' + INK + '" stroke-width="1.4"/><circle cx="-1.5" cy="-1.5" r="1.4" fill="#B7F4EB"/></g>';
       else if (it.t === 'x') s += '<g transform="translate(' + cx + ' ' + cy + ')" id="tmI' + k + '" class="tmm fix"><rect x="-21" y="-21" width="42" height="42" rx="6" fill="#A79A82" stroke="' + INK + '" stroke-width="2"/>' + pth('M0 -17L17 0 0 17 -17 0Z', '#7FD6CF', ink(2.2)) + pth('M0 -17V17M-17 0H17', 'none', 'stroke="#E9FBF8" stroke-width="1.6"') + pth('M-6 -7l3 -3', 'none', 'stroke="#fff" stroke-width="2.4" stroke-linecap="round"') + '</g>';
       else s += tmMirrorSVG(it, 'tmI' + k);
     });
@@ -193,17 +206,20 @@
   }
   function tmBeamSVG(R, tr) {
     const pt = (x, y) => [tmCX(x), tmCX(y)], T = R.n * TM_C + TM_W * 2;
-    let d = '', ends = '';
-    tr.segs.forEach(g => {
+    let d = '', ends = '', sparks = '', motes = '';
+    tr.segs.forEach((g, idx) => {
       let [ax, ay] = pt(g.sx, g.sy), [bx, by] = pt(g.x, g.y);
       if (g.first) { ax = Math.max(0, Math.min(T, ax + g.dx * TM_C * 0.25)); ay = Math.max(0, Math.min(T, ay + g.dy * TM_C * 0.25)); }
       if (g.end === 'wall') { bx -= g.dx * (TM_C / 2 - 1); by -= g.dy * (TM_C / 2 - 1); }
       else if (g.end === 'pillar') { bx -= g.dx * 22; by -= g.dy * 22; }
       else if (g.end === 'target') { bx -= g.dx * 20; by -= g.dy * 20; }
       d += 'M' + ax.toFixed(1) + ' ' + ay.toFixed(1) + 'L' + bx.toFixed(1) + ' ' + by.toFixed(1);
+      const mx = ((ax + bx) * 0.5).toFixed(1), my = ((ay + by) * 0.5).toFixed(1);
+      motes += '<circle class="tm-mote" style="animation-delay:' + ((idx * 0.23) % 1).toFixed(2) + 's" cx="' + mx + '" cy="' + my + '" r="2.2" fill="#FFFCEB"/>';
+      if (g.end === 'turn') sparks += '<path class="tm-spark" d="M' + bx.toFixed(1) + ' ' + (by - 9).toFixed(1) + 'L' + (bx + 2.5).toFixed(1) + ' ' + (by - 2.5).toFixed(1) + 'L' + (bx + 9).toFixed(1) + ' ' + by.toFixed(1) + 'L' + (bx + 2.5).toFixed(1) + ' ' + (by + 2.5).toFixed(1) + 'L' + bx.toFixed(1) + ' ' + (by + 9).toFixed(1) + 'L' + (bx - 2.5).toFixed(1) + ' ' + (by + 2.5).toFixed(1) + 'L' + (bx - 9).toFixed(1) + ' ' + by.toFixed(1) + 'L' + (bx - 2.5).toFixed(1) + ' ' + (by - 2.5).toFixed(1) + 'Z" fill="#FFFCEB"/>';
       if (g.end === 'wall' || g.end === 'pillar') ends += '<circle cx="' + bx + '" cy="' + by + '" r="12" fill="#FFC93C" opacity=".5"/><circle cx="' + bx + '" cy="' + by + '" r="5.5" fill="#FFFCEB" stroke="#F29A1E" stroke-width="1.5"/>';
     });
-    return '<path d="' + d + '" fill="none" stroke="#F29A1E" stroke-width="17" stroke-linecap="round" opacity=".28"/><path d="' + d + '" fill="none" stroke="#FFC93C" stroke-width="8" stroke-linecap="round" opacity=".85"/><path d="' + d + '" fill="none" stroke="#FFFCEB" stroke-width="3.4" stroke-linecap="round"/><path class="tmdash" d="' + d + '" fill="none" stroke="#E07B00" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="3 13"/>' + ends;
+    return '<path d="' + d + '" fill="none" stroke="#F29A1E" stroke-width="17" stroke-linecap="round" opacity=".28"/><path d="' + d + '" fill="none" stroke="#FFC93C" stroke-width="8" stroke-linecap="round" opacity=".85"/><path d="' + d + '" fill="none" stroke="#FFFCEB" stroke-width="3.4" stroke-linecap="round"/><path class="tmdash" d="' + d + '" fill="none" stroke="#E07B00" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="3 13"/>' + sparks + motes + ends;
   }
   function tmLegend(R) {
     const has = t => R.items.some(t), sw = (inner, lab) => '<span><svg viewBox="-26 -26 52 52" width="26" height="26" aria-hidden="true">' + inner + '</svg>' + lab + '</span>';
@@ -242,11 +258,15 @@
     openSheet(s, true, 'pz');
     tmDraw(true);
   }
-  function tmDraw(now) {
+  function tmDraw() {
     if (!PZ || PZ.kind !== 'temple') return;
-    const R = PZ.R, tr = tmTrace(R), tok = PZ.tok;
-    const paint = () => { if (!PZ || PZ.tok !== tok) return; const b = $('#tmBeam'); if (b) b.innerHTML = tmBeamSVG(R, tmTrace(R)); };
-    if (now || reduce) paint(); else PZ.timers.push(setTimeout(paint, 140));
+    const R = PZ.R, tr = tmTrace(R);
+    const b = $('#tmBeam'); if (b) b.innerHTML = tmBeamSVG(R, tr);
+    R.items.forEach((it, k) => {
+      if (it.t === 'p') return;
+      const el = document.querySelector('#tmI' + k);
+      if (el && el.classList) el.classList.toggle('lit', tr.touched.has(it.y * R.n + it.x));
+    });
     const st = $('#tmSt'); if (st) st.innerHTML = 'Hamle: <b>' + PZ.moves + '</b> · ideal: <b>' + R.par + '</b>';
     return tr;
   }
@@ -258,7 +278,7 @@
     if (viaHint) PZ.hint = true; else PZ.moves++;
     const g = document.querySelector('#tmI' + R.items.indexOf(m) + ' .tmrot'); if (g) g.style.transform = 'rotate(' + m.ang + 'deg)';
     play('tick');
-    const tr = tmDraw(false);
+    const tr = tmDraw();
     if (tr.hit) tmWin();
     return true;
   }
@@ -279,8 +299,12 @@
   function tmFin(q) {
     if (!PZ || PZ.kind !== 'temple' || PZ.fin) return;
     PZ.fin = true; const cb = PZ.cb; pzClear();
+    if (typeof clearSel === 'function') clearSel();
     try { if (typeof cb === 'function') cb(q); }
-    finally { if (document.querySelector('#sheet .tmroom,#sheet .tpbox')) closeSheet(); }
+    finally {
+      if (document.querySelector('#sheet .tmroom,#sheet .tpbox')) closeSheet();
+      if (typeof clearSel === 'function') clearSel();
+    }
   }
   function tmHint() {
     if (!PZ || PZ.kind !== 'temple' || PZ.done) return;
@@ -311,6 +335,8 @@
     const sh = $('#sheet');
     if (sh && !sh._tmBound) {
       sh._tmBound = true;
+      sh.addEventListener('mousedown', e => { if (PZ && PZ.kind === 'temple' && e.detail > 1) e.preventDefault(); });
+      sh.addEventListener('selectstart', e => { if (PZ && PZ.kind === 'temple') e.preventDefault(); });
       sh.addEventListener('click', e => {
         if (!PZ || PZ.kind !== 'temple') return;
         const t = e.target.closest && e.target.closest('button'); if (!t || t.disabled) return;

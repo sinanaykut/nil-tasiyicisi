@@ -109,6 +109,16 @@
     g.insertAdjacentHTML('afterbegin', '<path id="snWk' + k + '" class="snwake" d="M' + x0 + ' ' + y0 + 'Q' + ((x0 + x1) / 2 + (PZ.G.vert ? 30 : 0)) + ' ' + ((y0 + y1) / 2 + (PZ.G.vert ? 0 : 30)) + ' ' + x1 + ' ' + y1 + '" fill="none" stroke="#1F5FA8" stroke-width="4" stroke-linecap="round" stroke-dasharray="2 9"/>');
     setTimeout(() => { const e = document.getElementById('snWk' + k); if (e) e.remove(); }, 1500);
   }
+  function snBurst(xy, kind, sel) {
+    const g = $(sel || '#snFx'); if (!g || reduce || !PZ || !xy) return;
+    const [x, y] = xy, k = ++uid, col = kind === 'off' ? '#FFD24A' : kind === 'jump' ? '#2BA59A' : '#B7412E';
+    let h = '<g class="snburst ' + kind + '" id="snBr' + k + '" transform="translate(' + x.toFixed(1) + ' ' + y.toFixed(1) + ')">';
+    h += '<circle class="snb-r" r="18" fill="none" stroke="' + col + '" stroke-width="3"/><circle class="snb-r r2" r="11" fill="none" stroke="#FFF3B0" stroke-width="2"/>';
+    for (let i = 0; i < 6; i++) { const a = (i * 60 + 15) * Math.PI / 180; h += '<line class="snb-s" x1="' + (Math.cos(a) * 8).toFixed(1) + '" y1="' + (Math.sin(a) * 8).toFixed(1) + '" x2="' + (Math.cos(a) * 22).toFixed(1) + '" y2="' + (Math.sin(a) * 22).toFixed(1) + '" stroke="' + col + '" stroke-width="2.4" stroke-linecap="round"/>'; }
+    h += '</g>';
+    g.insertAdjacentHTML('beforeend', h);
+    setTimeout(() => { const e = document.getElementById('snBr' + k); if (e) e.remove(); }, 700);
+  }
   /* the rival's face in the badge: a mood for a moment, then back to neutral */
   function snFace(mood, ms) {
     if (!PZ || !PZ.oppK) return;
@@ -183,7 +193,7 @@
   }
   function snThrown() {
     const v = PZ.v, side = PZ.turn, again = v === 1 || v === 4 || v === 5;
-    const st = $('#snStk'); if (st) st.innerHTML = snSticksSVG(PZ.faces);
+    const st = $('#snStk'); if (st) { st.innerHTML = snSticksSVG(PZ.faces); const sv = st.querySelector && st.querySelector('svg'); if (sv && !reduce) sv.classList.add('land'); }
     const vb = $('#snV'); if (vb) { vb.textContent = v; vb.className = again ? 'again' : ''; }
     play('tick');
     const ms = snLegal(PZ.pos[side], PZ.pos[side === 'p' ? 'a' : 'p'], v);
@@ -229,10 +239,11 @@
     }
     hl.innerHTML = s;
   }
-  function snSetPos(el, q, slow) {
+  function snSetPos(el, q, slow, hop) {
     if (!el) return; const [x, y] = snXY(PZ.G, q);
     el.style.transitionDuration = reduce ? '0s' : snT(slow ? 380 : 90) + 'ms';
     el.style.transform = 'translate(' + x + 'px,' + y + 'px)';
+    if (hop && !reduce && PZ.speed >= 0.5) { const b = el.firstElementChild; if (b && b.classList) { b.classList.remove('hop'); if (b.getBoundingClientRect) void b.getBoundingClientRect(); b.classList.add('hop'); } }
   }
   function snMove(k) {
     if (!PZ || PZ.kind !== 'senet' || PZ.fin) return;
@@ -242,14 +253,16 @@
     if (PZ.tut) { if (side === 'p') snTutClear(); else if (m.kind === 'cap') PZ.tut.swapSq = m.f; }
     snAct(side === 'p' ? 'Oynanıyor…' : 'Rakip oynuyor…', false);
     const el = $('#snP' + side + m.i), step = 95, n = Math.min(m.t, 31) - m.f;
-    for (let q = 1; q <= n; q++) snLater(() => { snSetPos(el, m.f + q); play('tick'); }, (q - 1) * step);
+    for (let q = 1; q <= n; q++) snLater(() => { snSetPos(el, m.f + q, false, true); play('tick'); }, (q - 1) * step);
     let t = n * step + 80;
     PZ.pos[side][m.i] = m.fin;
     let msg = '';
     if (m.kind === 'cap') {
       PZ.pos[op][m.j] = m.f;
       const oe = $('#snP' + op + m.j);
-      snLater(() => { snSetPos(oe, m.f, true); play('haggle'); }, t); t += 420;
+      snLater(() => { snSetPos(oe, m.f, true); if (oe && oe.classList) oe.classList.add('hit'); snBurst(snXY(PZ.G, m.t), 'cap'); play('haggle'); }, t);
+      snLater(() => { if (oe && oe.classList) oe.classList.remove('hit'); }, t + 600);
+      t += 420;
       msg = side === 'p' ? 'Yer değiştirdiniz: rakip geri gitti!' : esc(PZ.who) + ' seninle <b>yer değiştirdi</b>!';
       snLater(() => snFace(side === 'p' ? 'angry' : 'sly', 1600), t - 300);
     } else if (m.kind === 'water') {
@@ -262,7 +275,7 @@
       msg = side === 'p' ? 'Taşın <b>suya düştü</b>! Akıntı onu <b>' + m.fin + '</b>. kareye geri taşıdı' + (m.fin === 15 ? ' (Yeniden Doğuş Evi)' : '') + '.' + (forced ? ' Başka hamlen yoktu.' : '')
         : '<b>Şap!</b> Rakibin taşı <b>suya düştü</b>, <b>' + m.fin + '</b>. kareye döndü.' + (forced ? ' Başka hamlesi yoktu.' : '');
     } else if (m.kind === 'off') {
-      snLater(() => { if (el) el.classList.add('gone'); play(side === 'p' ? 'coin' : 'no'); snDots(); }, t); t += 260;
+      snLater(() => { if (el) el.classList.add('gone'); snBurst(snXY(PZ.G, 31), 'off'); play(side === 'p' ? 'coin' : 'no'); snDots(); }, t); t += 260;
       msg = side === 'p' ? 'Bir taşın <b>çıktı</b>!' : esc(PZ.who) + ' bir taş <b>çıkardı</b>.';
       snLater(() => snFace(side === 'p' ? 'sad' : 'happy', 1400), t);
     } else if (m.fin === 26) msg = (side === 'p' ? 'Güzellik Evi: burada güvendesin.' : esc(PZ.who) + ' Güzellik Evi\'nde güvende.');

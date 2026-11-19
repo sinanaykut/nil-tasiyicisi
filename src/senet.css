@@ -13,6 +13,10 @@
 .snhl,#snPcs{pointer-events:none}
 .snpc{transition:transform .11s ease-out,opacity .3s}
 .snpc .snpcb{transition:transform .2s}
+.snpc .snpcb.hop{animation:snHop .13s ease-out}
+@keyframes snHop{50%{transform:translateY(-8px) scale(1.06)}}
+.snpc.hit .snpcb{animation:snHit .52s ease-in-out}
+@keyframes snHit{30%{transform:rotate(-22deg) scale(.86)}70%{transform:rotate(18deg) scale(.92)}}
 .snpc.can .snpcb{animation:snBob 1s ease-in-out infinite}
 .snpc.sel .snpcb{filter:drop-shadow(0 0 3px #FFD24A) drop-shadow(0 0 6px #FFD24A);animation:none;transform:scale(1.12)}
 .snpc.wet .snpcb{filter:drop-shadow(0 0 4px #1F5FA8);transform:scale(.8)}
@@ -35,7 +39,12 @@
 .snthrow{display:flex;align-items:center;gap:8px;justify-content:center}
 .snstk{width:100px;height:auto;display:block}
 .snstk.roll .snst{animation:snRoll .17s ease-in-out infinite alternate;animation-delay:calc(var(--k) * -.05s)}
+.snstk.land .snst{animation:snLand .3s cubic-bezier(.2,1.6,.4,1);transform-box:fill-box;transform-origin:center bottom}
 @keyframes snRoll{from{transform:translateY(0)}to{transform:translateY(-5px)}}
+@keyframes snLand{from{transform:translateY(-9px) scale(1.07)}}
+.snburst .snb-r,.snburst .snb-s{transform-box:fill-box;transform-origin:center;animation:snBurstOut .55s ease-out forwards}
+.snburst .snb-r.r2{animation-delay:.07s}
+@keyframes snBurstOut{from{transform:scale(.45);opacity:1}to{transform:scale(1.35);opacity:0}}
 .snv{text-align:center;min-width:44px}
 .snv b{display:block;font:800 32px/1 Nunito,sans-serif;color:var(--ink)}
 .snv b.again{color:#1E7D74}
@@ -59,7 +68,7 @@
   .sh-in:has(.sn.v){padding:12px 10px 14px;gap:10px}
   .sn.v + .snfoot .muted{font-size:11.5px}
 }
-@media (prefers-reduced-motion: reduce){ .snpc,.snpc .snpcb{transition:none} .snpc.can .snpcb,.snpath,.sntgt,.snstk.roll .snst,.snend{animation:none} }
+@media (prefers-reduced-motion: reduce){ .snpc,.snpc .snpcb{transition:none} .snpc.can .snpcb,.snpc .snpcb.hop,.snpc.hit .snpcb,.snpath,.sntgt,.snstk.roll .snst,.snstk.land .snst,.snburst .snb-r,.snburst .snb-s,.snend{animation:none} }
 /* v28: rules button, Paneb's coaching, rules card */
 .sh-in:has(.sn){position:relative}
 .snrb{flex:none;min-height:40px;gap:5px}
