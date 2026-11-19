@@ -120,14 +120,24 @@
         cx.globalAlpha = 1; return;
       }
       const ww = st.boatType === 'mavna' ? 18 : st.boatType === 'feluka' ? 10 : 12, wy = st.boatType === 'kadirga' ? 32 : 22;
-      cx.lineWidth = 2.4;
+      cx.save(); cx.lineCap = 'round';
       [-1, 1].forEach(side => {
         for (let i = 1; i < tr.length; i++) {
-          const a0 = tr.length - i + 1, a1 = tr.length - i, p0 = tr[i - 1], p1 = tr[i];
-          cx.strokeStyle = 'rgba(232,250,252,' + (0.6 * (1 - a1 / tr.length)).toFixed(3) + ')';
+          const a0 = tr.length - i + 1, a1 = tr.length - i, p0 = tr[i - 1], p1 = tr[i], fade = 1 - a1 / tr.length;
+          cx.lineWidth = 2.4;
+          cx.strokeStyle = 'rgba(232,250,252,' + (0.62 * fade).toFixed(3) + ')';
           cx.beginPath(); cx.moveTo(p0.x + side * (ww + a0 * 1.3), sy(p0.y) + wy); cx.lineTo(p1.x + side * (ww + a1 * 1.3), sy(p1.y) + wy); cx.stroke();
+          cx.lineWidth = 1.5;
+          cx.strokeStyle = 'rgba(176,240,236,' + (0.38 * fade).toFixed(3) + ')';
+          cx.beginPath(); cx.moveTo(p0.x + side * (ww * 0.56 + a0 * 0.85), sy(p0.y) + wy + 2); cx.lineTo(p1.x + side * (ww * 0.56 + a1 * 0.85), sy(p1.y) + wy + 2); cx.stroke();
         }
       });
+      for (let i = 1; i < tr.length; i += 2) {
+        const p = tr[i], fade = i / tr.length, bx = p.x + Math.sin(i * 2.3 + (st.t || 0) * 5) * (ww * 0.42), by = sy(p.y) + wy + 3 + (tr.length - i) * 0.5;
+        cx.fillStyle = 'rgba(244,253,255,' + (0.44 * fade).toFixed(3) + ')';
+        cx.beginPath(); cx.arc(bx, by, 1.3 + fade * 1.6, 0, Math.PI * 2); cx.fill();
+      }
+      cx.restore();
     }
     function drawObs(o) {
       const x = sx(o.u, o.y), y = sy(o.y);

@@ -1022,7 +1022,8 @@
       const K = Object.assign(pal(Rc), { defs:'' });
       /* A broad warm key light softens the shared rig without SVG filters or
          frame-time work. The recipe still controls every skin tone and shape. */
-      K.defs += '<linearGradient id="skin§" x1="0" y1="0" x2="1" y2=".35"><stop offset="0" stop-color="' + K.hl + '"/><stop offset=".46" stop-color="' + K.sk + '"/><stop offset="1" stop-color="' + K.sh + '"/></linearGradient>';
+      K.defs += '<linearGradient id="skin§" x1="0" y1="0" x2="1" y2=".38"><stop offset="0" stop-color="' + K.hl + '"/><stop offset=".38" stop-color="' + K.sk + '"/><stop offset=".78" stop-color="' + K.sh + '"/><stop offset="1" stop-color="' + K.sh2 + '"/></linearGradient>' +
+        '<radialGradient id="fgl§" cx=".38" cy=".32" r=".65"><stop offset="0" stop-color="' + K.hl + '" stop-opacity=".42"/><stop offset=".58" stop-color="' + K.sk + '" stop-opacity="0"/><stop offset="1" stop-color="' + K.sh2 + '" stop-opacity=".28"/></radialGradient>';
       g.dyE = 0; g.raiseL = tell === 'scratch';
       /* v45 small round faces (badges 30–44 px): heavy lids and squints read as closed eyes there (owner: "the Senet rivals
          have their eyes closed"), so icons keep the eyes open; a wink or a blink stays */
@@ -1039,7 +1040,7 @@
       const braided = (Rc.hair || {}).s === 'braids';
       let head = braided ? lappets(Rc, g, K) : lappets(Rc, g, K) + ears(Rc, g, K);
       if (g.fat > 0.6) { const dc = 'M' + L(g.jw - 4) + ',' + f(g.jy + 4) + ' C' + L(g.jw - 6) + ',' + f(g.cy + 18) + ' ' + L(g.cw + 4) + ',' + f(g.cy + 20) + ' ' + C + ',' + f(g.cy + 20) + ' C' + R(g.cw + 4) + ',' + f(g.cy + 20) + ' ' + R(g.jw - 6) + ',' + f(g.cy + 18) + ' ' + R(g.jw - 4) + ',' + f(g.jy + 4) + ' Z'; head += ink(dc, K.sk, 2.4) + P(dc, K.sh, op('.5') + ' transform="translate(6 2)"'); }
-      head += ink(fd, 'url(#skin§)', 2.5) + '<g ' + clip('fc') + '>' + faceDetail(Rc, g, K, X) + '</g>';
+      head += ink(fd, 'url(#skin§)', 2.5) + '<g ' + clip('fc') + '>' + P(fd, 'url(#fgl§)') + faceDetail(Rc, g, K, X) + '</g>';
       head += nose(g, Rc, K) + beard(Rc, g, K, X);
       head += Gp('c40e', eL.open + eR.open) + (o.live && (eL.closed || eR.closed) ? Gp('c40bl', eL.closed + eR.closed) : '');
       head += brow(-1, g, X, Rc, K) + brow(1, g, X, Rc, K);
